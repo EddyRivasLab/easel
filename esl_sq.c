@@ -588,6 +588,44 @@ esl_sq_DestroyBlock(ESL_SQ_BLOCK *block)
   return;
 }
 
+/* Function:  esl_sq_BlockGrowTo()
+ * Synopsis:  Grows a sequence block to hold at least <n> <ESL_SQ>.
+ * Incept:    
+ *
+ * Purpose:   Assure that the list of sequences
+ *            can hold up to a total of <n> sequences,
+ *            reallocating as needed.
+ *            
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ * 
+ */
+int
+esl_sq_BlockGrowTo(ESL_SQ_BLOCK *sqblock, int newsize, int do_digital, const ESL_ALPHABET *abc)
+{
+  int   status = eslOK;
+  int   i;
+  if(sqblock->listSize < newsize)
+  {
+     ESL_REALLOC(sqblock->list, sizeof(ESL_SQ) * newsize);
+     sqblock->listSize = newsize;
+
+     for (i = sqblock->count; i < sqblock->listSize; ++i)
+     {
+       sqblock->list[i].abc = abc;
+       if ((status = sq_init(sqblock->list + i, do_digital)) != eslOK)
+         goto ERROR;
+     }
+  }
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+
 #ifdef eslAUGMENT_ALPHABET
 
 /* Function:  esl_sq_CreateDigitalBlock()
