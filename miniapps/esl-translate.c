@@ -5,7 +5,7 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
-#include "esl_trans.h"
+#include "esl_gencode.h"
 #include "esl_getopts.h"
 
 
@@ -14,7 +14,7 @@
  *****************************************************************/
 
 static int
-do_by_sequences(ESL_GENCODE *gcode, ESL_TRANS_WORKSTATE *wrk, ESL_SQFILE *sqfp)
+do_by_sequences(ESL_GENCODE *gcode, ESL_GENCODE_WORKSTATE *wrk, ESL_SQFILE *sqfp)
 {
   ESL_SQ *sq = esl_sq_CreateDigital(gcode->nt_abc);
   int     status;
@@ -24,16 +24,16 @@ do_by_sequences(ESL_GENCODE *gcode, ESL_TRANS_WORKSTATE *wrk, ESL_SQFILE *sqfp)
       if (sq->n < 3) continue;
 
       if (wrk->do_watson) {
-        esl_trans_ProcessStart(gcode, wrk, sq);
-        esl_trans_ProcessPiece(gcode, wrk, sq);
-        esl_trans_ProcessEnd(wrk, sq);
+        esl_gencode_ProcessStart(gcode, wrk, sq);
+        esl_gencode_ProcessPiece(gcode, wrk, sq);
+        esl_gencode_ProcessEnd(wrk, sq);
       }
 
       if (wrk->do_crick) {
         esl_sq_ReverseComplement(sq);
-        esl_trans_ProcessStart(gcode, wrk, sq);
-        esl_trans_ProcessPiece(gcode, wrk, sq);
-        esl_trans_ProcessEnd(wrk, sq);
+        esl_gencode_ProcessStart(gcode, wrk, sq);
+        esl_gencode_ProcessPiece(gcode, wrk, sq);
+        esl_gencode_ProcessEnd(wrk, sq);
       }
 
       esl_sq_Reuse(sq);
@@ -50,7 +50,7 @@ do_by_sequences(ESL_GENCODE *gcode, ESL_TRANS_WORKSTATE *wrk, ESL_SQFILE *sqfp)
 
 
 static int 
-do_by_windows(ESL_GENCODE *gcode, ESL_TRANS_WORKSTATE *wrk, ESL_SQFILE *sqfp)
+do_by_windows(ESL_GENCODE *gcode, ESL_GENCODE_WORKSTATE *wrk, ESL_SQFILE *sqfp)
 {
   ESL_SQ *sq = esl_sq_CreateDigital(gcode->nt_abc);
   int     windowsize  = 4092;                // can be any value, but a multiple of 3 makes most sense. windowsize can be +/-; + means reading top strand; - means bottom strand.
@@ -64,7 +64,7 @@ do_by_windows(ESL_GENCODE *gcode, ESL_TRANS_WORKSTATE *wrk, ESL_SQFILE *sqfp)
       if (wstatus == eslEOD)
       {
         if ( (windowsize > 0 && wrk->do_watson) || (windowsize < 0 && wrk->do_crick))
-          esl_trans_ProcessEnd(wrk, sq);
+          esl_gencode_ProcessEnd(wrk, sq);
 
         if (windowsize > 0 && ! wrk->do_crick) { esl_sq_Reuse(sq); continue; } // Don't switch to revcomp if we don't need do. Allows -W --watson to work on nonrewindable streams
         if (windowsize < 0) esl_sq_Reuse(sq);             // Do not Reuse the sq on the switch from watson to crick; ReadWindow needs sq->L
@@ -83,11 +83,11 @@ do_by_windows(ESL_GENCODE *gcode, ESL_TRANS_WORKSTATE *wrk, ESL_SQFILE *sqfp)
       {
         if (sq->n < 3) continue; // DNA sequence too short; skip it, don't even bother to revcomp, go to next sequence.
         if ( (windowsize > 0 && wrk->do_watson) || (windowsize < 0 && wrk->do_crick))
-          esl_trans_ProcessStart(gcode, wrk, sq);
+          esl_gencode_ProcessStart(gcode, wrk, sq);
       }
 
       if ( (windowsize > 0 && wrk->do_watson) || (windowsize < 0 && wrk->do_crick))      
-        esl_trans_ProcessPiece(gcode, wrk, sq);
+        esl_gencode_ProcessPiece(gcode, wrk, sq);
     }
   esl_sq_Destroy(sq);
   return eslOK;
@@ -122,7 +122,7 @@ main(int argc, char **argv)
   ESL_ALPHABET  *nt_abc      = esl_alphabet_Create(eslDNA);
   ESL_ALPHABET  *aa_abc      = esl_alphabet_Create(eslAMINO);
   ESL_GENCODE   *gcode       = NULL;
-  ESL_TRANS_WORKSTATE *wrk    = NULL;
+  ESL_GENCODE_WORKSTATE *wrk    = NULL;
   char          *seqfile     = NULL;
   int            informat    = eslSQFILE_UNKNOWN;
   ESL_SQFILE    *sqfp        = NULL;
@@ -193,7 +193,7 @@ main(int argc, char **argv)
    * info about our position in <sqfp> and the DNA <sq>, as well as
    * one-time config info from options
    */
-  wrk = esl_trans_WorkstateCreate(go, gcode);
+  wrk = esl_gencode_WorkstateCreate(go, gcode);
 
 
   /* The two styles of main processing loop:
@@ -202,7 +202,7 @@ main(int argc, char **argv)
   else                               do_by_sequences(gcode, wrk, sqfp);
 
 
-  esl_trans_WorkstateDestroy(wrk);
+  esl_gencode_WorkstateDestroy(wrk);
   esl_sqfile_Close(sqfp);
   esl_gencode_Destroy(gcode);
   esl_alphabet_Destroy(aa_abc);

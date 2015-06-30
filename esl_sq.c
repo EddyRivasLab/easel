@@ -609,17 +609,15 @@ esl_sq_BlockGrowTo(ESL_SQ_BLOCK *sqblock, int newsize, int do_digital, const ESL
   int   i;
   if(sqblock->listSize < newsize)
   {
-printf("list size:%d, newsize:%d\n",sqblock->listSize,newsize);
      ESL_REALLOC(sqblock->list, sizeof(ESL_SQ) * newsize);
      sqblock->listSize = newsize;
 
-printf("count:%d\n",sqblock->count);
      for (i = sqblock->count; i < sqblock->listSize; ++i)
-       {
-		  sqblock->list[i].abc = abc;
-          if ((status = sq_init(sqblock->list + i, do_digital)) != eslOK) 
-			  goto ERROR;
-       }
+     {
+       sqblock->list[i].abc = abc;
+       if ((status = sq_init(sqblock->list + i, do_digital)) != eslOK)
+         goto ERROR;
+     }
   }
   return eslOK;
 
