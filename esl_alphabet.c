@@ -184,7 +184,7 @@ create_rna(void)
 
   /* Create the fundamental alphabet
    */
-  if ((a = esl_alphabet_CreateCustom("ACGU-RYMKSWHBVDN*~", 4, 18)) == NULL) return NULL;
+  if ((a = esl_alphabet_CreateCustom("ACGU-RYMKSWHBVDIN*~", 4, 19)) == NULL) return NULL;
   a->type = eslRNA;
   
   /* Add desired synonyms in the input map.
@@ -208,6 +208,11 @@ create_rna(void)
   esl_alphabet_SetDegeneracy(a, 'V', "ACG");
   esl_alphabet_SetDegeneracy(a, 'D', "AGU");  
 
+  /* Define unusual nucleotides as one-to-one degeneracies.
+   */
+  esl_alphabet_SetDegeneracy(a, 'I', "A"); /* Inosine is a deaminated Adenosine, apparently appears in some RNACentral sequences */
+
+
   if ( (status = set_complementarity(a)) != eslOK) goto ERROR;
 
   return a;
@@ -229,7 +234,7 @@ create_dna(void)
 
   /* Create the fundamental alphabet.
    */
-  if ((a = esl_alphabet_CreateCustom("ACGT-RYMKSWHBVDN*~", 4, 18)) == NULL) return NULL;
+  if ((a = esl_alphabet_CreateCustom("ACGT-RYMKSWHBVDIN*~", 4, 19)) == NULL) return NULL;
   a->type = eslDNA;
   
   /* Add desired synonyms in the input map.
@@ -252,6 +257,11 @@ create_dna(void)
   esl_alphabet_SetDegeneracy(a, 'B', "CGT");
   esl_alphabet_SetDegeneracy(a, 'V', "ACG");
   esl_alphabet_SetDegeneracy(a, 'D', "AGT");  
+
+  /* Define unusual nucleotides as one-to-one degeneracies.
+   */
+  esl_alphabet_SetDegeneracy(a, 'I', "A"); /* Inosine is a deaminated Adenosine, apparently appears in some RNACentral sequences */
+
 
   if ( (status = set_complementarity(a)) != eslOK) goto ERROR;
   return a;
