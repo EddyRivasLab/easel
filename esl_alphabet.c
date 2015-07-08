@@ -186,6 +186,7 @@ create_rna(void)
    */
   esl_alphabet_SetEquiv(a, 'T', 'U');	    /* read T as a U */
   esl_alphabet_SetEquiv(a, 'X', 'N');	    /* read X as an N (many seq maskers use X) */
+  esl_alphabet_SetEquiv(a, 'I', 'A');       /* Inosine is a deaminated Adenosine, appears in some RNACentral sequences */
   esl_alphabet_SetEquiv(a, '_', '-');       /* allow _ as a gap too */
   esl_alphabet_SetEquiv(a, '.', '-');       /* allow . as a gap too */
   esl_alphabet_SetCaseInsensitive(a);       /* allow lower case input */
@@ -231,6 +232,7 @@ create_dna(void)
    */
   esl_alphabet_SetEquiv(a, 'U', 'T');	    /* read U as a T */
   esl_alphabet_SetEquiv(a, 'X', 'N');	    /* read X as an N (many seq maskers use X) */
+  esl_alphabet_SetEquiv(a, 'I', 'A');       /* Inosine is a deaminated Adenosine, appears in some RNACentral sequences */
   esl_alphabet_SetEquiv(a, '_', '-');       /* allow _ as a gap too */
   esl_alphabet_SetEquiv(a, '.', '-');       /* allow . as a gap too */
   esl_alphabet_SetCaseInsensitive(a);       /* allow lower case input */
@@ -378,6 +380,7 @@ set_complementarity(ESL_ALPHABET *a)
   a->complement[15]= 15;   /* N  N */
   a->complement[16]= 16;   /* *  * */
   a->complement[17]= 17;   /* ~  ~ */
+
   return eslOK;
 
  ERROR:
