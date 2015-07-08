@@ -93,7 +93,7 @@ esl_alphabet_Create(int type)
  *            
  * Args:      alphabet - internal alphabet; example "ACGT-RYMKSWHBVDN*~"
  *            K        - base size; example 4
- *            Kp       - total size, including gap, degeneracies; example 19
+ *            Kp       - total size, including gap, degeneracies; example 18
  *
  * Returns:   pointer to new <ESL_ALPHABET> structure.
  *
@@ -184,13 +184,14 @@ create_rna(void)
 
   /* Create the fundamental alphabet
    */
-  if ((a = esl_alphabet_CreateCustom("ACGU-RYMKSWHBVDIN*~", 4, 19)) == NULL) return NULL;
+  if ((a = esl_alphabet_CreateCustom("ACGU-RYMKSWHBVDN*~", 4, 18)) == NULL) return NULL;
   a->type = eslRNA;
   
   /* Add desired synonyms in the input map.
    */
   esl_alphabet_SetEquiv(a, 'T', 'U');	    /* read T as a U */
   esl_alphabet_SetEquiv(a, 'X', 'N');	    /* read X as an N (many seq maskers use X) */
+  esl_alphabet_SetEquiv(a, 'I', 'A');     /* Inosine is a deaminated Adenosine, apparently appears in some RNACentral sequences */
   esl_alphabet_SetEquiv(a, '_', '-');       /* allow _ as a gap too */
   esl_alphabet_SetEquiv(a, '.', '-');       /* allow . as a gap too */
   esl_alphabet_SetCaseInsensitive(a);       /* allow lower case input */
@@ -207,11 +208,6 @@ create_rna(void)
   esl_alphabet_SetDegeneracy(a, 'B', "CGU");
   esl_alphabet_SetDegeneracy(a, 'V', "ACG");
   esl_alphabet_SetDegeneracy(a, 'D', "AGU");  
-
-  /* Define unusual nucleotides as one-to-one degeneracies.
-   */
-  esl_alphabet_SetDegeneracy(a, 'I', "A"); /* Inosine is a deaminated Adenosine, apparently appears in some RNACentral sequences */
-
 
   if ( (status = set_complementarity(a)) != eslOK) goto ERROR;
 
@@ -234,13 +230,14 @@ create_dna(void)
 
   /* Create the fundamental alphabet.
    */
-  if ((a = esl_alphabet_CreateCustom("ACGT-RYMKSWHBVDIN*~", 4, 19)) == NULL) return NULL;
+  if ((a = esl_alphabet_CreateCustom("ACGT-RYMKSWHBVDN*~", 4, 18)) == NULL) return NULL;
   a->type = eslDNA;
   
   /* Add desired synonyms in the input map.
    */
   esl_alphabet_SetEquiv(a, 'U', 'T');	    /* read U as a T */
   esl_alphabet_SetEquiv(a, 'X', 'N');	    /* read X as an N (many seq maskers use X) */
+  esl_alphabet_SetEquiv(a, 'I', 'A');     /* Inosine is a deaminated Adenosine, apparently appears in some RNACentral sequences */
   esl_alphabet_SetEquiv(a, '_', '-');       /* allow _ as a gap too */
   esl_alphabet_SetEquiv(a, '.', '-');       /* allow . as a gap too */
   esl_alphabet_SetCaseInsensitive(a);       /* allow lower case input */
@@ -257,10 +254,6 @@ create_dna(void)
   esl_alphabet_SetDegeneracy(a, 'B', "CGT");
   esl_alphabet_SetDegeneracy(a, 'V', "ACG");
   esl_alphabet_SetDegeneracy(a, 'D', "AGT");  
-
-  /* Define unusual nucleotides as one-to-one degeneracies.
-   */
-  esl_alphabet_SetDegeneracy(a, 'I', "A"); /* Inosine is a deaminated Adenosine, apparently appears in some RNACentral sequences */
 
   if ( (status = set_complementarity(a)) != eslOK) goto ERROR;
   return a;
@@ -366,11 +359,11 @@ set_complementarity(ESL_ALPHABET *a)
   if (a->type != eslRNA && a->type != eslDNA)
     ESL_EXCEPTION(eslEINVAL, "alphabet isn't nucleic: no complementarity to set");
   
-  /* We will assume that Kp=19 and sym="ACGT-RYMKSWHBVDIN*~" (or RNA equiv).
+  /* We will assume that Kp=18 and sym="ACGT-RYMKSWHBVDN*~" (or RNA equiv).
    * Bug #h108 happened because routine fell out of sync w/ a change in alphabet.
    * Don't let that happen again.
    */
-  ESL_DASSERT1((      a->Kp == 19  ));
+  ESL_DASSERT1((      a->Kp == 18  ));
   ESL_DASSERT1(( a->sym[17] == '~' ));
 
   ESL_ALLOC(a->complement, sizeof(ESL_DSQ) * a->Kp);
@@ -1717,7 +1710,7 @@ utest_Create(void)
   char msg[]  = "esl_alphabet_Create() unit test failed";
   int  types[] = { eslDNA, eslRNA, eslAMINO, eslCOINS, eslDICE };
   int  Karr[]  = {      4,      4,       20,        2,       6 };
-  int  Kparr[] = {     19,     19,       29,        6,      10 };
+  int  Kparr[] = {     18,     18,       29,        6,      10 };
   int  i;
   ESL_ALPHABET *a;
   ESL_DSQ       x;
@@ -1887,7 +1880,7 @@ utest_SetIgnored(void)
   char msg[]  = "esl_alphabet_SetIgnored() unit test failed";
   ESL_ALPHABET *a;
   char         *testseq = "y \trn";
-  ESL_DSQ       expect[] = { eslDSQ_SENTINEL, 6, 5, 16, eslDSQ_SENTINEL };
+  ESL_DSQ       expect[] = { eslDSQ_SENTINEL, 6, 5, 15, eslDSQ_SENTINEL };
   int           L = 5;
   ESL_DSQ      *dsq;
 
@@ -2064,7 +2057,7 @@ utest_dsqcat(void)
   char          goodseq[] = "ACGt";
   char          addseq[]  = "RYM KN";
   char          badseq[]  = "RYM K&";
-  ESL_DSQ       expect[] = { eslDSQ_SENTINEL, 0, 1, 2, 3, 5, 6, 7, 8, 16, eslDSQ_SENTINEL };
+  ESL_DSQ       expect[] = { eslDSQ_SENTINEL, 0, 1, 2, 3, 5, 6, 7, 8, 15, eslDSQ_SENTINEL };
   ESL_DSQ      *dsq;
   int64_t       L1;
   esl_pos_t     L2;
