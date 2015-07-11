@@ -806,14 +806,14 @@ esl_gencode_ProcessOrf(ESL_GENCODE_WORKSTATE *wrk, ESL_SQ *sq)
       {
         if (wrk->orf_block->count == wrk->orf_block->listSize)
         {
-          status = esl_sq_BlockGrowTo(wrk->orf_block, wrk->orf_block->listSize + 1, TRUE, psq->abc);
+          status = esl_sq_BlockGrowTo(wrk->orf_block, wrk->orf_block->listSize + 128, TRUE, psq->abc);
           if (status != eslOK) ESL_XEXCEPTION(eslEMEM, "Cannot increase size of ORF sequence block");
         }
-        printf("adding seq to block list num %d\n",wrk->orf_block->count);
+        //printf("adding seq to block list num %d\n",wrk->orf_block->count);
         //esl_sqio_Write(stdout, psq, eslSQFILE_FASTA, 0);
         //printf("\n");
         esl_sq_Copy(psq, &(wrk->orf_block->list[wrk->orf_block->count]));
-        printf("incrementing block count to %d\n",wrk->orf_block->count+1);
+        //printf("incrementing block count to %d\n",wrk->orf_block->count+1);
 
         wrk->orf_block->count++;
       }
