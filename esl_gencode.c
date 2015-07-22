@@ -1034,6 +1034,7 @@ utest_ReadWrite(void)
 
   for (t = 0; t < ntables; t++)
     {
+      strcpy(tmpfile, "esltmpXXXXXX");
       if ( (gc1 = esl_gencode_Create(nt_abc, aa_abc))              == NULL)  esl_fatal(msg);
       if ( esl_gencode_Set(gc1, esl_transl_tables[t].transl_table) != eslOK) esl_fatal(msg);
 
