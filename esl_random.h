@@ -21,7 +21,7 @@ typedef struct {
 
 /* 1. The ESL_RANDOMNESS object.
  */
-extern ESL_RANDOMNESS *esl_randomness_Create(uint32_t seed);
+extern ESL_RANDOMNESS *esl_randomness_Create    (uint32_t seed);
 extern ESL_RANDOMNESS *esl_randomness_CreateFast(uint32_t seed);
 extern ESL_RANDOMNESS *esl_randomness_CreateTimeseeded(void); /* DEPRECATED */
 extern void            esl_randomness_Destroy(ESL_RANDOMNESS *r);
