@@ -762,7 +762,7 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
 
   for (i = 0; i < N; i++)
     {
-      sum += p[i];
+      sum += (double) p[i];
       if (roll < (sum / norm) ) return i; 
     }
   esl_fatal("unreached code was reached. universe collapses.");
@@ -832,7 +832,7 @@ esl_rnd_FChooseCDF(ESL_RANDOMNESS *r, const float *cdf, int N)
   ESL_DASSERT1((cdf[N-1] > 0.99 && cdf[N-1] < 1.01));
 
   for (i = 0; i < N; i++) 
-    if (roll < cdf[i]/cdf[N-1]) return i; 
+    if (roll < (double) cdf[i] / (double) cdf[N-1]) return i;  // yes, the casts are NECESSARY. Without them, you get a heisenbug on icc/linux.
   esl_fatal("unreached code is reached. universe goes foom");
   return 0; /*notreached*/
 }

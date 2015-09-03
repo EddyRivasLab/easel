@@ -176,8 +176,11 @@ utest_pdf(void)
     lastpdf = newpdf;
     newpdf  = esl_normal_pdf(x, mu, sigma);
   } while (newpdf > 0.);
-  if (lastpdf > 1e-300) esl_fatal(msg);
-
+  /* If denormals flush to zero, we reach x=38; lastpdf = 2.12001e-298.
+   * With denormals, we reach one more step, x=39; lastpdf = 1.09722e-314.
+   * icc enables flush-to-zero at all -O levels, and gcc does not.
+   */
+  if (lastpdf > 1e-297 || x < 38.) esl_fatal(msg);
   return eslOK;
 }
 
