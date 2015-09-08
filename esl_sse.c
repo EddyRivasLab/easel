@@ -370,9 +370,9 @@ utest_expf(ESL_GETOPTS *go)
     esl_sse_dump_ps(stdout, r.v);  printf("\n");
   }
   if (r.x[0] != 0.0f)   esl_fatal("expf(-inf) should be 0");
-  if (r.x[1] != 1.0f)   esl_fatal("logf(-0)   should be 1");
-  if (r.x[2] != 1.0f)   esl_fatal("logf(0)    should be 1");
-  if (! isinf(r.x[3]))  esl_fatal("logf(inf)  should be inf");
+  if (r.x[1] != 1.0f)   esl_fatal("expf(-0)   should be 1");
+  if (r.x[2] != 1.0f)   esl_fatal("expf(0)    should be 1");
+  if (! isinf(r.x[3]))  esl_fatal("expf(inf)  should be inf");
 
   /* exp(NaN) = NaN    exp(large)  = inf   exp(-large) = 0  exp(1) = exp(1) */
   x = _mm_set_ps(1.0f, -666.0f, 666.0f, eslNaN); /* set_ps() is in order 3 2 1 0 */
