@@ -29,9 +29,14 @@
 #ifdef eslAUGMENT_RANDOM
 #include "esl_random.h"
 #endif
+#ifdef eslAUGMENT_HISTOGRAM
+#include "esl_histogram.h"
+#endif
 
 static int    tau_by_moments(double *x, int n, double mu, double *ret_tau, 
 			     double *ret_mean, double *ret_logsum);
+static int    tau_by_moments_binned(ESL_HISTOGRAM *g, double mu, double *ret_tau, 
+				    double *ret_mean, double *ret_logsum);
 static double tau_function(double tau, double mean, double logsum);
 
 
@@ -401,6 +406,7 @@ esl_gam_FitComplete(double *x, int n, double mu, double *ret_lambda, double *ret
   *ret_tau    = c;
   return eslOK;
 
+
  ERROR:
   *ret_lambda = 0.0;
   *ret_tau    = 0.0;
@@ -443,7 +449,6 @@ tau_by_moments(double *x, int n, double mu, double *ret_tau, double *ret_mean, d
 }
 
 
-
 /* tau_function()
  *
  * This is the rootfinding equation for tau...
@@ -467,6 +472,193 @@ tau_function(double tau, double mean, double logsum)
   return ( ((log(tau) - psitau) - log(mean)) + logsum );  
 }
 
+#ifdef eslAUGMENT_HISTOGRAM
+/* Function:  esl_gam_FitCompleteBinned()
+ *
+ * Purpose:   Fit a complete exponential distribution to the observed
+ *            binned data in a histogram <g>, where each
+ *            bin i holds some number of observed samples x with values from 
+ *            lower bound l to upper bound u (that is, $l < x \leq u$);
+ *            determine and return maximum likelihood estimates for the
+ *            parameters $\mu,\lambda, \tau$ and 
+ *            return them in <*ret_mu>, <*ret_lambda>, <*ret_tau>.
+ *            
+ *            Unlike the esl_exp_FitCompleteBinned() case where
+ *            the ML fit optimizes
+ *
+ *               sum_i P(ai<=i<bi)^n_i or sum_i ni logP(ai<=x<bi)
+ *
+ *            where ai <= bi are the bounds of bin i with ocupancy ni,
+ *            here we take the approximation that (ci= ai + 0.5*(bi-ai)
+ *
+ *               P(ai<=i<bi) ~ (bi-ai) * P[x=ci] or logP(ai<=x<bi) = log(w) + logP(x=ci)
+ *
+ *            and since bi-ai = w is fixed, obtimizing the above,
+ *            bcomes equivalent to optiminzing
+ *
+ *                  \sum_i ni * logP(x=ci)
+ *
+ *            The optimization is then equivalent to the non-binned case
+ *            but subsituting in averages such as \sum_i x(i) by
+ *            \sum_i ni*ci i, and so forth.
+ *
+ *            If the binned data in <g> were set to focus on 
+ *            a tail by virtual censoring, the "complete" exponential is 
+ *            fitted to this tail. The caller then also needs to
+ *            remember what fraction of the probability mass was in this
+ *            tail.
+ *
+ * Args:      g          - histogram
+ *            ret_mu     - RETURN: given by the histogram           
+ *            ret_lambda - RETURN: ML estimate of lambda            
+ *            ret_tau    - RETURN: ML estimate of tau
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslENOHALT> if bracketing or bisection fails;
+ *            <eslEINVAL> if data cannot be gamma distributed (some <x[i] < mu>,
+ *            or zero variance in x).
+ *
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEINVAL> if dataset is true-censored.
+ */
+int
+esl_gam_FitCompleteBinned(ESL_HISTOGRAM *g, double *ret_mu, double *ret_lambda, double *ret_tau)
+{
+  double mu = 0.;
+  double mean, logsum;
+  int    i;
+  double c, fc;
+  double a, fa;
+  double b, fb;
+  double tol = 1e-6;
+  int    maxit = 100;
+  int    status;
+
+  if (g->dataset_is == COMPLETE)
+    {
+      if   (g->is_rounded) mu = esl_histogram_Bin2LBound(g, g->imin);
+      else                 mu = g->xmin;
+    }
+  else if (g->dataset_is == VIRTUAL_CENSORED) /* i.e., we'll fit to tail */
+    mu = g->phi;
+  else if (g->dataset_is == TRUE_CENSORED)
+    ESL_EXCEPTION(eslEINVAL, "can't fit true censored dataset");
+
+  if ((status = tau_by_moments_binned(g, mu, &c, &mean, &logsum) != eslOK)) goto ERROR;
+  a = b = c;
+  if (c == 1.0) {
+    *ret_mu     = mu;
+    *ret_lambda = c / mean;
+    *ret_tau    = c;
+    return eslOK;
+  }
+  fc = tau_function(c, mean, logsum);
+
+  /* Rootfinding, 1.: bracketing the root with points a,b.
+   */
+  if (fc > 0.)			/* fx>0 means tau is too small, search right */
+    {
+      for (i = 0; i < maxit; i++)	/* max iterations */
+	{
+	  b = a * 2.;
+	  fb = tau_function(b, mean, logsum);
+
+	  if (fb < 0.) break;	/* a,b now bracket */
+	  a = b;                /* else fb>0, so b is a better left bracket than a */
+	}
+      if (i == maxit) ESL_XEXCEPTION(eslENOHALT, "failed to bracket");
+    }
+  else if (fc < 0.)		/* fx<0 means tau is too large, search left */
+    {
+      for (i = 0; i < maxit; i++)
+	{
+	  a = b/2.;
+	  fa = tau_function(a, mean, logsum);
+	  if (fa > 0.) break;   /* a,b now bracket */
+	  b = a;                /* else fa<0, so a is a better right bracket than b */
+	}
+      if (i == maxit) ESL_XEXCEPTION(eslENOHALT, "failed to bracket");
+    }  
+
+  /* Rootfinding, 2.: Bisection search.
+   * We have the root in interval (a,b).
+   */
+  for (i = 0; i < maxit; i++)
+    {
+      c  = (a+b)/2.;		/* bisection */
+      fc = tau_function(c, mean, logsum);
+
+      if      (fc > 0.)  a = c;
+      else if (fc < 0.)  b = c;
+      else    break;		/* unlikely event that we nail it */
+
+      if ((b-a) <= tol) { 
+	c  = (a+b)/2.;
+	break;
+      }
+    }
+  if (i == maxit) ESL_XEXCEPTION(eslENOHALT, "bisection search failed");
+
+  *ret_mu     = mu;
+  *ret_lambda = (mean > 0.)? c / mean : 0.0;
+  *ret_tau    = c;
+  return eslOK;
+
+ ERROR:
+  *ret_mu     = 0.;
+  *ret_lambda = 0.;
+  *ret_tau    = 0.;
+  return status;
+}
+
+/* tau_by_moments_binned()
+ * 
+ * similar to tau_by_moments()
+ * where mean=\sum_i x_i now becomes mean=\sum_i n(i)*ci, ...
+ *
+ * note: the whole method relies on the property log(sum) >= logsum;
+ * which works if all points are valide, that is positive; 
+ * log(0) = -inf is not a valid point,
+ * and the inequality (Jensen's inequality) does not hold. 
+ */
+static int
+tau_by_moments_binned(ESL_HISTOGRAM *g, double mu, double *ret_tau, double *ret_mean, double *ret_logsum)
+{
+  int    i;
+  double ai, bi, ci;
+  double sum, mean, var, logsum;
+  double tol = 1e-6;
+
+  sum = mean = var = logsum = 0.;
+  for (i = g->cmin+1; i <= g->imax; i++) /* for each occupied bin */
+    {
+      if (g->obs[i] == 0) continue;
+      ai = esl_histogram_Bin2LBound(g,i);
+      bi = esl_histogram_Bin2UBound(g,i);
+      ci = ai + 0.5 * (bi-ai);
+      
+      if (ci < mu) ESL_EXCEPTION(eslEINVAL, "No point can be < mu in gamma data");
+      sum    += (double)g->obs[i];
+      mean   += (double)g->obs[i] * (ci-mu);	                   /* mean is temporarily just the sum */
+      logsum += (ci>mu)? (double)g->obs[i] * log(ci-mu):0.0;       
+      var    += (double)g->obs[i] * (ci-mu) * (ci-mu);             /* var is temporarily the sum of squares */
+    }
+
+  var     = (sum > 1.)? (var - mean*mean/sum) / (sum-1.) : 0.0; /* now var is the variance */
+  mean   /= (sum > 0.)? sum : 1.;	                                        /* and now mean is the mean */
+  logsum /= (sum > 0.)? sum : 1.;
+
+  if (ret_tau    != NULL) *ret_tau    = (var < tol || mean == 0.)? 1. :  mean * mean / var;
+  if (ret_mean   != NULL) *ret_mean   = mean;
+  if (ret_logsum != NULL) *ret_logsum = logsum;
+  return eslOK;
+}
+
+
+#endif /*eslAUGMENT_HISTOGRAM*/
 
 
 /****************************************************************************
@@ -495,8 +687,8 @@ main(int argc, char **argv)
   double  lambda    =  2.0;  
   double  tau       =  0.7;
   int     n         = 10000;
-  double  binwidth  = 0.1;
-  double  elambda, etau;
+  double  binwidth  = 0.0001;
+  double  emu, elambda, etau;
   int     i;
   double  x;
   double *data;
@@ -562,8 +754,14 @@ main(int argc, char **argv)
   esl_gam_FitComplete(data, ndata, mu, &elambda, &etau);
   if (be_verbose)
     printf("Complete data fit:  mu = %f   lambda = %f   tau = %f\n", mu, elambda, etau);
-  if (fabs( (elambda-lambda)/lambda ) > 0.10) esl_fatal("Error in (complete) fitted lambda > 10%\n");
-  if (fabs( (etau-tau)/tau )          > 0.10) esl_fatal("Error in (complete) fitted tau > 10%\n");
+  if (fabs( (elambda-lambda)/lambda ) > 0.10) esl_fatal("Error in (complete) fitted lambda > 10%%\n");
+  if (fabs( (etau-tau)/tau )          > 0.10) esl_fatal("Error in (complete) fitted tau > 10%%\n");
+
+  esl_gam_FitCompleteBinned(h, &emu, &elambda, &etau);
+  if (be_verbose) printf("Binned data fit:  mu = %f   lambda = %f  tau = %f\n", emu, elambda, etau);
+  if (fabs( (emu-mu)/mu )             > 0.01) esl_fatal("Error in (binned) fitted mu > 1%%\n");
+  if (fabs( (elambda-lambda)/lambda ) > 0.10) esl_fatal("Error in (binned) fitted lambda > 10%%\n");
+  if (fabs( (etau-tau)/tau )          > 0.10) esl_fatal("Error in (binned) fitted tau > 10%%\n");
 
   if (plot_pdf)     esl_gam_Plot(pfp, mu, lambda, tau, &esl_gam_pdf,     xmin, xmax, xstep);
   if (plot_logpdf)  esl_gam_Plot(pfp, mu, lambda, tau, &esl_gam_logpdf,  xmin, xmax, xstep);
