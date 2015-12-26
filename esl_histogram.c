@@ -820,7 +820,7 @@ esl_histogram_SetExpectedTail(ESL_HISTOGRAM *h, double base_val, double pmass,
   if (h->expect == NULL)  ESL_ALLOC(h->expect, sizeof(double) * h->nb);
 
   if ((status = esl_histogram_Score2Bin(h, base_val, &(h->emin))) != eslOK) return status;
-  //  h->emin += 1;
+  h->emin += 1;
   esl_vec_DSet(h->expect, h->emin, 0.);
 
   for (b = h->emin; b < h->nb; b++)

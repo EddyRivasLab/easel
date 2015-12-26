@@ -192,7 +192,7 @@ main(int argc, char **argv)
       /* make sure the sequences are all identical */
       ESL_ALLOC(seqlen, sizeof(int) * ka->nseq);
       for(i = 0; i < ka->nseq; i++) { 
-	if(strcmp(ka->sqname[i], ta->sqname[i]) != 0) esl_fatal("sequence i of trusted alignment %s has different name than seq i of predicted alignment %s\n", ka->sqname[i], ta->sqname[i]); 
+	if(strcmp(ka->sqname[i], ta->sqname[i]) != 0) esl_fatal("sequence %d of trusted alignment %s has different name than seq %d of predicted alignment %s\n", (i+1), ka->sqname[i], (i+1), ta->sqname[i]); 
 	ESL_ALLOC(ks, sizeof(ESL_DSQ) * (ka->alen+2));
 	memcpy(ks, ka->ax[i], (ka->alen+2) * sizeof(ESL_DSQ));
 	esl_abc_XDealign(ka->abc, ks, ka->ax[i], &klen);
@@ -202,10 +202,10 @@ main(int argc, char **argv)
 	esl_abc_XDealign(ta->abc, ts, ta->ax[i], &tlen);
 
 	if (tlen != klen)
-	  esl_fatal("dealigned sequence mismatch, seq %d, when dealigned, is %d residues in the known alignment, but %d residues in the trusted alignment.", i, klen, tlen);
+	  esl_fatal("dealigned sequence mismatch, seq %d, when dealigned, is %d residues in the known alignment, but %d residues in the trusted alignment.", (i+1), klen, tlen);
 
 	if (memcmp(ks, ts, sizeof(ESL_DSQ) * klen) != 0) 
-	  esl_fatal("dealigned sequence mismatch, seq %d %s, when dealigned, are not identical.", i, ka->sqname[i]);
+	  esl_fatal("dealigned sequence mismatch, seq %d %s, when dealigned, are not identical.", (i+1), ka->sqname[i]);
 
 	seqlen[i] = tlen;
 	free(ks);
