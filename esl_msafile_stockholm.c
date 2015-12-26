@@ -2435,6 +2435,8 @@ utest_identical_io(ESL_ALPHABET **byp_abc, int fmt, char *buf)
   
   if (esl_msa_Compare(msa1, msa2) != eslOK) esl_fatal(msg);
 
+  remove(tmpfile1);
+  remove(tmpfile2);
   esl_msa_Destroy(msa1);
   esl_msa_Destroy(msa2);
 }

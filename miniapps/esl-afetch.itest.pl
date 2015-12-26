@@ -143,4 +143,5 @@ unlink "$tmppfx.sto.ssi";
 unlink "$tmppfx.tmp";
 unlink "$tmppfx.tmp2";
 unlink "$tmppfx.name";
+unlink "$tmppfx.list";
 exit 0;

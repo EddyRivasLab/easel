@@ -94,4 +94,6 @@ unlink "$tmppfx.aa.ssi";
 unlink "$tmppfx.bad";
 unlink "$tmppfx.bad.ssi";
 unlink "$tmppfx.out";
+unlink "$tmppfx.out2";
+unlink "$tmppfx.out3";
 exit 0;

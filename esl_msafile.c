@@ -1444,7 +1444,6 @@ aaaaa\n";
 
 #include "easel.h"
 #include "esl_getopts.h"
-#include "esl_random.h"
 #include "esl_msafile.h"
 
 static ESL_OPTIONS options[] = {

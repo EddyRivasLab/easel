@@ -135,6 +135,10 @@ clean:
 	-rm -f *.o *~
 	-rm -f *.gcno *.gcda *.gcov
 	-rm -f TAGS
+	for prog in ${PROGS}; do\
+	   if test -d $$prog.dSYM; then rm -rf $$prog.dSYM; fi;\
+	done
+
 
 distclean: clean
 	-rm -f ${PROGS}

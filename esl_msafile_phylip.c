@@ -1528,6 +1528,7 @@ utest_seqboot(void)
     }
   if (i != expected_nali) esl_fatal(msg);
 
+  remove(tmpfile);
   eslx_msafile_Close(afp);
   esl_alphabet_Destroy(abc);
 }

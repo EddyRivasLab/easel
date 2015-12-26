@@ -229,4 +229,5 @@ unlink "$tmppfx.pc";
 unlink "$tmppfx.ps";
 unlink "$tmppfx.r";
 unlink "$tmppfx.c";
+unlink "$tmppfx.bp";
 exit 0;
