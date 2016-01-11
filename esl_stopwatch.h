@@ -18,21 +18,26 @@
 #endif
 
 typedef struct {
-  /* t0 and cpu0 keep base, when the watch was Start()'ed */
+#ifdef eslSTOPWATCH_HIGHRES
+  double     t0;                /* baseline wall time from Nadeau routine */
+#elif  HAVE_TIMES
+  clock_t    t0;		/* baseline wall time, POSIX times()      */
+#else 
+  time_t     t0;                /* baseline wall time from ANSI time()    */
+#endif
+
 #ifdef HAVE_TIMES
-  clock_t    t0;		/* Wall time, POSIX times()      */
-  struct tms cpu0;		/* CPU/system time, POSIX times()*/
+  struct tms cpu0;		/* baseline CPU/system time, POSIX times()      */
 #else
-  time_t  t0;			/* Wall time, fallback to ANSI time()  */
-  clock_t cpu0;			/* CPU time, fallback to ANSI clock()  */
+  clock_t cpu0;			/* baseline CPU time, fallback to ANSI clock()  */
 #endif
 
   /* elapsed/user/sys are t-t0 results for the last time the
    * watch was Stop()'ed.
    */
-  double elapsed;               /* elapsed time, seconds */
-  double user;                  /* CPU time, seconds     */
-  double sys;                   /* system time, seconds  */
+  double elapsed;               /* elapsed wall time, seconds */
+  double user;                  /* CPU time, seconds          */
+  double sys;                   /* system time, seconds       */
 } ESL_STOPWATCH;
 
 
@@ -42,6 +47,8 @@ extern void           esl_stopwatch_Destroy(ESL_STOPWATCH *w);
 extern int esl_stopwatch_Start(ESL_STOPWATCH *w);
 extern int esl_stopwatch_Stop(ESL_STOPWATCH *w);
 extern int esl_stopwatch_Display(FILE *fp, ESL_STOPWATCH *w, char *prefix);
+
+extern double esl_stopwatch_GetElapsed(ESL_STOPWATCH *w);
 
 extern int esl_stopwatch_Include(ESL_STOPWATCH *master, ESL_STOPWATCH *w);
 

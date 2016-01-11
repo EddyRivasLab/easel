@@ -94,6 +94,9 @@
 
 #undef HAVE_FUNC_ATTRIBUTE_NORETURN // Compiler supports __attribute__ tag, which we use to help w/ clang static analysis.
 
+/* Function behavior */
+#define eslSTOPWATCH_HIGHRES
+
 /*****************************************************************
  * Available augmentations.
  * 
