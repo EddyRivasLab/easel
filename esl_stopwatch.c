@@ -267,6 +267,13 @@ esl_stopwatch_Include(ESL_STOPWATCH *master, ESL_STOPWATCH *w)
  * http://creativecommons.org/licenses/by/3.0/deed.en_US
  *
  * Reference: http://nadeausoftware.com/articles/2012/04/c_c_tip_how_measure_elapsed_real_time_benchmarking
+ * 
+ * On resolution: 
+ *   I believe that on Mac OS/X, the high performance timer has a resolution in units 
+ *   of nanoseconds (at least on some platforms, including my laptop). However, calling
+ *   the esl_stopwatch_* functions themselves have overhead. The example driver is
+ *   a reasonable test of the minimal resolution, including call overhead; that gives
+ *   me about 0.1 microseconds (12 Jan 2016).
  */
 #if defined(_WIN32)
 #include <Windows.h>
@@ -380,14 +387,22 @@ int
 main(void)
 {
   ESL_STOPWATCH *w;
+  double         t = 0.;
   
   w = esl_stopwatch_Create(); 
 
+  /* This tests the minimum *practical* resolution of the clock,
+   * inclusive of overhead of calling the stopwatch functions.
+   * It gives me ~0.1 usec (12 Jan 2016).
+   */
   esl_stopwatch_Start(w);
-  sleep(5);
-  esl_stopwatch_Stop(w);
+  while (t == 0.) 
+    {
+      esl_stopwatch_Stop(w);
+      t = esl_stopwatch_GetElapsed(w);
+    }
 
-  printf("Elapsed time in seconds: %.6f\n", esl_stopwatch_GetElapsed(w));
+  printf("Elapsed time clock has practical resolution of around: %g sec\n", t);
 
   esl_stopwatch_Display(stdout, w, "CPU Time: ");
   esl_stopwatch_Destroy(w);
