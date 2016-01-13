@@ -3,6 +3,8 @@
 #ifndef eslRANDOM_INCLUDED
 #define eslRANDOM_INCLUDED
 
+#include <stdint.h>
+
 #define eslRND_FAST     0
 #define eslRND_MERSENNE 1
 
@@ -30,7 +32,8 @@ extern uint32_t        esl_randomness_GetSeed(const ESL_RANDOMNESS *r);
 
 /* 2. The generator, esl_random().
  */
-extern double esl_random(ESL_RANDOMNESS *r);
+extern double   esl_random       (ESL_RANDOMNESS *r);
+extern uint32_t esl_random_uint32(ESL_RANDOMNESS *r);
 
 /* 3. Debugging/development tools.
  */

@@ -25,6 +25,7 @@
 #include "esl_config.h"
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
@@ -271,24 +272,13 @@ esl_randomness_Destroy(ESL_RANDOMNESS *r)
 /* Function: esl_random()  
  * Synopsis: Generate a uniform random deviate on [0,1)
  *
- * Purpose:  Returns a uniform deviate x, $0.0 <= x < 1.0$, given
+ * Purpose:  Returns a uniform deviate x, $0.0 \leq x < 1.0$, given
  *           RNG <r>.
- *           
- *           Uses the original Mersenne Twister algorithm, MT19937
- *           [Matsumoto98]. This generator has a period of $2^{19937} -
- *           1$. It generates uniformly distributed variates on the
- *           interval $0..2^{32}-1$. 
  *           
  *           If you cast the return value to float, the [0,1) interval
  *           guarantee is lost because values close to 1 will round to
  *           1.0.
  *           
- * Notes:    Easel previously used a reimplementation of ran2() from
- *           Numerical Recipes in C, which uses L'Ecuyer's algorithm
- *           for combining output of two linear congruential
- *           generators, plus a Bays-Durham shuffle \citep{Press93}.
- *           MT is about 10x faster.
- *
  * Returns:  a uniformly distribute random deviate on interval
  *           $0.0 \leq x < 1.0$.
  */
@@ -297,6 +287,20 @@ esl_random(ESL_RANDOMNESS *r)
 {
   uint32_t x = (r->type == eslRND_MERSENNE) ? mersenne_twister(r) : knuth(r);
   return ((double) x / 4294967296.0); /* 2^32: normalizes to [0,1) */
+}
+
+
+/* Function:  esl_random_uint32()
+ * Synopsis:  Generate a uniform random deviate on 0..2^32-1
+ * Incept:    SRE, Wed Jan 13 10:59:26 2016
+ *
+ * Purpose:   Returns a uniform deviate x, a 32-bit unsigned
+ *            integer $0 \leq x < 2^{32}$, given RNG <r>.
+ */
+uint32_t 
+esl_random_uint32(ESL_RANDOMNESS *r)
+{
+  return (r->type == eslRND_MERSENNE) ? mersenne_twister(r) : knuth(r);
 }
 
 
