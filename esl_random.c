@@ -1152,31 +1152,51 @@ save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
  *****************************************************************/
 #ifdef eslRANDOM_EXAMPLE
 /*::cexcerpt::random_example::begin::*/
-/* compile: gcc -g -Wall -I. -o esl_random_example -DeslRANDOM_EXAMPLE esl_random.c easel.c -lm
+/* compile: cc -I. -o esl_random_example -DeslRANDOM_EXAMPLE esl_random.c esl_getopts.c easel.c -lm
  * run:     ./random_example 42
  */
 #include <stdio.h>
 #include "easel.h"
+#include "esl_getopts.h"
 #include "esl_random.h"
+
+/* In Easel and HMMER, the option for setting the seed is typically -s, sometimes --seed.
+ * Default is usually 0 because we want a "random" seed. Less commonly, "42" for a fixed seed;
+ * rarely, a different fixed seed.  
+ * 
+ * Generally you want to use esl_randomness_Create(), to get a Mersenne Twister. The "fast"
+ * RNG you get from esl_randomness_CreateFast() isn't all that much faster (~25% per sample)
+ * but has much worse quality in its randomness.
+ */
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",  0 },
+  { "-i",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "sample uint32's instead of doubles",    0 },
+  { "-n",        eslARG_INT,     "20",  NULL, NULL,  NULL,  NULL, NULL, "number of random samples to show",      0 },
+  { "-s",        eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",         0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options]";
+static char banner[] = "example of using random module";
 
 int 
 main(int argc, char **argv)
 {
-  long            seed = atoi(argv[1]);
-  ESL_RANDOMNESS *r    = esl_randomness_Create(seed); 
-  int             n    = 1076;
+  ESL_GETOPTS    *go        = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng       = esl_randomness_Create( esl_opt_GetInteger(go, "-s") );   
+  int             do_uint32 = esl_opt_GetBoolean(go, "-i");
+  int             n         = esl_opt_GetInteger(go, "-n");
 
-  printf("RNG seed: %" PRIu32 "\n", esl_randomness_GetSeed(r));
-  printf("A sequence of %d pseudorandom numbers:\n", n);
-  while (n--)  printf("%f\n", esl_random(r));
+  printf("RNG seed: %" PRIu32 "\n", esl_randomness_GetSeed(rng));
+  printf("\nA sequence of %d pseudorandom numbers:\n", n);
+  if (do_uint32)  while (n--)  printf("%" PRIu32 "\n", esl_random_uint32(rng));
+  else            while (n--)  printf("%f\n",          esl_random(rng));
   
-  esl_randomness_Dump(stdout, r);
-  printf("%f\n", esl_random(r));
+  printf("\nInternal dump of RNG state:\n");
+  esl_randomness_Dump(stdout, rng);
 
-  esl_randomness_Dump(stdout, r);
-  printf("%f\n", esl_random(r));
-
-  esl_randomness_Destroy(r);
+  esl_randomness_Destroy(rng);
+  esl_getopts_Destroy(go);
   return 0;
 }
 /*::cexcerpt::random_example::end::*/
