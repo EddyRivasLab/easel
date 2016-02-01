@@ -86,6 +86,7 @@ HDRS = 	easel.h\
 	esl_dirichlet.h\
 	esl_distance.h\
 	esl_dmatrix.h\
+	esl_dsqdata.h\
 	esl_exponential.h\
 	esl_fileparser.h\
 	esl_gamma.h\
@@ -150,6 +151,7 @@ OBJS =	easel.o\
 	esl_dirichlet.o\
 	esl_distance.o\
 	esl_dmatrix.o\
+	esl_dsqdata.o\
 	esl_exponential.o\
 	esl_fileparser.o\
 	esl_gamma.o\
