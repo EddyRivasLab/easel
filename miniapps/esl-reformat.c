@@ -45,7 +45,7 @@ static ESL_OPTIONS options[] = {
   { "-r",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "-d",                  "convert to RNA alphabet (T->U)",                     0 }, 
   { "-u",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "-l",                  "convert to upper case",                              0 },
   { "-x",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "-n",                  "convert non-IUPAC chars (e.g. X) in DNA to N",       0 },
-  { "--gapsym",   eslARG_STRING,  NULL, NULL, NULL, NULL, NULL,       "--mingap,--nogap",    "convert all gaps to character <c>",                  0 },
+  { "--gapsym",   eslARG_STRING,  NULL, NULL, NULL, NULL, NULL,       "--mingap,--nogap",    "convert all gaps to character <s>",                  0 },
   { "--informat", eslARG_STRING,  NULL, NULL, NULL, NULL, NULL,       NULL,                  "input sequence file is in format <s>",               0 },
   { "--mingap",   eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "--nogap",             "remove columns containing all gaps (seqfile=MSA)",   0 },
   { "--keeprf",   eslARG_NONE,   FALSE, NULL, NULL, NULL, "--mingap", NULL,                  "with --mingap, keep all nongap #=GC RF columns",     0 },

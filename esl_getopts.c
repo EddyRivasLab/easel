@@ -896,7 +896,7 @@ esl_opt_GetBoolean(const ESL_GETOPTS *g, char *optname)
   if (get_optidx_exactly(g, optname, &opti) == eslENOTFOUND)
     esl_fatal("no such option %s\n", optname);
   if (g->opt[opti].type != eslARG_NONE)
-    esl_fatal("option %s is not a boolean", optname);
+    esl_fatal("option %s is not a boolean; code called _GetBoolean", optname);
 
   if (g->val[opti] == NULL) return FALSE;
   else                      return TRUE;
@@ -916,7 +916,7 @@ esl_opt_GetInteger(const ESL_GETOPTS *g, char *optname)
   if (get_optidx_exactly(g, optname, &opti) == eslENOTFOUND)
     esl_fatal("no such option %s\n", optname);
   if (g->opt[opti].type != eslARG_INT)
-    esl_fatal("option %s does not take an integer arg", optname);
+    esl_fatal("option %s does not take an integer arg; code called _GetInteger", optname);
   return atoi(g->val[opti]);
 }
 		
@@ -934,7 +934,7 @@ esl_opt_GetReal(const ESL_GETOPTS *g, char *optname)
   if (get_optidx_exactly(g, optname, &opti) == eslENOTFOUND)
     esl_fatal("no such option %s\n", optname);
   if (g->opt[opti].type != eslARG_REAL)
-    esl_fatal("option %s does not take a real-valued arg", optname);
+    esl_fatal("option %s does not take a real-valued arg; code called _GetReal", optname);
 
   return (atof(g->val[opti]));
 }
@@ -953,7 +953,7 @@ esl_opt_GetChar(const ESL_GETOPTS *g, char *optname)
   if (get_optidx_exactly(g, optname, &opti) == eslENOTFOUND)
     esl_fatal("no such option %s\n", optname);
   if (g->opt[opti].type != eslARG_CHAR)
-    esl_fatal("option %s does not take a char arg", optname);
+    esl_fatal("option %s does not take a char arg; code called _GetChar", optname);
 
   return (*g->val[opti]);
 }
@@ -978,7 +978,7 @@ esl_opt_GetString(const ESL_GETOPTS *g, char *optname)
   if (g->opt[opti].type != eslARG_STRING &&
       g->opt[opti].type != eslARG_INFILE &&
       g->opt[opti].type != eslARG_OUTFILE)
-    esl_fatal("option %s does not take a string arg", optname);
+    esl_fatal("option %s does not take a string arg; code called _GetString", optname);
 
   return g->val[opti];
 }
