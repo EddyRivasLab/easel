@@ -1,4 +1,21 @@
 /* RNA secondary structure markup in WUSS notation.
+ *
+ *    <>  : base pairs in stem-loops, i.e. <<<___>>>
+ *    ()  : base pairs in helices enclosing multifurcation of all <> stems
+ *    []  : base pairs in helices enclosing multifurc of at least one () helix
+ *    {}  : base pairs in helices enclosing even deeper multifurcations
+ *    
+ *    _   : (i.e. underscore) nucleotide in a hairpin loop
+ *    -   : (i.e. dash) nucleotide in a bulge or interior loop
+ *    ,   : nucleotide in a multifurcation loop (mnemonic: "stem1, stem2," )  
+ *    :   : nucleotide in external single strand
+ *    
+ *    Aa  : (and Bb, Cc, etc) pseudoknotted base pairs, upper case on left, lower case on right.
+ *
+ *  and in alignments of a seq to an RNA structure profile, as in Infernal:
+ *    .   : insertion relative to a known consensus structure
+ *    ~   : nucleotide is unaligned to a structure profile, because of local structure alignment
+ *
  */
 #include "esl_config.h"
 
@@ -684,6 +701,51 @@ esl_wuss_nopseudo(char *ss1, char *ss2)
       ss2++;
     }
   *ss2 = '\0';
+  return eslOK;
+}
+
+
+/* Function:  esl_wuss_reverse()
+ * Synopsis:  "Reverse complement" a WUSS annotation
+ * Incept:    SRE, Wed Feb 10 12:46:51 2016 [JB251 BOS-MCO]
+ *
+ * Purpose:   If we need to reverse complement a structure-annotated RNA
+ *            sequence, we need to "reverse complement" the WUSS
+ *            annotation string. Reverse complement the annotation string
+ *            <ss> into caller-provided space <new>. To revcomp an annotation 
+ *            in place, use <esl_wuss_reverse(ss, ss)>.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_wuss_reverse(char *ss, char *new)
+{
+  int i, n;
+
+  /* first, "complement" the annotation */
+  for (i = 0; ss[i] != '\0'; i++)
+    {
+      if      (isupper(ss[i])) new[i] = tolower(ss[i]);
+      else if (islower(ss[i])) new[i] = toupper(ss[i]);
+      else {
+	switch (ss[i]) {
+	case '<': new[i] = '>';   break;
+	case '>': new[i] = '<';   break;
+	case '(': new[i] = ')';   break;
+	case ')': new[i] = '(';   break;
+	case '[': new[i] = ']';   break;
+	case ']': new[i] = '[';   break;
+	case '{': new[i] = '}';   break;
+	case '}': new[i] = '{';   break;
+	default:  new[i] = ss[i]; break;
+	}
+      }
+    }
+  n = i;
+  /* Then, reverse it in place. */
+  for (i = 0; i < n/2; i++)
+    ESL_SWAP(new[i], new[n-i-1], char);
+
   return eslOK;
 }
 

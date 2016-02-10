@@ -188,6 +188,8 @@ extern int esl_msa_Checksum(const ESL_MSA *msa, uint32_t *ret_checksum);
 
 extern int esl_msa_RemoveBrokenBasepairsFromSS(char *ss, char *errbuf, int len, const int *useme);
 extern int esl_msa_RemoveBrokenBasepairs(ESL_MSA *msa, char *errbuf, const int *useme);
+
+extern int esl_msa_ReverseComplement(ESL_MSA *msa);
 #ifdef eslAUGMENT_KEYHASH
 extern int esl_msa_Hash(ESL_MSA *msa);
 #endif

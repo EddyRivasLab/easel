@@ -49,6 +49,7 @@ PROGS = esl-afetch\
 	esl-alimask\
 	esl-alimerge\
 	esl-alipid\
+	esl-alirev\
 	esl-alistat\
 	esl-cluster\
 	esl-compalign\
@@ -73,6 +74,7 @@ PROGOBJS =\
 	esl-alimask.o\
 	esl-alimerge.o\
 	esl-alipid.o\
+	esl-alirev.o\
 	esl-alistat.o\
 	esl-cluster.o\
 	esl-compalign.o\

@@ -493,12 +493,14 @@ esl_usage(FILE *fp, char *progname, char *usage)
  *            Example: <esl_dataheader(stdout, 8, "name", 3, "A", -4, "B", 0)>
  *            gives three columns:
  *            
+ *            \begin{cchunk}
  *            # name     A B
  *            #------- --- ----
+ *            \end{cchunk}
  *            
  *            The <width> arguments match the widths given in
  *            <fprintf()>'s or whatever generates the data rows.
- *            Because the first header line is prefixed by '# ', the
+ *            Because the first header line is prefixed by \verb+#+, the
  *            first column's width argument is inclusive of these two
  *            extra chars, and therefore the first column label must
  *            have no more than its <width>-2 chars.  For all other

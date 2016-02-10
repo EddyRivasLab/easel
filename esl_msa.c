@@ -2885,6 +2885,74 @@ msa_get_rlen(const ESL_MSA *msa, int seqidx)
 }
 
 
+
+/* Function:  esl_msa_ReverseComplement()
+ * Synopsis:  Reverse complement a multiple alignment
+ * Incept:    SRE, Wed Feb 10 12:52:13 2016 [JB251 BOS-MCO]
+ *
+ * Purpose:   Reverse complement the multiple alignment <msa>, in place.
+ *
+ *            <msa> must be in digital mode, and it must be in an alphabet
+ *            that permits reverse complementation (<eslDNA>, <eslRNA>).
+ *          
+ *            In addition to reverse complementing the sequence data,
+ *            per-column and per-residue annotation also gets reversed
+ *            or reverse complemented. Secondary structure annotations
+ *            (the consensus structure <ss_cons>, and any individual
+ *            structures <ss[i]>) are assumed to be in WUSS format,
+ *            and are "reverse complemented" using
+ *            <esl_wuss_reverse()>.  Other annotations are assumed to
+ *            be textual, and are simply reversed. Beware, because
+ *            this can go awry if an optional <gc> or <gr> annotation
+ *            has semantics that would require complementation (an RNA
+ *            structure annotation, for example).
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEINCOMPAT> if <msa> isn't digital, or isn't in an alphabet 
+ *                that allows reverse complementation.
+ */
+int
+esl_msa_ReverseComplement(ESL_MSA *msa)
+{
+  int i;
+  int m;
+  int status;
+
+  if (! (msa->flags & eslMSA_DIGITAL)) ESL_EXCEPTION(eslEINCOMPAT, "msa isn't digital");
+  if ( msa->abc->complement == NULL)   ESL_EXCEPTION(eslEINCOMPAT, "msa alphabet can't be reverse complemented");
+
+  if (msa->ss_cons) esl_wuss_reverse(msa->ss_cons, msa->ss_cons);
+  if (msa->sa_cons) esl_vec_CReverse(msa->sa_cons, msa->sa_cons, msa->alen);
+  if (msa->pp_cons) esl_vec_CReverse(msa->pp_cons, msa->pp_cons, msa->alen);
+  if (msa->rf)      esl_vec_CReverse(msa->rf,      msa->rf,      msa->alen);
+  if (msa->mm)      esl_vec_CReverse(msa->mm,      msa->mm,      msa->alen);
+  
+  for (m = 0; m < msa->ngc; m++)
+    if (msa->gc && msa->gc[m]) esl_vec_CReverse(msa->gc[m], msa->gc[m], msa->alen);
+
+  for (i = 0; i < msa->nseq; i++)
+    {
+      if ((status = esl_abc_revcomp(msa->abc, msa->ax[i], msa->alen)) != eslOK) goto ERROR;
+      if (msa->ss && msa->ss[i]) esl_wuss_reverse(msa->ss[i], msa->ss[i]);
+      if (msa->sa && msa->sa[i]) esl_vec_CReverse(msa->sa[i], msa->sa[i], msa->alen);
+      if (msa->pp && msa->pp[i]) esl_vec_CReverse(msa->pp[i], msa->pp[i], msa->alen);
+    }
+
+  for (m = 0; m < msa->ngr; m++)
+    for (i = 0; i < msa->nseq; i++)
+      if (msa->gr && msa->gr[m] && msa->gr[m][i]) 
+	esl_vec_CReverse(msa->gr[m][i], msa->gr[m][i], msa->alen);
+
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+
+
+
 #ifdef eslAUGMENT_KEYHASH
 /* Function:  esl_msa_Hash()
  * Synopsis:  Hash sequence names, internally, for faster access/lookup.

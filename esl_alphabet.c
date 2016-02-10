@@ -1125,6 +1125,43 @@ esl_abc_ConvertDegen2X(const ESL_ALPHABET *abc, ESL_DSQ *dsq)
   return eslOK;
 }
 
+
+/* Function:  esl_abc_revcomp()
+ * Synopsis:  Reverse complement a digital sequence
+ * Incept:    SRE, Wed Feb 10 11:54:48 2016 [JB251 BOS-MCO]
+ *
+ * Purpose:   Reverse complement <dsq>, in place, according to
+ *            its digital alphabet <abc>.
+ *            
+ * Args:      abc  - digital alphabet
+ *            dsq  - digital sequence, 1..n
+ *            n    - length of <dsq>
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEINCOMPAT> if alphabet <abc> can't be reverse complemented
+ */
+int
+esl_abc_revcomp(const ESL_ALPHABET *abc, ESL_DSQ *dsq, int n)
+{
+  ESL_DSQ x;
+  int     pos;
+  
+  if (abc->complement == NULL)
+    ESL_EXCEPTION(eslEINCOMPAT, "tried to reverse complement using an alphabet that doesn't have one");
+
+  for (pos = 1; pos <= n/2; pos++)
+    {
+      x            = abc->complement[dsq[n-pos+1]];
+      dsq[n-pos+1] = abc->complement[dsq[pos]];
+      dsq[pos]     = x;
+    }
+  if (n%2) dsq[pos] = abc->complement[dsq[pos]];
+  return eslOK;
+}
+  
+  
+
 /*-------------- end, digital sequences (ESL_DSQ) ---------------*/
 
 

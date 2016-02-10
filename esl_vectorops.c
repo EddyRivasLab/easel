@@ -349,8 +349,17 @@ esl_vec_ISwap(int *vec1, int *vec2, int n)
  *            <vec> and <rev> can be the same, in which case <vec> is
  *            reversed in place.
  *            
- *            <esl_vec_FReverse()> and <esl_vec_IReverse()>
- *            do the same, for float and integer values.
+ *            <esl_vec_FReverse()>, <esl_vec_IReverse()>, and 
+ *            <esl_vec_CReverse()> do the same, for float, integer,
+ *            and char arrays. 
+ *            
+ *            <esl_vec_CReverse()> needs to be used carefully if
+ *            <vec> is a NUL-terminated string, instead of an array.
+ *            If you reverse a string <s> in place (i.e. 
+ *              <esl_vec_CReverse(s, s, n)>), the trailing NUL will
+ *            still be there, and you're fine. If you reverse string
+ *            <s> into new storage <s2>, you'll need to do <s2[n] = '\0'> 
+ *            yourself.
  */
 void
 esl_vec_DReverse(double *vec, double *rev, int n)
@@ -394,7 +403,20 @@ esl_vec_IReverse(int *vec, int *rev, int n)
     }
   if (n%2) rev[i] = vec[i];
 }
+void
+esl_vec_CReverse(char *vec, char *rev, int n)
+{
+  int i;
+  char x;
 
+  for (i = 0; i < n/2; i++)
+    {
+      x          = vec[n-i-1];
+      rev[n-i-1] = vec[i];
+      rev[i]     = x;
+    }
+  if (n%2) rev[i] = vec[i];
+}
 
 
 

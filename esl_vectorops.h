@@ -42,6 +42,7 @@ extern void   esl_vec_ISwap(int    *vec1, int    *vec2, int n);
 extern void   esl_vec_DReverse(double *vec, double *rev, int n);
 extern void   esl_vec_FReverse(float  *vec, float  *rev, int n);
 extern void   esl_vec_IReverse(int    *vec, int    *rev, int n);
+extern void   esl_vec_CReverse(char   *vec, char   *rev, int n);
 
 extern double esl_vec_DDot(double *vec1, double *vec2, int n);
 extern float  esl_vec_FDot(float  *vec1, float  *vec2, int n);

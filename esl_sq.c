@@ -1558,17 +1558,7 @@ esl_sq_ReverseComplement(ESL_SQ *sq)
 #ifdef eslAUGMENT_ALPHABET
   else
     {
-      if (sq->abc->complement == NULL) 
-	ESL_EXCEPTION(eslEINCOMPAT, "tried to take reverse complement of a non-nucleic sequence");
-
-      ESL_DSQ x;
-      for (i = 1; i <= sq->n/2; i++)
-	{ 
-	  x =                  sq->abc->complement[sq->dsq[sq->n-i+1]];
-	  sq->dsq[sq->n-i+1] = sq->abc->complement[sq->dsq[i]];
-	  sq->dsq[i]         = x;
-	}
-      if (sq->n%2) sq->dsq[i] = sq->abc->complement[sq->dsq[i]];
+      if ((status = esl_abc_revcomp(sq->abc, sq->dsq, sq->n)) != eslOK) goto ERROR;
     }
 #endif /*eslAUGMENT_ALPHABET*/
 
@@ -1583,6 +1573,9 @@ esl_sq_ReverseComplement(ESL_SQ *sq)
     free(sq->xr);     sq->xr     = NULL;
   }   
   
+  return status;
+
+ ERROR:
   return status;
 }
 
