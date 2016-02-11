@@ -1,0 +1,127 @@
+.TH "esl-alirev" 1 "@RELEASEDATE@" "@PACKAGE@ @RELEASE@" "@PACKAGE@ Manual"
+
+.SH NAME
+.TP
+esl-alirev - reverse complement a multiple alignment 
+
+
+.SH SYNOPSIS
+
+.B esl-alirev
+.I [options]
+.I msafile
+
+
+.SH DESCRIPTION
+
+.pp
+.B esl-alirev
+reads the multiple alignment in
+.I msafile
+and outputs its reverse complement to 
+.I stdout.
+
+.pp
+An example of where you might need to do this is when you've
+downloaded a chunk of multiway genomic alignment from one of the
+genome browsers, but your RNA of interest is on the opposite strand.
+
+.pp
+Any per-column and per-residue annotation lines are reversed as well,
+including Stockholm format and old SELEX format annotations.
+Annotations that Easel recognizes as secondary structure annotation (a
+consensus structure line, individual secondary structure lines) will
+be "reverse complemented" to preserve proper bracketing orders: for
+example, ...<<<...>>> is reverse complemented to <<<...>>>..., not
+simply reversed to >>>...<<<..., which would be wrong.
+
+.pp
+If
+.I msafile 
+is - (a single dash), alignment input is read from 
+.I stdin.
+
+.pp 
+The
+.I msafile
+may be in any of several formats.
+The format is autodetected by default.
+See the
+.B --informat
+option to assert an input format.
+
+.pp 
+By default the output alignment is written in the same format as the
+input alignment. See the
+.B --outformat
+option to use a different output format.
+
+.pp
+Because the alignment is parsed into Easel's digital internal
+representation, the output alignment may differ in certain details
+from the original alignment; these details should be inconsequential
+but may catch your eye. One is that if you have a reference annotation
+line, Easel's output will put consensus residues in upper case,
+nonconsensus (inserted) residues in lower case. Another is that the
+headers for some formats, such as Clustal format, are written with an
+arbitrary version number -- so you may find yourself revcomping an
+alignment in "MUSCLE (3.7) multiple sequence alignment" format and it
+could come out claiming to be a "CLUSTAL 2.1 multiple sequence
+alignment", just because Easel writes all of its Clustal format
+alignment files with that header.
+
+.pp
+The
+.I msafile
+must contain nucleic acid sequences (DNA or RNA).
+The alphabet will be autodetected by default.
+See the
+.B --dna
+or
+.B --rna 
+options to assert an alphabet.
+
+
+
+.SH OPTIONS
+
+.TP
+.B -h 
+Print brief help;  includes version number and summary of
+all options, including expert options.
+
+.TP
+.BI --informat " <s>"
+Specify that the input alignment is in 
+.I <s>
+format. Valid format strings include 
+"stockholm", "pfam", "a2m", "phylip", "phylips", 
+"psiblast", "selex", "afa", "clustal", and "clustallike".
+
+.TP
+.BI --outformat " <s>"
+Write the output alignment in 
+.I <s>
+format. Valid format strings include 
+"stockholm", "pfam", "a2m", "phylip", "phylips", 
+"psiblast", "selex", "afa", "clustal", and "clustallike".
+
+.TP 
+.B --dna
+Assert that the 
+.I msafile 
+contains DNA sequences. 
+
+.TP 
+.B --rna
+Assert that the 
+.I msafile 
+contains RNA sequences. 
+
+
+.SH AUTHOR
+
+Easel and its documentation are @EASEL_COPYRIGHT@.
+@EASEL_LICENSE@.
+See COPYING in the source code distribution for more details.
+The Easel home page is: @EASEL_URL@

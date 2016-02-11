@@ -41,7 +41,8 @@ main(int argc, char **argv)
   /* MSA input file format from cmdline? */
   if (esl_opt_IsOn(go, "--informat") &&
       (infmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
-    esl_fatal("%s is not a valid MSA file format for --informat", esl_opt_GetString(go, "--informat"));
+    esl_fatal("Your --informat, %s, is not a recognized multiple alignment file format",
+	      esl_opt_GetString(go, "--informat"));
 
   /* Open in digital mode. Autoguess alphabet, format if we haven't set them already. */
   if (( status = eslx_msafile_Open(&abc, msafile, NULL, infmt, NULL, &afp)) != eslOK)
@@ -49,8 +50,8 @@ main(int argc, char **argv)
   
   /* Reverse complementation only makes sense for alphabets that have abc->complement set */
   if (! abc->complement)
-    esl_fatal("File appears to use the %s alphabet.\nThat alphabet cannot be reverse complemented.\n",
-	      esl_abc_DecodeType(abc->type));
+    esl_fatal("File %s appears to use the %s alphabet.\nThat alphabet cannot be reverse complemented.\n",
+	      msafile, esl_abc_DecodeType(abc->type));
 
   /* Set the output format, if requested. 
    * By default, write in the same format we read in. 
@@ -60,7 +61,7 @@ main(int argc, char **argv)
     {
       outfmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat"));
       if (outfmt == eslMSAFILE_UNKNOWN)
-	esl_fatal("Your --outformat, %s, is an unrecognized multiple alignment file format.\n",
+	esl_fatal("Your --outformat, %s, is not a recognized multiple alignment file format.\n",
 		  esl_opt_GetString(go, "--outformat"));
     }
   else outfmt = afp->format;
