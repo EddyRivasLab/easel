@@ -318,11 +318,11 @@ esl_fileparser_NextLine(ESL_FILEPARSER *efp)
  *            must be longer than <prefix>. It is sufficient for the
  *            first data token to be longer than <prefix>.
  *            (Equivalently, if <prefix> contains any data token, it
- *            must not contain any newline '\n' after that data.)  The
+ *            must not contain any newline \verb+\n+ after that data.)  The
  *            reason is that we need to avoid a situation where the
  *            concatenated prefix+nextline contains more than one data
  *            line, because other routines in the module assume that
- *            <efp->buf> is a single \n-terminated line of input.  For
+ *            <efp->buf> is a single \verb+\n+-terminated line of input.  For
  *            example: HMMER save files either start with a 4-byte
  *            binary magic number, or with "HMMER", and "HMMER" is
  *            longer than 4 bytes.

@@ -714,6 +714,12 @@ esl_wuss_nopseudo(char *ss1, char *ss2)
  *            annotation string. Reverse complement the annotation string
  *            <ss> into caller-provided space <new>. To revcomp an annotation 
  *            in place, use <esl_wuss_reverse(ss, ss)>.
+ *            
+ *            Old SELEX files use a different structure annotation
+ *            format, with angle brackets pointing the opposite
+ *            direction: \ccode{><} for a base pair. As a convenient
+ *            side effect, <esl_wuss_reverse()> will also reverse
+ *            complement SELEX annotation lines.
  *
  * Returns:   <eslOK> on success.
  */

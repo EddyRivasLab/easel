@@ -44,6 +44,7 @@ MODULES = easel\
 	  esl_dirichlet\
 	  esl_distance\
 	  esl_dmatrix\
+	  esl_dsqdata\
 	  esl_exponential\
 	  esl_fileparser\
 	  esl_gamma\
@@ -105,7 +106,7 @@ TEXFILES = \
 
 pdf:    current.pdf
 
-current.pdf: symlinks.stamp autodoc.stamp cexcerpt.stamp
+current.pdf: symlinks.stamp autodoc.stamp cexcerpt.stamp apitables.stamp
 	@for prog in pdflatex bibtex; do \
 	  command -v $$prog >/dev/null 2>&1 || { echo >&2 "The $$prog program is required to build the Userguide, but it's not installed. Aborting."; exit 1; } \
 	done
@@ -154,6 +155,14 @@ cexcerpt.stamp:
 	@echo "cexcerpts created:\c" > $@
 	@date >> $@
 
+apitables.stamp:
+	mkdir -p apitables
+	for module in ${MODULES}; do\
+	   ${AUTODOC} -t ${srcdir}/../$$module.c > apitables/$${module}_api.tex;\
+	done
+	@echo "apitables created:\c" > $@
+	@date >> $@
+
 install:
 	${INSTALL} -m 0644 current.pdf ${DESTDIR}${pdfdir}/
 
@@ -176,9 +185,10 @@ clean:
 	     rm $$module.tex ;\
 	   fi ;\
 	done
-	-rm -f symlinks.stamp autodoc.stamp cexcerpt.stamp
+	-rm -f symlinks.stamp autodoc.stamp cexcerpt.stamp apitables.stamp
 	-rm -rf cexcerpts
 	-rm -rf autotext
+	-rm -rf apitables
 	-rm -f latex.log
 	-rm -f x.log
 	-rm -f *~ TAGS

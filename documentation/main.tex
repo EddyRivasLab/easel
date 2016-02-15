@@ -3,18 +3,32 @@
 % times, mathptmx, mathpazo, newcent, bookman
 % xref http://www.ce.cmu.edu/~kijoo/latex2pdf.pdf
 \usepackage{times}
-\usepackage{fullpage}
+%\usepackage{fullpage}
 \usepackage{relsize}   % the \smaller command, used in \ccode for example
 \usepackage{fancyvrb}
 \usepackage{array}
 \usepackage[numbers,sort&compress]{natbib}
 \usepackage[pdftex]{graphicx}
+\usepackage[usenames,dvipsnames]{color}
 \usepackage[backref,colorlinks]{hyperref}
+
+\hypersetup{
+  linkcolor   = RoyalBlue,
+  anchorcolor = RoyalBlue,
+  citecolor   = RoyalBlue,
+  filecolor   = RoyalBlue,
+  menucolor   = RoyalBlue,
+  runcolor    = RoyalBlue,
+  urlcolor    = RoyalBlue,
+}
 
 \usepackage{ifthen}
 \newboolean{completedraft}
 \setboolean{completedraft}{true}   %  if compiling the entire guide
-%\setboolean{completedraft}{false}   %  if writing/testing a piece at a time
+%\setboolean{completedraft}{false}   % if writing/testing a piece at a time...
+                                     %   comment out the \ifthenelse
+                                     %   around the piece you're
+                                     %   working on. 
 
 \input{macros}
 
@@ -69,6 +83,14 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
+   \section{\eslmodincmd{alphabet}: digitized biosequences}
+   \input{esl_alphabet}
+   \subsection{Functions in the alphabet module}
+   \input{autotext/esl_alphabet_functions}
+}{}
+
+\ifthenelse{\boolean{completedraft}}{
+   \newpage
    \section{\eslmodincmd{sq}: single biological sequences}
    \input{esl_sq}
    \subsection{Functions in the sq module}
@@ -85,14 +107,6 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmodincmd{alphabet}: digitized biosequences}
-   \input{esl_alphabet}
-   \subsection{Functions in the alphabet module}
-   \input{autotext/esl_alphabet_functions}
-}{}
-
-\ifthenelse{\boolean{completedraft}}{
-   \newpage
    \section{\eslmodincmd{randomseq}: sampling random sequences}
    \input{esl_randomseq}
    \subsection{Functions in the randomseq module}
@@ -101,10 +115,18 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmodincmd{sqio}: i/o of unaligned sequence files}
+   \section{\eslmodincmd{sqio}: unaligned sequence file input/output}
    \input{esl_sqio}
    \subsection{Functions in the sqio module}
    \input{autotext/esl_sqio_functions}
+}{}
+
+\ifthenelse{\boolean{completedraft}}{
+   \newpage
+   \section{\eslmodincmd{dsqdata}: faster sequence file input}
+   \input{esl_dsqdata}
+   \subsection{Functions in the dsqdata module}
+   \input{autotext/esl_dsqdata_functions}
 }{}
 
 \ifthenelse{\boolean{completedraft}}{
@@ -132,11 +154,13 @@
 \ifthenelse{\boolean{completedraft}}{
    \newpage
    \section{\eslmodincmd{msaweight}: Ad hoc sequence weighting}
+
    \begin{quote}
     \emph{... as if someone were to buy several copies of the morning
     newspaper to assure himself that what is said is true.}\\
    \hspace*{1em}\hfill -- Ludwig Wittgenstein \citep[cited in]{Altschul89}
    \end{quote}
+
    \input{esl_msaweight}
    \subsection{Functions in the msaweight module}
    \input{autotext/esl_msaweight_functions}
@@ -292,6 +316,12 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    \chapter{Statistics modules}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   \begin{quote}
+   \emph{In any case, my experience is that while engaged in
+     cryptanalysis I started to believe in statistics!}\\
+   \hspace*{1em}\hfill -- Albrecht Beutelspacher, \emph{Cryptology}
+   \end{quote}
+
    \input{statistics}
 }{}
 
@@ -371,8 +401,8 @@
 \newpage
 \section{\eslmodincmd{mixgev}: Mixture generalized extreme value distributions}
 %\input{esl_mixgev}
-\subsection{Functions in the mixgev module}
-\input{autotext/esl_mixgev_functions}
+%\subsection{Functions in the mixgev module}
+%\input{autotext/esl_mixgev_functions}
 }{}
 
 \ifthenelse{\boolean{completedraft}}{
@@ -449,9 +479,10 @@
 \ifthenelse{\boolean{completedraft}}{
 \newpage
 \section{\eslmodincmd{random}: pseudorandom numbers and sampling}
-\begin{quote}
-\emph{Nec Babylonios temptaris numeros.} \hspace{3em} -- Horace, Ode
-1.11. \\ 
+   \begin{quote}
+   \emph{Nec Babylonios temptaris numeros. \\
+   (Don't attempt the Babylonian numbers.)}\\
+   \hspace{3em} -- Horace, Ode 1.11. \\ 
 \end{quote}     
 \input{esl_random}
 \subsection{Functions in the random (rnd) module}
@@ -540,6 +571,15 @@
 \newpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    \chapter{Developer's guide}
+
+\begin{quote}
+   \emph{This is the great nightmare, when you're doing something long
+     and hard, is you're terrified that it will be perceived as
+     gratuitously hard and difficult, that it is some
+     avant-garde-for-its-own-sake kind of exercise.}\\
+   \hspace*{1em}\hfill -- David Foster Wallace, speaking of \emph{Infinite Jest}
+\end{quote}
+
    \input{codestyle}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 }{}

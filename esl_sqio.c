@@ -1,14 +1,14 @@
 /* Unaligned sequence file i/o.
  * 
  * Contents:
- *    1. An <ESL_SQFILE> object, in text mode.
- *    2. An <ESL_SQFILE> object, in digital mode. [with <alphabet>]
- *    3. Miscellaneous routines.
- *    4. Sequence reading (sequential).
- *    5. Sequence/subsequence fetching, random access [with <ssi>]
- *    6. Writing sequences.
- *    7. Parse sequences.
- *    8. Functions specific to sqio
+ *    1. An <ESL_SQFILE> object, text mode.
+ *    2. An <ESL_SQFILE> object, digital mode. [with <alphabet>]
+ *    3. Sequence reading.
+ *    4. Sequence writing.
+ *    5. Miscellaneous routines.
+ *    6. Sequence/subsequence fetching, random access [with <ssi>]
+ *    7. Sequence database caching.
+ *    8. Internal functions.
  *    9. Benchmark driver.
  *   10. Unit tests.
  *   11. Test driver.
@@ -57,7 +57,7 @@ static int convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa);
 static int  sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_sqfp);
 
 /* Function:  esl_sqfile_Open()
- * Synopsis:  Open a sequence file for reading.
+ * Synopsis:  Open a sequence file <filename> for reading. 
  *
  * Purpose:   Open a sequence file <filename> for reading. 
  *            The opened <ESL_SQFILE> is returned through <ret_sqfp>.
@@ -79,11 +79,13 @@ static int  sqfile_open(const char *filename, int format, const char *env, ESL_S
  *            open <ESL_SQFILE>. Caller deallocates this object with
  *            <esl_sqfile_Close()>. 
  *            
- *            Returns <eslENOTFOUND> if <filename> can't be found or
- *            opened.  Returns <eslEFORMAT> if the file is empty, or
+ *            Returns <eslENOTFOUND> if <filename> can't be opened.
+ *            
+ *            Returns <eslEFORMAT> if the file is empty, or
  *            if autodetection is attempted and the format can't be
- *            determined.  On any error condition, <*ret_sqfp> is
- *            returned NULL.
+ *            determined.  
+ *
+ *            On any error condition, <*ret_sqfp> is returned NULL.
  *             
  * Throws:    <eslEMEM> on allocation failure.
  */
@@ -91,45 +93,6 @@ int
 esl_sqfile_Open(const char *filename, int format, const char *env, ESL_SQFILE **ret_sqfp)
 {
   return sqfile_open(filename, format, env, ret_sqfp);
-}
-
-
-/* Function:  esl_sqfile_Position()
- * Synopsis:  Reposition an open sequence file to an offset.
- *
- * Purpose:   Reposition an open <sqfp> to offset <offset>.
- *            <offset> would usually be the first byte of a
- *            desired sequence record.
- *            
- *            Only normal sequence files can be positioned to a
- *            nonzero offset. If <sqfp> corresponds to a standard
- *            input stream or gzip -dc stream, it may not be
- *            repositioned. If <sqfp> corresponds to a multiple
- *            sequence alignment file, the only legal <offset>
- *            is 0, to rewind the file to the beginning and 
- *            be able to read the entire thing again.
- *            
- *            After <esl_sqfile_Position()> is called on a nonzero
- *            <offset>, and other bookkeeping information is unknown.
- *            If caller knows it, it should set it explicitly.
- *            
- *            See the SSI module for manipulating offsets and indices.
- *
- * Returns:   <eslOK>     on success;
- *            <eslEOF>    if no data can be read from this position.
- *
- * Throws:    <eslESYS> if the fseeko() or fread() call fails.
- *            <eslEMEM> on (re-)allocation failure.
- *            <eslEINVAL> if the <sqfp> is not positionable.
- *            <eslENOTFOUND> if in trying to rewind an alignment file  
- *              by closing and reopening it, the open fails.
- *            On errors, the state of <sqfp> is indeterminate, and
- *            it should not be used again.
- */
-int
-esl_sqfile_Position(ESL_SQFILE *sqfp, off_t offset)
-{
-  return sqfp->position(sqfp, offset);
 }
 
 
@@ -276,6 +239,7 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
 /*------------------- ESL_SQFILE open/close -----------------------*/
 
 
+
 /*****************************************************************
  *# 2. An <ESL_SQFILE> object, in digital mode [with <alphabet>]
  *****************************************************************/
@@ -350,21 +314,17 @@ esl_sqfile_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc)
  * Returns:   <eslOK> on success, and <*ret_type> is set to <eslDNA>,
  *            <eslRNA>, or <eslAMINO>.
  *            
- *            Returns <eslENOALPHABET> and sets <*ret_type> to 
- *            <eslUNKNOWN> if the first sequence (or alignment)
- *            in the file contains no more than ten residues total,
- *            or if its alphabet cannot be guessed (i.e. it contains
- *            IUPAC degeneracy codes, but no amino acid specific
- *            residues).
+ *            Returns <eslENOALPHABET> if the alphabet can't be
+ *            reliably guessed.
  *            
- *            Returns <eslEFORMAT> if a parse error is encountered in
- *            trying to read the sequence file. <sqfp->errbuf> is set
- *            to a useful error message if this occurs,
- *            <sqfp->linenumber> is the line on which the error
- *            occurred, and <*ret_type> is set to <eslUNKNOWN>.
+ *            Returns <eslEFORMAT> if a parse error is encountered.
+ *            Call <esl_sqfile_GetErrorBuf()> to get a ptr to a
+ *            user-directed error message describing the problem,
+ *            including the line number on which it was found.
  *            
- *            Returns <eslENODATA> and sets <*ret_type> to <eslUNKNOWN>
- *            if the file appears to be empty.
+ *            Returns <eslENODATA> if the file appears to be empty.
+ *
+ *            On any error, <*ret_type> is <eslSQFILE_UNKNOWN>.
  *
  * Throws:    <eslEMEM> on allocation error;
  *            <eslEINCONCEIVABLE> on unimaginable internal errors.
@@ -374,6 +334,776 @@ esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
 {
   return sqfp->guess_alphabet(sqfp, ret_type);
 }
+
+#endif /*eslAUGMENT_ALPHABET*/
+/*-------------- end, digital mode ESL_SQFILE -------------------*/
+
+
+
+/*****************************************************************
+ *# 3. Sequence reading (sequential)
+ *****************************************************************/ 
+
+/* Function:  esl_sqio_Read()
+ * Synopsis:  Read the next sequence from a file.
+ *
+ * Purpose:   Reads the next sequence from open sequence file <sqfp> into 
+ *            <sq>. Caller provides an allocated and initialized <sq>, which
+ *            will be internally reallocated if its space is insufficient.
+ *
+ * Returns:   <eslOK> on success; the new sequence is stored in <sq>.
+ * 
+ *            Returns <eslEOF> when there is no sequence left in the
+ *            file (including first attempt to read an empty file).
+ * 
+ *            Returns <eslEFORMAT> if a parse error is encountered.
+ *            Call <esl_sqfile_GetErrorBuf()> to get a ptr to a
+ *            user-directed error message describing the problem,
+ *            including the line number on which it was found.
+ *
+ * Throws:    <eslEMEM> on allocation failure;
+ *            <eslEINCONCEIVABLE> on internal error.
+ */
+int
+esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
+{
+  return sqfp->read(sqfp, sq);
+}
+
+
+/* Function:  esl_sqio_ReadInfo()
+ * Synopsis:  Read sequence info, but not the sequence itself.
+ *
+ * Purpose:   Read the next sequence from open sequence file <sqfp>,
+ *            but don't store the sequence (or secondary structure).
+ *            Upon successful return, <s> holds all the available 
+ *            information about the sequence -- its name, accession,
+ *            description, and overall length <sq->L>. 
+ *            
+ *            This is useful for indexing sequence files, where
+ *            individual sequences might be ginormous, and we'd rather
+ *            avoid reading complete seqs into memory.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_sqio_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
+{
+  return sqfp->read_info(sqfp, sq);
+}
+
+
+/* Function:  esl_sqio_ReadSequence()
+ * Synopsis:  Read sequence, but not the header itself.
+ *
+ * Purpose:   Read the next sequence from open sequence file <sqfp>,
+ *            skipping over the header data.  Upon successful return, 
+ *            <s> holds just the sequece data.  File offsets will be
+ *            filled in.
+ *            
+ *            This is useful fast reads of binary formats where the
+ *            header information and sequences are stored in different
+ *            files.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_sqio_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
+{
+  return sqfp->read_seq(sqfp, sq);
+}
+
+
+/* Function:  esl_sqio_ReadWindow()
+ * Synopsis:  Read next window of sequence.
+ *
+ * Purpose:   Read a next window of <W> residues from open file <sqfp>,
+ *            keeping <C> residues from the previous window as
+ *            context, and keeping previous annotation in the <sq>
+ *            as before. 
+ *            
+ *            If this is the first window of a new sequence record,
+ *            <C> is ignored (there's no previous context yet), and
+ *            the annotation fields of the <sq> (name, accession, and
+ *            description) are initialized by reading the sequence
+ *            record's header. This is the only time the annotation
+ *            fields are initialized.
+ *            
+ *            On return, <sq->dsq[]> contains the window and its
+ *            context; residues <1..sq->C> are the previous context,
+ *            and residues <sq->C+1..sq->n> are the new window.  The
+ *            start and end coordinates of the whole <dsq[1..n]>
+ *            (including context) in the original source sequence are
+ *            <sq->start..sq->end>. (Or, for text mode sequences,
+ *            <sq->seq[0..sq->C-1,sq->C..sq->n-1]>, while <start> and
+ *            <end> coords are still <1..L>.)
+ *
+ *            When a sequence record is completed and no more data
+ *            remain, <eslEOD> is returned, with an ``info'' <sq>
+ *            structure (containing the annotation and the total
+ *            sequence length <L>, but no sequence). (The total
+ *            sequence length <L> is unknown in <sq> until this
+ *            <eslEOD> return.)
+ *            
+ *            The caller may then do one of two things before calling
+ *            <esl_sq_ReadWindow()> again; it can reset the sequence
+ *            with <esl_sq_Reuse()> to continue reading the next
+ *            sequence in the file, or it can set a negative <W> as a
+ *            signal to read windows from the reverse complement
+ *            (Crick) strand. Reverse complement reading only works
+ *            for nucleic acid sequence. 
+ *            
+ *            If you read the reverse complement strand, you must read
+ *            the whole thing, calling <esl_sqio_ReadWindow()> with
+ *            negative <W> windows until <eslEOD> is returned again
+ *            with an empty (info-only) <sq> structure. When that
+ *            <EOD> is reached, the <sqfp> is repositioned at the
+ *            start of the next sequence record; the caller should now
+ *            <Reuse()> the <sq>, and the next <esl_sqio_ReadWindow()>
+ *            call must have a positive <W>, corresponding to starting
+ *            to read the Watson strand of the next sequence.
+ *
+ *            Note that the <ReadWindow()> interface is designed for
+ *            an idiom of sequential reading of complete sequences in
+ *            overlapping windows, possibly on both strands; if you
+ *            want more freedom to move around in the sequence
+ *            grabbing windows in another order, you can use the
+ *            <FetchSubseq()> interface.
+ *
+ *            Reading the reverse complement strand requires file
+ *            repositioning, so it will not work on non-repositionable
+ *            streams like gzipped files or a stdin pipe. Moreover,
+ *            for reverse complement input to be efficient, the
+ *            sequence file should have consistent line lengths, 
+ *            suitable for SSI's fast subsequence indexing.
+ *            
+ * Returns:   <eslOK> on success; <sq> now contains next window of
+ *            sequence, with at least 1 new residue. The number
+ *            of new residues is <sq->W>; <sq->C> residues are 
+ *            saved from the previous window. Caller may now
+ *            process residues <sq->dsq[sq->C+1]..sq->dsq[sq->n]>.
+ *            
+ *            <eslEOD> if no new residues were read for this sequence
+ *            and strand, and <sq> now contains an empty info-only
+ *            structure (annotation and <L> are valid). Before calling
+ *            <esl_sqio_ReadWindow()> again, caller will either want
+ *            to make <W> negative (to start reading the Crick strand
+ *            of the current sequence), or it will want to reset the
+ *            <sq> (with <esl_sq_Reuse()>) to go on the next sequence.
+ *            
+ *            <eslEOF> if we've already returned <eslEOD> before to
+ *            signal the end of the previous seq record, and moreover,
+ *            there's no more sequence records in the file.
+ *            
+ *            <eslEINVAL> if an invalid residue is found in the
+ *            sequence, or if you attempt to take the reverse
+ *            complement of a sequence that can't be reverse
+ *            complemented.
+ *
+ * Throws:    <eslESYNTAX> if you try to read a reverse window before
+ *            you've read forward strand.
+ *            
+ *            <eslECORRUPT> if something goes awry internally in the
+ *            coordinate system.
+ *            
+ *            <eslEMEM> on allocation error.
+ */
+int
+esl_sqio_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
+{
+  return sqfp->read_window(sqfp, C, W, sq);
+}
+
+/* Function:  esl_sqio_ReadBlock()
+ * Synopsis:  Read the next block of sequences from a file.
+ *
+ * Purpose:   Reads a block of sequences from open sequence file <sqfp> into 
+ *            <sqBlock>.
+ *
+ * Returns:   <eslOK> on success; the new sequence is stored in <sqBlock>.
+ * 
+ *            Returns <eslEOF> when there is no sequence left in the
+ *            file (including first attempt to read an empty file).
+ * 
+ *            Returns <eslEFORMAT> if a parse error is encountered.
+ *            Call <esl_sqfile_GetErrorBuf()> to get a ptr to a
+ *            user-directed error message describing the problem,
+ *            including the line number on which it was found.
+ *
+ * Throws:    <eslEMEM> on allocation failure;
+ *            <eslEINCONCEIVABLE> on internal error.
+ */
+int
+esl_sqio_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int long_target)
+{
+  return sqfp->read_block(sqfp, sqBlock, max_residues, max_sequences, long_target);
+}
+
+/* Function:  esl_sqio_Parse()
+ * Synopsis:  Parse a sequence already read into a buffer.
+ *
+ * Purpose:   Parse the buffer <buf> for a sequence <s> of type
+ *            <format>.  The buffer must contain the entire sequence.
+ *            
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM>  on allocation error.
+ *            <eslEFORMAT>  on parsing error.
+ *            <eslEINVAL> on unsupported format.
+ */
+int
+esl_sqio_Parse(char *buf, int size, ESL_SQ *s, int format)
+{
+  int status;
+
+  switch (format) {
+  case eslSQFILE_EMBL:     
+  case eslSQFILE_UNIPROT:  
+  case eslSQFILE_GENBANK:  
+  case eslSQFILE_DDBJ:     
+  case eslSQFILE_FASTA:    
+  case eslSQFILE_DAEMON:   
+    status = esl_sqascii_Parse(buf, size, s, format);
+
+    break;
+  default: 
+    ESL_EXCEPTION(eslEINVAL, "can't parse that format");
+  }
+  return status;
+}
+/*------------------ end, sequential sequence input -------------*/
+
+
+
+/*****************************************************************
+ *# 4. Writing sequences.
+ *****************************************************************/
+
+/* Function:  esl_sqio_Write()
+ * Synopsis:  Write a sequence to a file.
+ *
+ * Purpose:   Write sequence <s> to an open FILE <fp> in 
+ *            file format <format>.  If <update> is true,
+ *            set the offsets for sequence <s>.
+ *            
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ *            <eslEWRITE> on system write error, such as filled disk.
+ */
+int
+esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update)
+{
+  int status;
+
+#ifdef eslAUGMENT_MSA
+  ESL_MSA *msa;
+  if (esl_sqio_IsAlignment(format))
+    {
+      if ((status = convert_sq_to_msa(s, &msa)) != eslOK) return status;
+      status = eslx_msafile_Write(fp, msa, format);
+      esl_msa_Destroy(msa);
+      return status;
+    }
+#endif
+
+  switch (format) {
+  case eslSQFILE_FASTA:   
+  case eslSQFILE_HMMPGMD:
+    status = esl_sqascii_WriteFasta(fp, s, update); 
+    break;
+  default: 
+    ESL_EXCEPTION(eslEINCONCEIVABLE, "can't write that format");
+  }
+  return status;
+}
+
+/* Function:  esl_sqio_Echo()
+ * Synopsis:  Echo a sequence's record onto output stream.
+ *
+ * Purpose:   Given a complete <sq> that we have read by some means
+ *            from an open <sqfp>; echo that sequence's record
+ *            onto the output stream <ofp>. 
+ *
+ *            This allows records to be regurgitated exactly as they
+ *            appear, rather than writing the subset of information
+ *            stored in an <ESL_SQ>. <esl-sfetch> in the miniapps uses
+ *            this, for example.
+ *            
+ *            Because this relies on repositioning the <sqfp>, it
+ *            cannot be called on non-positionable streams (stdin or
+ *            gzipped files). Because it relies on the sequence lying
+ *            in a contiguous sequence of bytes in the file, it cannot
+ *            be called on a sequence in a multiple alignment file.
+ *            Trying to do so throws an <eslEINVAL> exception.
+ *            
+ * Returns:   <eslOK> on success.
+ * 
+ * Throws:    <eslEINVAL>   if <sqfp> isn't a repositionable sequence file.
+ *            <eslECORRUPT> if we run out of data, probably from bad offsets
+ *            <eslEMEM>     on allocation failure.
+ *            <eslESYS>     on system call failures.
+ *            
+ *            
+ */
+int
+esl_sqio_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
+{
+  return sqfp->echo(sqfp, sq, ofp);
+}
+/*----------------- end, writing sequences  ---------------------*/
+
+
+
+/*****************************************************************
+ *# 5. Miscellaneous routines 
+ *****************************************************************/ 
+
+/* Function:  esl_sqfile_GetErrorBuf()
+ * Synopsis:  Return the error buffer
+ *
+ * Purpose:   Returns the pointer to the error buffer.
+ *            Each parser is responsible for formatting
+ *            a zero terminated string describing the
+ *            error condition.
+ *
+ * Returns:   A pointer the error message.
+ */
+const char *
+esl_sqfile_GetErrorBuf(const ESL_SQFILE *sqfp)
+{
+  return sqfp->get_error(sqfp);
+}
+
+
+/* Function:  esl_sqfile_IsRewindable()
+ * Synopsis:  Return <TRUE> if <sqfp> can be rewound.
+ *
+ * Purpose:   Returns <TRUE> if <sqfp> can be rewound (positioned 
+ *            to an offset of zero), in order to read it a second
+ *            time.
+ */
+int
+esl_sqfile_IsRewindable(const ESL_SQFILE *sqfp)
+{
+  return sqfp->is_rewindable(sqfp);
+}
+
+/* Function:  esl_sqio_IsAlignment()
+ * Synopsis:  Return TRUE for alignment file format codes.
+ *
+ * Purpose:   Returns TRUE if <fmt> is an alignment file
+ *            format code; else returns FALSE.
+ *            
+ *            This function only checks the convention
+ *            that <fmt> codes $<$100 are unaligned formats,
+ *            and $\geq$100 are aligned formats. It does
+ *            not check that <fmt> is a recognized format
+ *            code.
+ */
+int
+esl_sqio_IsAlignment(int fmt)
+{
+  return (fmt >= 100 ? TRUE : FALSE);
+}
+
+
+/* Function:  esl_sqio_EncodeFormat()
+ * Synopsis:  Convert a string to an internal format code.
+ *
+ * Purpose:   Given <fmtstring>, return format code.  For example, if
+ *            <fmtstring> is "fasta", returns <eslSQFILE_FASTA>. Returns 
+ *            <eslSQFILE_UNKNOWN> if <fmtstring> doesn't exactly match a 
+ *            known format.
+ *            
+ *            Matching is case insensitive; fasta, FASTA, and FastA
+ *            all return <eslSQFILE_FASTA>, for example.
+ *            
+ *            When augmented by msa, then alignment file formats
+ *            are recognized in addition to unaligned file formats.
+ */
+int
+esl_sqio_EncodeFormat(char *fmtstring)
+{
+  if (strcasecmp(fmtstring, "fasta")     == 0) return eslSQFILE_FASTA;
+  if (strcasecmp(fmtstring, "embl")      == 0) return eslSQFILE_EMBL;
+  if (strcasecmp(fmtstring, "genbank")   == 0) return eslSQFILE_GENBANK;
+  if (strcasecmp(fmtstring, "ddbj")      == 0) return eslSQFILE_DDBJ;
+  if (strcasecmp(fmtstring, "uniprot")   == 0) return eslSQFILE_UNIPROT;
+  if (strcasecmp(fmtstring, "daemon")    == 0) return eslSQFILE_DAEMON;
+  if (strcasecmp(fmtstring, "hmmpgmd")   == 0) return eslSQFILE_HMMPGMD;
+  if (strcasecmp(fmtstring, "fmindex")   == 0) return eslSQFILE_FMINDEX;
+
+
+#ifdef eslAUGMENT_NCBI
+  if (strcasecmp(fmtstring, "ncbi")      == 0) return eslSQFILE_NCBI;
+#endif
+#ifdef eslAUGMENT_MSA
+  return eslx_msafile_EncodeFormat(fmtstring);
+#endif
+  return eslSQFILE_UNKNOWN;
+}
+
+/* Function:  esl_sqio_DecodeFormat()
+ * Synopsis:  Returns descriptive string for file format code.
+ *
+ * Purpose:   Given a format code <fmt>, returns a string label for
+ *            that format. For example, if <fmt> is <eslSQFILE_FASTA>,
+ *            returns "FASTA". 
+ *            
+ *            When augmented by msa, then alignment file format codes
+ *            are recognized in addition to unaligned file format codes.
+ */
+char *
+esl_sqio_DecodeFormat(int fmt)
+{
+#ifdef eslAUGMENT_MSA
+  if (esl_sqio_IsAlignment(fmt)) return eslx_msafile_DecodeFormat(fmt);
+#endif
+
+  switch (fmt) {
+  case eslSQFILE_UNKNOWN:    return "unknown";
+  case eslSQFILE_FASTA:      return "FASTA";
+  case eslSQFILE_EMBL:       return "EMBL";
+  case eslSQFILE_GENBANK:    return "GenBank";
+  case eslSQFILE_DDBJ:       return "DDBJ";
+  case eslSQFILE_UNIPROT:    return "UniProt";
+  case eslSQFILE_DAEMON:     return "daemon";
+  case eslSQFILE_HMMPGMD:    return "hmmpgmd";
+#ifdef eslAUGMENT_NCBI
+  case eslSQFILE_NCBI:       return "NCBI";
+#endif
+  default:                   break;
+  }
+  esl_exception(eslEINVAL, FALSE, __FILE__, __LINE__,  "no such sqio format code %d", fmt);
+  return NULL;
+}
+
+
+/* Function:  esl_sqfile_Position()
+ * Synopsis:  Reposition an open sequence file to an offset.
+ *
+ * Purpose:   Reposition an open <sqfp> to offset <offset>.
+ *            <offset> would usually be the first byte of a
+ *            desired sequence record.
+ *            
+ *            Only normal sequence files can be positioned to a
+ *            nonzero offset. If <sqfp> corresponds to a standard
+ *            input stream or gzip -dc stream, it may not be
+ *            repositioned. If <sqfp> corresponds to a multiple
+ *            sequence alignment file, the only legal <offset>
+ *            is 0, to rewind the file to the beginning and 
+ *            be able to read the entire thing again.
+ *            
+ *            After <esl_sqfile_Position()> is called on a nonzero
+ *            <offset>, and other bookkeeping information is unknown.
+ *            If caller knows it, it should set it explicitly.
+ *            
+ *            See the SSI module for manipulating offsets and indices.
+ *
+ * Returns:   <eslOK>     on success;
+ *            <eslEOF>    if no data can be read from this position.
+ *
+ * Throws:    <eslESYS> if the fseeko() or fread() call fails.
+ *            <eslEMEM> on (re-)allocation failure.
+ *            <eslEINVAL> if the <sqfp> is not positionable.
+ *            <eslENOTFOUND> if in trying to rewind an alignment file  
+ *              by closing and reopening it, the open fails.
+ *            On errors, the state of <sqfp> is indeterminate, and
+ *            it should not be used again.
+ */
+int
+esl_sqfile_Position(ESL_SQFILE *sqfp, off_t offset)
+{
+  return sqfp->position(sqfp, offset);
+}
+
+/* Function:  esl_sqio_Ignore()
+ * Synopsis:  Sets the input map to ignore one or more input characters.
+ *
+ * Purpose:   Set the input map of the open <sqfp> to allow
+ *            the characters in the string <ignoredchars> to appear
+ *            in input sequences. These characters will be ignored.
+ *
+ *            For example, an application might want to ignore '*'
+ *            characters in its sequence input, because some translated
+ *            peptide files use '*' to indicate stop codons.
+ *            
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_sqio_Ignore(ESL_SQFILE *sqfp, const char *ignoredchars)
+{
+  int i;
+  for (i = 0; ignoredchars[i] != '\0'; i++)
+    sqfp->inmap[(int) ignoredchars[i]] = eslDSQ_IGNORED;
+  return eslOK;
+}
+
+/* Function:  esl_sqio_AcceptAs()
+ * Synopsis:  Map a list of additional characters.
+ *
+ * Purpose:   Set the input map of the open <sqfp> to allow the 
+ *            characters in the string <xchars> to appear in 
+ *            input sequences. These characters will all be 
+ *            mapped to the character <readas> (or, for digital
+ *            sequence input, to the digitized representation 
+ *            of the text character <readas> in the <sqfp>'s
+ *            digital alphabet).
+ *            
+ *            For example, an application might want to read
+ *            '*' as 'X' when reading translated peptide files
+ *            that use '*' to indicate a stop codon.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_sqio_AcceptAs(ESL_SQFILE *sqfp, char *xchars, char readas)
+{
+  int i;
+  
+#ifdef eslAUGMENT_ALPHABET
+  if (sqfp->do_digital)
+    {
+      for (i = 0; xchars[i] != '\0'; i++)
+	sqfp->inmap[(int) xchars[i]] = esl_abc_DigitizeSymbol(sqfp->abc, readas);
+    }
+#endif
+  if (! sqfp->do_digital)
+    {
+      for (i = 0; xchars[i] != '\0'; i++)
+	sqfp->inmap[(int) xchars[i]] = readas;
+    }
+  return eslOK;
+
+}
+/*--------------- end, miscellaneous routines -------------------*/
+
+
+
+/*****************************************************************
+ *# 6. Sequence/subsequence fetching, random access [with <ssi>]
+ *****************************************************************/
+
+#ifdef eslAUGMENT_SSI
+/* Function:  esl_sqfile_OpenSSI()
+ * Synopsis:  Opens an SSI index associated with a sequence file.
+ *
+ * Purpose:   Opens an SSI index file associated with the already open
+ *            sequence file <sqfp>. If successful, the necessary
+ *            information about the open SSI file is stored internally
+ *            in <sqfp>.
+ *            
+ *            The SSI index file name is determined in one of two
+ *            ways, depending on whether a non-<NULL> <ssifile_hint>
+ *            is provided.
+ *            
+ *            If <ssifile_hint> is <NULL>, the default for
+ *            constructing the SSI filename from the sequence
+ *            filename, by using exactly the same path (if any) for
+ *            the sequence filename, and appending the suffix <.ssi>.
+ *            For example, the SSI index for <foo> is <foo.ssi>, for
+ *            <./foo.fa> is <./foo.fa.ssi>, and for
+ *            </my/path/to/foo.1.fa> is </my/path/to/foo.1.fa.ssi>.
+ *            
+ *            If <ssifile_hint> is <non-NULL>, this exact fully
+ *            qualified path is used as the SSI file name.
+ *
+ * Returns:   <eslOK> on success, and <sqfp->ssi> is now internally
+ *            valid.
+ *            
+ *            <eslENOTFOUND> if no SSI index file is found;
+ *            <eslEFORMAT> if it's found, but appears to be in incorrect format;
+ *            <eslERANGE> if the SSI file uses 64-bit offsets but we're on
+ *            a system that doesn't support 64-bit file offsets.
+ *
+ * Throws:    <eslEINVAL> if the open sequence file <sqfp> doesn't
+ *            correspond to a normal sequence flatfile -- we can't
+ *            random access in .gz compressed files, standard input,
+ *            or multiple alignment files that we're reading
+ *            sequentially.
+ *            
+ *            Throws <eslEMEM> on allocation error.
+ */
+int
+esl_sqfile_OpenSSI(ESL_SQFILE *sqfp, const char *ssifile_hint)
+{
+  return sqfp->open_ssi(sqfp, ssifile_hint);
+}
+
+
+
+/* Function:  esl_sqfile_PositionByKey()
+ * Synopsis:  Use SSI to reposition seq file to a particular sequence.
+ *
+ * Purpose:   Reposition <sqfp> so that the next sequence we read will
+ *            be the one named (or accessioned) <key>.
+ *            
+ *            <sqfp->linenumber> is reset to be relative to the start
+ *            of the record named <key>, rather than the start of the
+ *            file.
+ *
+ * Returns:   <eslOK> on success, and the file <sqfp> is repositioned
+ *            so that the next <esl_sqio_Read()> call will read the
+ *            sequence named <key>.
+ *            
+ *            Returns <eslENOTFOUND> if <key> isn't found in the
+ *            index; in this case, the position of <sqfp> in the file
+ *            is unchanged.
+ *            
+ *            Returns <eslEFORMAT> if something goes wrong trying to
+ *            read the index, almost certainly indicating a format
+ *            problem in the SSI file.
+ *            
+ *            Returns <eslEOF> if, after repositioning, we fail to
+ *            load the next line or buffer from the sequence file;
+ *            this probably also indicates a format problem in the SSI
+ *            file.
+ * 
+ * Throws:    <eslEMEM>   on allocation error;
+ *            <eslEINVAL> if there's no open SSI index in <sqfp>;
+ *            <eslESYS>   if the <fseek()> fails.
+ *            
+ *            In all these cases, the state of <sqfp> becomes
+ *            undefined, and the caller should not use it again.
+ */
+int
+esl_sqfile_PositionByKey(ESL_SQFILE *sqfp, const char *key)
+{
+  return sqfp->pos_by_key(sqfp, key);
+}
+
+
+/* Function:  esl_sqfile_PositionByNumber()
+ * Synopsis:  Use SSI to reposition by sequence number
+ *
+ * Purpose:   Reposition <sqfp> so that the next sequence we 
+ *            read will be the <which>'th sequence, where <which>
+ *            is <0..sqfp->ssi->nprimary-1>. 
+ *            
+ *            <sqfp->linenumber> is reset to be relative to the start
+ *            of the record named <key>, rather than the start of the
+ *            file.
+ *
+ * Returns:   <eslOK> on success, and the file <sqfp> is repositioned.
+ *            
+ *            Returns <eslENOTFOUND> if there is no sequence number
+ *            <which> in the index; in this case, the position of
+ *            <sqfp> in the file is unchanged.
+ *            
+ *            Returns <eslEFORMAT> if something goes wrong trying to
+ *            read the index, almost certainly indicating a format
+ *            problem in the SSI file.
+ *            
+ *            Returns <eslEOF> if, after repositioning, we fail to
+ *            load the next line or buffer from the sequence file;
+ *            this probably also indicates a format problem in the SSI
+ *            file.
+ * 
+ * Throws:    <eslEMEM>   on allocation error;
+ *            <eslEINVAL> if there's no open SSI index in <sqfp>;
+ *            <eslESYS>   if the <fseek()> fails.
+ *            
+ *            In all these cases, the state of <sqfp> becomes
+ *            undefined, and the caller should not use it again.
+ */
+int
+esl_sqfile_PositionByNumber(ESL_SQFILE *sqfp, int which)
+{
+  return sqfp->pos_by_number(sqfp, which);
+}
+
+
+/* Function:  esl_sqio_Fetch()
+ * Synopsis:  Fetch a complete sequence, using SSI indexing.
+ *
+ * Purpose:   Fetch a sequence named (or accessioned) <key> from
+ *            the repositionable, open sequence file <sqfp>.
+ *            The open <sqfp> must have an open SSI index.
+ *            The sequence is returned in <sq>.
+ *
+ * Returns:   <eslOK> on soccess.
+ *            <eslEINVAL> if no SSI index is present, or if <sqfp> can't
+ *            be repositioned.
+ *            <eslENOTFOUND> if <source> isn't found in the file.
+ *            <eslEFORMAT> if either the index file or the sequence file
+ *            can't be parsed, because of unexpected format issues.
+ *       
+ * Throws:    <eslEMEM> on allocation error.
+ */
+int
+esl_sqio_Fetch(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
+{
+  return sqfp->fetch(sqfp, key, sq);
+}
+  
+/* Function:  esl_sqio_FetchInfo()
+ * Synopsis:  Fetch a sequence's info, using SSI indexing.
+ *
+ * Purpose:   Fetch a sequence named (or accessioned) <key> from
+ *            the repositionable, open sequence file <sqfp>, reading
+ *            all info except the sequence (and secondary structure).
+ *            The open <sqfp> must have an open SSI index.
+ *            The sequence info is returned in <sq>.
+ *
+ * Returns:   <eslOK> on soccess.
+ *            <eslEINVAL> if no SSI index is present, or if <sqfp> can't
+ *            be repositioned.
+ *            <eslENOTFOUND> if <source> isn't found in the file.
+ *            <eslEFORMAT> if either the index file or the sequence file
+ *            can't be parsed, because of unexpected format issues.
+ *       
+ * Throws:    <eslEMEM> on allocation error.
+ */
+int
+esl_sqio_FetchInfo(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
+{
+  return sqfp->fetch_info(sqfp, key, sq);
+}
+  
+
+/* Function:  esl_sqio_FetchSubseq()
+ * Synopsis:  Fetch a subsequence, using SSI indexing.
+ *
+ * Purpose:   Fetch subsequence <start..end> from a sequence named (or
+ *            accessioned) <source>, in the repositionable, open sequence file <sqfp>.
+ *            The open <sqfp> must have an SSI index. Put the
+ *            subsequence in <sq>. 
+ *            
+ *            As a special case, if <end> is 0, the subsequence is
+ *            fetched all the way to the end, so you don't need to
+ *            look up the sequence length <L> to fetch a suffix.
+ *            
+ *            The caller may want to rename/reaccession/reannotate the
+ *            subsequence.  Upon successful return, <sq->name> is set
+ *            to <source/start-end>, and <sq->source> is set to
+ *            <source> The accession and description <sq->acc> and
+ *            <sq->desc> are set to the accession and description of
+ *            the source sequence.
+ *            
+ * Returns:   <eslOK> on success.
+ *            <eslEINVAL> if no SSI index is present, or if <sqfp> can't
+ *            be repositioned.
+ *            <eslENOTFOUND> if <source> isn't found in the file.
+ *            <eslEFORMAT> if either the index file or the sequence file
+ *            can't be parsed, because of unexpected format issues.
+ *            <eslERANGE> if the <start..end> coords don't lie entirely
+ *            within the <source> sequence.
+ *
+ * Throws:    <eslEMEM> on allocation errors.
+ */
+int
+esl_sqio_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t start, int64_t end, ESL_SQ *sq)
+{
+  return sqfp->fetch_subseq(sqfp, source, start, end, sq);
+}  
+#endif /*eslAUGMENT_SSI*/
+/*------------- end, random sequence access with SSI -------------------*/
+
+
+/*****************************************************************
+ *# 7. Sequence database caching.
+ *****************************************************************/ 
 
 /* Function:  esl_sqfile_Cache()
  * Synopsis:  Read a database into memory.
@@ -649,734 +1379,9 @@ esl_sqfile_Free(ESL_SQCACHE *sqcache)
 
   free(sqcache);
 }
+/*---------------- end, sequence database caching ---------------*/
 
 
-#endif /*eslAUGMENT_ALPHABET*/
-/*-------------- end, digital mode ESL_SQFILE -------------------*/
-
-
-
-/*****************************************************************
- *# 3. Miscellaneous routines 
- *****************************************************************/ 
-
-/* Function:  esl_sqfile_IsRewindable()
- * Synopsis:  Return <TRUE> if <sqfp> can be rewound.
- *
- * Purpose:   Returns <TRUE> if <sqfp> can be rewound (positioned 
- *            to an offset of zero), in order to read it a second
- *            time.
- */
-int
-esl_sqfile_IsRewindable(const ESL_SQFILE *sqfp)
-{
-  return sqfp->is_rewindable(sqfp);
-}
-
-
-/* Function:  esl_sqfile_GetErrorBuf()
- * Synopsis:  Return the error buffer
- *
- * Purpose:   Returns the pointer to the error buffer.
- *            Each parser is responsible for formatting
- *            a zero terminated string describing the
- *            error condition.
- *
- * Returns:   A pointer the error message.
- */
-const char *
-esl_sqfile_GetErrorBuf(const ESL_SQFILE *sqfp)
-{
-  return sqfp->get_error(sqfp);
-}
-
-
-/* Function:  esl_sqio_Ignore()
- * Synopsis:  Sets the input map to ignore one or more input characters.
- *
- * Purpose:   Set the input map of the open <sqfp> to allow
- *            the characters in the string <ignoredchars> to appear
- *            in input sequences. These characters will be ignored.
- *
- *            For example, an application might want to ignore '*'
- *            characters in its sequence input, because some translated
- *            peptide files use '*' to indicate stop codons.
- *            
- * Returns:   <eslOK> on success.
- */
-int
-esl_sqio_Ignore(ESL_SQFILE *sqfp, const char *ignoredchars)
-{
-  int i;
-  for (i = 0; ignoredchars[i] != '\0'; i++)
-    sqfp->inmap[(int) ignoredchars[i]] = eslDSQ_IGNORED;
-  return eslOK;
-}
-
-/* Function:  esl_sqio_AcceptAs()
- * Synopsis:  Map a list of additional characters.
- *
- * Purpose:   Set the input map of the open <sqfp> to allow the 
- *            characters in the string <xchars> to appear in 
- *            input sequences. These characters will all be 
- *            mapped to the character <readas> (or, for digital
- *            sequence input, to the digitized representation 
- *            of the text character <readas> in the <sqfp>'s
- *            digital alphabet).
- *            
- *            For example, an application might want to read
- *            '*' as 'X' when reading translated peptide files
- *            that use '*' to indicate a stop codon.
- *
- * Returns:   <eslOK> on success.
- */
-int
-esl_sqio_AcceptAs(ESL_SQFILE *sqfp, char *xchars, char readas)
-{
-  int i;
-  
-#ifdef eslAUGMENT_ALPHABET
-  if (sqfp->do_digital)
-    {
-      for (i = 0; xchars[i] != '\0'; i++)
-	sqfp->inmap[(int) xchars[i]] = esl_abc_DigitizeSymbol(sqfp->abc, readas);
-    }
-#endif
-  if (! sqfp->do_digital)
-    {
-      for (i = 0; xchars[i] != '\0'; i++)
-	sqfp->inmap[(int) xchars[i]] = readas;
-    }
-  return eslOK;
-
-}
-
-
-/* Function:  esl_sqio_EncodeFormat()
- * Synopsis:  Convert a string to an internal format code.
- *
- * Purpose:   Given <fmtstring>, return format code.  For example, if
- *            <fmtstring> is "fasta", returns <eslSQFILE_FASTA>. Returns 
- *            <eslSQFILE_UNKNOWN> if <fmtstring> doesn't exactly match a 
- *            known format.
- *            
- *            Matching is case insensitive; fasta, FASTA, and FastA
- *            all return <eslSQFILE_FASTA>, for example.
- *            
- *            When augmented by msa, then alignment file formats
- *            are recognized in addition to unaligned file formats.
- */
-int
-esl_sqio_EncodeFormat(char *fmtstring)
-{
-  if (strcasecmp(fmtstring, "fasta")     == 0) return eslSQFILE_FASTA;
-  if (strcasecmp(fmtstring, "embl")      == 0) return eslSQFILE_EMBL;
-  if (strcasecmp(fmtstring, "genbank")   == 0) return eslSQFILE_GENBANK;
-  if (strcasecmp(fmtstring, "ddbj")      == 0) return eslSQFILE_DDBJ;
-  if (strcasecmp(fmtstring, "uniprot")   == 0) return eslSQFILE_UNIPROT;
-  if (strcasecmp(fmtstring, "daemon")    == 0) return eslSQFILE_DAEMON;
-  if (strcasecmp(fmtstring, "hmmpgmd")   == 0) return eslSQFILE_HMMPGMD;
-  if (strcasecmp(fmtstring, "fmindex")   == 0) return eslSQFILE_FMINDEX;
-
-
-#ifdef eslAUGMENT_NCBI
-  if (strcasecmp(fmtstring, "ncbi")      == 0) return eslSQFILE_NCBI;
-#endif
-#ifdef eslAUGMENT_MSA
-  return eslx_msafile_EncodeFormat(fmtstring);
-#endif
-  return eslSQFILE_UNKNOWN;
-}
-
-/* Function:  esl_sqio_DecodeFormat()
- * Synopsis:  Returns descriptive string for file format code.
- *
- * Purpose:   Given a format code <fmt>, returns a string label for
- *            that format. For example, if <fmt> is <eslSQFILE_FASTA>,
- *            returns "FASTA". 
- *            
- *            When augmented by msa, then alignment file format codes
- *            are recognized in addition to unaligned file format codes.
- */
-char *
-esl_sqio_DecodeFormat(int fmt)
-{
-#ifdef eslAUGMENT_MSA
-  if (esl_sqio_IsAlignment(fmt)) return eslx_msafile_DecodeFormat(fmt);
-#endif
-
-  switch (fmt) {
-  case eslSQFILE_UNKNOWN:    return "unknown";
-  case eslSQFILE_FASTA:      return "FASTA";
-  case eslSQFILE_EMBL:       return "EMBL";
-  case eslSQFILE_GENBANK:    return "GenBank";
-  case eslSQFILE_DDBJ:       return "DDBJ";
-  case eslSQFILE_UNIPROT:    return "UniProt";
-  case eslSQFILE_DAEMON:     return "daemon";
-  case eslSQFILE_HMMPGMD:    return "hmmpgmd";
-#ifdef eslAUGMENT_NCBI
-  case eslSQFILE_NCBI:       return "NCBI";
-#endif
-  default:                   break;
-  }
-  esl_exception(eslEINVAL, FALSE, __FILE__, __LINE__,  "no such sqio format code %d", fmt);
-  return NULL;
-}
-
-/* Function:  esl_sqio_IsAlignment()
- * Synopsis:  Return TRUE for alignment file format codes.
- *
- * Purpose:   Returns TRUE if <fmt> is an alignment file
- *            format code; else returns FALSE.
- *            
- *            This function only checks the convention
- *            that <fmt> codes $<$100 are unaligned formats,
- *            and $\geq$100 are aligned formats. It does
- *            not check that <fmt> is a recognized format
- *            code.
- */
-int
-esl_sqio_IsAlignment(int fmt)
-{
-  return (fmt >= 100 ? TRUE : FALSE);
-}
-
-
-
-/*****************************************************************
- *# 4. Sequence reading (sequential)
- *****************************************************************/ 
-
-/* Function:  esl_sqio_Read()
- * Synopsis:  Read the next sequence from a file.
- *
- * Purpose:   Reads the next sequence from open sequence file <sqfp> into 
- *            <sq>. Caller provides an allocated and initialized <s>, which
- *            will be internally reallocated if its space is insufficient.
- *
- * Returns:   <eslOK> on success; the new sequence is stored in <s>.
- * 
- *            Returns <eslEOF> when there is no sequence left in the
- *            file (including first attempt to read an empty file).
- * 
- *            Returns <eslEFORMAT> if there's a problem with the format,
- *            such as an illegal character; the line number that the parse
- *            error occurs on is in <sqfp->linenumber>, and an informative
- *            error message is placed in <sqfp->errbuf>. 
- *
- * Throws:    <eslEMEM> on allocation failure;
- *            <eslEINCONCEIVABLE> on internal error.
- */
-int
-esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
-{
-  return sqfp->read(sqfp, sq);
-}
-
-
-/* Function:  esl_sqio_ReadInfo()
- * Synopsis:  Read sequence info, but not the sequence itself.
- *
- * Purpose:   Read the next sequence from open sequence file <sqfp>,
- *            but don't store the sequence (or secondary structure).
- *            Upon successful return, <s> holds all the available 
- *            information about the sequence -- its name, accession,
- *            description, and overall length <sq->L>. 
- *            
- *            This is useful for indexing sequence files, where
- *            individual sequences might be ginormous, and we'd rather
- *            avoid reading complete seqs into memory.
- *
- * Returns:   <eslOK> on success.
- */
-int
-esl_sqio_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
-{
-  return sqfp->read_info(sqfp, sq);
-}
-
-
-/* Function:  esl_sqio_ReadSequence()
- * Synopsis:  Read sequence, but not the header itself.
- *
- * Purpose:   Read the next sequence from open sequence file <sqfp>,
- *            skipping over the header data.  Upon successful return, 
- *            <s> holds just the sequece data.  File offsets will be
- *            filled in.
- *            
- *            This is useful fast reads of binary formats where the
- *            header information and sequences are stored in different
- *            files.
- *
- * Returns:   <eslOK> on success.
- */
-int
-esl_sqio_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
-{
-  return sqfp->read_seq(sqfp, sq);
-}
-
-
-/* Function:  esl_sqio_ReadWindow()
- * Synopsis:  Read next window of sequence.
- *
- * Purpose:   Read a next window of <W> residues from open file <sqfp>,
- *            keeping <C> residues from the previous window as
- *            context, and keeping previous annotation in the <sq>
- *            as before. 
- *            
- *            If this is the first window of a new sequence record,
- *            <C> is ignored (there's no previous context yet), and
- *            the annotation fields of the <sq> (name, accession, and
- *            description) are initialized by reading the sequence
- *            record's header. This is the only time the annotation
- *            fields are initialized.
- *            
- *            On return, <sq->dsq[]> contains the window and its
- *            context; residues <1..sq->C> are the previous context,
- *            and residues <sq->C+1..sq->n> are the new window.  The
- *            start and end coordinates of the whole <dsq[1..n]>
- *            (including context) in the original source sequence are
- *            <sq->start..sq->end>. (Or, for text mode sequences,
- *            <sq->seq[0..sq->C-1,sq->C..sq->n-1]>, while <start> and
- *            <end> coords are still <1..L>.)
- *
- *            When a sequence record is completed and no more data
- *            remain, <eslEOD> is returned, with an ``info'' <sq>
- *            structure (containing the annotation and the total
- *            sequence length <L>, but no sequence). (The total
- *            sequence length <L> is unknown in <sq> until this
- *            <eslEOD> return.)
- *            
- *            The caller may then do one of two things before calling
- *            <esl_sq_ReadWindow()> again; it can reset the sequence
- *            with <esl_sq_Reuse()> to continue reading the next
- *            sequence in the file, or it can set a negative <W> as a
- *            signal to read windows from the reverse complement
- *            (Crick) strand. Reverse complement reading only works
- *            for nucleic acid sequence. 
- *            
- *            If you read the reverse complement strand, you must read
- *            the whole thing, calling <esl_sqio_ReadWindow()> with
- *            negative <W> windows until <eslEOD> is returned again
- *            with an empty (info-only) <sq> structure. When that
- *            <EOD> is reached, the <sqfp> is repositioned at the
- *            start of the next sequence record; the caller should now
- *            <Reuse()> the <sq>, and the next <esl_sqio_ReadWindow()>
- *            call must have a positive <W>, corresponding to starting
- *            to read the Watson strand of the next sequence.
- *
- *            Note that the <ReadWindow()> interface is designed for
- *            an idiom of sequential reading of complete sequences in
- *            overlapping windows, possibly on both strands; if you
- *            want more freedom to move around in the sequence
- *            grabbing windows in another order, you can use the
- *            <FetchSubseq()> interface.
- *
- *            Reading the reverse complement strand requires file
- *            repositioning, so it will not work on non-repositionable
- *            streams like gzipped files or a stdin pipe. Moreover,
- *            for reverse complement input to be efficient, the
- *            sequence file should have consistent line lengths, 
- *            suitable for SSI's fast subsequence indexing.
- *            
- * Returns:   <eslOK> on success; <sq> now contains next window of
- *            sequence, with at least 1 new residue. The number
- *            of new residues is <sq->W>; <sq->C> residues are 
- *            saved from the previous window. Caller may now
- *            process residues <sq->dsq[sq->C+1]..sq->dsq[sq->n]>.
- *            
- *            <eslEOD> if no new residues were read for this sequence
- *            and strand, and <sq> now contains an empty info-only
- *            structure (annotation and <L> are valid). Before calling
- *            <esl_sqio_ReadWindow()> again, caller will either want
- *            to make <W> negative (to start reading the Crick strand
- *            of the current sequence), or it will want to reset the
- *            <sq> (with <esl_sq_Reuse()>) to go on the next sequence.
- *            
- *            <eslEOF> if we've already returned <eslEOD> before to
- *            signal the end of the previous seq record, and moreover,
- *            there's no more sequence records in the file.
- *            
- *            <eslEINVAL> if an invalid residue is found in the
- *            sequence, or if you attempt to take the reverse
- *            complement of a sequence that can't be reverse
- *            complemented.
- *
- * Throws:    <eslESYNTAX> if you try to read a reverse window before
- *            you've read forward strand.
- *            
- *            <eslECORRUPT> if something goes awry internally in the
- *            coordinate system.
- *            
- *            <eslEMEM> on allocation error.
- */
-int
-esl_sqio_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
-{
-  return sqfp->read_window(sqfp, C, W, sq);
-}
-
-/* Function:  esl_sqio_ReadBlock()
- * Synopsis:  Read the next block of sequences from a file.
- *
- * Purpose:   Reads a block of sequences from open sequence file <sqfp> into 
- *            <sqBlock>.
- *
- * Returns:   <eslOK> on success; the new sequence is stored in <sqBlock>.
- * 
- *            Returns <eslEOF> when there is no sequence left in the
- *            file (including first attempt to read an empty file).
- * 
- *            Returns <eslEFORMAT> if there's a problem with the format,
- *            such as an illegal character; the line number that the parse
- *            error occurs on is in <sqfp->linenumber>, and an informative
- *            error message is placed in <sqfp->errbuf>. 
- *
- * Throws:    <eslEMEM> on allocation failure;
- *            <eslEINCONCEIVABLE> on internal error.
- */
-int
-esl_sqio_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int long_target)
-{
-  return sqfp->read_block(sqfp, sqBlock, max_residues, max_sequences, long_target);
-}
-
-/* Function:  esl_sqio_Echo()
- * Synopsis:  Echo a sequence's record onto output stream.
- *
- * Purpose:   Given a complete <sq> that we have read by some means
- *            from an open <sqfp>; echo that sequence's record
- *            onto the output stream <ofp>. 
- *
- *            This allows records to be regurgitated exactly as they
- *            appear, rather than writing the subset of information
- *            stored in an <ESL_SQ>. <esl-sfetch> in the miniapps uses
- *            this, for example.
- *            
- *            Because this relies on repositioning the <sqfp>, it
- *            cannot be called on non-positionable streams (stdin or
- *            gzipped files). Because it relies on the sequence lying
- *            in a contiguous sequence of bytes in the file, it cannot
- *            be called on a sequence in a multiple alignment file.
- *            Trying to do so throws an <eslEINVAL> exception.
- *            
- * Returns:   <eslOK> on success.
- * 
- * Throws:    <eslEINVAL>   if <sqfp> isn't a repositionable sequence file.
- *            <eslECORRUPT> if we run out of data, probably from bad offsets
- *            <eslEMEM>     on allocation failure.
- *            <eslESYS>     on system call failures.
- *            
- *            
- */
-int
-esl_sqio_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
-{
-  return sqfp->echo(sqfp, sq, ofp);
-}
-/*------------------ end, sequential sequence input -------------*/
-
-
-/*****************************************************************
- *# 5. Sequence/subsequence fetching, random access [with <ssi>]
- *****************************************************************/
-#ifdef eslAUGMENT_SSI
-
-/* Function:  esl_sqfile_OpenSSI()
- * Synopsis:  Opens an SSI index associated with a sequence file.
- *
- * Purpose:   Opens an SSI index file associated with the already open
- *            sequence file <sqfp>. If successful, the necessary
- *            information about the open SSI file is stored internally
- *            in <sqfp>.
- *            
- *            The SSI index file name is determined in one of two
- *            ways, depending on whether a non-<NULL> <ssifile_hint>
- *            is provided.
- *            
- *            If <ssifile_hint> is <NULL>, the default for
- *            constructing the SSI filename from the sequence
- *            filename, by using exactly the same path (if any) for
- *            the sequence filename, and appending the suffix <.ssi>.
- *            For example, the SSI index for <foo> is <foo.ssi>, for
- *            <./foo.fa> is <./foo.fa.ssi>, and for
- *            </my/path/to/foo.1.fa> is </my/path/to/foo.1.fa.ssi>.
- *            
- *            If <ssifile_hint> is <non-NULL>, this exact fully
- *            qualified path is used as the SSI file name.
- *
- * Returns:   <eslOK> on success, and <sqfp->ssi> is now internally
- *            valid.
- *            
- *            <eslENOTFOUND> if no SSI index file is found;
- *            <eslEFORMAT> if it's found, but appears to be in incorrect format;
- *            <eslERANGE> if the SSI file uses 64-bit offsets but we're on
- *            a system that doesn't support 64-bit file offsets.
- *
- * Throws:    <eslEINVAL> if the open sequence file <sqfp> doesn't
- *            correspond to a normal sequence flatfile -- we can't
- *            random access in .gz compressed files, standard input,
- *            or multiple alignment files that we're reading
- *            sequentially.
- *            
- *            Throws <eslEMEM> on allocation error.
- */
-int
-esl_sqfile_OpenSSI(ESL_SQFILE *sqfp, const char *ssifile_hint)
-{
-  return sqfp->open_ssi(sqfp, ssifile_hint);
-}
-
-
-
-/* Function:  esl_sqfile_PositionByKey()
- * Synopsis:  Use SSI to reposition seq file to a particular sequence.
- *
- * Purpose:   Reposition <sqfp> so that the next sequence we read will
- *            be the one named (or accessioned) <key>.
- *            
- *            <sqfp->linenumber> is reset to be relative to the start
- *            of the record named <key>, rather than the start of the
- *            file.
- *
- * Returns:   <eslOK> on success, and the file <sqfp> is repositioned
- *            so that the next <esl_sqio_Read()> call will read the
- *            sequence named <key>.
- *            
- *            Returns <eslENOTFOUND> if <key> isn't found in the
- *            index; in this case, the position of <sqfp> in the file
- *            is unchanged.
- *            
- *            Returns <eslEFORMAT> if something goes wrong trying to
- *            read the index, almost certainly indicating a format
- *            problem in the SSI file.
- *            
- *            Returns <eslEOF> if, after repositioning, we fail to
- *            load the next line or buffer from the sequence file;
- *            this probably also indicates a format problem in the SSI
- *            file.
- * 
- * Throws:    <eslEMEM>   on allocation error;
- *            <eslEINVAL> if there's no open SSI index in <sqfp>;
- *            <eslESYS>   if the <fseek()> fails.
- *            
- *            In all these cases, the state of <sqfp> becomes
- *            undefined, and the caller should not use it again.
- */
-int
-esl_sqfile_PositionByKey(ESL_SQFILE *sqfp, const char *key)
-{
-  return sqfp->pos_by_key(sqfp, key);
-}
-
-
-/* Function:  esl_sqfile_PositionByNumber()
- * Synopsis:  Use SSI to reposition by sequence number
- *
- * Purpose:   Reposition <sqfp> so that the next sequence we 
- *            read will be the <which>'th sequence, where <which>
- *            is <0..sqfp->ssi->nprimary-1>. 
- *            
- *            <sqfp->linenumber> is reset to be relative to the start
- *            of the record named <key>, rather than the start of the
- *            file.
- *
- * Returns:   <eslOK> on success, and the file <sqfp> is repositioned.
- *            
- *            Returns <eslENOTFOUND> if there is no sequence number
- *            <which> in the index; in this case, the position of
- *            <sqfp> in the file is unchanged.
- *            
- *            Returns <eslEFORMAT> if something goes wrong trying to
- *            read the index, almost certainly indicating a format
- *            problem in the SSI file.
- *            
- *            Returns <eslEOF> if, after repositioning, we fail to
- *            load the next line or buffer from the sequence file;
- *            this probably also indicates a format problem in the SSI
- *            file.
- * 
- * Throws:    <eslEMEM>   on allocation error;
- *            <eslEINVAL> if there's no open SSI index in <sqfp>;
- *            <eslESYS>   if the <fseek()> fails.
- *            
- *            In all these cases, the state of <sqfp> becomes
- *            undefined, and the caller should not use it again.
- */
-int
-esl_sqfile_PositionByNumber(ESL_SQFILE *sqfp, int which)
-{
-  return sqfp->pos_by_number(sqfp, which);
-}
-
-
-/* Function:  esl_sqio_Fetch()
- * Synopsis:  Fetch a complete sequence, using SSI indexing.
- *
- * Purpose:   Fetch a sequence named (or accessioned) <key> from
- *            the repositionable, open sequence file <sqfp>.
- *            The open <sqfp> must have an open SSI index.
- *            The sequence is returned in <sq>.
- *
- * Returns:   <eslOK> on soccess.
- *            <eslEINVAL> if no SSI index is present, or if <sqfp> can't
- *            be repositioned.
- *            <eslENOTFOUND> if <source> isn't found in the file.
- *            <eslEFORMAT> if either the index file or the sequence file
- *            can't be parsed, because of unexpected format issues.
- *       
- * Throws:    <eslEMEM> on allocation error.
- */
-int
-esl_sqio_Fetch(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
-{
-  return sqfp->fetch(sqfp, key, sq);
-}
-  
-/* Function:  esl_sqio_FetchInfo()
- * Synopsis:  Fetch a sequence's info, using SSI indexing.
- *
- * Purpose:   Fetch a sequence named (or accessioned) <key> from
- *            the repositionable, open sequence file <sqfp>, reading
- *            all info except the sequence (and secondary structure).
- *            The open <sqfp> must have an open SSI index.
- *            The sequence info is returned in <sq>.
- *
- * Returns:   <eslOK> on soccess.
- *            <eslEINVAL> if no SSI index is present, or if <sqfp> can't
- *            be repositioned.
- *            <eslENOTFOUND> if <source> isn't found in the file.
- *            <eslEFORMAT> if either the index file or the sequence file
- *            can't be parsed, because of unexpected format issues.
- *       
- * Throws:    <eslEMEM> on allocation error.
- */
-int
-esl_sqio_FetchInfo(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
-{
-  return sqfp->fetch_info(sqfp, key, sq);
-}
-  
-
-/* Function:  esl_sqio_FetchSubseq()
- * Synopsis:  Fetch a subsequence, using SSI indexing.
- *
- * Purpose:   Fetch subsequence <start..end> from a sequence named (or
- *            accessioned) <source>, in the repositionable, open sequence file <sqfp>.
- *            The open <sqfp> must have an SSI index. Put the
- *            subsequence in <sq>. 
- *            
- *            As a special case, if <end> is 0, the subsequence is
- *            fetched all the way to the end, so you don't need to
- *            look up the sequence length <L> to fetch a suffix.
- *            
- *            The caller may want to rename/reaccession/reannotate the
- *            subsequence.  Upon successful return, <sq->name> is set
- *            to <source/start-end>, and <sq->source> is set to
- *            <source> The accession and description <sq->acc> and
- *            <sq->desc> are set to the accession and description of
- *            the source sequence.
- *            
- * Returns:   <eslOK> on success.
- *            <eslEINVAL> if no SSI index is present, or if <sqfp> can't
- *            be repositioned.
- *            <eslENOTFOUND> if <source> isn't found in the file.
- *            <eslEFORMAT> if either the index file or the sequence file
- *            can't be parsed, because of unexpected format issues.
- *            <eslERANGE> if the <start..end> coords don't lie entirely
- *            within the <source> sequence.
- *
- * Throws:    <eslEMEM> on allocation errors.
- */
-int
-esl_sqio_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t start, int64_t end, ESL_SQ *sq)
-{
-  return sqfp->fetch_subseq(sqfp, source, start, end, sq);
-}  
-#endif /*eslAUGMENT_SSI*/
-/*------------- end, random sequence access with SSI -------------------*/
-
-
-
-/*****************************************************************
- *# 6. Writing sequences.
- *****************************************************************/
-
-/* Function:  esl_sqio_Write()
- * Synopsis:  Write a sequence to a file.
- *
- * Purpose:   Write sequence <s> to an open FILE <fp> in 
- *            file format <format>.  If <update> is true,
- *            set the offsets for sequence <s>.
- *            
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslEMEM> on allocation error.
- *            <eslEWRITE> on system write error, such as filled disk.
- */
-int
-esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update)
-{
-  int status;
-
-#ifdef eslAUGMENT_MSA
-  ESL_MSA *msa;
-  if (esl_sqio_IsAlignment(format))
-    {
-      if ((status = convert_sq_to_msa(s, &msa)) != eslOK) return status;
-      status = eslx_msafile_Write(fp, msa, format);
-      esl_msa_Destroy(msa);
-      return status;
-    }
-#endif
-
-  switch (format) {
-  case eslSQFILE_FASTA:   
-  case eslSQFILE_HMMPGMD:
-    status = esl_sqascii_WriteFasta(fp, s, update); 
-    break;
-  default: 
-    ESL_EXCEPTION(eslEINCONCEIVABLE, "can't write that format");
-  }
-  return status;
-}
-/*-------------------- writing sequences  -----------------------*/
-
-
-
-/* Function:  esl_sqio_Parse()
- * Synopsis:  Parse a sequence already read into a buffer.
- *
- * Purpose:   Parse the buffer <buf> for a sequence <s> of type
- *            <format>.  The buffer must contain the entire sequence.
- *            
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslEMEM>  on allocation error.
- *            <eslEFORMAT>  on parsing error.
- *            <eslEINVAL> on unsupported format.
- */
-int
-esl_sqio_Parse(char *buf, int size, ESL_SQ *s, int format)
-{
-  int status;
-
-  switch (format) {
-  case eslSQFILE_EMBL:     
-  case eslSQFILE_UNIPROT:  
-  case eslSQFILE_GENBANK:  
-  case eslSQFILE_DDBJ:     
-  case eslSQFILE_FASTA:    
-  case eslSQFILE_DAEMON:   
-    status = esl_sqascii_Parse(buf, size, s, format);
-
-    break;
-  default: 
-    ESL_EXCEPTION(eslEINVAL, "can't parse that format");
-  }
-  return status;
-}
 
 
 
@@ -2262,126 +2267,19 @@ main(int argc, char **argv)
 /*****************************************************************
  *# 12. Examples
  *****************************************************************/
-#ifdef eslSQIO_EXAMPLE
-/*::cexcerpt::sqio_example::begin::*/
-/* compile: gcc -g -Wall -I. -o sqio_example -DeslSQIO_EXAMPLE esl_sqio.c esl_sq.c easel.c
- * run:     ./example <FASTA file>
+/* The last example in a file is always the most useful example;
+ * so you can M-> to it immediately.
+ *    example3 = using esl_sqio_Parse()
+ *    example2 = simplest, text mode
+ *    example  = standard idiom for digital seqfile reading
  */
-#include "easel.h"
-#include "esl_sq.h"
-#include "esl_sqio.h"
 
-int
-main(int argc, char **argv)
-{
-  ESL_SQ     *sq      = esl_sq_Create();
-  ESL_SQFILE *sqfp;
-  int         format  = eslSQFILE_UNKNOWN;
-  char       *seqfile = argv[1];
-  int         status;
-
-  status = esl_sqfile_Open(seqfile, format, NULL, &sqfp);
-  if      (status == eslENOTFOUND) esl_fatal("No such file.");
-  else if (status == eslEFORMAT)   esl_fatal("Format unrecognized.");
-  else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
-
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
-  {     /* use each sequence for whatever you want */
-    printf("Read %s: length %ld\n", sq->name, (long) sq->L);
-    esl_sq_Reuse(sq);
-  }
-  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s - %s\n",
-					   sqfp->filename, sqfp->get_error(sqfp));     
-  else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
-					   status, sqfp->filename);
-  
-  esl_sq_Destroy(sq);
-  esl_sqfile_Close(sqfp);
-  return 0;
-}
-/*::cexcerpt::sqio_example::end::*/
-#endif /*eslSQIO_EXAMPLE*/
-
-/* Example 2 shows how to open a file digitally, while guessing its
- * file format and its alphabet. (This is a standard idiom.)
- */
-#ifdef eslSQIO_EXAMPLE2
-/*::cexcerpt::sqio_example2::begin::*/
-/* compile: gcc -g -Wall -I. -L. -o sqio_example2 -DeslSQIO_EXAMPLE2 esl_sqio.c -leasel -lm
- * run:     ./example <sequence file>
- */
-#include "easel.h"
-#include "esl_alphabet.h"
-#include "esl_getopts.h"
-#include "esl_sq.h"
-#include "esl_sqio.h"
-
-static ESL_OPTIONS options[] = {
-  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
-  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",    0 },
-  { "--dna",     eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use DNA alphabet",                        0 },
-  { "--rna",     eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use RNA alphabet",                        0 },
-  { "--amino",   eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use protein alphabet",                    0 },
-  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-};
-static char usage[]  = "[-options] <seqfile>";
-static char banner[] = "example for the sqio module";
-
-int
-main(int argc, char **argv)
-{
-  ESL_GETOPTS  *go        = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
-  ESL_ALPHABET *abc       = NULL;
-  ESL_SQ       *sq        = NULL;
-  ESL_SQFILE   *sqfp      = NULL;
-  int           format    = eslSQFILE_UNKNOWN;
-  int           alphatype = eslUNKNOWN;
-  char         *seqfile   = esl_opt_GetArg(go, 1);
-  int           status;
-
-  status = esl_sqfile_Open(seqfile, format, NULL, &sqfp);
-  if      (status == eslENOTFOUND) esl_fatal("No such file.");
-  else if (status == eslEFORMAT)   esl_fatal("Format unrecognized.");
-  else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
-
-  if      (esl_opt_GetBoolean(go, "--rna"))   alphatype = eslRNA;
-  else if (esl_opt_GetBoolean(go, "--dna"))   alphatype = eslDNA;
-  else if (esl_opt_GetBoolean(go, "--amino")) alphatype = eslAMINO;
-  else {
-    status = esl_sqfile_GuessAlphabet(sqfp, &alphatype);
-    if      (status == eslENOALPHABET) esl_fatal("Couldn't guess alphabet from first sequence in %s", seqfile);
-    else if (status == eslEFORMAT)    esl_fatal("Parse failed (sequence file %s)\n%s\n",
-						seqfile, sqfp->get_error(sqfp));     
-    else if (status == eslENODATA)    esl_fatal("Sequence file %s contains no data?", seqfile);
-    else if (status != eslOK)         esl_fatal("Failed to guess alphabet (error code %d)\n", status);
-  }
-  abc = esl_alphabet_Create(alphatype);
-  sq  = esl_sq_CreateDigital(abc);
-  esl_sqfile_SetDigital(sqfp, abc);
-
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
-  {     /* use each sequence for whatever you want */
-    printf("Read %s: length %ld\n", sq->name, (long) sq->L);
-    esl_sq_Reuse(sq);
-  }
-  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s)\n%s\n",
-					   sqfp->filename, sqfp->get_error(sqfp));     
-  else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
-					   status, sqfp->filename);
-  
-  esl_sqfile_Close(sqfp);
-  esl_sq_Destroy(sq);
-  esl_alphabet_Destroy(abc);
-  esl_getopts_Destroy(go);
-  return 0;
-}
-/*::cexcerpt::sqio_example2::end::*/
-#endif /*eslSQIO_EXAMPLE2*/
 
 #ifdef eslSQIO_EXAMPLE3
-/*::cexcerpt::sqio_example3::begin::*/
-/* compile: gcc -g -Wall -I. -L. -o esl_sqio_example3 -DeslSQIO_EXAMPLE3 esl_sqio.c -leasel -lm
- * run:     ./esl_sqio_example3
+/*::cexcerpt::sqio_example_parse::begin::*/
+/* Example of using esl_sqio_Parse() to parse a buffer
+ *  cc -g -Wall -I. -L. -o esl_sqio_example3 -DeslSQIO_EXAMPLE3 esl_sqio.c -leasel -lm
+ *  ./esl_sqio_example3
  */
 #include "easel.h"
 #include "esl_alphabet.h"
@@ -2408,19 +2306,132 @@ main(void)
   status = esl_sqio_Parse(test, strlen(test), sq, format);
   if      (status == eslEFORMAT) esl_fatal("Parse failed, invalid format");
   else if (status != eslOK)      esl_fatal("Unexpected error %d", status);
-  
+
   esl_sq_Destroy(sq);
   esl_alphabet_Destroy(abc);
   return 0;
 }
-/*::cexcerpt::sqio_example3::end::*/
+/*::cexcerpt::sqio_example_parse::end::*/
 #endif /*eslSQIO_EXAMPLE3*/
 
 
+#ifdef eslSQIO_EXAMPLE2
+/*::cexcerpt::sqio_example_text::begin::*/
+/* cc -g -Wall -I. -L. -o esl_sqio_example2 -DeslSQIO_EXAMPLE2 esl_sqio.c -leasel -lm
+ * ./esl_sqio_example2 <FASTA file>
+ */
+#include "easel.h"
+#include "esl_sq.h"
+#include "esl_sqio.h"
 
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
+int
+main(int argc, char **argv)
+{
+  ESL_SQ     *sq      = esl_sq_Create();
+  ESL_SQFILE *sqfp;
+  int         format  = eslSQFILE_FASTA;
+  char       *seqfile = argv[1];
+  int         status;
+
+  status = esl_sqfile_Open(seqfile, format, NULL, &sqfp);
+  if      (status == eslENOTFOUND) esl_fatal("No such file.");
+  else if (status == eslEFORMAT)   esl_fatal("Format unrecognized.");
+  else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
+
+  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+  {     /* use each sequence for whatever you want */
+    printf("Read %s: length %ld\n", sq->name, (long) sq->L);
+    esl_sq_Reuse(sq);
+  }
+  if      (status == eslEFORMAT) esl_fatal("Parse failed\n  %s", esl_sqfile_GetErrorBuf(sqfp));
+  else if (status != eslEOF)     esl_fatal("Unexpected read error %d", status);
+  
+  esl_sq_Destroy(sq);
+  esl_sqfile_Close(sqfp);
+  return 0;
+}
+/*::cexcerpt::sqio_example_text::end::*/
+#endif /*eslSQIO_EXAMPLE2*/
+
+
+
+
+#ifdef eslSQIO_EXAMPLE
+/*::cexcerpt::sqio_example_digital::begin::*/
+/* Example showing standard idiom for opening sequence file, digital mode.
+ *  cc -g -Wall -I. -L. -o esl_sqio_example -DeslSQIO_EXAMPLE esl_sqio.c -leasel -lm
+ *  ./esl_sqio_example <sequence file>
+ */
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_getopts.h"
+#include "esl_sq.h"
+#include "esl_sqio.h"
+
+static ESL_OPTIONS options[] = {
+  /* name          type       default  env  range toggles reqs incomp  help         docgroup */
+ { "-h",          eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "show brief help",    0 },
+ { "--dna",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "use DNA alphabet",   0 },
+ { "--rna",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "use RNA alphabet",   0 },
+ { "--amino",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "use amino alphabet", 0 },
+ { "--informat",  eslARG_STRING, NULL, NULL, NULL, NULL, NULL, NULL, "set input format",   0 },
+ {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options] <seqfile>";
+static char banner[] = "example of reading in standard sqio idiom, digital mode";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS  *go        = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
+  char         *seqfile   = esl_opt_GetArg(go, 1);
+  ESL_ALPHABET *abc       = NULL;
+  ESL_SQ       *sq        = NULL;
+  ESL_SQFILE   *sqfp      = NULL;
+  int           infmt     = eslSQFILE_UNKNOWN;
+  int           alphatype = eslUNKNOWN;
+  int           status;
+
+  if (esl_opt_IsOn(go, "--informat")) {
+    if ((infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat")))==eslSQFILE_UNKNOWN)
+      esl_fatal("%s is not a valid input sequence file format for --informat"); 
+  }
+
+  status = esl_sqfile_Open(seqfile, infmt, NULL, &sqfp);
+  if      (status == eslENOTFOUND) esl_fatal("No such file.");
+  else if (status == eslEFORMAT)   esl_fatal("Format couldn't be determined.");
+  else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
+
+  if      (esl_opt_GetBoolean(go, "--rna"))   alphatype = eslRNA;
+  else if (esl_opt_GetBoolean(go, "--dna"))   alphatype = eslDNA;
+  else if (esl_opt_GetBoolean(go, "--amino")) alphatype = eslAMINO;
+  else {
+    status = esl_sqfile_GuessAlphabet(sqfp, &alphatype);
+    if      (status == eslENOALPHABET)  esl_fatal("Couldn't guess alphabet");
+    else if (status == eslEFORMAT)      esl_fatal("Parse failed\n  %s",
+						  esl_sqfile_GetErrorBuf(sqfp));     
+    else if (status == eslENODATA)      esl_fatal("Sequence file empty?");
+    else if (status != eslOK)           esl_fatal("Unexpected error guessing alphabet");
+  }
+  abc = esl_alphabet_Create(alphatype);
+  sq  = esl_sq_CreateDigital(abc);
+  esl_sqfile_SetDigital(sqfp, abc);
+
+  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+    {  
+      esl_sqio_Write(stdout, sq, eslSQFILE_FASTA, /*update=*/FALSE);
+      esl_sq_Reuse(sq);
+    }
+  if      (status == eslEFORMAT) esl_fatal("Parse failed\n  %s", esl_sqfile_GetErrorBuf(sqfp));
+  else if (status != eslEOF)     esl_fatal("Unexpected error %d in reading", status);
+  
+  esl_sqfile_Close(sqfp);
+  esl_sq_Destroy(sq);
+  esl_alphabet_Destroy(abc);
+  esl_getopts_Destroy(go);
+  return 0;
+}
+/*::cexcerpt::sqio_example_digital::end::*/
+#endif /*eslSQIO_EXAMPLE*/
+
+

@@ -952,7 +952,7 @@ The internals of some resizeable objects have an \ccode{nredline}
 parameter that controls an additional memory management rule. These
 objects are allowed to grow to arbitrary size (either by doubling with
 \ccode{\_Grow} or by a specific allocation with \ccode{\_Reinit} or
-\ccode{_GrowTo}) -- but when the object is reused for new data, they
+\ccode{\_GrowTo}) -- but when the object is reused for new data, they
 can be reallocated \emph{downward}, back to the redline
 limit. Specifically, if the allocation size exceeds \ccode{nredline},
 a \ccode{\_Reuse()} or \ccode{\_Reinit()} call will shrink the
@@ -1131,6 +1131,7 @@ A \ccode{\_Grow()} function checks to see if \ccode{obj} can hold
 another element. If not, it increases the allocation, according to
 internally stored rules on reallocation strategy (usually, by
 doubling). 
+\end{sreapi}
 
 \begin{sreapi}
 \hypertarget{ifc:GrowTo}
@@ -1165,7 +1166,7 @@ possible).  A \ccode{\_Reuse()} call should exactly replace (and be
 equivalent to) a \ccode{\_Destroy()/\_Create()} pair. If the object is
 growable, it typically would keep the last allocation size, and it
 must keep at least the same allocation size that a default
-\ccode{_Create()} call would give.
+\ccode{\_Create()} call would give.
 
 If the object is arbitrarily resizeable and it has a \ccode{nredline}
 control on its memory, the allocation is shrunk back to

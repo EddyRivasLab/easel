@@ -7,6 +7,7 @@
 #include "easel.h"
 
 /* Flags for alphabet types.
+ * Do not change, only add, because these codes are used in file formats.
  */
 #define eslUNKNOWN     0        /* 0=unknown is easel-wide convention; don't change */
 #define eslRNA         1
@@ -15,6 +16,8 @@
 #define eslCOINS       4	/* for toy examples      */
 #define eslDICE        5	/* also for toy examples */
 #define eslNONSTANDARD 6
+/* ... if you add here, change esl_abc_ValidateType() too. */
+
 
 /* Structure: ESL_ALPHABET
  */
@@ -62,6 +65,7 @@ extern int     esl_abc_revcomp(const ESL_ALPHABET *abc, ESL_DSQ *dsq, int n);
 
 /* 3. Other routines in the API.
  */
+extern int    esl_abc_ValidateType(int type);
 extern int    esl_abc_GuessAlphabet(const int64_t *ct, int *ret_type);
 extern double esl_abc_Match       (const ESL_ALPHABET *a, ESL_DSQ x, ESL_DSQ y, double *p);
 extern int    esl_abc_IAvgScore   (const ESL_ALPHABET *a, ESL_DSQ x, const int    *sc);

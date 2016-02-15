@@ -45,7 +45,7 @@ AC_PREREQ(2.63)
 ################################################################
 # 2. AC_INIT
 ################################################################
-AC_INIT(Easel, 0.2dev, sean@eddylab.org, easel)
+AC_INIT(Easel, 0.3dev, sean@eddylab.org, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
 # remember if the user is overriding CFLAGS
@@ -84,8 +84,8 @@ fi
 #     EASEL_VERSION    e.g. "1.9a"
 #
 
-EASEL_DATE="Apr 2015"
-EASEL_COPYRIGHT="Copyright (C) 2015 Howard Hughes Medical Institute"
+EASEL_DATE="Feb 2016"
+EASEL_COPYRIGHT="Copyright (C) 2016 Howard Hughes Medical Institute"
 EASEL_LICENSE="Freely distributed under the BSD open source license."
 EASEL_VERSION=$PACKAGE_VERSION
 EASEL_URL="http://bioeasel.org/"

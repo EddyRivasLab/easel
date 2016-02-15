@@ -74,8 +74,9 @@ all options, including expert options.
 .BI --informat " <s>"
 Specify that the input alignment is in 
 .I <s>
-format. At present, valid formats are limited to
-Stockholm, Pfam, and AFA (aligned FASTA).
+format. Valid format strings include 
+"stockholm", "pfam", "a2m", "phylip", "phylips", 
+"psiblast", "selex", "afa", "clustal", and "clustallike".
 
 .TP
 .B --amino

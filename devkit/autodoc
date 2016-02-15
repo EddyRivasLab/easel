@@ -1,7 +1,8 @@
 #! /usr/bin/perl
 
 # Usage:
-#   ./autodoc_functions <C file>  
+#   ./autodoc <C file>  
+#   ./autodoc -t <C file>
 # 
 # Input is a C .c file with my structured function header convention.
 # Output is .tex file suitable for inclusion in my LaTeX documentation.
@@ -49,8 +50,9 @@
 #
 # SRE, Tue Nov 30 19:43:47 2004
 
-require  "getopts.pl";
-&Getopts('n:t');
+use Getopt::Std;
+
+&getopts('n:t');
 $cfile = shift;
 
 if ($opt_t) { $show_api_table = 1; }
@@ -84,7 +86,7 @@ if ($show_api_table)
 	    printf("\\hyperlink{func:%s()}{\\ccode{%s()}} & %s\\\\\n",
 		   $function[$i], $pfunction[$i], $synopsis[$i]);
 	} else {
-	    printf("\\hyperlink{func:%s()}{\\ccode{%s()}} & Description.\\\\\n",
+	    printf("\\hyperlink{func:%s()}{\\ccode{%s()}} & [Description]\\\\\n",
 		   $function[$i], $pfunction[$i]);
 	}
     }
@@ -162,7 +164,8 @@ parse_function_documentation
 
 	# Remove leading comment symbols and spacing.
 	$comment =~ s|\n[ \t]*\*[ \t]*|\n|g;
-	
+
+
 	# Now, grab all the individual blocks of info from a structured
         # function header comment. Required fields:
         #       Function:
@@ -174,10 +177,10 @@ parse_function_documentation
 	if ($first_funcname =~ /^(\S+)\(\)/) { $first_funcname = $1; }
 	if ($first_funcname ne $function[$n]) { die "parse error; $first_funcname != $function[$n]";}
 
-	if ($comment =~ m|\n@\* Synopsis:\s*(.+?)\n@\*|ms) { $synopsis[$n] = &process_comment_text($1); }
+	if ($comment =~ m|\n@\* Synopsis:\s*(.+?)\n|ms) { $synopsis[$n] = &process_comment_text($1); }
 	else {$synopsis[$n] = ""; }
 
-	if ($comment =~ m|\n@\* Incept:\s*(.+?)\n@\*|ms) { $incept[$n] = &process_comment_text($1); }
+	if ($comment =~ m|\n@\* Incept:\s*(.+?)\n|ms) { $incept[$n] = &process_comment_text($1); }
 	else {$incept[$n] = ""; }
 
 	if ($comment =~ m|\n@\* Purpose:\s*(.+?)\n@\*|ms) { $purpose[$n] = &process_comment_text($1); }

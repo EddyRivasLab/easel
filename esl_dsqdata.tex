@@ -1,0 +1,119 @@
+The \eslmod{dsqdata} module implements a binary sequence data
+format. It accelerates sequence data input in four ways, compared to
+Easel flatfile parsers (\eslmod{sqio}):
+
+\begin{description}
+
+\item{ \textbf{ Asynchronous input. }}
+
+   Disk and CPU resources are used concurrently, using POSIX threads.
+   A ``loader'' thread does essentially nothing but read chunks of
+   data.  An ``unpacker'' thread does CPU work to prepare loaded
+   sequence data chunks for consumption. If it takes time $R$ to read
+   and $P$ to process the data, instead of overall time $R+P$, with
+   asynchronous input we only need time $\mathrm{MAX}(R,P)$.
+
+\item{ \textbf{ Predigitization. }}
+
+  Sequence data in the \eslmod{dsqdata} format are already encoded in
+  Easel digital sequence format.  User-oriented error checking is done
+  up front when the \eslmod{dsqdata} file is created. 
+                                                                     
+\item{ \textbf{ Bit packing. }}
+                                                                     
+  Disk read time is rate-limiting in \eslmod{dsqdata}, so minimizing
+  data volume is the key to speed.  Sequence data are packed bitwise
+  in 32-bit packets to reduce volume by a factor of 1.5 (protein) to
+  3.75 (nucleic). A packet contains 6 5-bit residues (protein or
+  degenerate nucleic) or 15 2-bit residues (canonical nucleic) and two
+  control bits.  
+                                                                     
+\item{ \textbf{ Separate metadata. }}
+                                                                     
+  Sequence data and metadata (name, accession, description, taxonomy
+  identifier) are stored separately in \ccode{.dsqs} and \ccode{.dsqm}
+  files. This streamlines unpacking, because these data are handled
+  differently.  It also allows a deferred metadata read: sequences may
+  be identified simply by index number during an initial processing
+  sweep, and metadata can be loaded later by random access for a small
+  number of targets of interest.
+
+\end{description}
+
+
+\subsection{Files in the \eslmodincmd{dsqdata} format}
+
+\begin{description}
+\item { \textbf{Stub file: mydata}}
+
+\item { \textbf{Sequence file: mydata.dsqs}}
+
+\item { \textbf{Metadata file: mydata.dsqm}}
+
+\item { \textbf{Index file: mydata.dsqi}}
+\end{description}
+
+
+
+
+
+\subsection{Packet format}
+
+The two leading (most significant) bits are control bits. Bit 31
+signals EOD (end of data): the last packet in a packed sequence. Bit
+30 signals the packet format: 1 for 5-bit, 0 for 2-bit.  The remaining
+bits are the packed residue codes:
+
+\begin{asciiart}
+      [31] [30] [29..25]  [24..20]  [19..15]  [14..10]  [ 9..5 ]  [ 4..0 ]
+       ^    ^   |------------  6 5-bit packed residues ------------------|
+       |    |   []  []  []  []  []  []  []  []  []  []  []  []  []  []  []
+       |    |   |----------- or 15 2-bit packed residues ----------------|
+       |    |    
+       |    "packtype" bit 30 = 0 if packet is 2-bit packed; 1 if 5-bit packed
+       "sentinel" bit 31 = 1 if last packet in packed sequence; else 0
+       
+       (packet & (1 << 31)) tests for end of sequence
+       (packet & (1 << 30)) tests for 5-bit packing vs. 2-bit
+       ((packet >> shift) && 31) decodes 5-bit, for shift=25..0 in steps of 5
+       ((packet >> shift) && 3)  decodes 2-bit, for shift=28..0 in steps of 2
+\end{asciiart}
+
+Packets without the sentinel bit set are full. They unpack to 15 or 6
+residues.
+ 
+5-bit EOD packets may be partial: they unpack to 1..6 residues. The
+remaining residue codes are set to 0x1f (11111), indicating EOD within
+the packet.
+
+2-bit EOD packets must be full, because there is no way to signal EOD
+locally within a 2-bit packet. It can't use 0x03 (11), because that
+encodes U/T. Generally, therefore, the last packet(s) of a nucleic
+acid sequence must be 5-bit encoded, solely to be able to use sentinel
+residues in a partial packet, unless the end happens to come flush at
+the end of a 2-bit packet.\footnote{If we ever needed to pack an
+  alphabet of 2 or 3 residues, we could use 0x03 as a sentinel.  This
+  seems unlikely to ever happen, so I'm simply not going to include
+  any code to read EOD 2-bit partial packets.}
+
+A protein sequence of length N packs into exactly $(N+5)/6$ 5-bit
+packets. A DNA sequence packs into $\leq (N+14)/15$ mixed 2- and 5-bit
+packets.
+
+A packed sequence consists of an integer number of packets, P, ending
+with an EOD packet.
+ 
+A packed amino acid sequence unpacks to $\leq$ 6P residues. All its
+packets are 5-bit encoded.
+ 
+A packed nucleic acid sequence unpacks to $\leq$ 15P residues.  The
+packets are a mix of 2-bit and 5-bit. Degenerate residues must be
+5-bit packed, and the EOD packet usually is too. A 5-bit packet does
+not have to contain degenerate residues, because it might have been
+necessary to get "in frame" to pack a downstream degenerate
+residue. For example, the sequence ACGTACGTNNA... must be packed as
+[ACGTAC][CGTNNA]... to get the N's packed correctly.
+ 
+
+\subsection{Technical notes}
+

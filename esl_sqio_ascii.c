@@ -691,6 +691,7 @@ sqascii_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
 
   /* reset the sqfp, so it uses the recording next */
   ascii->mpos         = 0;
+  ascii->linenumber   = 1;
   ascii->is_recording = FALSE;
   if ((status = loadbuf(sqfp)) != eslOK) ESL_EXCEPTION(status, "buffer load failed, but shouldn't have");
   esl_sq_Destroy(sq);

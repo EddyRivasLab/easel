@@ -1,28 +1,53 @@
-/* esl_dsqdata :: high performance sequence input
+/* esl_dsqdata : faster sequence input
+ *
+ * Implements a predigitized binary file format for biological
+ * sequences. Sequence data are packed bitwise into 32-bit packets,
+ * where each packet contains either six 5-bit residues or fifteen
+ * 2-bit residues, plus two control bits.  Input is asynchronous,
+ * using POSIX threads, with a "reader" thread doing disk reads and an
+ * "unpacker" thread preparing chunks of sequences for
+ * analysis. Sequence data and metadata are stored in separate files,
+ * which sometimes may allow further input acceleration by deferring
+ * metadata accesses until they're actually needed.
+ * 
+ * A DSQDATA database <basename> is stored in four files:
+ *    - basename       : a human-readable stub
+ *    - basename.dsqi  : index file, enabling random access and parallel chunking
+ *    - basename.dsqm  : metadata including names, accessions, descriptions, taxonomy
+ *    - basename.dsqs  : sequences, in a packed binary format
  * 
  * Contents:
- *   1. ESL_DSQDATA, high performance sequence data input
- *   2. ESL_DSQDATA_CHUNK, a chunk of input sequence data
- *   3. Loader and unpacker, the input threads
+ *   1. ESL_DSQDATA: reading dsqdata format
+ *   2. Writing in dsqdata format
+ *   3. ESL_DSQDATA_CHUNK, a chunk of input sequence data
+ *   4. Loader and unpacker, the input threads
+ *   5. Packing sequences and unpacking chunks
  */
 
 #include "easel.h"
+#include "esl_alphabet.h"
 #include "esl_dsqdata.h"
+#include "esl_random.h"
+#include "esl_sq.h"
+#include "esl_sqio.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 #include <pthread.h>
 
-static ESL_DSQDATA_CHUNK *dsqdata_chunk_Create(void);
+static ESL_DSQDATA_CHUNK *dsqdata_chunk_Create (ESL_DSQDATA *dd);
 static void               dsqdata_chunk_Destroy(ESL_DSQDATA_CHUNK *chu);
 
 static void *dsqdata_loader_thread  (void *p);
 static void *dsqdata_unpacker_thread(void *p);
 
+static int   dsqdata_unpack(ESL_DSQDATA_CHUNK *chu);
+static int   dsqdata_pack5 (ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen);
+static int   dsqdata_pack2 (ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen);
 
 /*****************************************************************
- * 1. ESL_DSQDATA: high performance sequence data input
+ * 1. ESL_DSQDATA: reading dsqdata format
  *****************************************************************/
 
 /* Function:  esl_dsqdata_Open()
@@ -30,15 +55,16 @@ static void *dsqdata_unpacker_thread(void *p);
  * Incept:    SRE, Wed Jan 20 09:50:00 2016 [Amtrak 2150, NYP-BOS]
  *
  * Purpose:   Open digital sequence database <basename> for reading.
- *            Configure it for a specified number <nconsumers> of
- *            parallelized consumers. The consumers are one or more
- *            threads that are processing chunks of data in parallel.
+ *            Configure it for a specified number of 1 or
+ *            more parallelized <nconsumers>. The consumers are one or
+ *            more threads that are processing chunks of data in
+ *            parallel.
  *            
  *            The file <basename> is a human-readable stub describing
- *            the database. The actual data are in three accompanying
- *            binary files: the index file <basename>.dsqi, the
- *            metadata file <basename>.dsqm, and the sequence file
- *            <basename>.dsqs.
+ *            the database. The bulk of the data are in three
+ *            accompanying binary files: the index file
+ *            <basename>.dsqi, the metadata file <basename>.dsqm, and
+ *            the sequence file <basename>.dsqs.
  *            
  *            <byp_abc> provides a way to either tell <dsqdata> to
  *            expect a specific alphabet in the <basename> database
@@ -50,85 +76,202 @@ static void *dsqdata_unpacker_thread(void *p);
  *            alphabet; if <*byp_abc> is a ptr to an existing
  *            alphabet, we use it for validation. That is,
  *                
+ *            \begin{cchunk}
  *                abc = NULL;
  *                esl_dsqdata_Open(&abc, basename...)
- *                // <abc> is now the alphabet of <basename>; you're responsible for Destroy'ing it
+ *                // <abc> is now the alphabet of <basename>; 
+ *                // you're responsible for Destroy'ing it
+ *            \end{cchunk}
  *                
  *            or:
+ *            \begin{cchunk}
  *                abc = esl_alphabet_Create(eslAMINO);
  *                status = esl_dsqdata_Open(&abc, basename);
- *                // if status == eslEINCOMPAT, alphabet in basename doesn't match caller's expectation
+ *                // if status == eslEINCOMPAT, alphabet in basename 
+ *                // doesn't match caller's expectation
+ *            \end{cchunk}
  *
- * Args:      
+ * Args:      byp_abc    : optional alphabet hint; pass &abc or NULL.
+ *            basename   : data are in files <basename> and <basename.dsq[ism]>
+ *            nconsumers : number of consumer threads caller is going to Read() with
+ *            ret_dd     : RETURN : the new ESL_DSQDATA object.
  *
  * Returns:   <eslOK> on success.
  * 
- *            <eslEINCOMPAT> if caller provides a digital alphabet in
+ *            <eslENOTFOUND> if one or more of the expected datafiles
+ *            aren't there or can't be opened.
+ *
+ *            <eslEFORMAT> if something looks wrong in parsing file
+ *            formats.  Includes problems in headers, and also the
+ *            case where caller provides a digital alphabet in
  *            <*byp_abc> and it doesn't match the database's alphabet.
- *            
- *            On any normal error, <*ret_dd> is returned but in an
- *            error state, and <dd->errbuf> is a user-directed error
- *            message that the caller can relay.
+ *
+ *            On any normal error, <*ret_dd> is still returned, but in
+ *            an error state, and <dd->errbuf> is a user-directed
+ *            error message that the caller can relay to the user. Other
+ *            than the <errbuf>, the rest of the contents are undefined.
  *
  * Throws:    <eslEMEM> on allocation error.
+ *            <eslESYS> on system call failure.
  * 
  *            On any thrown exception, <*ret_dd> is returned NULL.
  */
 int
 esl_dsqdata_Open(ESL_ALPHABET **byp_abc, char *basename, int nconsumers, ESL_DSQDATA **ret_dd)
 {
-  ESL_DSQDATA *dd = NULL;
+  ESL_DSQDATA *dd        = NULL;
+  int          bufsize   = 4096;
+  uint32_t     magic     = 0;
+  uint32_t     tag       = 0;
+  uint32_t     alphatype = eslUNKNOWN;
+  char        *p;                       // used for strtok() parsing of fields on a line
+  char         buf[4096];
   int          status;
   
   ESL_DASSERT1(( nconsumers > 0 ));
-
+  
   ESL_ALLOC(dd, sizeof(ESL_DSQDATA));
-  dd->abc_r           = *byp_abc;        // This may be NULL, in which case we will create it later.
-  dd->at_eof          = FALSE;
-  dd->sfp             = NULL;
+  dd->stubfp          = NULL;
   dd->ifp             = NULL;
+  dd->sfp             = NULL;
   dd->mfp             = NULL;
+  dd->abc_r           = *byp_abc;        // This may be NULL; if so, we create it later.
+  dd->magic           = 0;
+  dd->uniquetag       = 0;
+  dd->flags           = 0;
+  dd->max_namelen     = 0;
+  dd->max_acclen      = 0;
+  dd->max_desclen     = 0;
+  dd->max_seqlen      = 0;
+  dd->nseq            = 0;
+  dd->nres            = 0;
+
+  dd->chunk_maxseq    = eslDSQDATA_CHUNK_MAXSEQ;    // someday we may want to allow tuning these
+  dd->chunk_maxpacket = eslDSQDATA_CHUNK_MAXPACKET;
+  dd->do_byteswap     = FALSE;
+  dd->pack5           = FALSE;  
+
+  dd->nconsumers      = nconsumers;
   dd->loader_outbox   = NULL;
   dd->unpacker_outbox = NULL;
   dd->recycling       = NULL;
   dd->errbuf[0]       = '\0';
-  dd->nconsumers      = nconsumers;
+  dd->at_eof          = FALSE;
+  dd->lt_c = dd->lom_c = dd->lof_c = dd->loe_c = FALSE;  
+  dd->ut_c = dd->uom_c = dd->uof_c = dd->uoe_c = FALSE;
+  dd->rm_c = dd->r_c   = FALSE;
+  dd->errbuf[0] = '\0';
 
-  ESL_ALLOC( dd->basename, sizeof(char) * (strlen(basename) + 6)); // +5 for .dsqx; +1 for \0
-  sprintf(dd->basename, "%s.dsqi", basename);
-  dd->ifp = fopen(dd->basename, "rb");
-  sprintf(dd->basename, "%s.dsqm", basename);
-  dd->mfp = fopen(dd->basename, "rb");
-  sprintf(dd->basename, "%s.dsqs", basename);
-  dd->sfp = fopen(dd->basename, "rb");
-  strcpy(dd->basename, basename);
-  /* TODO: error checking
-   *       include hash or random number to verify that files belong together
-   *       include binary magic numbers for verification and byteswap detection
-   *       if index file ever includes a header, load it here
+  /* Open the four files.
    */
-  
+  ESL_ALLOC( dd->basename, sizeof(char) * (strlen(basename) + 6)); // +5 for .dsqx; +1 for \0
+  if ( sprintf(dd->basename, "%s.dsqi", basename) <= 0)   ESL_XEXCEPTION_SYS(eslESYS, "sprintf() failure");
+  if (( dd->ifp = fopen(dd->basename, "rb"))   == NULL)   ESL_XFAIL(eslENOTFOUND, dd->errbuf, "Failed to find or open index file %s\n", dd->basename);
 
-  pthread_mutex_init(&dd->loader_outbox_mutex,   NULL);                dd->lom_c = TRUE;
-  pthread_mutex_init(&dd->unpacker_outbox_mutex, NULL);                dd->uom_c = TRUE;
-  pthread_mutex_init(&dd->recycling_mutex,       NULL);                dd->rm_c  = TRUE;
+  if ( sprintf(dd->basename, "%s.dsqm", basename) <= 0)   ESL_XEXCEPTION_SYS(eslESYS, "sprintf() failure");
+  if (( dd->mfp = fopen(dd->basename, "rb"))   == NULL)   ESL_XFAIL(eslENOTFOUND, dd->errbuf, "Failed to find or open metadata file %s\n", dd->basename);
 
-  pthread_cond_init(&dd->loader_outbox_full_cv,     NULL);             dd->lof_c = TRUE;
-  pthread_cond_init(&dd->loader_outbox_empty_cv,    NULL);             dd->loe_c = TRUE;
-  pthread_cond_init(&dd->unpacker_outbox_full_cv,   NULL);             dd->uof_c = TRUE;
-  pthread_cond_init(&dd->unpacker_outbox_empty_cv,  NULL);             dd->uoe_c = TRUE;
-  pthread_cond_init(&dd->recycling_cv,              NULL);             dd->r_c   = TRUE;
+  if ( sprintf(dd->basename, "%s.dsqs", basename) <= 0)   ESL_XEXCEPTION_SYS(eslESYS, "sprintf() failure");
+  if (( dd->sfp = fopen(dd->basename, "rb"))   == NULL)   ESL_XFAIL(eslENOTFOUND, dd->errbuf, "Failed to find or open sequence file %s\n", dd->basename);
+
+  strcpy(dd->basename, basename);
+  if (( dd->stubfp = fopen(dd->basename, "r")) == NULL)   ESL_XFAIL(eslENOTFOUND, dd->errbuf, "Failed to find or open stub file %s\n", dd->basename);
+
+  /* The stub file is unparsed, intended to be human readable, with one exception:
+   * The first line contains the unique tag that we use to validate linkage of the 4 files.
+   * The format of that first line is:
+   *     Easel dsqdata v123 0000000000 
+   */
+  if ( fgets(buf, bufsize, dd->stubfp) == NULL)           ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file is empty - no tag line found");
+  if (( p = strtok(buf,  " \t\n\r"))   == NULL)           ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file has bad format: tag line has no data");
+  if (  strcmp(p, "Easel") != 0)                          ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file has bad format in tag line");
+  if (( p = strtok(NULL, " \t\n\r"))   == NULL)           ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file has bad format in tag line");
+  if (  strcmp(p, "dsqdata") != 0)                        ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file has bad format in tag line");
+  if (( p = strtok(NULL, " \t\n\r"))   == NULL)           ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file has bad format in tag line");
+  if (( p = strtok(NULL, " \t\n\r"))   == NULL)           ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file has bad format in tag line");
+  if ( ! esl_str_IsInteger(p))                            ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file had bad format: no integer tag");
+  dd->uniquetag = strtoul(p, NULL, 10);
+    
+  /* Index file has a header of 7 uint32's, 3 uint64's */
+  if ( fread(&(dd->magic),       sizeof(uint32_t), 1, dd->ifp) != 1) ESL_XFAIL(eslEFORMAT, dd->errbuf, "index file has no header - is empty?");
+  if ( fread(&tag,               sizeof(uint32_t), 1, dd->ifp) != 1) ESL_XFAIL(eslEFORMAT, dd->errbuf, "index file header truncated, no tag");
+  if ( fread(&alphatype,         sizeof(uint32_t), 1, dd->ifp) != 1) ESL_XFAIL(eslEFORMAT, dd->errbuf, "index file header truncated, no alphatype");
+  if ( fread(&(dd->flags),       sizeof(uint32_t), 1, dd->ifp) != 1) ESL_XFAIL(eslEFORMAT, dd->errbuf, "index file header truncated, no flags");
+  if ( fread(&(dd->max_namelen), sizeof(uint32_t), 1, dd->ifp) != 1) ESL_XFAIL(eslEFORMAT, dd->errbuf, "index file header truncated, no max name len");
+  if ( fread(&(dd->max_acclen),  sizeof(uint32_t), 1, dd->ifp) != 1) ESL_XFAIL(eslEFORMAT, dd->errbuf, "index file header truncated, no max accession len");
+  if ( fread(&(dd->max_desclen), sizeof(uint32_t), 1, dd->ifp) != 1) ESL_XFAIL(eslEFORMAT, dd->errbuf, "index file header truncated, no max description len");
+
+  if ( fread(&(dd->max_seqlen),  sizeof(uint64_t), 1, dd->ifp) != 1) ESL_XFAIL(eslEFORMAT, dd->errbuf, "index file header truncated, no max seq len");
+  if ( fread(&(dd->nseq),        sizeof(uint64_t), 1, dd->ifp) != 1) ESL_XFAIL(eslEFORMAT, dd->errbuf, "index file header truncated, no nseq");
+  if ( fread(&(dd->nres),        sizeof(uint64_t), 1, dd->ifp) != 1) ESL_XFAIL(eslEFORMAT, dd->errbuf, "index file header truncated, no nres");
+
+  /* Check the magic and the tag */
+  if      (tag != dd->uniquetag)                 ESL_XFAIL(eslEFORMAT, dd->errbuf, "index file has bad tag, doesn't go with stub file");
+  if      (dd->magic == eslDSQDATA_MAGIC_V1SWAP) dd->do_byteswap = TRUE;
+  else if (dd->magic != eslDSQDATA_MAGIC_V1)     ESL_XFAIL(eslEFORMAT, dd->errbuf, "index file has bad magic");
+
+  /* Either validate, or create the alphabet */
+  if  (dd->abc_r)
+    {
+      if (alphatype != dd->abc_r->type) 
+	ESL_XFAIL(eslEFORMAT, dd->errbuf, "data files use %s alphabet; expected %s alphabet", 
+		  esl_abc_DecodeType(alphatype), 
+		  esl_abc_DecodeType(dd->abc_r->type));
+    }
+  else
+    {
+      if ( esl_abc_ValidateType(alphatype)             != eslOK) ESL_XFAIL(eslEFORMAT, dd->errbuf, "index file has invalid alphabet type %d", alphatype);
+      if (( dd->abc_r = esl_alphabet_Create(alphatype)) == NULL) ESL_XEXCEPTION(eslEMEM, "alphabet creation failed");
+    }
+
+  /* If it's protein, flip the switch to expect all 5-bit packing */
+  if (dd->abc_r->type == eslAMINO) dd->pack5 = TRUE;
+
+  /* Metadata file has a header of 2 uint32's, magic and uniquetag */
+  if (( fread(&magic, sizeof(uint32_t), 1, dd->mfp)) != 1) ESL_XFAIL(eslEFORMAT, dd->errbuf, "metadata file has no header - is empty?");
+  if (( fread(&tag,   sizeof(uint32_t), 1, dd->mfp)) != 1) ESL_XFAIL(eslEFORMAT, dd->errbuf, "metadata file header truncated - no tag?");
+  if ( magic != dd->magic)                                 ESL_XFAIL(eslEFORMAT, dd->errbuf, "metadata file has bad magic");
+  if ( tag   != dd->uniquetag)                             ESL_XFAIL(eslEFORMAT, dd->errbuf, "metadata file has bad tag, doesn't match stub");
+
+  /* Sequence file also has a header of 2 uint32's, magic and uniquetag */
+  if (( fread(&magic, sizeof(uint32_t), 1, dd->sfp)) != 1) ESL_XFAIL(eslEFORMAT, dd->errbuf, "sequence file has no header - is empty?");
+  if (( fread(&tag,   sizeof(uint32_t), 1, dd->sfp)) != 1) ESL_XFAIL(eslEFORMAT, dd->errbuf, "sequence file header truncated - no tag?");
+  if ( magic != dd->magic)                                 ESL_XFAIL(eslEFORMAT, dd->errbuf, "sequence file has bad magic");
+  if ( tag   != dd->uniquetag)                             ESL_XFAIL(eslEFORMAT, dd->errbuf, "sequence file has bad tag, doesn't match stub");
+
+  /* Create the loader and unpacker threads.
+   */
+  if ( pthread_mutex_init(&dd->loader_outbox_mutex,      NULL) != 0) ESL_XEXCEPTION(eslESYS, "pthread_mutex_init() failed");    dd->lom_c = TRUE;
+  if ( pthread_mutex_init(&dd->unpacker_outbox_mutex,    NULL) != 0) ESL_XEXCEPTION(eslESYS, "pthread_mutex_init() failed");    dd->uom_c = TRUE;
+  if ( pthread_mutex_init(&dd->recycling_mutex,          NULL) != 0) ESL_XEXCEPTION(eslESYS, "pthread_mutex_init() failed");    dd->rm_c  = TRUE;
+
+  if ( pthread_cond_init(&dd->loader_outbox_full_cv,     NULL) != 0) ESL_XEXCEPTION(eslESYS, "pthread_cond_init() failed");     dd->lof_c = TRUE;
+  if ( pthread_cond_init(&dd->loader_outbox_empty_cv,    NULL) != 0) ESL_XEXCEPTION(eslESYS, "pthread_cond_init() failed");     dd->loe_c = TRUE;
+  if ( pthread_cond_init(&dd->unpacker_outbox_full_cv,   NULL) != 0) ESL_XEXCEPTION(eslESYS, "pthread_cond_init() failed");     dd->uof_c = TRUE;
+  if ( pthread_cond_init(&dd->unpacker_outbox_empty_cv,  NULL) != 0) ESL_XEXCEPTION(eslESYS, "pthread_cond_init() failed");     dd->uoe_c = TRUE;
+  if ( pthread_cond_init(&dd->recycling_cv,              NULL) != 0) ESL_XEXCEPTION(eslESYS, "pthread_cond_init() failed");     dd->r_c   = TRUE;
   
-  pthread_create(&dd->unpacker_t, NULL, dsqdata_unpacker_thread, dd);  dd->ut_c = TRUE;
-  pthread_create(&dd->loader_t,   NULL, dsqdata_loader_thread,   dd);  dd->lt_c = TRUE;
+  if ( pthread_create(&dd->unpacker_t, NULL, dsqdata_unpacker_thread, dd) != 0) ESL_XEXCEPTION(eslESYS, "pthread_create() failed");  dd->ut_c = TRUE;
+  if ( pthread_create(&dd->loader_t,   NULL, dsqdata_loader_thread,   dd) != 0) ESL_XEXCEPTION(eslESYS, "pthread_create() failed");  dd->lt_c = TRUE;
 
   *ret_dd  = dd;
   *byp_abc = dd->abc_r;     // If caller provided <*byp_abc> this is a no-op, because we set abc_r = *byp_abc.
-  return eslOK;
-
+  return eslOK;             //  .. otherwise we're passing the created <abc> back to caller, caller's
+                            //     responsibility, we just keep the reference to it.
  ERROR:
-  esl_dsqdata_Close(dd);
-  return status;
+  if (status == eslENOTFOUND || status == eslEFORMAT || status == eslEINCOMPAT)
+    {    /* on normal errors, we return <dd> with its <errbuf>, don't change *byp_abc */
+      *ret_dd  = dd;
+      if (*byp_abc == NULL && dd->abc_r) esl_alphabet_Destroy(dd->abc_r);
+      return status;
+    }
+  else
+    {   /* on exceptions, we free <dd>, return it NULL, don't change *byp_abc */
+      esl_dsqdata_Close(dd);
+      *ret_dd = NULL;
+      if (*byp_abc == NULL && dd->abc_r) esl_alphabet_Destroy(dd->abc_r);
+      return status;
+    }
 }
 
 
@@ -136,18 +279,35 @@ esl_dsqdata_Open(ESL_ALPHABET **byp_abc, char *basename, int nconsumers, ESL_DSQ
  * Synopsis:  Read next chunk of sequence data.
  * Incept:    SRE, Thu Jan 21 11:21:38 2016 [Harvard]
  *
- * Purpose:   
+ * Purpose:   Read the next chunk from <dd>, return a pointer to it in
+ *            <*ret_chu>, and return <eslOK>. When data are exhausted,
+ *            return <eslEOF>, and <*ret_chu> is <NULL>. 
  *
- * Args:      
+ *            Threadsafe. All thread operations in the dsqdata reader
+ *            are handled internally. Caller does not have to worry
+ *            about wrapping this in a mutex. Multiple caller threads
+ *            can call <esl_dsqdata_Read()>.
+ *
+ *            All chunk allocation and deallocation is handled
+ *            internally. After using a chunk, caller gives it back to
+ *            the reader using <esl_dsqdata_Recycle()>.
+ *
+ * Args:      dd      : open dsqdata object to read from
+ *            ret_chu : RETURN : next chunk of seq data
  *
  * Returns:   <eslOK> on success. <*ret_chu> is a chunk of seq data.
- *            Caller needs to call esl_dsqdata_Recycle() on each chunk
+ *            Caller must call <esl_dsqdata_Recycle()> on each chunk
  *            that it Read()'s.
  *             
  *            <eslEOF> if we've reached the end of the input file;
  *            <*ret_chu> is NULL.
  *
- * Throws:    (no abnormal error conditions)
+ * Throws:    <eslESYS> if a pthread call fails. 
+ *            Caller should treat this as disastrous. Without correctly
+ *            working pthread calls, we cannot read, and we may not be able
+ *            to correctly clean up and close the reader. Caller should
+ *            treat <dd> as toxic, clean up whatever else it may need to,
+ *            and exit.
  */
 int
 esl_dsqdata_Read(ESL_DSQDATA *dd, ESL_DSQDATA_CHUNK **ret_chu)
@@ -164,14 +324,17 @@ esl_dsqdata_Read(ESL_DSQDATA *dd, ESL_DSQDATA_CHUNK **ret_chu)
   if (dd->at_eof) { *ret_chu = NULL; return eslEOF; }
 
   /* Get next chunk from unpacker. Wait if needed. */
-  pthread_mutex_lock(&dd->unpacker_outbox_mutex);
+  if ( pthread_mutex_lock(&dd->unpacker_outbox_mutex) != 0) ESL_EXCEPTION(eslESYS, "pthread call failed");
   while (dd->unpacker_outbox == NULL)
-    pthread_cond_wait(&dd->unpacker_outbox_full_cv, &dd->unpacker_outbox_mutex);
+    {
+      if ( pthread_cond_wait(&dd->unpacker_outbox_full_cv, &dd->unpacker_outbox_mutex) != 0) 
+	ESL_EXCEPTION(eslESYS, "pthread call failed");
+    }
   chu = dd->unpacker_outbox;
   dd->unpacker_outbox = NULL;
   if (! chu->N) dd->at_eof = TRUE;        // The eof flag makes sure only one reader processes EOF chunk.
-  pthread_mutex_unlock(&dd->unpacker_outbox_mutex);
-  pthread_cond_signal (&dd->unpacker_outbox_empty_cv);
+  if ( pthread_mutex_unlock(&dd->unpacker_outbox_mutex)    != 0) ESL_EXCEPTION(eslESYS, "pthread call failed");
+  if ( pthread_cond_signal (&dd->unpacker_outbox_empty_cv) != 0) ESL_EXCEPTION(eslESYS, "pthread call failed");
   
   /* If chunk has any data in it, go ahead and return it. */
   if (chu->N)
@@ -196,38 +359,73 @@ esl_dsqdata_Read(ESL_DSQDATA *dd, ESL_DSQDATA_CHUNK **ret_chu)
 }
 
 
+/* Function:  esl_dsqdata_Recycle()
+ * Synopsis:  Give a chunk back to the reader.
+ * Incept:    SRE, Thu Feb 11 19:24:33 2016
+ *
+ * Purpose:   Recycle chunk <chu> back to the reader <dd>.  The reader
+ *            is responsible for all allocation and deallocation of
+ *            chunks. The reader will either reuse the chunk's memory
+ *            if more chunks remain to be read, or it will free it.
+ *
+ * Args:      dd  : the dsqdata reader
+ *            chu : chunk to recycle
+ *
+ * Returns:   <eslOK> on success. 
+ *
+ * Throws:    <eslESYS> on a pthread call failure. Caller should regard
+ *            such an error as disastrous; if pthread calls are
+ *            failing, you cannot depend on the reader to be working
+ *            at all, and you should treat <dd> as toxic. Do whatever
+ *            desperate things you need to do and exit.
+ */
 int
 esl_dsqdata_Recycle(ESL_DSQDATA *dd, ESL_DSQDATA_CHUNK *chu)
 {
-  pthread_mutex_lock(&dd->recycling_mutex);
-  chu->nxt = dd->recycling;                    // Push chunk onto head of recycling stack
+  if ( pthread_mutex_lock(&dd->recycling_mutex)   != 0) ESL_EXCEPTION(eslESYS, "pthread mutex lock failed");
+  chu->nxt = dd->recycling;      // Push chunk onto head of recycling stack
   dd->recycling = chu;
-  pthread_mutex_unlock(&dd->recycling_mutex);
-  pthread_cond_signal(&dd->recycling_cv);      // Tell loader that there's a chunk it can recycle
+  if ( pthread_mutex_unlock(&dd->recycling_mutex) != 0) ESL_EXCEPTION(eslESYS, "pthread mutex unlock failed");
+  if ( pthread_cond_signal(&dd->recycling_cv)     != 0) ESL_EXCEPTION(eslESYS, "pthread cond signal failed");
+  // That signal told the loader that there's a chunk it can recycle.
   return eslOK;
 }
 
 
 
-void
+/* Function:  esl_dsqdata_Close()
+ * Synopsis:  Close a dsqdata reader.
+ * Incept:    SRE, Thu Feb 11 19:32:54 2016
+ *
+ * Purpose:   Close a dsqdata reader.
+ *
+ * Returns:   <eslOK> on success.
+
+ * Throws:    <eslESYS> on a system call failure, including pthread
+ *            calls and fclose(). Caller should regard such a failure
+ *            as disastrous: treat <dd> as toxic and exit as soon as 
+ *            possible without making any other system calls, if possible.
+ */
+int
 esl_dsqdata_Close(ESL_DSQDATA *dd)
 {
   if (dd)
     {
-      if (dd->lt_c)  pthread_join(dd->loader_t,   NULL);
-      if (dd->ut_c)  pthread_join(dd->unpacker_t, NULL);
-      if (dd->lof_c) pthread_cond_destroy(&dd->loader_outbox_full_cv);
-      if (dd->loe_c) pthread_cond_destroy(&dd->loader_outbox_empty_cv);
-      if (dd->uof_c) pthread_cond_destroy(&dd->unpacker_outbox_full_cv);
-      if (dd->uoe_c) pthread_cond_destroy(&dd->unpacker_outbox_empty_cv);
-      if (dd->r_c)   pthread_cond_destroy(&dd->recycling_cv);
-      if (dd->lom_c) pthread_mutex_destroy(&dd->loader_outbox_mutex);
-      if (dd->uom_c) pthread_mutex_destroy(&dd->unpacker_outbox_mutex);
-      if (dd->rm_c)  pthread_mutex_destroy(&dd->recycling_mutex);
+      if (dd->lt_c)   { if ( pthread_join(dd->loader_t,   NULL)                  != 0)  ESL_EXCEPTION(eslESYS, "pthread join failed");          }
+      if (dd->ut_c)   { if ( pthread_join(dd->unpacker_t, NULL)                  != 0)  ESL_EXCEPTION(eslESYS, "pthread join failed");          }
+      if (dd->lof_c)  { if ( pthread_cond_destroy(&dd->loader_outbox_full_cv)    != 0)  ESL_EXCEPTION(eslESYS, "pthread cond destroy failed");  }
+      if (dd->loe_c)  { if ( pthread_cond_destroy(&dd->loader_outbox_empty_cv)   != 0)  ESL_EXCEPTION(eslESYS, "pthread cond destroy failed");  }
+      if (dd->uof_c)  { if ( pthread_cond_destroy(&dd->unpacker_outbox_full_cv)  != 0)  ESL_EXCEPTION(eslESYS, "pthread cond destroy failed");  }
+      if (dd->uoe_c)  { if ( pthread_cond_destroy(&dd->unpacker_outbox_empty_cv) != 0)  ESL_EXCEPTION(eslESYS, "pthread cond destroy failed");  }
+      if (dd->r_c)    { if ( pthread_cond_destroy(&dd->recycling_cv)             != 0)  ESL_EXCEPTION(eslESYS, "pthread cond destroy failed");  }
+      if (dd->lom_c)  { if ( pthread_mutex_destroy(&dd->loader_outbox_mutex)     != 0)  ESL_EXCEPTION(eslESYS, "pthread mutex destroy failed"); }
+      if (dd->uom_c)  { if ( pthread_mutex_destroy(&dd->unpacker_outbox_mutex)   != 0)  ESL_EXCEPTION(eslESYS, "pthread mutex destroy failed"); }
+      if (dd->rm_c)   { if ( pthread_mutex_destroy(&dd->recycling_mutex)         != 0)  ESL_EXCEPTION(eslESYS, "pthread mutex destroy failed"); }
 
-      if (dd->ifp) fclose(dd->ifp);
-      if (dd->sfp) fclose(dd->sfp);
-      if (dd->mfp) fclose(dd->mfp);
+      if (dd->ifp)    { if ( fclose(dd->ifp)    != 0) ESL_EXCEPTION(eslESYS, "fclose failed"); }
+      if (dd->sfp)    { if ( fclose(dd->sfp)    != 0) ESL_EXCEPTION(eslESYS, "fclose failed"); }
+      if (dd->mfp)    { if ( fclose(dd->mfp)    != 0) ESL_EXCEPTION(eslESYS, "fclose failed"); }
+      if (dd->stubfp) { if ( fclose(dd->stubfp) != 0) ESL_EXCEPTION(eslESYS, "fclose failed"); }
 
       if (dd->basename) free(dd->basename);
 
@@ -238,15 +436,216 @@ esl_dsqdata_Close(ESL_DSQDATA *dd)
 
       free(dd);
     }
+  return eslOK;
 }
 
 
 /*****************************************************************
- * 2. ESL_DSQDATA_CHUNK: a chunk of input sequence data
+ * 2. Writing in dsqdata format
+ *****************************************************************/
+
+/* Function:  esl_dsqdata_Write()
+ * Synopsis:  Create a dsqdata database
+ * Incept:    SRE, Sat Feb 13 07:33:30 2016 [AGBT 2016, Orlando]
+ *
+ * Purpose:   Caller has just opened <sqfp>, in digital mode.
+ *            Create a dsqdata database <basename> from the sequence
+ *            data in <sqfp>.
+ *
+ *            <sqfp> must be protein, DNA, or RNA sequence data.  It
+ *            must be rewindable (i.e. a file), because we have to
+ *            read it twice. It must be newly opened (i.e. positioned
+ *            at the start).
+ *
+ * Args:      sqfp     - newly opened sequence data file
+ *            basename - base name of dsqdata files to create
+ *            errbuf   - user-directed error message on normal errors
+ *
+ * Returns:   <eslOK> on success.
+ *           
+ *            <eslEWRITE> if an output file can't be opened. <errbuf>
+ *            contains user-directed error message.
+ *
+ *            <eslEFORMAT> if a parse error is encountered while
+ *            reading <sqfp>.
+ * 
+ *
+ * Throws:    <eslESYS>   A system call failed, such as fwrite().
+ *            <eslEINVAL> Sequence handle <sqfp> isn't digital and rewindable.
+ *            <eslEMEM>   Allocation failure
+ */
+int
+esl_dsqdata_Write(ESL_SQFILE *sqfp, char *basename, char *errbuf)
+{
+  ESL_RANDOMNESS *rng         = NULL;
+  ESL_SQ         *sq          = NULL;
+  FILE           *stubfp      = NULL;
+  FILE           *ifp         = NULL;
+  FILE           *mfp         = NULL;
+  FILE           *sfp         = NULL;
+  char           *outfile     = NULL;
+  uint32_t        magic       = eslDSQDATA_MAGIC_V1;
+  uint32_t        uniquetag;
+  uint32_t        alphatype;
+  uint32_t        flags       = 0;
+  uint32_t        max_namelen = 0;
+  uint32_t        max_acclen  = 0;
+  uint32_t        max_desclen = 0;
+  uint64_t        max_seqlen  = 0;
+  uint64_t        nseq        = 0;
+  uint64_t        nres        = 0;
+  int             do_pack5    = FALSE;
+  uint32_t       *psq;
+  ESL_DSQDATA_RECORD idx;                    // one index record to write
+  int             plen;
+  int64_t         spos        = 0;
+  int64_t         mpos        = 0;
+  int             n;
+  int             status;
+
+  if (! esl_sqfile_IsRewindable(sqfp))  ESL_EXCEPTION(eslEINVAL, "sqfp must be rewindable (e.g. an open file)");
+  if (! sqfp->abc)                      ESL_EXCEPTION(eslEINVAL, "sqfp must be digital");
+  // Could also check that it's positioned at the start.
+  if ( (sq = esl_sq_CreateDigital(sqfp->abc)) == NULL) { status = eslEMEM; goto ERROR; }
+
+
+  /* First pass over the sequence file, to get statistics.
+   * Read it now, before opening any files, in case we find any parse errors.
+   */
+  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+    {
+      nseq++;
+      nres += sq->n;
+      if (sq->n > max_seqlen) max_seqlen = sq->n;
+      n = strlen(sq->name); if (n > max_namelen) max_namelen = n;
+      n = strlen(sq->acc);  if (n > max_acclen)  max_acclen  = n;
+      n = strlen(sq->desc); if (n > max_desclen) max_desclen = n;
+      esl_sq_Reuse(sq);
+    }
+  if      (status == eslEFORMAT) ESL_XFAIL(eslEFORMAT, errbuf, sqfp->get_error(sqfp));
+  else if (status != eslEOF)     return status;
+
+  if ((status = esl_sqfile_Position(sqfp, 0)) != eslOK) return status;
+
+
+  if ((    rng = esl_randomness_Create(0) )        == NULL)  { status = eslEMEM; goto ERROR; }
+  uniquetag = esl_random_uint32(rng);
+  alphatype = sqfp->abc->type;
+
+  if      (alphatype == eslAMINO)                      do_pack5 = TRUE;
+  else if (alphatype != eslDNA && alphatype != eslRNA) ESL_EXCEPTION(eslEINVAL, "alphabet must be protein or nucleic");
+
+
+  if (( status = esl_sprintf(&outfile, "%s.dsqi", basename)) != eslOK) goto ERROR;
+  if ((    ifp = fopen(outfile, "wb"))             == NULL)  ESL_XFAIL(eslEWRITE, errbuf, "failed to open dsqdata index file %s for writing", outfile);
+  sprintf(outfile, "%s.dsqm", basename);
+  if ((    mfp = fopen(outfile, "wb"))             == NULL)  ESL_XFAIL(eslEWRITE, errbuf, "failed to open dsqdata metadata file %s for writing", outfile);
+  sprintf(outfile, "%s.dsqs", basename);
+  if ((    sfp = fopen(outfile, "wb"))             == NULL)  ESL_XFAIL(eslEWRITE, errbuf, "failed to open dsqdata sequence file %s for writing", outfile);
+  if (( stubfp = fopen(basename, "w"))             == NULL)  ESL_XFAIL(eslEWRITE, errbuf, "failed to open dsqdata stub file %s for writing", basename);
+
+
+  
+
+  /* Header: index file */
+  if (fwrite(&magic,       sizeof(uint32_t), 1, ifp) != 1 ||
+      fwrite(&uniquetag,   sizeof(uint32_t), 1, ifp) != 1 ||
+      fwrite(&alphatype,   sizeof(uint32_t), 1, ifp) != 1 ||
+      fwrite(&flags,       sizeof(uint32_t), 1, ifp) != 1 ||
+      fwrite(&max_namelen, sizeof(uint32_t), 1, ifp) != 1 ||
+      fwrite(&max_acclen,  sizeof(uint32_t), 1, ifp) != 1 ||
+      fwrite(&max_desclen, sizeof(uint32_t), 1, ifp) != 1 ||
+      fwrite(&max_seqlen,  sizeof(uint64_t), 1, ifp) != 1 ||
+      fwrite(&nseq,        sizeof(uint64_t), 1, ifp) != 1 ||
+      fwrite(&nres,        sizeof(uint64_t), 1, ifp) != 1) 
+    ESL_XEXCEPTION_SYS(eslESYS, "fwrite() failed, index file header");
+
+  /* Header: metadata file */
+  if (fwrite(&magic,       sizeof(uint32_t), 1, mfp) != 1 ||
+      fwrite(&uniquetag,   sizeof(uint32_t), 1, mfp) != 1)
+    ESL_XEXCEPTION_SYS(eslESYS, "fwrite() failed, metadata file header");
+
+  /* Header: sequence file */
+  if (fwrite(&magic,       sizeof(uint32_t), 1, sfp) != 1 ||
+      fwrite(&uniquetag,   sizeof(uint32_t), 1, sfp) != 1)
+    ESL_XEXCEPTION_SYS(eslESYS, "fwrite() failed, metadata file header");
+
+  /* Second pass: index, metadata, and sequence files */
+  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+    {
+      /* Packed sequence */
+      if (do_pack5) dsqdata_pack5(sq->dsq, sq->n, &psq, &plen);
+      else          dsqdata_pack2(sq->dsq, sq->n, &psq, &plen);
+      if ( fwrite(psq, sizeof(uint32_t), plen, sfp) != plen) 
+	ESL_XEXCEPTION(eslESYS, "fwrite() failed, packed seq");
+      spos += plen;
+
+      /* Metadata */
+      n = strlen(sq->name); 
+      if ( fwrite(sq->name, sizeof(char), n+1, mfp) != n+1) 
+	ESL_XEXCEPTION(eslESYS, "fwrite () failed, metadata, name");
+      mpos += n+1;
+
+      n = strlen(sq->acc);  
+      if ( fwrite(sq->acc,  sizeof(char), n+1, mfp) != n+1) 
+	ESL_XEXCEPTION(eslESYS, "fwrite () failed, metadata, accession");
+      mpos += n+1;
+
+      n = strlen(sq->desc); 
+      if ( fwrite(sq->desc, sizeof(char), n+1, mfp) != n+1)
+	ESL_XEXCEPTION(eslESYS, "fwrite () failed, metadata, description");
+      mpos += n+1;
+
+      if ( fwrite( &(sq->tax_id), sizeof(int32_t), 1, mfp) != 1)                  
+	ESL_XEXCEPTION(eslESYS, "fwrite () failed, metadata, taxonomy id");
+      mpos += sizeof(int32_t); 
+      
+      /* Index file */
+      idx.psq_end      = spos-1;  // could be -1, on 1st seq, if 1st seq L=0.
+      idx.metadata_end = mpos-1; 
+      if ( fwrite(&idx, sizeof(ESL_DSQDATA_RECORD), 1, ifp) != 1) 
+	ESL_XEXCEPTION(eslESYS, "fwrite () failed, index file");
+
+      esl_sq_Reuse(sq);
+    }
+
+  /* Stub file */
+  fprintf(stubfp, "Easel dsqdata 1 %" PRIu32 "\n", uniquetag);
+  fprintf(stubfp, "\n");
+  fprintf(stubfp, "Original file:   %s\n",          sqfp->filename);
+  fprintf(stubfp, "Original format: %s\n",          esl_sqio_DecodeFormat(sqfp->format));
+  fprintf(stubfp, "Type:            %s\n",          esl_abc_DecodeType(sqfp->abc->type));
+  fprintf(stubfp, "Sequences:       %" PRIu64 "\n", nseq);
+  fprintf(stubfp, "Residues:        %" PRIu64 "\n", nres);
+  
+  esl_sq_Destroy(sq);
+  esl_randomness_Destroy(rng);
+  free(outfile);
+  fclose(stubfp);
+  fclose(ifp);
+  fclose(mfp);
+  fclose(sfp);
+  return eslOK;
+
+ ERROR:
+  if (sq)      esl_sq_Destroy(sq);
+  if (rng)     esl_randomness_Destroy(rng);
+  if (outfile) free(outfile);
+  if (stubfp)  fclose(stubfp);
+  if (ifp)     fclose(ifp);
+  if (mfp)     fclose(mfp);
+  if (sfp)     fclose(sfp);
+  return status;
+}
+
+
+
+/*****************************************************************
+ * 3. ESL_DSQDATA_CHUNK: a chunk of input sequence data
  *****************************************************************/
 
 static ESL_DSQDATA_CHUNK *
-dsqdata_chunk_Create(void)
+dsqdata_chunk_Create(ESL_DSQDATA *dd)
 {
   ESL_DSQDATA_CHUNK *chu = NULL;
   int                U;               // max size of unpacked seq data, in bytes (smem allocation)
@@ -271,23 +670,24 @@ dsqdata_chunk_Create(void)
    * L is figured out by the unpacker.
    * All of these are set by the unpacker.
    */
-  ESL_ALLOC(chu->dsq,   eslDSQDATA_CHUNK_MAXSEQ * sizeof(ESL_DSQ *));   
-  ESL_ALLOC(chu->name,  eslDSQDATA_CHUNK_MAXSEQ * sizeof(char *));
-  ESL_ALLOC(chu->acc,   eslDSQDATA_CHUNK_MAXSEQ * sizeof(char *));
-  ESL_ALLOC(chu->desc,  eslDSQDATA_CHUNK_MAXSEQ * sizeof(char *));
-  ESL_ALLOC(chu->taxid, eslDSQDATA_CHUNK_MAXSEQ * sizeof(int));
-  ESL_ALLOC(chu->L,     eslDSQDATA_CHUNK_MAXSEQ * sizeof(int64_t));
+  ESL_ALLOC(chu->dsq,   dd->chunk_maxseq * sizeof(ESL_DSQ *));   
+  ESL_ALLOC(chu->name,  dd->chunk_maxseq * sizeof(char *));
+  ESL_ALLOC(chu->acc,   dd->chunk_maxseq * sizeof(char *));
+  ESL_ALLOC(chu->desc,  dd->chunk_maxseq * sizeof(char *));
+  ESL_ALLOC(chu->taxid, dd->chunk_maxseq * sizeof(int));
+  ESL_ALLOC(chu->L,     dd->chunk_maxseq * sizeof(int64_t));
 
   /* On the <smem> allocation, and the <dsq> and <psq> pointers into it:
    *
-   * _MAX (in uint32's) sets the maximum single fread() size: one load
-   * of a new chunk of packed sequence, up to _MAX*4 bytes. <smem>
-   * needs to be able to hold the fully unpacked sequence, because we
-   * unpack in place. For protein sequence, each uint32 unpacks to at
-   * most 6 residues (5-bit packing). We don't pack sentinels, so the
-   * maximum unpacked size includes _MAXSEQ+1 sentinels... because we
-   * concat the digital seqs so that the trailing sentinel of seq i is
-   * the leading sentinel of seq i+1.
+   * <maxpacket> (in uint32's) sets the maximum single fread() size:
+   * one load of a new chunk of packed sequence, up to maxpacket*4
+   * bytes. <smem> needs to be able to hold both that and the fully
+   * unpacked sequence, because we unpack in place.  Each packet
+   * unpacks to at most 6 or 15 residues (5-bit or 2-bit packing) We
+   * don't pack sentinels, so the maximum unpacked size includes
+   * <maxseq>+1 sentinels... because we concat the digital seqs so
+   * that the trailing sentinel of seq i is the leading sentinel of
+   * seq i+1.
    *
    * The packed seq (max of P bytes) loads overlap with the unpacked
    * data (max of U bytes):
@@ -298,14 +698,14 @@ dsqdata_chunk_Create(void)
    *       ^dsq[0]  ^dsq[1]  ^dsq[2]
    *
    * and as long as we unpack psq left to right -- and as long as we
-   * read the last uint32 before we write the last unpacked residues
+   * read the last packet before we write the last unpacked residues
    * to smem - we're guaranteed that the unpacking works without
    * overwriting any unpacked data.
    */
-  U =  6 * eslDSQDATA_CHUNK_MAX + (eslDSQDATA_CHUNK_MAXSEQ + 1);
+  U  = (dd->pack5 ? 6 * dd->chunk_maxpacket : 15 * dd->chunk_maxpacket);
+  U += dd->chunk_maxseq + 1;
   ESL_ALLOC(chu->smem, sizeof(ESL_DSQ) * U);
-  chu->psq = (uint32_t *) (chu->smem + U - 4*eslDSQDATA_CHUNK_MAX);
-  
+  chu->psq = (uint32_t *) (chu->smem + U - 4*dd->chunk_maxpacket);
 
   /* We don't have any guarantees about the amount of metadata
    * associated with the N sequences, so <metadata> has to be a
@@ -314,7 +714,7 @@ dsqdata_chunk_Create(void)
    * only, no acc/desc): minimally, say 12 bytes of name, 3 \0's, and
    * 4 bytes for the taxid integer: call it 20.
    */
-  chu->mdalloc = 20 * eslDSQDATA_CHUNK_MAXSEQ;
+  chu->mdalloc = 20 * dd->chunk_maxseq;
   ESL_ALLOC(chu->metadata, sizeof(char) * chu->mdalloc);
 
   return chu;
@@ -344,7 +744,7 @@ dsqdata_chunk_Destroy(ESL_DSQDATA_CHUNK *chu)
 
 
 /*****************************************************************
- * 3. Loader and unpacker, the input threads
+ * 4. Loader and unpacker, the input threads
  *****************************************************************/
 
 static void *
@@ -365,7 +765,7 @@ dsqdata_loader_thread(void *p)
   int                  done      = FALSE;
   int                  status;
   
-  ESL_ALLOC(idx, sizeof(ESL_DSQDATA_RECORD) * eslDSQDATA_CHUNK_MAXSEQ);
+  ESL_ALLOC(idx, sizeof(ESL_DSQDATA_RECORD) * dd->chunk_maxseq);
 
   while (! done)
     {
@@ -375,18 +775,22 @@ dsqdata_loader_thread(void *p)
        */
       if (nchunk < dd->nconsumers+2)
 	{
-	  chu = dsqdata_chunk_Create();  // TODO: check status
+	  if ( (chu = dsqdata_chunk_Create(dd)) == NULL) { status = eslEMEM; goto ERROR; }
 	  nchunk++;
 	}
       else
 	{
-	  pthread_mutex_lock(&dd->recycling_mutex);
+	  if ( pthread_mutex_lock(&dd->recycling_mutex) != 0) ESL_XEXCEPTION(eslESYS, "pthread mutex lock failed");
 	  while (dd->recycling == NULL)
-	    pthread_cond_wait(&dd->recycling_cv, &dd->recycling_mutex);
+	    {
+	      if ( pthread_cond_wait(&dd->recycling_cv, &dd->recycling_mutex) != 0) 
+		ESL_XEXCEPTION(eslESYS, "pthread cond wait failed");
+	    }
 	  chu = dd->recycling;
 	  dd->recycling = chu->nxt;                    // pop one off recycling stack
-	  pthread_mutex_unlock(&dd->recycling_mutex);
-	  pthread_cond_signal(&dd->recycling_cv);      // signal *after* unlocking mutex
+	  if ( pthread_mutex_unlock(&dd->recycling_mutex) != 0) ESL_XEXCEPTION(eslESYS, "pthread mutex unlock failed");
+	  if ( pthread_cond_signal(&dd->recycling_cv)     != 0) ESL_XEXCEPTION(eslESYS, "pthread cond signal failed");
+	  // signal *after* unlocking mutex
 	}
       
       /* Refill index. (The memmove is avoidable. Alt strategy: we could load in 2 frames)
@@ -406,8 +810,8 @@ dsqdata_loader_thread(void *p)
       i0      += nload;               // this chunk starts with seq #<i0>
       ncarried = (nidx - nload);
       memmove(idx, idx + nload, sizeof(ESL_DSQDATA_RECORD) * ncarried);
-      nidx  = fread(idx + ncarried, sizeof(ESL_DSQDATA_RECORD), eslDSQDATA_CHUNK_MAXSEQ - ncarried, dd->ifp);
-      nidx += ncarried;               // usually, this'll be MAXSEQ, unless we're near eof.
+      nidx  = fread(idx + ncarried, sizeof(ESL_DSQDATA_RECORD), dd->chunk_maxseq - ncarried, dd->ifp);
+      nidx += ncarried;               // usually, this'll be MAXSEQ, unless we're near EOF.
       
       if (nidx == 0) 
 	{ // We're EOF. This chunk will be the empty EOF signal to unpacker, consumers.
@@ -421,8 +825,8 @@ dsqdata_loader_thread(void *p)
 	  /* Figure out how many sequences we're going to load: <nload>
 	   *  nload = max i : i <= MAXSEQ && idx[i].psq_end - psq_last <= CHUNK_MAX
 	   */
-	  ESL_DASSERT1(( idx[0].psq_end - psq_last <= eslDSQDATA_CHUNK_MAX ));
-	  if (idx[nidx-1].psq_end - psq_last <= eslDSQDATA_CHUNK_MAX)
+	  ESL_DASSERT1(( idx[0].psq_end - psq_last <= dd->chunk_maxpacket ));
+	  if (idx[nidx-1].psq_end - psq_last <= dd->chunk_maxpacket)
 	    nload = nidx;
 	  else
 	    { // Binary search for nload = max_i idx[i-1].psq_end - lastend <= MAX
@@ -432,7 +836,7 @@ dsqdata_loader_thread(void *p)
 	      while (righti - nload > 1)
 		{
 		  mid = nload + (righti - nload) / 2;
-		  if (idx[mid-1].psq_end - psq_last <= eslDSQDATA_CHUNK_MAX) nload = mid;
+		  if (idx[mid-1].psq_end - psq_last <= dd->chunk_maxpacket) nload = mid;
 		  else righti = mid;
 		}                                                  
 	    }
@@ -441,7 +845,8 @@ dsqdata_loader_thread(void *p)
 	  chu->pn = idx[nload-1].psq_end - psq_last;
 	  nread   = fread(chu->psq, sizeof(uint32_t), chu->pn, dd->sfp);
 	  //printf("Read %d packed ints from seq file\n", nread);
-	  ESL_DASSERT1(( nread == chu->pn )); // TODO: actually check this, it could fail
+	  if ( nread != chu->pn ) ESL_XEXCEPTION(eslEOD, "dsqdata packet loader: expected %d, got %d", chu->pn, nread);
+
 	      
 	  /* Read metadata, reallocating if needed */
 	  nmeta = idx[nload-1].metadata_end - meta_last;
@@ -450,7 +855,7 @@ dsqdata_loader_thread(void *p)
 	    chu->mdalloc = nmeta;
 	  }
 	  nread  = fread(chu->metadata, sizeof(char), nmeta, dd->mfp);
-	  ESL_DASSERT1(( nread == nmeta ));  // TODO: check this, fread() can fail
+	  if ( nread != nmeta ) ESL_XEXCEPTION(eslEOD, "dsqdata metadata loader: expected %d, got %d", nmeta, nread); 
 
 	  chu->i0   = i0;
 	  chu->N    = nload;
@@ -461,12 +866,15 @@ dsqdata_loader_thread(void *p)
       /* Put the finished chunk into outbox;
        * unpacker will pick it up and unpack it.
        */
-      pthread_mutex_lock(&dd->loader_outbox_mutex);  
+      if ( pthread_mutex_lock(&dd->loader_outbox_mutex) != 0) ESL_XEXCEPTION(eslESYS, "pthread mutex lock failed");
       while (dd->loader_outbox != NULL) 
-	pthread_cond_wait(&dd->loader_outbox_empty_cv, &dd->loader_outbox_mutex); 
+	{ 
+	  if (pthread_cond_wait(&dd->loader_outbox_empty_cv, &dd->loader_outbox_mutex) != 0)
+	    ESL_XEXCEPTION(eslESYS, "pthread cond wait failed");
+	}
       dd->loader_outbox = chu;   
-      pthread_mutex_unlock(&dd->loader_outbox_mutex);
-      pthread_cond_signal(&dd->loader_outbox_full_cv);
+      if ( pthread_mutex_unlock(&dd->loader_outbox_mutex)  != 0) ESL_XEXCEPTION(eslESYS, "pthread mutex unlock failed");
+      if ( pthread_cond_signal(&dd->loader_outbox_full_cv) != 0) ESL_XEXCEPTION(eslESYS, "pthread cond signal failed");
     }
   /* done == TRUE: we've sent the empty EOF chunk downstream, and now
    * we wait to get all our chunks back through the recycling, so we
@@ -476,16 +884,19 @@ dsqdata_loader_thread(void *p)
 
   while (nchunk)
     {
-      pthread_mutex_lock(&dd->recycling_mutex);
+      if ( pthread_mutex_lock(&dd->recycling_mutex) != 0) ESL_XEXCEPTION(eslESYS, "pthread mutex lock failed");
       while (dd->recycling == NULL)                 // Readers may still be working, will Recycle() their chunks
-	pthread_cond_wait(&dd->recycling_cv, &dd->recycling_mutex);
+	{
+	  if ( pthread_cond_wait(&dd->recycling_cv, &dd->recycling_mutex) != 0)
+	    ESL_XEXCEPTION(eslESYS, "pthread cond wait failed");
+	}
       while (dd->recycling != NULL) {               // Free entire stack, while we have the mutex locked.
 	chu           = dd->recycling;   
 	dd->recycling = chu->nxt;
 	dsqdata_chunk_Destroy(chu);
 	nchunk--;
       }
-      pthread_mutex_unlock(&dd->recycling_mutex);
+      if ( pthread_mutex_unlock(&dd->recycling_mutex) != 0) ESL_XEXCEPTION(eslESYS, "pthread mutex unlock failed");
       /* Because the recycling is a stack, readers never have to wait
        * on a condition to Recycle(); the recycling, unlike the
        * outboxes, doesn't need to be empty.
@@ -495,9 +906,19 @@ dsqdata_loader_thread(void *p)
   pthread_exit(NULL);
 
 
- ERROR:   // TODO: collect the chunks in the error case, but what if threads itself are messed up?
+ ERROR: 
+  /* Defying Easel standards, we treat all exceptions as fatal, at
+   * least for the moment.  This isn't a problem in HMMER, Infernal
+   * because they already use fatal exception handlers (i.e., we never
+   * reach this code anyway, if the parent app is using default fatal
+   * exception handling). It would become a problem if an Easel-based
+   * app needs to assure no exits from within Easel. Because the other
+   * threads will block waiting for chunks to come from the loader, if
+   * the loader fails, we would need a back channel signal of some
+   * sort to get the other threads to clean up and terminate.
+   */
   if (idx) free(idx);    
-  pthread_exit(NULL);  // TODO: return an error status.
+  esl_fatal("  ... dsqdata loader thread failed: unrecoverable");
 }
 
 
@@ -508,153 +929,243 @@ dsqdata_unpacker_thread(void *p)
   ESL_DSQDATA          *dd   = (ESL_DSQDATA *) p;
   ESL_DSQDATA_CHUNK    *chu  = NULL;
   int                   done = FALSE;
-  ESL_DSQ              *dsq  = NULL;
-  char                 *ptr;
-  int                   i;                        // counter over seqs in chunk, 0..N-1
-  int                   pos;			  // position in packed seq buffer, 0..pn-1
-  int                   r;			  // counter over unpacked, concatenated digital seq residues
-  uint32_t              v;			  // one packed integer
-  int                   bitshift;
+  int                   status;
 
   while (! done)
     {
       /* Get a chunk from loader's outbox. Wait if necessary. */
-      pthread_mutex_lock(&dd->loader_outbox_mutex);
+      if ( pthread_mutex_lock(&dd->loader_outbox_mutex) != 0) ESL_XEXCEPTION(eslESYS, "pthread mutex lock failed");
       while (dd->loader_outbox == NULL) 
-	pthread_cond_wait(&dd->loader_outbox_full_cv, &dd->loader_outbox_mutex); 
+	{
+	  if ( pthread_cond_wait(&dd->loader_outbox_full_cv, &dd->loader_outbox_mutex) != 0)
+	    ESL_XEXCEPTION(eslESYS, "pthread cond wait failed");
+	}
       chu = dd->loader_outbox;
       dd->loader_outbox  = NULL;
-      pthread_mutex_unlock(&dd->loader_outbox_mutex);
-      pthread_cond_signal(&dd->loader_outbox_empty_cv);
+      if ( pthread_mutex_unlock(&dd->loader_outbox_mutex)   != 0) ESL_XEXCEPTION(eslESYS, "pthread mutex unlock failed");
+      if ( pthread_cond_signal(&dd->loader_outbox_empty_cv) != 0) ESL_XEXCEPTION(eslESYS, "pthread cond signal failed");
 
       /* Unpack the metadata.
        * If chunk is empty (N==0), it's the EOF signal - let it go straight out to a consumer.
        * (The first consumer that sees it will set the at_eof flag in <dd>, which all
        *  consumers check. So we only need the one empty EOF chunk to flow downstream.)
        */
-      if (! chu->N)
-	{
-	  done = TRUE; // still need to pass the chunk along to a consumer.
-	}
+      if (! chu->N) done = TRUE; // still need to pass the chunk along to a consumer.
       else
-	{
-	  /* "Unpack" the metadata */
-	  ptr = chu->metadata;
-	  for (i = 0; i < chu->N; i++)
-	    {
-	      ESL_DASSERT1(( ptr < chu->metadata + chu->mdalloc ));
-	      chu->name[i] = ptr;                           ptr = 1 + strchr(ptr, '\0');   ESL_DASSERT1(( ptr < chu->metadata + chu->mdalloc ));
-	      chu->acc[i]  = ptr;                           ptr = 1 + strchr(ptr, '\0');   ESL_DASSERT1(( ptr < chu->metadata + chu->mdalloc ));
-	      chu->desc[i] = ptr;                           ptr = 1 + strchr(ptr, '\0');   ESL_DASSERT1(( ptr < chu->metadata + chu->mdalloc ));
-	      chu->taxid[i] = (int32_t) *((int32_t *) ptr); ptr += sizeof(int32_t);     
-	    }
-	  
-	  /* Unpack sequence data */
-	  i           = 0;
-	  r           = 0;
-	  dsq         = (ESL_DSQ *) chu->smem;
-	  dsq[r]      = eslDSQ_SENTINEL;
-	  chu->dsq[i] = &(dsq[r]);
-	  r++;
-	  for (pos = 0; pos < chu->pn; pos++)
-	    {
-	      v = chu->psq[pos];   // Must pick up the value, because of packed psq overlap w/ unpacked smem
-	      if ( v & (1 << 31) ) // EOD bit set? Then this is last packed int for seq i
-		{
-		  for (bitshift = 25; bitshift >= 0 && ((v >> bitshift) & 31) != 31; bitshift -= 5)
-		    dsq[r++] = (v >> bitshift) & 31;
-		  chu->L[i] = &(dsq[r]) - chu->dsq[i] - 1;
-		  i++;
-		  if (i < chu->N) chu->dsq[i] = &(dsq[r]);
-		  dsq[r++] = eslDSQ_SENTINEL;
-		}
-	      else
-		{
-		  dsq[r++] = (v >> 25) & 31;
-		  dsq[r++] = (v >> 20) & 31;
-		  dsq[r++] = (v >> 15) & 31;
-		  dsq[r++] = (v >> 10) & 31;
-		  dsq[r++] = (v >>  5) & 31;
-		  dsq[r++] = (v >>  0) & 31;
-		}
-	    }
-	  ESL_DASSERT1(( i == chu->N ));
+	{ 	
+	  if (( status = dsqdata_unpack(chu)) != eslOK) goto ERROR;
 	}
 
       /* Put unpacked chunk into the unpacker's outbox.
        * May need to wait for it to be empty/available.
        */
-      pthread_mutex_lock(&dd->unpacker_outbox_mutex);
+      if ( pthread_mutex_lock(&dd->unpacker_outbox_mutex) != 0) ESL_XEXCEPTION(eslESYS, "pthread mutex lock failed");
       while (dd->unpacker_outbox != NULL) 
-	pthread_cond_wait(&dd->unpacker_outbox_empty_cv, &dd->unpacker_outbox_mutex); 
+	{ 
+	  if ( pthread_cond_wait(&dd->unpacker_outbox_empty_cv, &dd->unpacker_outbox_mutex) != 0)
+	    ESL_XEXCEPTION(eslESYS, "pthread cond wait failed");
+	}
       dd->unpacker_outbox = chu;
-      pthread_mutex_unlock(&dd->unpacker_outbox_mutex);
-      pthread_cond_signal(&dd->unpacker_outbox_full_cv);      
+      if ( pthread_mutex_unlock(&dd->unpacker_outbox_mutex)  != 0) ESL_XEXCEPTION(eslESYS, "pthread mutex unlock failed");
+      if ( pthread_cond_signal(&dd->unpacker_outbox_full_cv) != 0) ESL_XEXCEPTION(eslESYS, "pthread cond signal failed");
     }
-
   pthread_exit(NULL);
+
+ ERROR:
+  /* See comment in loader thread: for lack of a back channel mechanism
+   * to tell other threads to clean up and terminate, we violate Easel standards
+   * and turn nonfatal exceptions into fatal ones.
+   */
+  esl_fatal("  ... dsqdata unpacker thread failed: unrecoverable"); 
 }
 
 
 /*****************************************************************
- * x. Writer
+ * 5. Packing sequences and unpacking chunks
+ *****************************************************************/
+
+/* dsqdata_unpack()
+ *
+ * Throws:    <eslEFORMAT> if a problem is seen in the binary format 
+ */
+static int
+dsqdata_unpack(ESL_DSQDATA_CHUNK *chu)
+{
+  char     *ptr = chu->metadata;           // ptr will walk through metadata
+  ESL_DSQ  *dsq = (ESL_DSQ *) chu->smem;   // concatenated unpacked digital seq as one array
+  int       r   = 0;                       // position in unpacked dsq array
+  int       i   = 0;                       // sequence index: 0..chu->N-1
+  int       pos;                           // position in packet array
+  uint32_t  v;                             // one packet, picked up
+  int       bitshift;                      
+  
+  /* "Unpack" the metadata */
+  for (i = 0; i < chu->N; i++)
+    {
+      /* The data are user input, so we cannot trust that it has \0's where we expect them.  */
+      if ( ptr >= chu->metadata + chu->mdalloc) ESL_EXCEPTION(eslEFORMAT, "metadata format error");
+      chu->name[i] = ptr;                           ptr = 1 + strchr(ptr, '\0');   if ( ptr >= chu->metadata + chu->mdalloc) ESL_EXCEPTION(eslEFORMAT, "metadata format error");
+      chu->acc[i]  = ptr;                           ptr = 1 + strchr(ptr, '\0');   if ( ptr >= chu->metadata + chu->mdalloc) ESL_EXCEPTION(eslEFORMAT, "metadata format error");
+      chu->desc[i] = ptr;                           ptr = 1 + strchr(ptr, '\0');   if ( ptr >= chu->metadata + chu->mdalloc) ESL_EXCEPTION(eslEFORMAT, "metadata format error");
+      chu->taxid[i] = (int32_t) *((int32_t *) ptr); ptr += sizeof(int32_t);     
+    }
+
+  /* Unpack the sequence data */
+  i = 0;
+  chu->dsq[0] = (ESL_DSQ *) chu->smem;
+  dsq[r++]    = eslDSQ_SENTINEL;
+  for (pos = 0; pos < chu->pn; pos++)
+    {
+      v = chu->psq[pos];  // Must pick up, because of packed psq overlap w/ unpacked smem
+      
+      /* Look at the two packet control bits together.
+       * 00 = 2bit full packet
+       * 01 = 5bit full packet. 
+       * 10 = 2bit EOD packet (must be full)
+       * 11 = 5bit EOD packet.
+       */
+      switch ( (v >> 30) ) {
+      case 0: 
+	dsq[r++] = (v >> 28) & 3;  dsq[r++] = (v >> 26) & 3;  dsq[r++] = (v >> 24) & 3;
+	dsq[r++] = (v >> 22) & 3;  dsq[r++] = (v >> 20) & 3;  dsq[r++] = (v >> 18) & 3;
+	dsq[r++] = (v >> 16) & 3;  dsq[r++] = (v >> 14) & 3;  dsq[r++] = (v >> 12) & 3;
+	dsq[r++] = (v >> 10) & 3;  dsq[r++] = (v >>  8) & 3;  dsq[r++] = (v >>  6) & 3;
+	dsq[r++] = (v >>  4) & 3;  dsq[r++] = (v >>  2) & 3;  dsq[r++] =         v & 3;
+	break;
+
+      case 1:
+	dsq[r++] = (v >> 25) & 31; dsq[r++] = (v >> 20) & 31; dsq[r++] = (v >> 15) & 31;
+	dsq[r++] = (v >> 10) & 31; dsq[r++] = (v >>  5) & 31; dsq[r++] = (v >>  0) & 31;
+	break;	
+
+      case 2:
+	dsq[r++] = (v >> 28) & 3;  dsq[r++] = (v >> 26) & 3;  dsq[r++] = (v >> 24) & 3;
+	dsq[r++] = (v >> 22) & 3;  dsq[r++] = (v >> 20) & 3;  dsq[r++] = (v >> 18) & 3;
+	dsq[r++] = (v >> 16) & 3;  dsq[r++] = (v >> 14) & 3;  dsq[r++] = (v >> 12) & 3;
+	dsq[r++] = (v >> 10) & 3;  dsq[r++] = (v >>  8) & 3;  dsq[r++] = (v >>  6) & 3;
+	dsq[r++] = (v >>  4) & 3;  dsq[r++] = (v >>  2) & 3;  dsq[r++] =         v & 3;
+
+	chu->L[i] = &(dsq[r]) - chu->dsq[i] - 1;
+	i++;
+	if (i < chu->N) chu->dsq[i] = &(dsq[r]);
+	dsq[r++] = eslDSQ_SENTINEL;
+	break;
+
+      case 3:
+	// In 5-bit EOD packets we have to stop on internal sentinel.
+	for (bitshift = 25; bitshift >= 0 && ((v >> bitshift) & 31) != 31; bitshift -= 5)
+	  dsq[r++] = (v >> bitshift) & 31;
+	chu->L[i] = &(dsq[r]) - chu->dsq[i] - 1;
+	i++;
+	if (i < chu->N) chu->dsq[i] = &(dsq[r]);
+	dsq[r++] = eslDSQ_SENTINEL;
+	break;
+      }
+    }
+   ESL_DASSERT1(( i == chu->N ));
+   return eslOK;
+}
+
+
+/* dsqdata_pack5()
+ *
+ * Pack a digital sequence <dsq> of length <n>, in place.  The packet
+ * array <*ret_psq>, <*ret_plen> packets long, uses the same memory
+ * and <dsq> is overwritten. No allocation is needed; we know that
+ * <dsq> is longer than <psq> and we don't care if we overwrite <dsq>.
+ * 
+ * It's possible to have n==0, for a 0 length digital sequence; in that 
+ * case you'll get plen=0.
+ */
+static int
+dsqdata_pack5(ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen)
+{
+  uint32_t  *psq      = (uint32_t *) dsq;  // packing in place
+  int        r        = 1;                 // position in <dsq>
+  int        pos      = 0;                 // position in <psq>. 
+  int        b;                            // bitshift
+  uint32_t   v;
+
+  while (r <= n)
+    {
+      v = (1 << 30);             // initialize packet with 5-bit flag
+      for (b = 25; b >= 0 && r <= n; b -= 5)  v  |= (uint32_t) dsq[r++] << b;
+      for (      ; b >= 0;           b -= 5)  v  |= (uint32_t)       31 << b;
+
+      if (r > n) v |= (1 << 31); // EOD bit
+      psq[pos++] = v;            // we know we've already read all the dsq we need under psq[pos]
+    }
+
+  *ret_psq  = psq;
+  *ret_plen = pos;
+  return eslOK;
+}
+
+
+/* dsqdata_pack2()
+ *
+ * Pack <dsq> in place. 
+ * Saves worrying about allocation for packed seq buffer.
+ * *ret_psq is the same memory as dsq, with the packets flush left.
+ * <dsq> is destroyed by packing.
+ */
+static int
+dsqdata_pack2(ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen)
+{
+  uint32_t  *psq      = (uint32_t *) dsq; // packing in place
+  int        pos      = 0;                // position in <psq>
+  int        d        = 0;                // position of next degen residue, 1..n, n+1 if none
+  int        r        = 1;                // position in <dsq> 1..n
+  int        b;                           // bitshift
+  uint32_t   v;
+
+  while (r <= n)
+    {
+      // Slide the "next degenerate residue" detector
+      if (d < r)
+	for (d = r; d <= n; d++)
+	  if (dsq[d] > 3) break;
+
+      // Can we 2-bit pack the next 15 residues, r..r+14?
+      // n-r+1 = number of residues remaining to be packed.
+      if (n-r+1 >= 15 && d > r+14)
+	{
+	  v  = 0;
+	  for (b = 28; b >= 0; b -=2) v |= (uint32_t) dsq[r++] << b;
+	}
+      else
+	{
+	  v = (1 << 30); // initialize v with 5-bit packing bit
+	  for (b = 25; b >= 0 && r <= n; b -= 5) v  |= (uint32_t) dsq[r++] << b;
+	  for (      ; b >= 0;           b -= 5) v  |= (uint32_t)       31 << b;
+	}
+
+      if (r > n) v |= (1 << 31); // EOD bit
+      psq[pos++] = v;            // we know we've already read all the dsq we need under psq[pos]
+    }
+  
+  *ret_psq  = psq;
+  *ret_plen = pos;
+  return eslOK;
+}
+
+
+/*****************************************************************
+ * x. Example of making a dsqdata file
  *****************************************************************/
 #ifdef eslDSQDATA_EXAMPLE2
 
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_dsqdata.h"
 #include "esl_getopts.h"
-#include "esl_sq.h"
-#include "esl_sqio.h"
-
-
-static int
-pack5(ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen)
-{
-  uint32_t  *psq      = *ret_psq;   // might be NULL for initial alloc; might be reallocated for large plen
-  int        plen     = 1 + n/6;    // +1 for sentinel. For DNA, with mixed pack size, will need to count more carefully
-  int        i;                     // position in <dsq>
-  int        pos      = 0;          // position in <psq>
-  int        bitshift = 25;
-  int        status;
-  
-  ESL_REALLOC(psq, sizeof(uint32_t) * ESL_MAX(1, plen));
-  psq[pos] = (1 << 30);  // 5-bit pack bit is set on first packed int
-  for (i = 1; i <= n; i++)
-    {  
-      psq[pos] |= (uint32_t) ( dsq[i] << bitshift );
-      bitshift -= 5;
-      if (bitshift < 0) 
-	{
-	  pos++;
-	  psq[pos] = (1 << 30);  // 5-bit pack bit is set on next packed int
-	  bitshift = 25;
-	}
-    }
-  ESL_DASSERT1(( pos == plen-1 ));  // psq[pos] is the unfinished final packed int, which might become all sentinel
-
-  psq[pos] |= (1 << 31);            // set the EOD bit on it
-  while (bitshift >= 0)             // any remaining slots are set to sentinel 31, all 1's
-    { 
-      psq[pos] |= (uint32_t) (31 << bitshift);  
-      bitshift -= 5;
-    }
-
-  *ret_psq  = psq;
-  *ret_plen = plen;
-  return eslOK;
-
-
- ERROR:
-  *ret_psq  = NULL;
-  *ret_plen = 0;
-  return status;
-}
-
 
 static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",    0 },
+  { "--dna",     eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use DNA alphabet",                        0 },
+  { "--rna",     eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use RNA alphabet",                        0 },
+  { "--amino",   eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use protein alphabet",                    0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options] <seqfile_in> <binary seqfile_out>";
@@ -664,71 +1175,38 @@ int
 main(int argc, char **argv)
 {
   ESL_GETOPTS    *go        = esl_getopts_CreateDefaultApp(options, 2, argc, argv, banner, usage);
+  ESL_ALPHABET   *abc       = NULL;
   char           *infile    = esl_opt_GetArg(go, 1);
   char           *basename  = esl_opt_GetArg(go, 2);
-  ESL_ALPHABET   *abc       = esl_alphabet_Create(eslAMINO);
   int             format    = eslSQFILE_UNKNOWN;
+  int             alphatype = eslUNKNOWN;
   ESL_SQFILE     *sqfp      = NULL;
-  ESL_SQ         *sq        = esl_sq_CreateDigital(abc);
-  char           *ifile     = NULL;
-  char           *sfile     = NULL;
-  char           *mfile     = NULL;
-  ESL_DSQDATA_RECORD idx;
-  uint32_t       *packsq    = NULL;
-  FILE           *stubfp    = NULL;  // Human readable stub file, unparsed: <basename>
-  FILE           *ifp       = NULL;  // Index file <basename>.dsqi
-  FILE           *sfp       = NULL;  // Sequence file <basename>.dsqs
-  FILE           *mfp       = NULL;  // Metadata file <basename>.dsqm
-  int64_t         spos      = 0;     // current length of seq file (in uint32's)
-  int64_t         mpos      = 0;     // current length of metadata file (in bytes)
-  int             plen;
-  int             n;
+  char            errbuf[eslERRBUFSIZE];
   int             status;
 
-  esl_sprintf(&ifile, "%s.dsqi", basename);
-  esl_sprintf(&sfile, "%s.dsqs", basename);
-  esl_sprintf(&mfile, "%s.dsqm", basename);
-  stubfp = fopen(basename, "w");
-  ifp    = fopen(ifile, "wb");
-  sfp    = fopen(sfile, "wb");
-  mfp    = fopen(mfile, "wb");
-
-  status = esl_sqfile_OpenDigital(abc, infile, format, NULL, &sqfp);
+  status = esl_sqfile_Open(infile, format, NULL, &sqfp);
   if      (status == eslENOTFOUND) esl_fatal("No such file.");
   else if (status == eslEFORMAT)   esl_fatal("Format unrecognized.");
   else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
 
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
-    {
-      pack5(sq->dsq, sq->n, &packsq, &plen);
-      fwrite(packsq, sizeof(uint32_t), plen, sfp);
-      spos += plen;
+  if      (esl_opt_GetBoolean(go, "--rna"))   alphatype = eslRNA;
+  else if (esl_opt_GetBoolean(go, "--dna"))   alphatype = eslDNA;
+  else if (esl_opt_GetBoolean(go, "--amino")) alphatype = eslAMINO;
+  else {
+    status = esl_sqfile_GuessAlphabet(sqfp, &alphatype);
+    if      (status == eslENOALPHABET) esl_fatal("Couldn't guess alphabet from first sequence in %s", infile);
+    else if (status == eslEFORMAT)     esl_fatal("Parse failed (sequence file %s)\n%s\n", infile, sqfp->get_error(sqfp));     
+    else if (status == eslENODATA)     esl_fatal("Sequence file %s contains no data?", infile);
+    else if (status != eslOK)          esl_fatal("Failed to guess alphabet (error code %d)\n", status);
+  }
+  abc = esl_alphabet_Create(alphatype);
+  esl_sqfile_SetDigital(sqfp, abc);
 
-      n = strlen(sq->name); fwrite(sq->name, sizeof(char), n+1, mfp);  mpos += n+1;
-      n = strlen(sq->acc);  fwrite(sq->acc,  sizeof(char), n+1, mfp);  mpos += n+1;
-      n = strlen(sq->desc); fwrite(sq->desc, sizeof(char), n+1, mfp);  mpos += n+1;
-      fwrite( &(sq->tax_id), sizeof(int32_t), 1, mfp);                 mpos += sizeof(int32_t); 
-      // TODO: byteswapping 
-      
-      idx.psq_end      = spos-1;  // could be -1, on 1st seq, if 1st seq L=0.
-      idx.metadata_end = mpos-1; 
-      fwrite(&idx, sizeof(ESL_DSQDATA_RECORD), 1, ifp);
+  status = esl_dsqdata_Write(sqfp, basename, errbuf);
+  if      (status == eslEWRITE)  esl_fatal("Failed to open dsqdata output files:\n  %s", errbuf);
+  else if (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s)\n  %s", infile, sqfp->get_error(sqfp));
+  else if (status != eslOK)      esl_fatal("Unexpected error while creating dsqdata file (code %d)\n", status);
 
-      esl_sq_Reuse(sq);
-    }
-
-  fprintf(stubfp, "This is a test.\n");
-  fprintf(stubfp, "If this were a real binary database...\n");
-
-  fclose(stubfp);
-  fclose(sfp);
-  fclose(ifp);
-  fclose(mfp);
-  free(ifile);
-  free(sfile);
-  free(mfile);
-  free(packsq);
-  esl_sq_Destroy(sq);
   esl_sqfile_Close(sqfp);
   esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
@@ -750,6 +1228,7 @@ main(int argc, char **argv)
 static ESL_OPTIONS options[] = {
   /* name             type          default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",        0 },
+  { "-n",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "no residue counting: faster time version",    0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
@@ -760,8 +1239,9 @@ int
 main(int argc, char **argv)
 {
   ESL_GETOPTS       *go       = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
-  ESL_ALPHABET      *abc      = esl_alphabet_Create(eslAMINO);
+  ESL_ALPHABET      *abc      = NULL;
   char              *basename = esl_opt_GetArg(go, 1);
+  int                no_count = esl_opt_GetBoolean(go, "-n");
   ESL_DSQDATA       *dd       = NULL;
   ESL_DSQDATA_CHUNK *chu      = NULL;
   int                i;
@@ -771,26 +1251,34 @@ main(int argc, char **argv)
   int                ncpu     = 4;
   int                status;
   
-  esl_dsqdata_Open(&abc, basename, ncpu, &dd);
+  status = esl_dsqdata_Open(&abc, basename, ncpu, &dd);
+  if      (status == eslENOTFOUND) esl_fatal("Failed to open dsqdata files:\n  %s",    dd->errbuf);
+  else if (status == eslEFORMAT)   esl_fatal("Format problem in dsqdata files:\n  %s", dd->errbuf);
+  else if (status != eslOK)        esl_fatal("Unexpected error in opening dsqdata (code %d)", status);
 
   for (x = 0; x < 127; x++) ct[x] = 0;
 
   while ((status = esl_dsqdata_Read(dd, &chu)) != eslEOF)
     {
-      for (i = 0; i < chu->N; i++)
-      	for (pos = 1; pos <= chu->L[i]; pos++)
-      	  ct[ chu->dsq[i][pos] ]++;
+      if (! no_count)
+	for (i = 0; i < chu->N; i++)
+	  for (pos = 1; pos <= chu->L[i]; pos++)
+	    ct[ chu->dsq[i][pos] ]++;
 
       esl_dsqdata_Recycle(dd, chu);
     }
-  
-  total = 0;
-  for (x = 0; x < abc->Kp; x++) 
+  if (status != eslEOF) esl_fatal("unexpected error %d in reading dsqdata", status);
+
+  if (! no_count)
     {
-      printf("%c  %" PRId64 "\n", abc->sym[x], ct[x]);
-      total += ct[x];
+      total = 0;
+      for (x = 0; x < abc->Kp; x++) 
+	{
+	  printf("%c  %" PRId64 "\n", abc->sym[x], ct[x]);
+	  total += ct[x];
+	}
+      printf("Total = %" PRId64 "\n", total);
     }
-  printf("Total = %" PRId64 "\n", total);
 
   esl_alphabet_Destroy(abc);
   esl_dsqdata_Close(dd);
@@ -798,3 +1286,101 @@ main(int argc, char **argv)
   return 0;
 }
 #endif /*eslDSQDATA_EXAMPLE*/
+
+
+/*****************************************************************
+ * x. Notes
+ ***************************************************************** 
+ *
+ * [x.] Packed sequence data format.
+ * 
+ *      Format of a single packet:
+ *      [31] [30] [29..25]  [24..20]  [19..15]  [14..10]  [ 9..5 ]  [ 4..0 ]
+ *       ^    ^   |------------  6 5-bit packed residues ------------------|
+ *       |    |   []  []  []  []  []  []  []  []  []  []  []  []  []  []  []
+ *       |    |   |----------- or 15 2-bit packed residues ----------------|
+ *       |    |    
+ *       |    "packtype" bit 30 = 0 if packet is 2-bit packed; 1 if 5-bit packed
+ *       "sentinel" bit 31 = 1 if last packet in packed sequence; else 0
+ *       
+ *       (packet & (1 << 31)) tests for end of sequence
+ *       (packet & (1 << 30)) tests for 5-bit packing vs. 2-bit
+ *       ((packet >> shift) && 31) decodes 5-bit, for shift=25..0 in steps of 5
+ *       ((packet >> shift) && 3)  decodes 2-bit, for shift=28..0 in steps of 2
+ *       
+ *       Packets without the sentinel bit set are always full (unpack
+ *       to 15 or 6 residue codes).
+ *       
+ *       5-bit EOD packets may be partial: they unpack to 1..6
+ *       residues.  The remaining residue codes are set to 0x1f
+ *       (11111) to indicate EOD within a partial packet.
+ *       
+ *       2-bit EOD packets must be full, because there is no way to
+ *       signal EOD locally within a 2-bit packet. Can't use 0x03 (11)
+ *       because that's T/U. Generally, then, the last packet of a
+ *       nucleic acid sequence must be 5-bit encoded, solely to be
+ *       able to encode EOD in a partial packet. 
+ *  
+ *       A protein sequence of length N packs into exactly (N+5)/6
+ *       5-bit packets. A DNA sequence packs into <= (N+14)/15 mixed
+ *       2- and 5-bit packets.
+ *       
+ *       A packed sequence consists of an integer number of packets,
+ *       P, ending with an EOD packet that may contain a partial
+ *       number of residues.
+ *       
+ *       A packed amino acid sequence unpacks to <= 6P residues, and
+ *       all packets are 5-bit encoded.
+ *       
+ *       A packed nucleic acid sequence unpacks to <= 15P residues.
+ *       The packets are a mix of 2-bit and 5-bit. Degenerate residues
+ *       must be 5-bit packed, and the EOD packet usually is too. A
+ *       5-bit packet does not have to contain degenerate residues,
+ *       because it may have been necessary to get "in frame" to pack
+ *       a downstream degenerate residue. For example, the sequence
+ *       ACGTACGTNNA... must be packed as [ACGTAC][CGTNNA]... to get
+ *       the N's packed correctly.
+ *       
+ *       
+ * [x.] Compression: relative incompressibility of biological sequences.
+ *
+ *      Considered using fast (de)compression algorithms that are fast
+ *      enough to keep up with disk read speed, including LZ4 and
+ *      Google's Snappy. However, lz4 only achieves 1.0-1.9x global
+ *      compression of protein sequence (compared to 1.5x for
+ *      packing), and 2.0x for DNA (compared to 3.75x for packing).
+ *      With local, blockwise compression, which we need for random
+ *      access and indexing, it gets worse. Packing is superior.
+ *      
+ *      Metadata compression is more feasible, but I still opted
+ *      against it. Although metadata are globally quite compressible
+ *      (3.2-6.9x in trials with lz4), locally in 64K blocks lz4 only
+ *      achieves 2x.  [xref SRE:2016/0201-seqfile-compression]
+ *      
+ * [x.] Maybe getting more packing using run-length encoding.
+ * 
+ *      Genome assemblies typically have long runs of N's (human
+ *      GRCh38.p2 is about 5% N), and it's excruciating to have to
+ *      pack it into bulky 5-bit degenerate packets. I considered
+ *      run-length encoding (RLE). One possibility is to use a special
+ *      packet format akin to the 5-bit packet format:
+ *      
+ *        [0] [?] [11111] [.....] [....................]
+ *        ^        ^       ^       20b number, <=2^20-1
+ *        |        |       5-bit residue code       
+ *        |        sentinel residue 31 set
+ *        sentinel bit unset
+ *        
+ *      This is a uniquely detectable packet structure because a full
+ *      packet (with unset sentinel bit) would otherwise never contain
+ *      a sentinel residue (code 31).
+ *      
+ *      However, using RLE would make our unpacked data sizes too
+ *      unpredictable; we wouldn't have the <=6P or <=15P guarantee,
+ *      so we couldn't rely on fixed-length allocation of <smem> in
+ *      our chunk. Consumers wouldn't be getting predictable chunk
+ *      sizes, which could complicate load balancing. I decided
+ *      against it.
+ */
+
+

@@ -480,27 +480,22 @@ tau_function(double tau, double mean, double logsum)
  *            bin i holds some number of observed samples x with values from 
  *            lower bound l to upper bound u (that is, $l < x \leq u$);
  *            determine and return maximum likelihood estimates for the
- *            parameters $\mu,\lambda, \tau$ and 
+ *            parameters $\mu, \lambda, \tau$ and 
  *            return them in <*ret_mu>, <*ret_lambda>, <*ret_tau>.
  *            
- *            Unlike the esl_exp_FitCompleteBinned() case where
- *            the ML fit optimizes
+ *            Unlike the <esl_exp_FitCompleteBinned()> case where the
+ *            ML fit optimizes $\sum_i n_i \log P(a_i \leq x < b_i)$
+ *            where $a_i \leq b_i$ are the bounds of bin i with
+ *            occupancy $n_i$, here we take the approximation that
+ *            $c_i = a_i + 0.5*(b_i-a_i)$ and optimize $\log P(a_i
+ *            \leq x < b_i) \simeq \log(w) + \log P(x=c_i)$.
  *
- *               sum_i P(ai<=i<bi)^n_i or sum_i ni logP(ai<=x<bi)
+ *            Since $b_i-a_i = w$ is fixed, optimizing the above
+ *            becomes equivalent to optimizing $\sum_i n_i * log P(x=c_i)$.
  *
- *            where ai <= bi are the bounds of bin i with ocupancy ni,
- *            here we take the approximation that (ci= ai + 0.5*(bi-ai)
- *
- *               P(ai<=i<bi) ~ (bi-ai) * P[x=ci] or logP(ai<=x<bi) = log(w) + logP(x=ci)
- *
- *            and since bi-ai = w is fixed, obtimizing the above,
- *            bcomes equivalent to optiminzing
- *
- *                  \sum_i ni * logP(x=ci)
- *
- *            The optimization is then equivalent to the non-binned case
- *            but subsituting in averages such as \sum_i x(i) by
- *            \sum_i ni*ci i, and so forth.
+ *            The optimization is then equivalent to the non-binned case,
+ *            but subsituting in averages such as $\sum_i x(i)$ by
+ *            $\sum_i n_i*c_i i$, and so forth.
  *
  *            If the binned data in <g> were set to focus on 
  *            a tail by virtual censoring, the "complete" exponential is 

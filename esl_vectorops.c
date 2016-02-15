@@ -358,8 +358,8 @@ esl_vec_ISwap(int *vec1, int *vec2, int n)
  *            If you reverse a string <s> in place (i.e. 
  *              <esl_vec_CReverse(s, s, n)>), the trailing NUL will
  *            still be there, and you're fine. If you reverse string
- *            <s> into new storage <s2>, you'll need to do <s2[n] = '\0'> 
- *            yourself.
+ *            <s> into new storage <s2>, you'll need to NUL-terminate
+ *            <s2> yourself.
  */
 void
 esl_vec_DReverse(double *vec, double *rev, int n)

@@ -1,7 +1,11 @@
-/* Unaligned sequence file i/o.
+/* sqio: unaligned sequence file i/o.
  * 
- * SVN $Id$
- * SVN $URL$
+ * To do: 
+ *   :: esl_sqio_* vs. esl_sqfile_* prefixing is inconsistent,
+ *      for historical reasons. Fix.
+ *
+ *   :: Write tests for bad format detection, making sure that
+ *      linenumber report is correct.
  */
 #ifndef eslSQIO_INCLUDED
 #define eslSQIO_INCLUDED
@@ -115,15 +119,15 @@ typedef struct esl_sqcache_s {
  *   - >100  is reserved for msa, for aligned formats
  */
 #define eslSQFILE_UNKNOWN      0
-#define eslSQFILE_FASTA        1
-#define eslSQFILE_EMBL         2     /* EMBL/Swiss-Prot/TrEMBL */
-#define eslSQFILE_GENBANK      3     /* GenBank */
-#define eslSQFILE_DDBJ         4     /* DDBJ (currently passed to GenBank parser */
-#define eslSQFILE_UNIPROT      5     /* UniProt (passed to EMBL parser) */
-#define eslSQFILE_NCBI         6     /* NCBI (blast db) */
-#define eslSQFILE_DAEMON       7     /* Farrar's "daemon" format for hmmpgmd queries: fasta with // end-of-record terminator */
-#define eslSQFILE_HMMPGMD      8     /* Farrar's hmmpgmd database format: fasta w/ extra header line starting in '#' */
-#define eslSQFILE_FMINDEX      9     /* the pressed FM-index format used for the FM-index-based MSV acceleration */
+#define eslSQFILE_FASTA        1   // FASTA format
+#define eslSQFILE_EMBL         2   // EMBL DNA sequence
+#define eslSQFILE_GENBANK      3   // Genbank DNA sequence
+#define eslSQFILE_DDBJ         4   // DDBJ (currently identical to GenBank parser)
+#define eslSQFILE_UNIPROT      5   // UniProt (currently identical to EMBL parser) 
+#define eslSQFILE_NCBI         6   // NCBI blast db, v4, single file
+#define eslSQFILE_DAEMON       7   // Farrar format, hmmpgmd queries: fasta + // terminator 
+#define eslSQFILE_HMMPGMD      8   // Farrar hmmpgmd database format: fasta + # header 
+#define eslSQFILE_FMINDEX      9   // Pressed FM-index format used in HMMER
 /*::cexcerpt::sq_sqio_format::end::*/
 
 
@@ -133,32 +137,32 @@ typedef struct esl_sqcache_s {
 #define eslREADBUFSIZE  4096
 
 extern int  esl_sqfile_Open(const char *seqfile, int fmt, const char *env, ESL_SQFILE **ret_sqfp);
-extern int  esl_sqfile_Position(ESL_SQFILE *sqfp, off_t offset);
 extern void esl_sqfile_Close(ESL_SQFILE *sqfp);
 
 #ifdef eslAUGMENT_ALPHABET
 extern int  esl_sqfile_OpenDigital(const ESL_ALPHABET *abc, const char *filename, int format, const char *env, ESL_SQFILE **ret_sqfp);
 extern int  esl_sqfile_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc);
 extern int  esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type);
-
-extern int  esl_sqfile_Cache(const ESL_ALPHABET *abc, const char *seqfile, int fmt, const char *env, ESL_SQCACHE **ret_sqcache);
-extern void esl_sqfile_Free(ESL_SQCACHE *sqcache);
 #endif
-
-const char  *esl_sqfile_GetErrorBuf(const ESL_SQFILE *sqfp);
-extern int   esl_sqfile_IsRewindable(const ESL_SQFILE *sqfp);
-extern int   esl_sqio_Ignore(ESL_SQFILE *sqfp, const char *ignoredchars);
-extern int   esl_sqio_AcceptAs(ESL_SQFILE *sqfp, char *xchars, char readas);
-extern int   esl_sqio_EncodeFormat(char *fmtstring);
-extern char *esl_sqio_DecodeFormat(int fmt);
-extern int   esl_sqio_IsAlignment(int fmt);
 
 extern int   esl_sqio_Read        (ESL_SQFILE *sqfp, ESL_SQ *sq);
 extern int   esl_sqio_ReadInfo    (ESL_SQFILE *sqfp, ESL_SQ *sq);
 extern int   esl_sqio_ReadWindow  (ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq);
 extern int   esl_sqio_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq);
-extern int   esl_sqio_Echo        (ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp);
 extern int   esl_sqio_ReadBlock   (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int long_target);
+extern int   esl_sqio_Parse       (char *buffer, int size, ESL_SQ *s, int format);
+
+extern int   esl_sqio_Write       (FILE *fp, ESL_SQ *s, int format, int update);
+extern int   esl_sqio_Echo        (ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp);
+
+const char  *esl_sqfile_GetErrorBuf(const ESL_SQFILE *sqfp);
+extern int   esl_sqfile_IsRewindable(const ESL_SQFILE *sqfp);
+extern int   esl_sqio_IsAlignment(int fmt);
+extern int   esl_sqio_EncodeFormat(char *fmtstring);
+extern char *esl_sqio_DecodeFormat(int fmt);
+extern int   esl_sqfile_Position(ESL_SQFILE *sqfp, off_t offset);
+extern int   esl_sqio_Ignore(ESL_SQFILE *sqfp, const char *ignoredchars);
+extern int   esl_sqio_AcceptAs(ESL_SQFILE *sqfp, char *xchars, char readas);
 
 #ifdef eslAUGMENT_SSI
 extern int   esl_sqfile_OpenSSI         (ESL_SQFILE *sqfp, const char *ssifile_hint);
@@ -170,8 +174,14 @@ extern int   esl_sqio_FetchInfo  (ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
 extern int   esl_sqio_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t start, int64_t end, ESL_SQ *sq);
 #endif
 
-extern int   esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update);
-extern int   esl_sqio_Parse(char *buffer, int size, ESL_SQ *s, int format);
+extern int   esl_sqfile_Cache(const ESL_ALPHABET *abc, const char *seqfile, int fmt, const char *env, ESL_SQCACHE **ret_sqcache);
+extern void  esl_sqfile_Free(ESL_SQCACHE *sqcache);
+
+
+
+
+
+
 
 #endif /*eslSQIO_INCLUDED*/
 /*****************************************************************

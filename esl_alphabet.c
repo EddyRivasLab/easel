@@ -1169,6 +1169,28 @@ esl_abc_revcomp(const ESL_ALPHABET *abc, ESL_DSQ *dsq, int n)
  * 3. Other routines in the API.
  *****************************************************************/ 
 
+/* Function:  esl_abc_ValidateType()
+ * Synopsis:  Check that an alphabet is known and valid
+ * Incept:    SRE, Thu Feb 11 15:48:23 2016
+ *
+ * Purpose:   Returns <eslOK> if <type> is a valid and known Easel
+ *            alphabet type code.
+ *            
+ *            Used to validate "user" input, where we're parsing a
+ *            file format that has stored an Easel alphabet code.
+ *            
+ *            Returns <eslFAIL> for the special <eslUNKNOWN> "unset"
+ *            value, even though that is a valid code, because it's
+ *            not an alphabet, so shouldn't show up in a file.
+ */
+int
+esl_abc_ValidateType(int type)
+{
+  if (type <= 0 || type > eslNONSTANDARD) return eslFAIL;
+  else                                    return eslOK;
+}
+
+
 /* Function:  esl_abc_GuessAlphabet()
  * Synopsis:  Guess alphabet type from residue composition.
  *
@@ -1190,6 +1212,11 @@ esl_abc_revcomp(const ESL_ALPHABET *abc, ESL_DSQ *dsq, int n)
  *            and the number of residues that are canonical aa/degenerate
  *            nucleic (DHKMRSVWY) is greater than the number of canonicals
  *            for both amino and nucleic (ACG); then call it <eslAMINO>.
+ *            
+ *            As a special case, if it consists entirely of N's, and
+ *            we have >2000 residues, call it <eslDNA>. This is a
+ *            special case that deals with genome sequence assemblies
+ *            that lead with a swath of N's.
  *            
  *            We aim to be very conservative, essentially never making
  *            a false call; we err towards calling <eslUNKNOWN> if
@@ -1241,11 +1268,12 @@ esl_abc_GuessAlphabet(const int64_t *ct, int *ret_type)
   nx = ct['X' - 'A']; 
   nn = ct['N' - 'A']; xn = (nn ? 1 : 0);
 
-  if      (n  <= 10)                                                type = eslUNKNOWN;
-  else if (n1 > 0)                                                  type = eslAMINO; /* contains giveaway, aa-only chars */
-  else if (n-(n2+nt+nn) <= 0.02*n && x2+xt == 4)                    type = eslDNA;   /* nearly all DNA canon (or N), all four seen */
-  else if (n-(n2+nu+nn) <= 0.02*n && x2+xu == 4)                    type = eslRNA;   /* nearly all RNA canon (or N), all four seen */
-  else if (n-(n1+n2+n3+nn+nt+nx) <= 0.02*n && n3>n2 && x1+x2+x3+xn+xt >= 15) type = eslAMINO; /* nearly all aa canon (or X); more aa canon than ambig; all 20 seen */
+  if      (n  <= 10)                                                type = eslUNKNOWN;        // small sample, don't guess
+  else if (n  > 2000 && nn == n)                                    type = eslDNA;            // special case of many N's leading a genome assembly
+  else if (n1 > 0)                                                  type = eslAMINO;          // contains giveaway, aa-only chars 
+  else if (n-(n2+nt+nn) <= 0.02*n && x2+xt == 4)                    type = eslDNA;            // nearly all DNA canon (or N), all four seen 
+  else if (n-(n2+nu+nn) <= 0.02*n && x2+xu == 4)                    type = eslRNA;            // nearly all RNA canon (or N), all four seen 
+  else if (n-(n1+n2+n3+nn+nt+nx) <= 0.02*n && n3>n2 && x1+x2+x3+xn+xt >= 15) type = eslAMINO; // nearly all aa canon (or X); more aa canon than ambig; all 20 seen 
   
   *ret_type = type;
   if (type == eslUNKNOWN) return eslENOALPHABET;
@@ -2502,7 +2530,7 @@ main(int argc, char **argv)
 
   status = esl_sqfile_Open(seqfile, format, NULL, &sqfp);
   if      (status == eslENOTFOUND) esl_fatal("No such file.");
-  else if (status == eslEFORMAT)   esl_fatal("Format unrecognized.");
+  else if (status == eslEFORMAT)   esl_fatal("Format couldn't be determined.");
   else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
 
   while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
@@ -2511,8 +2539,8 @@ main(int argc, char **argv)
     printf("%-25s %s\n", sq->name, esl_abc_DecodeType(type));
     esl_sq_Reuse(sq);
   }
-  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s - %s\n", sqfp->filename, sqfp->get_error(sqfp));     
-  else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s", status, sqfp->filename);
+  if      (status == eslEFORMAT) esl_fatal("Parse failed\n  %s", esl_sqfile_GetErrorBuf(sqfp));
+  else if (status != eslEOF)     esl_fatal("Unexpected read error %d", status);
   
   esl_sq_Destroy(sq);
   esl_sqfile_Close(sqfp);
@@ -2521,10 +2549,5 @@ main(int argc, char **argv)
 #endif /*eslALPHABET_EXAMPLE3*/
 
 
-/*****************************************************************  
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
+
 

@@ -11,11 +11,11 @@
 \newcommand{\user}[1]{\indent\indent{\small\bfseries\texttt{> #1}}}
 \newcommand{\response}[1]{\indent\indent{\small\texttt{#1}}}
 
-\newcommand{\Easel}   {{\smaller\textsc{easel}}}
-\newcommand{\HMMER}   {{\smaller\textsc{hmmer}}}
-\newcommand{\Infernal}{{\smaller\textsc{infernal}}}
-\newcommand{\Pfam}    {{\smaller\textsc{pfam}}}
-\newcommand{\Rfam}    {{\smaller\textsc{rfam}}}
+\newcommand{\Easel}    {Easel}
+\newcommand{\HMMER}    {HMMER}
+\newcommand{\Infernal} {Infernal}
+\newcommand{\Pfam}     {Pfam}
+\newcommand{\Rfam}     {Rfam}
 
 % \api* functions are for the API summary tables.
 \newcommand{\apisubhead}[1]{\multicolumn{2}{|c|}{\rule[-0.4em]{0em}{1.5em}\textbf{#1}}}
@@ -23,9 +23,13 @@
 \def\argmax{\mathop{\mathrm{argmax}}\limits}
 \def\argmin{\mathop{\mathrm{argmin}}\limits}
 
-\DefineVerbatimEnvironment{cchunk}{Verbatim}{numbers=right,fontsize=\scriptsize,xleftmargin=1.0\parindent}%
-\DefineVerbatimEnvironment{userchunk}{Verbatim}{fontseries=b,fontsize=\small,xleftmargin=1.0\parindent}%
+\DefineVerbatimEnvironment{cchunk}       {Verbatim}{fontsize=\scriptsize,numbers=left,xleftmargin=1.0\parindent}%
+\DefineVerbatimEnvironment{userchunk}    {Verbatim}{fontsize=\small,fontseries=b,,xleftmargin=1.0\parindent}%
 \DefineVerbatimEnvironment{responsechunk}{Verbatim}{fontsize=\small,xleftmargin=1.0\parindent}%
+\DefineVerbatimEnvironment{asciiart}     {Verbatim}{fontsize=\scriptsize,xleftmargin=1.0\parindent}%
+
+% Set the color, size of the numbering of source code figures
+\renewcommand{\theFancyVerbLine}{\tiny\textcolor{SkyBlue}{\arabic{FancyVerbLine}}}
 
 
 % Description-like environment for documenting functions/APIs.

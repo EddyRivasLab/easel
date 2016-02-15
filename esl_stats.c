@@ -355,7 +355,7 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
  *            (looking at you here, Microsoft).
  *            
  *            Used for cumulative distribution function calculations
- *            for the normal (Gaussian) distribution. See esl_normal
+ *            for the normal (Gaussian) distribution. See <esl_normal>
  *            module.
  *            
  *            erfc(-inf) = 2.0

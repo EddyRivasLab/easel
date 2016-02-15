@@ -293,6 +293,8 @@ EXAMPLES = \
         esl_cluster_example\
         esl_dirichlet_example\
         esl_dmatrix_example\
+        esl_dsqdata_example\
+        esl_dsqdata_example2\
         esl_exponential_example\
         esl_fileparser_example\
         esl_fileparser_example2\
