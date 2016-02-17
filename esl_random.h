@@ -44,6 +44,7 @@ extern int esl_randomness_Dump(FILE *fp, ESL_RANDOMNESS *r);
 extern double esl_rnd_UniformPositive(ESL_RANDOMNESS *r);
 extern double esl_rnd_Gaussian(ESL_RANDOMNESS *r, double mean, double stddev);
 extern double esl_rnd_Gamma(ESL_RANDOMNESS *r, double a);
+extern void   esl_rnd_Dirichlet(ESL_RANDOMNESS *rng, const double *alpha, int K, double *p);
 
 /* 5. Multinomial sampling from discrete probability n-vectors.
  */

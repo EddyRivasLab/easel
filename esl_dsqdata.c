@@ -18,10 +18,14 @@
  * 
  * Contents:
  *   1. ESL_DSQDATA: reading dsqdata format
- *   2. Writing in dsqdata format
+ *   2. Creating dsqdata format from a sequence file
  *   3. ESL_DSQDATA_CHUNK, a chunk of input sequence data
  *   4. Loader and unpacker, the input threads
  *   5. Packing sequences and unpacking chunks
+ *   6. Notes and references
+ *   7. Unit tests
+ *   8. Test driver
+ *   9. Examples
  */
 
 #include "easel.h"
@@ -42,7 +46,7 @@ static void               dsqdata_chunk_Destroy(ESL_DSQDATA_CHUNK *chu);
 static void *dsqdata_loader_thread  (void *p);
 static void *dsqdata_unpacker_thread(void *p);
 
-static int   dsqdata_unpack(ESL_DSQDATA_CHUNK *chu);
+static int   dsqdata_unpack_chunk(ESL_DSQDATA_CHUNK *chu);
 static int   dsqdata_pack5 (ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen);
 static int   dsqdata_pack2 (ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen);
 
@@ -180,7 +184,7 @@ esl_dsqdata_Open(ESL_ALPHABET **byp_abc, char *basename, int nconsumers, ESL_DSQ
   /* The stub file is unparsed, intended to be human readable, with one exception:
    * The first line contains the unique tag that we use to validate linkage of the 4 files.
    * The format of that first line is:
-   *     Easel dsqdata v123 0000000000 
+   *     Easel dsqdata v123 x0000000000 
    */
   if ( fgets(buf, bufsize, dd->stubfp) == NULL)           ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file is empty - no tag line found");
   if (( p = strtok(buf,  " \t\n\r"))   == NULL)           ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file has bad format: tag line has no data");
@@ -188,9 +192,13 @@ esl_dsqdata_Open(ESL_ALPHABET **byp_abc, char *basename, int nconsumers, ESL_DSQ
   if (( p = strtok(NULL, " \t\n\r"))   == NULL)           ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file has bad format in tag line");
   if (  strcmp(p, "dsqdata") != 0)                        ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file has bad format in tag line");
   if (( p = strtok(NULL, " \t\n\r"))   == NULL)           ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file has bad format in tag line");
+  if ( *p != 'v')                                         ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file has bad format: no v on version");                        
+  if ( ! esl_str_IsInteger(p+1))                          ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file had bad format: no version number");
+  // version number is currently unused: there's only 1
   if (( p = strtok(NULL, " \t\n\r"))   == NULL)           ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file has bad format in tag line");
-  if ( ! esl_str_IsInteger(p))                            ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file had bad format: no integer tag");
-  dd->uniquetag = strtoul(p, NULL, 10);
+  if ( *p != 'x')                                         ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file has bad format: no x on tag");                        
+  if ( ! esl_str_IsInteger(p+1))                          ESL_XFAIL(eslEFORMAT, dd->errbuf, "stub file had bad format: no integer tag");
+  dd->uniquetag = strtoul(p+1, NULL, 10);
     
   /* Index file has a header of 7 uint32's, 3 uint64's */
   if ( fread(&(dd->magic),       sizeof(uint32_t), 1, dd->ifp) != 1) ESL_XFAIL(eslEFORMAT, dd->errbuf, "index file has no header - is empty?");
@@ -441,7 +449,7 @@ esl_dsqdata_Close(ESL_DSQDATA *dd)
 
 
 /*****************************************************************
- * 2. Writing in dsqdata format
+ * 2. Creating dsqdata format from a sequence file
  *****************************************************************/
 
 /* Function:  esl_dsqdata_Write()
@@ -610,7 +618,7 @@ esl_dsqdata_Write(ESL_SQFILE *sqfp, char *basename, char *errbuf)
     }
 
   /* Stub file */
-  fprintf(stubfp, "Easel dsqdata 1 %" PRIu32 "\n", uniquetag);
+  fprintf(stubfp, "Easel dsqdata v1 x%" PRIu32 "\n", uniquetag);
   fprintf(stubfp, "\n");
   fprintf(stubfp, "Original file:   %s\n",          sqfp->filename);
   fprintf(stubfp, "Original format: %s\n",          esl_sqio_DecodeFormat(sqfp->format));
@@ -953,7 +961,7 @@ dsqdata_unpacker_thread(void *p)
       if (! chu->N) done = TRUE; // still need to pass the chunk along to a consumer.
       else
 	{ 	
-	  if (( status = dsqdata_unpack(chu)) != eslOK) goto ERROR;
+	  if (( status = dsqdata_unpack_chunk(chu)) != eslOK) goto ERROR;
 	}
 
       /* Put unpacked chunk into the unpacker's outbox.
@@ -984,12 +992,12 @@ dsqdata_unpacker_thread(void *p)
  * 5. Packing sequences and unpacking chunks
  *****************************************************************/
 
-/* dsqdata_unpack()
+/* dsqdata_unpack_chunk()
  *
  * Throws:    <eslEFORMAT> if a problem is seen in the binary format 
  */
 static int
-dsqdata_unpack(ESL_DSQDATA_CHUNK *chu)
+dsqdata_unpack_chunk(ESL_DSQDATA_CHUNK *chu)
 {
   char     *ptr = chu->metadata;           // ptr will walk through metadata
   ESL_DSQ  *dsq = (ESL_DSQ *) chu->smem;   // concatenated unpacked digital seq as one array
@@ -1151,10 +1159,126 @@ dsqdata_pack2(ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen)
 
 
 /*****************************************************************
- * x. Example of making a dsqdata file
- *****************************************************************/
-#ifdef eslDSQDATA_EXAMPLE2
+ * 6. Notes
+ ***************************************************************** 
+ *
+ * [1] Packed sequence data format.
+ * 
+ *      Format of a single packet:
+ *      [31] [30] [29..25]  [24..20]  [19..15]  [14..10]  [ 9..5 ]  [ 4..0 ]
+ *       ^    ^   |------------  6 5-bit packed residues ------------------|
+ *       |    |   []  []  []  []  []  []  []  []  []  []  []  []  []  []  []
+ *       |    |   |----------- or 15 2-bit packed residues ----------------|
+ *       |    |    
+ *       |    "packtype" bit 30 = 0 if packet is 2-bit packed; 1 if 5-bit packed
+ *       "sentinel" bit 31 = 1 if last packet in packed sequence; else 0
+ *       
+ *       (packet & (1 << 31)) tests for end of sequence
+ *       (packet & (1 << 30)) tests for 5-bit packing vs. 2-bit
+ *       ((packet >> shift) && 31) decodes 5-bit, for shift=25..0 in steps of 5
+ *       ((packet >> shift) && 3)  decodes 2-bit, for shift=28..0 in steps of 2
+ *       
+ *       Packets without the sentinel bit set are always full (unpack
+ *       to 15 or 6 residue codes).
+ *       
+ *       5-bit EOD packets may be partial: they unpack to 1..6
+ *       residues.  The remaining residue codes are set to 0x1f
+ *       (11111) to indicate EOD within a partial packet.
+ *       
+ *       2-bit EOD packets must be full, because there is no way to
+ *       signal EOD locally within a 2-bit packet. Can't use 0x03 (11)
+ *       because that's T/U. Generally, then, the last packet of a
+ *       nucleic acid sequence must be 5-bit encoded, solely to be
+ *       able to encode EOD in a partial packet. 
+ *  
+ *       A protein sequence of length N packs into exactly (N+5)/6
+ *       5-bit packets. A DNA sequence packs into <= (N+14)/15 mixed
+ *       2- and 5-bit packets.
+ *       
+ *       A packed sequence consists of an integer number of packets,
+ *       P, ending with an EOD packet that may contain a partial
+ *       number of residues.
+ *       
+ *       A packed amino acid sequence unpacks to <= 6P residues, and
+ *       all packets are 5-bit encoded.
+ *       
+ *       A packed nucleic acid sequence unpacks to <= 15P residues.
+ *       The packets are a mix of 2-bit and 5-bit. Degenerate residues
+ *       must be 5-bit packed, and the EOD packet usually is too. A
+ *       5-bit packet does not have to contain degenerate residues,
+ *       because it may have been necessary to get "in frame" to pack
+ *       a downstream degenerate residue. For example, the sequence
+ *       ACGTACGTNNA... must be packed as [ACGTAC][CGTNNA]... to get
+ *       the N's packed correctly.
+ *       
+ * [2] Compression: relative incompressibility of biological sequences.
+ *
+ *      Considered using fast (de)compression algorithms that are fast
+ *      enough to keep up with disk read speed, including LZ4 and
+ *      Google's Snappy. However, lz4 only achieves 1.0-1.9x global
+ *      compression of protein sequence (compared to 1.5x for
+ *      packing), and 2.0x for DNA (compared to 3.75x for packing).
+ *      With local, blockwise compression, which we need for random
+ *      access and indexing, it gets worse. Packing is superior.
+ *      
+ *      Metadata compression is more feasible, but I still opted
+ *      against it. Although metadata are globally quite compressible
+ *      (3.2-6.9x in trials with lz4), locally in 64K blocks lz4 only
+ *      achieves 2x.  [xref SRE:2016/0201-seqfile-compression]
+ *      
+ * [3] Maybe getting more packing using run-length encoding.
+ * 
+ *      Genome assemblies typically have long runs of N's (human
+ *      GRCh38.p2 is about 5% N), and it's excruciating to have to
+ *      pack it into bulky 5-bit degenerate packets. I considered
+ *      run-length encoding (RLE). One possibility is to use a special
+ *      packet format akin to the 5-bit packet format:
+ *      
+ *        [0] [?] [11111] [.....] [....................]
+ *        ^        ^       ^       20b number, <=2^20-1
+ *        |        |       5-bit residue code       
+ *        |        sentinel residue 31 set
+ *        sentinel bit unset
+ *        
+ *      This is a uniquely detectable packet structure because a full
+ *      packet (with unset sentinel bit) would otherwise never contain
+ *      a sentinel residue (code 31).
+ *      
+ *      However, using RLE would make our unpacked data sizes too
+ *      unpredictable; we wouldn't have the <=6P or <=15P guarantee,
+ *      so we couldn't rely on fixed-length allocation of <smem> in
+ *      our chunk. Consumers wouldn't be getting predictable chunk
+ *      sizes, which could complicate load balancing. I decided
+ *      against it.
+ */
 
+
+/*****************************************************************
+ * 7. Unit tests
+ *****************************************************************/
+
+/* Exercise the packing and unpacking routines:
+ *    dsqdata_pack2, dsqdata_pack5, and dsqdata_unpack
+ */
+//static void
+//utest_packing(ESL_ALPHABET *abc)
+
+
+
+/*****************************************************************
+ * 8. Test driver
+ *****************************************************************/
+
+
+
+/*****************************************************************
+ * 9. Examples
+ *****************************************************************/
+
+/* esl_dsqdata_example2
+ * Example of creating a new dsqdata database from a sequence file.
+ */
+#ifdef eslDSQDATA_EXAMPLE2
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_dsqdata.h"
@@ -1215,11 +1339,10 @@ main(int argc, char **argv)
 #endif /*eslDSQDATA_EXAMPLE2*/
 
 
-/*****************************************************************
- * x. Example
- *****************************************************************/
+/* esl_dsqdata_example
+ * Example of opening and reading a dsqdata database.
+ */
 #ifdef eslDSQDATA_EXAMPLE
-
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_dsqdata.h"
@@ -1287,100 +1410,5 @@ main(int argc, char **argv)
 }
 #endif /*eslDSQDATA_EXAMPLE*/
 
-
-/*****************************************************************
- * x. Notes
- ***************************************************************** 
- *
- * [x.] Packed sequence data format.
- * 
- *      Format of a single packet:
- *      [31] [30] [29..25]  [24..20]  [19..15]  [14..10]  [ 9..5 ]  [ 4..0 ]
- *       ^    ^   |------------  6 5-bit packed residues ------------------|
- *       |    |   []  []  []  []  []  []  []  []  []  []  []  []  []  []  []
- *       |    |   |----------- or 15 2-bit packed residues ----------------|
- *       |    |    
- *       |    "packtype" bit 30 = 0 if packet is 2-bit packed; 1 if 5-bit packed
- *       "sentinel" bit 31 = 1 if last packet in packed sequence; else 0
- *       
- *       (packet & (1 << 31)) tests for end of sequence
- *       (packet & (1 << 30)) tests for 5-bit packing vs. 2-bit
- *       ((packet >> shift) && 31) decodes 5-bit, for shift=25..0 in steps of 5
- *       ((packet >> shift) && 3)  decodes 2-bit, for shift=28..0 in steps of 2
- *       
- *       Packets without the sentinel bit set are always full (unpack
- *       to 15 or 6 residue codes).
- *       
- *       5-bit EOD packets may be partial: they unpack to 1..6
- *       residues.  The remaining residue codes are set to 0x1f
- *       (11111) to indicate EOD within a partial packet.
- *       
- *       2-bit EOD packets must be full, because there is no way to
- *       signal EOD locally within a 2-bit packet. Can't use 0x03 (11)
- *       because that's T/U. Generally, then, the last packet of a
- *       nucleic acid sequence must be 5-bit encoded, solely to be
- *       able to encode EOD in a partial packet. 
- *  
- *       A protein sequence of length N packs into exactly (N+5)/6
- *       5-bit packets. A DNA sequence packs into <= (N+14)/15 mixed
- *       2- and 5-bit packets.
- *       
- *       A packed sequence consists of an integer number of packets,
- *       P, ending with an EOD packet that may contain a partial
- *       number of residues.
- *       
- *       A packed amino acid sequence unpacks to <= 6P residues, and
- *       all packets are 5-bit encoded.
- *       
- *       A packed nucleic acid sequence unpacks to <= 15P residues.
- *       The packets are a mix of 2-bit and 5-bit. Degenerate residues
- *       must be 5-bit packed, and the EOD packet usually is too. A
- *       5-bit packet does not have to contain degenerate residues,
- *       because it may have been necessary to get "in frame" to pack
- *       a downstream degenerate residue. For example, the sequence
- *       ACGTACGTNNA... must be packed as [ACGTAC][CGTNNA]... to get
- *       the N's packed correctly.
- *       
- *       
- * [x.] Compression: relative incompressibility of biological sequences.
- *
- *      Considered using fast (de)compression algorithms that are fast
- *      enough to keep up with disk read speed, including LZ4 and
- *      Google's Snappy. However, lz4 only achieves 1.0-1.9x global
- *      compression of protein sequence (compared to 1.5x for
- *      packing), and 2.0x for DNA (compared to 3.75x for packing).
- *      With local, blockwise compression, which we need for random
- *      access and indexing, it gets worse. Packing is superior.
- *      
- *      Metadata compression is more feasible, but I still opted
- *      against it. Although metadata are globally quite compressible
- *      (3.2-6.9x in trials with lz4), locally in 64K blocks lz4 only
- *      achieves 2x.  [xref SRE:2016/0201-seqfile-compression]
- *      
- * [x.] Maybe getting more packing using run-length encoding.
- * 
- *      Genome assemblies typically have long runs of N's (human
- *      GRCh38.p2 is about 5% N), and it's excruciating to have to
- *      pack it into bulky 5-bit degenerate packets. I considered
- *      run-length encoding (RLE). One possibility is to use a special
- *      packet format akin to the 5-bit packet format:
- *      
- *        [0] [?] [11111] [.....] [....................]
- *        ^        ^       ^       20b number, <=2^20-1
- *        |        |       5-bit residue code       
- *        |        sentinel residue 31 set
- *        sentinel bit unset
- *        
- *      This is a uniquely detectable packet structure because a full
- *      packet (with unset sentinel bit) would otherwise never contain
- *      a sentinel residue (code 31).
- *      
- *      However, using RLE would make our unpacked data sizes too
- *      unpredictable; we wouldn't have the <=6P or <=15P guarantee,
- *      so we couldn't rely on fixed-length allocation of <smem> in
- *      our chunk. Consumers wouldn't be getting predictable chunk
- *      sizes, which could complicate load balancing. I decided
- *      against it.
- */
 
 

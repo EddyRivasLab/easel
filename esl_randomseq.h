@@ -3,6 +3,7 @@
 #ifndef eslRANDOMSEQ_INCLUDED
 #define eslRANDOMSEQ_INCLUDED
 
+#include "esl_alphabet.h"
 #include "esl_random.h"
 
 /* Control flag passed to esl_rsq_Sample():                          */
@@ -39,8 +40,9 @@ extern int esl_rsq_CMarkov0  (ESL_RANDOMNESS *r, const char *s, char *markoved);
 extern int esl_rsq_CMarkov1  (ESL_RANDOMNESS *r, const char *s, char *markoved);
 
 /* 5. Generating iid sequences (digital mode). */
-extern int esl_rsq_xIID (ESL_RANDOMNESS *r, const double *p, int K, int L, ESL_DSQ *dsq);
-extern int esl_rsq_xfIID(ESL_RANDOMNESS *r, const float  *p, int K, int L, ESL_DSQ *dsq);
+extern int esl_rsq_xIID       (ESL_RANDOMNESS *r, const double *p, int K, int L, ESL_DSQ *dsq);
+extern int esl_rsq_xfIID      (ESL_RANDOMNESS *r, const float  *p, int K, int L, ESL_DSQ *dsq);
+extern int esl_rsq_SampleDirty(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, double **byp_p, int L, ESL_DSQ *dsq);
 
 /* 6. Shuffling sequences (digital mode). */
 extern int esl_rsq_XShuffle       (ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L,        ESL_DSQ *shuffled);

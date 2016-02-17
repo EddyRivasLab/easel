@@ -686,13 +686,13 @@ gamma_fraction(ESL_RANDOMNESS *r, double a)	/* for fractional a, 0 < a < 1 */
  *
  * Args:     r      - random number generation seed
  *           a      - order of the gamma function; a > 0
- *
- * Throws:   <eslEINVAL> for $a <= 0$.
  */
 double
 esl_rnd_Gamma(ESL_RANDOMNESS *r, double a)
 {
   double aint;
+
+  ESL_DASSERT1(( a > 0. ));
 
   aint = floor(a);
   if (a == aint && a < 12.) 
@@ -703,8 +703,53 @@ esl_rnd_Gamma(ESL_RANDOMNESS *r, double a)
     return gamma_fraction(r, a);
   else 
     return gamma_integer(r, aint) + gamma_fraction(r, a-aint);
-  return eslOK;
 }
+
+
+/* Function:  esl_rnd_Dirichlet()
+ * Synopsis:  Sample a Dirichlet-distributed random probability vector 
+ * Incept:    SRE, Wed Feb 17 12:20:53 2016 [H1/76]
+ *
+ * Purpose:   Using generator <rng>, sample a Dirichlet-distributed
+ *            probabilty vector <p> of <K> elements, using Dirichlet
+ *            parameters <alpha> (also of <K> elements). 
+ *
+ *            Caller provides the allocated space for <p>.
+ * 
+ *            <alpha> is optional. If it isn't provided (i.e. is
+ *            <NULL>), sample <p> uniformly. (That is, use <alpha[i] =
+ *            1.> for all i=0..K-1.)
+ *
+ *            This routine is redundant with <esl_dirichlet_DSample()>
+ *            and <esl_dirichlet_DSampleUniform()> in the dirichlet
+ *            module. Provided here because there's cases where we
+ *            just want to sample a probability vector without
+ *            introducing a dependency on all the stats/dirichlet code
+ *            in Easel.
+ *
+ * Args:      rng   : random number generator
+ *            alpha : OPTIONAL: Dirichlet parameters 0..K-1, or NULL to use alpha[i]=1 for all i
+ *            K     : number of elements in alpha, p
+ *            p     : RESULT: sampled probability vector
+ *
+ * Returns:   (void)
+ */
+void
+esl_rnd_Dirichlet(ESL_RANDOMNESS *rng, const double *alpha, int K, double *p)
+{
+  int    x;
+  double norm = 0.;
+
+  for (x = 0; x < K; x++) 
+    {
+      p[x] = esl_rnd_Gamma(rng, (alpha ? alpha[x] : 1.0));
+      norm += p[x];
+    }
+  for (x = 0; x < K; x++)
+    p[x] /= norm;
+}
+
+
 
 
 /*****************************************************************

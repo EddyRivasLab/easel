@@ -23,11 +23,10 @@
 #include <time.h>
 
 #include "easel.h"
+#include "esl_alphabet.h"
 #include "esl_random.h"
 #include "esl_randomseq.h"
-#ifdef eslAUGMENT_ALPHABET 
-#include "esl_alphabet.h"
-#endif
+
 
 /*****************************************************************
  * 1. Generating simple random character strings.
@@ -721,7 +720,6 @@ esl_rsq_CMarkov1(ESL_RANDOMNESS *r, const char *s, char *markoved)
 /*****************************************************************
  *# 4. Generating iid sequences (digital mode).
  *****************************************************************/
-#ifdef eslAUGMENT_ALPHABET
 
 /* Function: esl_rsq_xIID()
  * Synopsis: Generate an iid random digital sequence.
@@ -771,7 +769,89 @@ esl_rsq_xfIID(ESL_RANDOMNESS *r, const float *p, int K, int L, ESL_DSQ *dsq)
   return eslOK;
 }
 
-#endif /*eslAUGMENT_ALPHABET*/
+
+/* Function:  esl_rsq_SampleDirty()
+ * Synopsis:  Sample a digital sequence, including noncanonicals.
+ * Incept:    SRE, Wed Feb 17 10:57:28 2016 [H1/76]
+ *
+ * Purpose:   Using random number generator <rng>, use probability
+ *            vector <p> to sample an iid digital sequence in alphabet
+ *            <abc> of length <L>. Store it in <dsq>. 
+ * 
+ *            The <dsq> space, allocated by the caller, has room for
+ *            at least <L+2> residues, counting the digital
+ *            sentinels. 
+ * 
+ *            Probability vector <p> has <Kp> terms, and sums to 1.0
+ *            over them. The probabilities in <p> for residues <K>,
+ *            <Kp-2>, and <Kp-1> (gap, nonresidue, missing) are
+ *            typically zero, to generate a standard unaligned digital
+ *            sequence with degenerate residues. To sample a random
+ *            "alignment", <p[K]> is nonzero.
+ *            
+ *            If <p> is <NULL>, then we sample a probability vector
+ *            according to the following rules. 
+ *               1. Sample pc, the probability of canonical
+ *                  vs. noncanonical residues, uniformly on [0,1).
+ *               2. Sample a p[] uniformly for canonical residues
+ *                  <0..K-1>, and renormalize by multiplying by pc.
+ *                  Sample a different p[] uniformly for noncanonical
+ *                  residues <K+1..Kp-3>, and renormalize by (1-pc).
+ *               3. p[] = 0 for gap residue K, nonresidue Kp-2, 
+ *                  missing residue Kp-1.
+ *            This usage is mainly intended to make it easy to
+ *            sample dirty edge cases for automated tests.
+ *
+ * Args:      rng  :  random number generator 
+ *            abc  :  digital alphabet
+ *            p    :  OPTIONAL: p[0..Kp-1] probability vector, or NULL
+ *            L    :  length of digital sequence to sample
+ *            dsq  :  resulting digital seq sample, caller-provided space
+ * 
+ * Returns:   <eslOK> on success
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ */
+int
+esl_rsq_SampleDirty(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, double **byp_p, int L, ESL_DSQ *dsq)
+{
+  double *p = NULL;    
+  int     i;
+  int     status;
+  
+  /* If p isn't provided, sample one. */
+  if ( esl_byp_IsProvided(byp_p)) 
+    p = *byp_p;
+  else
+    {
+      double pc = esl_random(rng); /* [0,1) */
+      int    x;
+      
+      ESL_ALLOC(p, sizeof(double) * abc->Kp);
+
+      esl_rnd_Dirichlet(rng, NULL /* i.e. uniform */, abc->K, p);
+      esl_rnd_Dirichlet(rng, NULL, (abc->Kp - abc->K - 3), (p + abc->K +1));  /* K+1..Kp-3 range of alphabet */
+      for (x = 0;        x <  abc->K;    x++) p[x] = p[x] * pc;
+      for (x = abc->K+1; x <= abc->Kp-3; x++) p[x] = p[x] * (1.-pc);
+      p[abc->K]    = 0.;
+      p[abc->Kp-2] = 0.;
+      p[abc->Kp-1] = 0.;
+    }
+
+  dsq[0]   = eslDSQ_SENTINEL;
+  for (i = 1; i <= L; i++)
+    dsq[i] = esl_rnd_DChoose(rng, p, abc->Kp);
+  dsq[L+1] = eslDSQ_SENTINEL;
+
+  if      (esl_byp_IsReturned(byp_p)) *byp_p = p;
+  else if (esl_byp_IsInternal(byp_p)) free(p); 
+  return eslOK;
+
+ ERROR:
+  if (! esl_byp_IsProvided(byp_p) && p) free(p);
+  if (  esl_byp_IsReturned(byp_p))     *byp_p = NULL;
+  return status;
+}
 /*--------------------- end, digital generation ---------------- */
 
 
@@ -779,7 +859,6 @@ esl_rsq_xfIID(ESL_RANDOMNESS *r, const float *p, int K, int L, ESL_DSQ *dsq)
 /*****************************************************************
  *# 5. Shuffling sequences (digital mode)
  *****************************************************************/
-#ifdef eslAUGMENT_ALPHABET
 
 /* Function:  esl_rsq_XShuffle()
  * Synopsis:  Shuffle a digital sequence.
@@ -1067,7 +1146,6 @@ esl_rsq_XShuffleWindows(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int w, ESL
   return eslOK;
 }
 
-#endif /*eslAUGMENT_ALPHABET*/
 /*------------------- end, digital shuffling  -------------------*/
 
 
@@ -1075,7 +1153,6 @@ esl_rsq_XShuffleWindows(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int w, ESL
 /*****************************************************************
  *# 6. Randomizing sequences (digital mode)
  *****************************************************************/
-#ifdef eslAUGMENT_ALPHABET
 
 /* Function:  esl_rsq_XMarkov0()
  * Synopsis:  Generate new digital sequence of same 0th order Markov properties.
@@ -1238,7 +1315,6 @@ esl_rsq_XMarkov1(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *m
   return status;
 }
 
-#endif /*eslAUGMENT_ALPHABET*/
 /*------------------ end, digital randomizing -------------------*/
 
 /*****************************************************************
