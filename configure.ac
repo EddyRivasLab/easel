@@ -62,7 +62,7 @@
 #     EASEL_VERSION    e.g. "1.9a"
 #
 AC_PREREQ(2.60)
-AC_INIT(Easel, 0.1.snap20080611, eddys@janelia.hhmi.org, easel)
+AC_INIT(Easel, s0.1.1, sean@eddylab.org, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
 # remember if the user is overriding CFLAGS
@@ -74,11 +74,11 @@ fi
 # 3. Info on the package
 ################################################################
 
-EASEL_DATE="June 2008"
-EASEL_COPYRIGHT="Copyright (C) 2008 Howard Hughes Medical Institute"
-EASEL_LICENSE="Freely distributed under the Janelia Farm Software License."
-EASEL_VERSION=$PACKAGE_VERSION
-EASEL_URL="http://easel.janelia.org/"
+EASEL_DATE="Feb 2016"
+EASEL_COPYRIGHT="Copyright (C) 2016 HHMI Janelia Farm Research Campus"
+EASEL_LICENSE="Freely distributed under the BSD open source license."
+EASEL_VERSION="$PACKAGE_VERSION"
+EASEL_URL="http://bioeasel.org/"
 
 # Output variables.
 # (AC_OUTPUT replaces instances of @var@ in input files.)
