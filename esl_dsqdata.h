@@ -131,6 +131,12 @@ static uint32_t eslDSQDATA_MAGIC_V1SWAP = 0xb1d1d3c4; //  ... as above, but byte
 #define eslDSQDATA_CHUNK_MAXSEQ       4096      // max number of sequences
 #define eslDSQDATA_CHUNK_MAXPACKET  262144      // max number of uint32 sequence packets 
 
+/* Reading the control bits on a packet v
+ */
+#define eslDSQDATA_EOD   (1 << 31)
+#define eslDSQDATA_5BIT  (1 << 30)
+#define ESL_DSQDATA_EOD(v)   ((v) & eslDSQDATA_EOD)
+#define ESL_DSQDATA_5BIT(v)  ((v) & eslDSQDATA_5BIT)
   
 /* Functions in the API
  */

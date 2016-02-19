@@ -46,9 +46,11 @@ static void               dsqdata_chunk_Destroy(ESL_DSQDATA_CHUNK *chu);
 static void *dsqdata_loader_thread  (void *p);
 static void *dsqdata_unpacker_thread(void *p);
 
-static int   dsqdata_unpack_chunk(ESL_DSQDATA_CHUNK *chu);
-static int   dsqdata_pack5 (ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen);
-static int   dsqdata_pack2 (ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen);
+static int   dsqdata_unpack_chunk(ESL_DSQDATA_CHUNK *chu, int do_pack5);
+static int   dsqdata_unpack5(uint32_t *psq, ESL_DSQ *dsq, int *ret_L, int *ret_P);
+static int   dsqdata_unpack2(uint32_t *psq, ESL_DSQ *dsq, int *ret_L, int *ret_P);
+static int   dsqdata_pack5  (ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen);
+static int   dsqdata_pack2  (ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen);
 
 /*****************************************************************
  * 1. ESL_DSQDATA: reading dsqdata format
@@ -961,7 +963,7 @@ dsqdata_unpacker_thread(void *p)
       if (! chu->N) done = TRUE; // still need to pass the chunk along to a consumer.
       else
 	{ 	
-	  if (( status = dsqdata_unpack_chunk(chu)) != eslOK) goto ERROR;
+	  if (( status = dsqdata_unpack_chunk(chu, dd->pack5)) != eslOK) goto ERROR;
 	}
 
       /* Put unpacked chunk into the unpacker's outbox.
@@ -993,19 +995,25 @@ dsqdata_unpacker_thread(void *p)
  *****************************************************************/
 
 /* dsqdata_unpack_chunk()
+ * 
+ * <do_pack5> is a hint: if caller knows that all the packets in the
+ * chunk are 5-bit encoded (i.e. amino acid sequence), it can pass
+ * <TRUE>, enabling a small optimization. Otherwise the packed
+ * sequences will be treated as mixed 2- and 5-bit encoding, as is
+ * needed for DNA/RNA sequences; protein sequences also unpack fine
+ * that way, but the 5-bit flag on every packet needs to be checked.
  *
  * Throws:    <eslEFORMAT> if a problem is seen in the binary format 
  */
 static int
-dsqdata_unpack_chunk(ESL_DSQDATA_CHUNK *chu)
+dsqdata_unpack_chunk(ESL_DSQDATA_CHUNK *chu, int do_pack5)
 {
   char     *ptr = chu->metadata;           // ptr will walk through metadata
-  ESL_DSQ  *dsq = (ESL_DSQ *) chu->smem;   // concatenated unpacked digital seq as one array
-  int       r   = 0;                       // position in unpacked dsq array
-  int       i   = 0;                       // sequence index: 0..chu->N-1
+  int       r;                             // position in unpacked dsq array
+  int       i;                             // sequence index: 0..chu->N-1
   int       pos;                           // position in packet array
-  uint32_t  v;                             // one packet, picked up
-  int       bitshift;                      
+  int       L;                             // an unpacked sequence length
+  int       P;                             // number of packets unpacked
   
   /* "Unpack" the metadata */
   for (i = 0; i < chu->N; i++)
@@ -1019,59 +1027,111 @@ dsqdata_unpack_chunk(ESL_DSQDATA_CHUNK *chu)
     }
 
   /* Unpack the sequence data */
-  i = 0;
-  chu->dsq[0] = (ESL_DSQ *) chu->smem;
-  dsq[r++]    = eslDSQ_SENTINEL;
-  for (pos = 0; pos < chu->pn; pos++)
+  i   = 0;
+  r   = 0;
+  pos = 0;
+  while (pos < chu->pn)
     {
-      v = chu->psq[pos];  // Must pick up, because of packed psq overlap w/ unpacked smem
-      
-      /* Look at the two packet control bits together.
-       * 00 = 2bit full packet
-       * 01 = 5bit full packet. 
-       * 10 = 2bit EOD packet (must be full)
-       * 11 = 5bit EOD packet.
-       */
-      switch ( (v >> 30) ) {
-      case 0: 
-	dsq[r++] = (v >> 28) & 3;  dsq[r++] = (v >> 26) & 3;  dsq[r++] = (v >> 24) & 3;
-	dsq[r++] = (v >> 22) & 3;  dsq[r++] = (v >> 20) & 3;  dsq[r++] = (v >> 18) & 3;
-	dsq[r++] = (v >> 16) & 3;  dsq[r++] = (v >> 14) & 3;  dsq[r++] = (v >> 12) & 3;
-	dsq[r++] = (v >> 10) & 3;  dsq[r++] = (v >>  8) & 3;  dsq[r++] = (v >>  6) & 3;
-	dsq[r++] = (v >>  4) & 3;  dsq[r++] = (v >>  2) & 3;  dsq[r++] =         v & 3;
-	break;
+      chu->dsq[i] = (ESL_DSQ *) chu->smem + r;
+      if (do_pack5) dsqdata_unpack5(chu->psq + pos, chu->dsq[i], &L, &P);
+      else          dsqdata_unpack2(chu->psq + pos, chu->dsq[i], &L, &P);
 
-      case 1:
-	dsq[r++] = (v >> 25) & 31; dsq[r++] = (v >> 20) & 31; dsq[r++] = (v >> 15) & 31;
-	dsq[r++] = (v >> 10) & 31; dsq[r++] = (v >>  5) & 31; dsq[r++] = (v >>  0) & 31;
-	break;	
-
-      case 2:
-	dsq[r++] = (v >> 28) & 3;  dsq[r++] = (v >> 26) & 3;  dsq[r++] = (v >> 24) & 3;
-	dsq[r++] = (v >> 22) & 3;  dsq[r++] = (v >> 20) & 3;  dsq[r++] = (v >> 18) & 3;
-	dsq[r++] = (v >> 16) & 3;  dsq[r++] = (v >> 14) & 3;  dsq[r++] = (v >> 12) & 3;
-	dsq[r++] = (v >> 10) & 3;  dsq[r++] = (v >>  8) & 3;  dsq[r++] = (v >>  6) & 3;
-	dsq[r++] = (v >>  4) & 3;  dsq[r++] = (v >>  2) & 3;  dsq[r++] =         v & 3;
-
-	chu->L[i] = &(dsq[r]) - chu->dsq[i] - 1;
-	i++;
-	if (i < chu->N) chu->dsq[i] = &(dsq[r]);
-	dsq[r++] = eslDSQ_SENTINEL;
-	break;
-
-      case 3:
-	// In 5-bit EOD packets we have to stop on internal sentinel.
-	for (bitshift = 25; bitshift >= 0 && ((v >> bitshift) & 31) != 31; bitshift -= 5)
-	  dsq[r++] = (v >> bitshift) & 31;
-	chu->L[i] = &(dsq[r]) - chu->dsq[i] - 1;
-	i++;
-	if (i < chu->N) chu->dsq[i] = &(dsq[r]);
-	dsq[r++] = eslDSQ_SENTINEL;
-	break;
-      }
+      r   += L+1;     // L+1, not L+2, because we overlap start/end sentinels
+      pos += P;
+      chu->L[i] = L;
+      i++;
     }
-   ESL_DASSERT1(( i == chu->N ));
-   return eslOK;
+  ESL_DASSERT1(( pos == chu->pn ));  // we should've unpacked exactly pn packets,
+  ESL_DASSERT1((   i == chu->N ));   //  .. and exactly N sequences.
+  return eslOK;
+}
+
+
+/* Unpack 5-bit encoded sequence, starting at <psq>.
+ * dsq[0] is already initialized to eslDSQ_SENTINEL
+ */
+static int
+dsqdata_unpack5(uint32_t *psq, ESL_DSQ *dsq, int *ret_L, int *ret_P)
+{
+  int      pos = 0;          // position in psq[]
+  int      r   = 1;          // position in dsq[]. caller set dsq[0] to eslDSQ_SENTINEL.
+  uint32_t v   = psq[pos++];
+  int      b;                // bit shift counter
+
+  while (! ESL_DSQDATA_EOD(v))               // we trust that we'll see a sentinel at the end
+    {
+      ESL_DASSERT1(( ESL_DSQDATA_5BIT(v) )); // All packets are 5-bit encoded
+      dsq[r++] = (v >> 25) & 31; dsq[r++] = (v >> 20) & 31; dsq[r++] = (v >> 15) & 31;
+      dsq[r++] = (v >> 10) & 31; dsq[r++] = (v >>  5) & 31; dsq[r++] = (v >>  0) & 31;
+      v = psq[pos++];
+    }
+
+  /* Unpack sentinel packet, which may be partial; it can even contain
+   * zero residues in the edge case of an L=0 sequence.
+   */
+  ESL_DASSERT1(( ESL_DSQDATA_5BIT(v) ));
+  for (b = 25; b >= 0 && ((v >> b) & 31) != 31; b -= 5)
+    dsq[r++] = (v >> b) & 31;
+  dsq[r++] = eslDSQ_SENTINEL;
+  // r is now L+2:   the raw sequence length + 2 sentinels
+  // P = pos, because pos index advanced to next packet after sentinel
+  *ret_L = r-2;
+  *ret_P = pos;
+  return eslOK;
+}
+
+/* Unpack 2-bit (+ mixed 5-bit for noncanonicals) encoding.
+ * dsq[0] is already initialized to eslDSQ_SENTINEL
+ *
+ * This will work for protein sequences just fine; just a little
+ * slower than calling dsqdata_unpack5(), because here we have
+ * to check the 5-bit encoding bit on every packet.
+ */
+static int
+dsqdata_unpack2(uint32_t *psq, ESL_DSQ *dsq, int *ret_L, int *ret_P)
+{
+  int      pos = 0;
+  int      r   = 1;
+  uint32_t v   = psq[pos++];
+  int      b;                  // bit shift counter
+
+  while (! ESL_DSQDATA_EOD(v))
+    {
+      if ( ESL_DSQDATA_5BIT(v))  // 5-bit encoded, full. Don't need mask on bit 31 because we know it's down.
+	{
+	  dsq[r++] = (v >> 25) & 31; dsq[r++] = (v >> 20) & 31; dsq[r++] = (v >> 15) & 31;
+	  dsq[r++] = (v >> 10) & 31; dsq[r++] = (v >>  5) & 31; dsq[r++] = (v >>  0) & 31;
+	}
+      else                      // 2-bit encoded, full
+	{ 
+	  dsq[r++] = (v >> 28) & 3;  dsq[r++] = (v >> 26) & 3;  dsq[r++] = (v >> 24) & 3;
+	  dsq[r++] = (v >> 22) & 3;  dsq[r++] = (v >> 20) & 3;  dsq[r++] = (v >> 18) & 3;
+	  dsq[r++] = (v >> 16) & 3;  dsq[r++] = (v >> 14) & 3;  dsq[r++] = (v >> 12) & 3;
+	  dsq[r++] = (v >> 10) & 3;  dsq[r++] = (v >>  8) & 3;  dsq[r++] = (v >>  6) & 3;
+	}
+      v = psq[pos++];
+    }
+
+  /* Sentinel packet. 
+   * If 2-bit, it's full. If 5-bit, it's usually partial, and may even be 0-len.
+   */
+  if ( ESL_DSQDATA_5BIT(v)) // 5-bit, partial
+    {
+      for (b = 25; b >= 0 && ((v >> b) & 31) != 31; b -= 5)
+	dsq[r++] = (v >> b) & 31;
+    }
+  else
+    {
+      dsq[r++] = (v >> 28) & 3;  dsq[r++] = (v >> 26) & 3;  dsq[r++] = (v >> 24) & 3;
+      dsq[r++] = (v >> 22) & 3;  dsq[r++] = (v >> 20) & 3;  dsq[r++] = (v >> 18) & 3;
+      dsq[r++] = (v >> 16) & 3;  dsq[r++] = (v >> 14) & 3;  dsq[r++] = (v >> 12) & 3;
+      dsq[r++] = (v >> 10) & 3;  dsq[r++] = (v >>  8) & 3;  dsq[r++] = (v >>  6) & 3;
+    }
+  dsq[r++] = eslDSQ_SENTINEL;
+
+  *ret_L = r-2;
+  *ret_P = pos;
+  return eslOK;
 }
 
 
@@ -1096,12 +1156,12 @@ dsqdata_pack5(ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen)
 
   while (r <= n)
     {
-      v = (1 << 30);             // initialize packet with 5-bit flag
+      v = eslDSQDATA_5BIT;            // initialize packet with 5-bit flag
       for (b = 25; b >= 0 && r <= n; b -= 5)  v  |= (uint32_t) dsq[r++] << b;
       for (      ; b >= 0;           b -= 5)  v  |= (uint32_t)       31 << b;
 
-      if (r > n) v |= (1 << 31); // EOD bit
-      psq[pos++] = v;            // we know we've already read all the dsq we need under psq[pos]
+      if (r > n) v |= eslDSQDATA_EOD; // EOD bit
+      psq[pos++] = v;                 // we know we've already read all the dsq we need under psq[pos]
     }
 
   *ret_psq  = psq;
@@ -1143,13 +1203,13 @@ dsqdata_pack2(ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen)
 	}
       else
 	{
-	  v = (1 << 30); // initialize v with 5-bit packing bit
+	  v = eslDSQDATA_5BIT; // initialize v with 5-bit packing bit
 	  for (b = 25; b >= 0 && r <= n; b -= 5) v  |= (uint32_t) dsq[r++] << b;
 	  for (      ; b >= 0;           b -= 5) v  |= (uint32_t)       31 << b;
 	}
 
-      if (r > n) v |= (1 << 31); // EOD bit
-      psq[pos++] = v;            // we know we've already read all the dsq we need under psq[pos]
+      if (r > n) v |= eslDSQDATA_EOD; // EOD bit
+      psq[pos++] = v;                 // we know we've already read all the dsq we need under psq[pos]
     }
   
   *ret_psq  = psq;
@@ -1181,9 +1241,15 @@ dsqdata_pack2(ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen)
  *       Packets without the sentinel bit set are always full (unpack
  *       to 15 or 6 residue codes).
  *       
- *       5-bit EOD packets may be partial: they unpack to 1..6
+ *       5-bit EOD packets may be partial: they unpack to 0..6
  *       residues.  The remaining residue codes are set to 0x1f
- *       (11111) to indicate EOD within a partial packet.
+ *       (11111) to indicate EOD within a partial packet. 
+ *
+ *       A 0-length sequence is encoded by a 5-bit partial EOD packet
+ *       with 0 residues. This is the only case in which a partial
+ *       packet contains 0 residues. (Because we can end with an EOD
+ *       full packet, there is no other case where we end up with 0
+ *       leftover residues to encode.)
  *       
  *       2-bit EOD packets must be full, because there is no way to
  *       signal EOD locally within a 2-bit packet. Can't use 0x03 (11)
@@ -1191,12 +1257,13 @@ dsqdata_pack2(ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen)
  *       nucleic acid sequence must be 5-bit encoded, solely to be
  *       able to encode EOD in a partial packet. 
  *  
- *       A protein sequence of length N packs into exactly (N+5)/6
- *       5-bit packets. A DNA sequence packs into <= (N+14)/15 mixed
- *       2- and 5-bit packets.
+ *       A protein sequence of length N packs into exactly P = MAX(1,
+ *       (N+5)/6) 5-bit packets. (1, because a 0 length sequence still
+ *       requires an EOD packet.) A DNA sequence packs into P <=
+ *       MAX(1, (N+14)/15) mixed 2- and 5-bit packets.
  *       
  *       A packed sequence consists of an integer number of packets,
- *       P, ending with an EOD packet that may contain a partial
+ *       P, which ends with an EOD packet that may contain a partial
  *       number of residues.
  *       
  *       A packed amino acid sequence unpacks to <= 6P residues, and
