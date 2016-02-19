@@ -228,6 +228,7 @@ UTESTS =\
 	esl_dirichlet_utest\
 	esl_distance_utest\
 	esl_dmatrix_utest\
+	esl_dsqdata_utest\
 	esl_exponential_utest\
 	esl_fileparser_utest\
 	esl_gamma_utest\

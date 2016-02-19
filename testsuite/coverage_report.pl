@@ -72,15 +72,15 @@ foreach $module (@modules) {
 
     # one way to fail: there isn't a test driver at all
     `grep $flag $module`;
-    if ($? != 0) { printf("%20s[NO DRIVER]\n", "");  push @nodriverlist, $module; next; }
+    if ($? != 0) { printf("%40s[NO DRIVER]\n", "");  push @nodriverlist, $module; next; }
     $npresent++;
 
     # or: there's a test driver but it wasn't compiled. Sometimes normal, such as esl_mpi_utest on non-MPI
-    if (! -x "$top_builddir/$progname") { printf("%20s[UTEST NOT COMPILED]\n", "");       next; }; 
+    if (! -x "$top_builddir/$progname") { printf("%40s[UTEST NOT COMPILED]\n", "");       next; }; 
     $ncompiled++;
     
     `$top_builddir/$progname >& /dev/null`;
-    if ($? != 0) { printf("%20s[UTEST FAILED ]\n", "");       next; };
+    if ($? != 0) { printf("%40s[UTEST FAILED ]\n", "");       next; };
     $nsuccess++;
 
     $output = `(cd $top_builddir; gcov $basecfile)`;
@@ -88,7 +88,10 @@ foreach $module (@modules) {
 	$pct_cvg        = $1;
 	$nlines         += $2;
 	$nlines_covered += $1*$2/100;
-	printf("%6.2f%% coverage\n", $pct_cvg);
+	printf("%6.2f%%   ", $pct_cvg);
+	$nbar           = int($pct_cvg * 20 / 100);
+	for ($i = 0; $i < $nbar; $i++) { printf("*"); }
+	printf("\n");
     }
     else { die "failed to parse gcov output";}
 }

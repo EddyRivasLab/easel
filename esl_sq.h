@@ -146,11 +146,11 @@ typedef struct {
 } ESL_SQ_BLOCK;
 
 /* These control default initial allocation sizes in an ESL_SQ.     */
-#define eslSQ_NAMECHUNK   32	/* allocation unit for name, source */
-#define eslSQ_ACCCHUNK    32	/* allocation unit for accession    */
-#define eslSQ_DESCCHUNK  128	/* allocation unit for description  */
-#define eslSQ_SEQCHUNK   256	/* allocation unit for seqs         */
-
+#define eslSQ_NAMECHUNK   32	// allocation unit for name, source 
+#define eslSQ_ACCCHUNK    32	// allocation unit for accession    
+#define eslSQ_DESCCHUNK  128	// allocation unit for description  
+#define eslSQ_SEQCHUNK   256	// allocation unit for seqs         
+                                //  .. dsqdata assumes _SEQCHUNK >= 4 
 
 extern ESL_SQ *esl_sq_Create(void);
 extern ESL_SQ *esl_sq_CreateFrom(const char *name, const char *seq,

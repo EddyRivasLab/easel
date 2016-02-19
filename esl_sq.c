@@ -2048,6 +2048,8 @@ sq_init(ESL_SQ *sq, int do_digital)
   sq->salloc   = eslSQ_SEQCHUNK; 
   sq->srcalloc = eslSQ_NAMECHUNK; 
 
+  ESL_DASSERT1(( sq->salloc >= 4 )); // dsqdata makes this assumption when it packs in place.
+
   /* optional for extra residue markups */
   sq->nxr    = 0;
   sq->xr_tag = NULL;

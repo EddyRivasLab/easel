@@ -49,8 +49,8 @@ static void *dsqdata_unpacker_thread(void *p);
 static int   dsqdata_unpack_chunk(ESL_DSQDATA_CHUNK *chu, int do_pack5);
 static int   dsqdata_unpack5(uint32_t *psq, ESL_DSQ *dsq, int *ret_L, int *ret_P);
 static int   dsqdata_unpack2(uint32_t *psq, ESL_DSQ *dsq, int *ret_L, int *ret_P);
-static int   dsqdata_pack5  (ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen);
-static int   dsqdata_pack2  (ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen);
+static int   dsqdata_pack5  (ESL_DSQ *dsq, int L, uint32_t *psq, int *ret_P);
+static int   dsqdata_pack2  (ESL_DSQ *dsq, int L, uint32_t *psq, int *ret_P);
 
 /*****************************************************************
  * 1. ESL_DSQDATA: reading dsqdata format
@@ -119,6 +119,8 @@ static int   dsqdata_pack2  (ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_p
  *
  * Throws:    <eslEMEM> on allocation error.
  *            <eslESYS> on system call failure.
+ *            <eslEUNIMPLEMENTED> if data are byteswapped
+ *               TODO: handle byteswapping
  * 
  *            On any thrown exception, <*ret_dd> is returned NULL.
  */
@@ -217,7 +219,8 @@ esl_dsqdata_Open(ESL_ALPHABET **byp_abc, char *basename, int nconsumers, ESL_DSQ
 
   /* Check the magic and the tag */
   if      (tag != dd->uniquetag)                 ESL_XFAIL(eslEFORMAT, dd->errbuf, "index file has bad tag, doesn't go with stub file");
-  if      (dd->magic == eslDSQDATA_MAGIC_V1SWAP) dd->do_byteswap = TRUE;
+  // Eventually we would set dd->do_byteswap = TRUE; below.
+  if      (dd->magic == eslDSQDATA_MAGIC_V1SWAP) ESL_XEXCEPTION(eslEUNIMPLEMENTED, "dsqdata cannot yet read data in different byte orders");
   else if (dd->magic != eslDSQDATA_MAGIC_V1)     ESL_XFAIL(eslEFORMAT, dd->errbuf, "index file has bad magic");
 
   /* Either validate, or create the alphabet */
@@ -483,6 +486,8 @@ esl_dsqdata_Close(ESL_DSQDATA *dd)
  * Throws:    <eslESYS>   A system call failed, such as fwrite().
  *            <eslEINVAL> Sequence handle <sqfp> isn't digital and rewindable.
  *            <eslEMEM>   Allocation failure
+ *            <eslEUNIMPLEMENTED> Sequence is too long to be encoded.
+ *                               (TODO: chromosome-scale DNA sequences)
  */
 int
 esl_dsqdata_Write(ESL_SQFILE *sqfp, char *basename, char *errbuf)
@@ -518,12 +523,14 @@ esl_dsqdata_Write(ESL_SQFILE *sqfp, char *basename, char *errbuf)
   // Could also check that it's positioned at the start.
   if ( (sq = esl_sq_CreateDigital(sqfp->abc)) == NULL) { status = eslEMEM; goto ERROR; }
 
-
   /* First pass over the sequence file, to get statistics.
    * Read it now, before opening any files, in case we find any parse errors.
    */
   while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
     {
+      if (sq->n >= 6 * eslDSQDATA_CHUNK_MAXPACKET)  // guaranteed limit
+	ESL_EXCEPTION(eslEUNIMPLEMENTED, "dsqdata cannot currently deal with large sequences");
+
       nseq++;
       nres += sq->n;
       if (sq->n > max_seqlen) max_seqlen = sq->n;
@@ -584,8 +591,10 @@ esl_dsqdata_Write(ESL_SQFILE *sqfp, char *basename, char *errbuf)
   while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
     {
       /* Packed sequence */
-      if (do_pack5) dsqdata_pack5(sq->dsq, sq->n, &psq, &plen);
-      else          dsqdata_pack2(sq->dsq, sq->n, &psq, &plen);
+      psq = (uint32_t *) sq->dsq;        // pack-in-place
+      ESL_DASSERT1(( sq->salloc >= 4 )); // required min space for pack-in-place
+      if (do_pack5) dsqdata_pack5(sq->dsq, sq->n, psq, &plen);
+      else          dsqdata_pack2(sq->dsq, sq->n, psq, &plen);
       if ( fwrite(psq, sizeof(uint32_t), plen, sfp) != plen) 
 	ESL_XEXCEPTION(eslESYS, "fwrite() failed, packed seq");
       spos += plen;
@@ -1048,7 +1057,9 @@ dsqdata_unpack_chunk(ESL_DSQDATA_CHUNK *chu, int do_pack5)
 
 
 /* Unpack 5-bit encoded sequence, starting at <psq>.
- * dsq[0] is already initialized to eslDSQ_SENTINEL
+ * Important: dsq[0] is already initialized to eslDSQ_SENTINEL,
+ * as a nitpicky optimization (the sequence data in a chunk are
+ * concatenated so that they share end/start sentinels).
  */
 static int
 dsqdata_unpack5(uint32_t *psq, ESL_DSQ *dsq, int *ret_L, int *ret_P)
@@ -1081,7 +1092,7 @@ dsqdata_unpack5(uint32_t *psq, ESL_DSQ *dsq, int *ret_L, int *ret_P)
 }
 
 /* Unpack 2-bit (+ mixed 5-bit for noncanonicals) encoding.
- * dsq[0] is already initialized to eslDSQ_SENTINEL
+ * Important: dsq[0] is already initialized to eslDSQ_SENTINEL
  *
  * This will work for protein sequences just fine; just a little
  * slower than calling dsqdata_unpack5(), because here we have
@@ -1108,6 +1119,7 @@ dsqdata_unpack2(uint32_t *psq, ESL_DSQ *dsq, int *ret_L, int *ret_P)
 	  dsq[r++] = (v >> 22) & 3;  dsq[r++] = (v >> 20) & 3;  dsq[r++] = (v >> 18) & 3;
 	  dsq[r++] = (v >> 16) & 3;  dsq[r++] = (v >> 14) & 3;  dsq[r++] = (v >> 12) & 3;
 	  dsq[r++] = (v >> 10) & 3;  dsq[r++] = (v >>  8) & 3;  dsq[r++] = (v >>  6) & 3;
+	  dsq[r++] = (v >>  4) & 3;  dsq[r++] = (v >>  2) & 3;  dsq[r++] = (v >>  0) & 3;
 	}
       v = psq[pos++];
     }
@@ -1126,6 +1138,7 @@ dsqdata_unpack2(uint32_t *psq, ESL_DSQ *dsq, int *ret_L, int *ret_P)
       dsq[r++] = (v >> 22) & 3;  dsq[r++] = (v >> 20) & 3;  dsq[r++] = (v >> 18) & 3;
       dsq[r++] = (v >> 16) & 3;  dsq[r++] = (v >> 14) & 3;  dsq[r++] = (v >> 12) & 3;
       dsq[r++] = (v >> 10) & 3;  dsq[r++] = (v >>  8) & 3;  dsq[r++] = (v >>  6) & 3;
+      dsq[r++] = (v >>  4) & 3;  dsq[r++] = (v >>  2) & 3;  dsq[r++] = (v >>  0) & 3;
     }
   dsq[r++] = eslDSQ_SENTINEL;
 
@@ -1137,22 +1150,23 @@ dsqdata_unpack2(uint32_t *psq, ESL_DSQ *dsq, int *ret_L, int *ret_P)
 
 /* dsqdata_pack5()
  *
- * Pack a digital sequence <dsq> of length <n>, in place.  The packet
- * array <*ret_psq>, <*ret_plen> packets long, uses the same memory
- * and <dsq> is overwritten. No allocation is needed; we know that
- * <dsq> is longer than <psq> and we don't care if we overwrite <dsq>.
+ * Pack a digital (protein) sequence <dsq> of length <n>, into <psq>
+ * using 5-bit encoding; return the number of packets <*ret_P>.
  * 
- * It's possible to have n==0, for a 0 length digital sequence; in that 
- * case you'll get plen=0.
+ * <psq> must be allocated for at least $MAX(1, (n+5)/6)$ packets.
+ * 
+ * You can pack in place, by passing the same pointer <dsq> as <psq>,
+ * provided that dsq is allocated for at least 1 packet (4 bytes).  We
+ * know that <psq> is either smaller than <dsq> ($4P <= n$) or that it
+ * consists of one EOD packet (in the case n=0). 
  */
 static int
-dsqdata_pack5(ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen)
+dsqdata_pack5(ESL_DSQ *dsq, int n, uint32_t *psq, int *ret_P)
 {
-  uint32_t  *psq      = (uint32_t *) dsq;  // packing in place
-  int        r        = 1;                 // position in <dsq>
-  int        pos      = 0;                 // position in <psq>. 
-  int        b;                            // bitshift
-  uint32_t   v;
+  int        r   = 1;    // position in <dsq>
+  int        pos = 0;    // position in <psq>. 
+  int        b;          // bitshift
+  uint32_t   v;          // tmp var needed to guarantee pack-in-place works
 
   while (r <= n)
     {
@@ -1164,28 +1178,36 @@ dsqdata_pack5(ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen)
       psq[pos++] = v;                 // we know we've already read all the dsq we need under psq[pos]
     }
 
-  *ret_psq  = psq;
-  *ret_plen = pos;
+  /* Special case of n=0: we need an empty EOD sentinel packet. */
+  if (pos == 0) { v = 0; psq[pos++] = ~v; }   // all bits set: | EOD | 5BIT | all sentinels |
+
+  *ret_P = pos;
   return eslOK;
 }
 
 
 /* dsqdata_pack2()
  *
- * Pack <dsq> in place. 
- * Saves worrying about allocation for packed seq buffer.
- * *ret_psq is the same memory as dsq, with the packets flush left.
- * <dsq> is destroyed by packing.
+ * Pack a digital (nucleic) sequence <dsq> of total length
+ * <n>, into <psq>; return the number of packets <*ret_P>.
+ * 
+ * <psq> must be allocated for at least $MAX(1, (n+5)/6)$ packets.
+ * (Yes, even in 2-bit packing, because worst case, the sequence
+ * contains so many noncanonicals that it's entirely 5-bit encoded.)
+ * 
+ * You can pack in place, by passing the same pointer <dsq> as <psq>,
+ * provided that dsq is allocated for at least 1 packet (4 bytes).  We
+ * know that <psq> is either smaller than <dsq> ($4P <= n$) or that it
+ * consists of one EOD packet (in the case n=0). 
  */
 static int
-dsqdata_pack2(ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen)
+dsqdata_pack2(ESL_DSQ *dsq, int n, uint32_t *psq, int *ret_P)
 {
-  uint32_t  *psq      = (uint32_t *) dsq; // packing in place
-  int        pos      = 0;                // position in <psq>
-  int        d        = 0;                // position of next degen residue, 1..n, n+1 if none
-  int        r        = 1;                // position in <dsq> 1..n
-  int        b;                           // bitshift
-  uint32_t   v;
+  int        pos  = 0;     // position in <psq>
+  int        d    = 0;     // position of next degen residue, 1..n, n+1 if none
+  int        r    = 1;     // position in <dsq> 1..n
+  int        b;            // bitshift
+  uint32_t   v;            // tmp var needed to guarantee pack-in-place works  
 
   while (r <= n)
     {
@@ -1212,8 +1234,12 @@ dsqdata_pack2(ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen)
       psq[pos++] = v;                 // we know we've already read all the dsq we need under psq[pos]
     }
   
-  *ret_psq  = psq;
-  *ret_plen = pos;
+  /* Special case of n=0: we need an empty EOD sentinel packet. 
+   * Sentinel packets are 5-bit encoded, even in 2-bit coding scheme
+   */
+  if (pos == 0) { v = 0; psq[pos++] = ~v; }   // all bits set: | EOD | 5BIT | all sentinels |
+
+  *ret_P = pos;
   return eslOK;
 }
 
@@ -1257,24 +1283,28 @@ dsqdata_pack2(ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen)
  *       nucleic acid sequence must be 5-bit encoded, solely to be
  *       able to encode EOD in a partial packet. 
  *  
- *       A protein sequence of length N packs into exactly P = MAX(1,
- *       (N+5)/6) 5-bit packets. (1, because a 0 length sequence still
- *       requires an EOD packet.) A DNA sequence packs into P <=
- *       MAX(1, (N+14)/15) mixed 2- and 5-bit packets.
- *       
  *       A packed sequence consists of an integer number of packets,
  *       P, which ends with an EOD packet that may contain a partial
- *       number of residues.
+ *       number of residues. P packets are guaranteed to be able to 
+ *       encode at least 6P residues in either scheme.
  *       
- *       A packed amino acid sequence unpacks to <= 6P residues, and
- *       all packets are 5-bit encoded.
+ *       A sequence of length L packs into P <= MAX(1, (N+5)/6)
+ *       packets. (1, because a 0-length sequence still requires an
+ *       EOD packet.) This is true even for nucleic sequences, because
+ *       noncanonical residues can force DNA/RNA sequence to pack
+ *       entirely in 5-bit coding.
  *       
- *       A packed nucleic acid sequence unpacks to <= 15P residues.
- *       The packets are a mix of 2-bit and 5-bit. Degenerate residues
- *       must be 5-bit packed, and the EOD packet usually is too. A
- *       5-bit packet does not have to contain degenerate residues,
- *       because it may have been necessary to get "in frame" to pack
- *       a downstream degenerate residue. For example, the sequence
+ *       A packed amino acid sequence unpacks to 6P-5 <= L <= 6P
+ *       residues (for P>1; 0 <= L <= 6 for P=1) and all packets are
+ *       5-bit encoded.
+ *       
+ *       A packed nucleic acid sequence unpacks to 6P-5 <= L <= 15P
+ *       residues (for P>1; 0 <= L <= 15 for P=1). The packets are a
+ *       mix of 2-bit and 5-bit. Degenerate residues must be 5-bit
+ *       packed, and the EOD packet usually is too. A 5-bit packet
+ *       does not have to contain degenerate residues, because it may
+ *       have been necessary to get "in frame" to pack a downstream
+ *       degenerate residue. For example, the sequence
  *       ACGTACGTNNA... must be packed as [ACGTAC][CGTNNA]... to get
  *       the N's packed correctly.
  *       
@@ -1323,20 +1353,102 @@ dsqdata_pack2(ESL_DSQ *dsq, int n, uint32_t **ret_psq, int *ret_plen)
 /*****************************************************************
  * 7. Unit tests
  *****************************************************************/
+#ifdef eslDSQDATA_TESTDRIVE
+
+#include "esl_randomseq.h"
 
 /* Exercise the packing and unpacking routines:
  *    dsqdata_pack2, dsqdata_pack5, and dsqdata_unpack
  */
-//static void
-//utest_packing(ESL_ALPHABET *abc)
+static void
+utest_packing(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int nsamples)
+{
+  char      msg[] = "esl_dsqdata :: packing unit test failed";
+  ESL_DSQ  *dsq   = NULL;  // We start with a dirty random sequence...
+  uint32_t *psq   = NULL;  //   ... pack it ...
+  ESL_DSQ  *dsq2  = NULL;  //   ... and unpack it. Then check that it's the same seq.
+  int       L_max = 46;    // We'll sample L on 0..L_max. L_max doesn't need to be large to exercise well.
+  int       P_max = ESL_MAX(1, (L_max + 5) / 6); // So sayeth the docs, so let's test it.
+  int       L, P, L2, P2;              
+  int       i;
 
+  if ((dsq  = malloc(sizeof(ESL_DSQ)  * (L_max + 2))) == NULL) esl_fatal(msg);
+  if ((psq  = malloc(sizeof(uint32_t) * P_max))       == NULL) esl_fatal(msg);
+  if ((dsq2 = malloc(sizeof(ESL_DSQ)  * (L_max + 2))) == NULL) esl_fatal(msg);
 
+  for (i = 0; i < nsamples; i++)
+    {
+      L = esl_rnd_Roll(rng, L_max+1); // 0..L_max
+
+      esl_rsq_SampleDirty(rng, abc, NULL, L, dsq);
+   
+      if (abc->type == eslAMINO) { if ( dsqdata_pack5(dsq, L, psq, &P) != eslOK) esl_fatal(msg); }
+      else                       { if ( dsqdata_pack2(dsq, L, psq, &P) != eslOK) esl_fatal(msg); }
+
+      dsq2[0] = eslDSQ_SENTINEL;  // interface to _unpack functions requires caller to do this
+      if (abc->type == eslAMINO) { if ( dsqdata_unpack5(psq, dsq2, &L2, &P2) != eslOK) esl_fatal(msg); }
+      else                       { if ( dsqdata_unpack2(psq, dsq2, &L2, &P2) != eslOK) esl_fatal(msg); }
+
+      if (L2 != L)                                       esl_fatal(msg);
+      if (P2 != P)                                       esl_fatal(msg);
+      if (memcmp((void *) dsq, (void *) dsq2, L+2) != 0) esl_fatal(msg);
+
+      /* Write garbage into the buffers, so nobody's cheating on the test somehow */
+      esl_rnd_mem(rng, (void *) dsq,  L_max+2);
+      esl_rnd_mem(rng, (void *) dsq2, L_max+2);
+      esl_rnd_mem(rng, (void *) psq,  (sizeof(uint32_t) * P_max));
+    }
+
+  free(dsq);
+  free(psq);
+  free(dsq2);
+}
+#endif /*eslDSQDATA_TESTDRIVE*/
 
 /*****************************************************************
  * 8. Test driver
  *****************************************************************/
+#ifdef eslDSQDATA_TESTDRIVE
 
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_dsqdata.h"
+#include "esl_getopts.h"
+#include "esl_random.h"
 
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",        eslARG_NONE,   FALSE, NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",           0 },
+  { "-s",        eslARG_INT,     "42", NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                  0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options]";
+static char banner[] = "unit test driver for Easel dsqdata module";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS    *go       = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng      = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+  ESL_ALPHABET   *amino    = esl_alphabet_Create(eslAMINO);
+  ESL_ALPHABET   *nucleic  = esl_alphabet_Create(eslRNA);
+  int             nsamples = 100;
+
+  fprintf(stderr, "## %s\n", argv[0]);
+  fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
+
+  utest_packing(rng, nucleic, nsamples);
+  utest_packing(rng, amino,   nsamples);
+
+  fprintf(stderr, "#  status = ok\n");
+
+  esl_alphabet_Destroy(amino);
+  esl_alphabet_Destroy(nucleic);
+  esl_randomness_Destroy(rng);
+  esl_getopts_Destroy(go);
+  exit(0); 
+}
+#endif /*eslDSQDATA_TESTDRIVE*/
 
 /*****************************************************************
  * 9. Examples

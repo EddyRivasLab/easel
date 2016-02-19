@@ -750,6 +750,27 @@ esl_rnd_Dirichlet(ESL_RANDOMNESS *rng, const double *alpha, int K, double *p)
 }
 
 
+/* Function:  esl_rnd_mem()
+ * Synopsis:  Overwrite a buffer with random garbage.
+ * Incept:    SRE, Fri Feb 19 08:53:07 2016
+ *
+ * Purpose:   Write <n> bytes of random garbage into buffer
+ *            <buf>, by uniform sampling of values 0..255,
+ *            using generator <rng>.
+ *
+ *            Used in unit tests that are reusing memory, and that
+ *            want to make sure that there's no favorable side effects
+ *            from that reuse.
+ */
+void
+esl_rnd_mem(ESL_RANDOMNESS *rng, void *buf, int n)
+{
+  unsigned char *p = (unsigned char *) buf;
+  int            i;
+
+  for (i = 0; i < n; i++)
+    p[i] = (unsigned char) esl_rnd_Roll(rng, 256);
+}
 
 
 /*****************************************************************
