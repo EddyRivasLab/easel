@@ -86,7 +86,7 @@ sub parse (*) {
 		#        evalue   score    bias evalue score  bias   exp      N     target  desc
                 #           1       2       3                         4       5       6       7
 		$hit_target[$nhits]    = $6;
-		$target_desc{$1}       = $7;
+		$target_desc{$6}       = $7;
 		$hit_bitscore[$nhits]  = $2;
 		$hit_Eval[$nhits]      = $1;
 		$nhits++;
