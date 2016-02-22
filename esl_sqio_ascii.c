@@ -3037,14 +3037,21 @@ header_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq)
   while (status == eslOK &&  (c == '\t' || c == ' ')) status = nextchar(sqfp, &c);   /* skip space */
 
   /* Store the description (end-of-line delimited) */
+  /* Patched to deal with NCBI NR desclines: delimit by ctrl-A (0x01) too. [SRE:H1/82] */
   pos = 0;
-  while (status == eslOK && c != '\n' && c != '\r')
+  while (status == eslOK && c != '\n' && c != '\r' && c != 1)
   {
       sq->desc[pos++] = c;
       if (pos == sq->dalloc-1) { ESL_RALLOC(sq->desc, tmp, sq->dalloc*2); sq->dalloc*= 2; }
       status = nextchar(sqfp, &c); 
   }
   sq->desc[pos] = '\0';
+
+  /* Because of the NCBI NR patch, c might be0x01 ctrl-A now; skip to eol. 
+   * (TODO: I'm worried about the efficiency of this nextchar() stuff. Revisit.)
+   */
+  while (status == eslOK && c != '\n' && c != '\r') 
+    status = nextchar(sqfp, &c);
   sq->hoff = ascii->boff + ascii->bpos;
   
   while (status == eslOK && (c == '\n' || c == '\r')) status = nextchar(sqfp, &c); /* skip past eol (DOS \r\n, MAC \r, UNIX \n */
