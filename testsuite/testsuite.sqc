@@ -10,6 +10,7 @@
 1 exercise dirichlet-utest    @esl_dirichlet_utest@
 1 exercise distance-utest     @esl_distance_utest@
 1 exercise dmatrix-utest      @esl_dmatrix_utest@
+1 exercise dsqdata-utest      @esl_dsqdata_utest@
 1 exercise easel-utest        @easel_utest@
 1 exercise exponential-utest  @esl_exponential_utest@
 1 exercise fileparser-utest   @esl_fileparser_utest@

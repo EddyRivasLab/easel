@@ -12,8 +12,8 @@
  * 
  * A DSQDATA database <basename> is stored in four files:
  *    - basename       : a human-readable stub
- *    - basename.dsqi  : index file, enabling random access and parallel chunking
- *    - basename.dsqm  : metadata including names, accessions, descriptions, taxonomy
+ *    - basename.dsqi  : index file, enabling random access & parallel chunking
+ *    - basename.dsqm  : metadata including names, accessions, descs, taxonomy
  *    - basename.dsqs  : sequences, in a packed binary format
  * 
  * Contents:
@@ -53,7 +53,7 @@ static int   dsqdata_pack5  (ESL_DSQ *dsq, int L, uint32_t *psq, int *ret_P);
 static int   dsqdata_pack2  (ESL_DSQ *dsq, int L, uint32_t *psq, int *ret_P);
 
 /*****************************************************************
- * 1. ESL_DSQDATA: reading dsqdata format
+ *# 1. <ESL_DSQDATA>: reading dsqdata format
  *****************************************************************/
 
 /* Function:  esl_dsqdata_Open()
@@ -454,7 +454,7 @@ esl_dsqdata_Close(ESL_DSQDATA *dd)
 
 
 /*****************************************************************
- * 2. Creating dsqdata format from a sequence file
+ *# 2. Creating dsqdata format from a sequence file
  *****************************************************************/
 
 /* Function:  esl_dsqdata_Write()
@@ -1036,9 +1036,10 @@ dsqdata_unpack_chunk(ESL_DSQDATA_CHUNK *chu, int do_pack5)
     }
 
   /* Unpack the sequence data */
-  i   = 0;
-  r   = 0;
-  pos = 0;
+  i            = 0;
+  r            = 0;
+  pos          = 0;
+  chu->smem[0] = eslDSQ_SENTINEL;
   while (pos < chu->pn)
     {
       chu->dsq[i] = (ESL_DSQ *) chu->smem + r;
@@ -1403,7 +1404,77 @@ utest_packing(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int nsamples)
   free(psq);
   free(dsq2);
 }
+
+
+static void
+utest_readwrite(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc)
+{
+  char               msg[]         = "esl_dsqdata :: readwrite unit test failed";
+  char               tmpfile[32]   = "esltmpXXXXXX";
+  char               basename[32];
+  ESL_SQ           **sqarr         = NULL;
+  FILE              *tmpfp         = NULL;
+  ESL_SQFILE        *sqfp          = NULL;
+  ESL_DSQDATA       *dd            = NULL;
+  ESL_DSQDATA_CHUNK *chu           = NULL;
+  int               nseq           = 1 + esl_rnd_Roll(rng, 20000);  // 1..20000
+  int               maxL           = 100;
+  int               i;
+  int               status;
+
+  /* 1. Sample <nseq> random dirty digital sequences, storing them for later comparison;
+   *    write them out to a tmp FASTA file. The Easel FASTA format writer writes <name> <acc> 
+   *    <desc> on the descline, but the reader only reads <name> <desc> (as is standard 
+   *    for FASTA format), so blank the accession to avoid confusion.
+   */
+  if (( status = esl_tmpfile_named(tmpfile, &tmpfp)) != eslOK) esl_fatal(msg);
+  if (( sqarr = malloc(sizeof(ESL_SQ *) * nseq))      == NULL) esl_fatal(msg);
+  for (i = 0; i < nseq; i++)   
+    {
+      sqarr[i] = NULL;
+      if (( status = esl_sq_Sample(rng, abc, maxL, &(sqarr[i])))              != eslOK) esl_fatal(msg);
+      if (( status = esl_sq_SetAccession(sqarr[i], ""))                       != eslOK) esl_fatal(msg);
+      if (( status = esl_sqio_Write(tmpfp, sqarr[i], eslSQFILE_FASTA, FALSE)) != eslOK) esl_fatal(msg);
+    }
+  fclose(tmpfp);
+
+  /* 2.  Make a dsqdata database from the FASTA tmpfile.
+   */   
+  if (( status = esl_sqfile_OpenDigital(abc, tmpfile, eslSQFILE_FASTA, NULL, &sqfp)) != eslOK) esl_fatal(msg);
+  if ((          snprintf(basename, 32, "%s-db", tmpfile))                           <= 0)     esl_fatal(msg);
+  if (( status = esl_dsqdata_Write(sqfp, basename, NULL))                            != eslOK) esl_fatal(msg);
+  esl_sqfile_Close(sqfp);
+
+  /* 3.  Open and read the dsqdata; compare to the original sequences.
+   */
+  if    (( status = esl_dsqdata_Open(&abc, basename, 1, &dd)) != eslOK)  esl_fatal(msg);
+  while (( status = esl_dsqdata_Read(dd, &chu)) == eslOK)
+    {
+      for (i = 0; i < chu->N; i++) 
+	{
+	  if ( chu->L[i]          != sqarr[i+chu->i0]->n )                   esl_fatal(msg);
+	  if ( memcmp( chu->dsq[i],  sqarr[i+chu->i0]->dsq, chu->L[i]) != 0) esl_fatal(msg);
+	  if ( strcmp( chu->name[i], sqarr[i+chu->i0]->name)           != 0) esl_fatal(msg);
+	  // FASTA does not read accession - instead we get both accession/description as <desc>
+	  if ( strcmp( chu->desc[i], sqarr[i+chu->i0]->desc)           != 0) esl_fatal(msg);
+	  // FASTA also does not store taxid - so don't test that either
+	}
+      esl_dsqdata_Recycle(dd, chu);
+    }
+  if (status != eslEOF) esl_fatal(msg);
+  esl_dsqdata_Close(dd);
+
+  remove(tmpfile);
+  remove(basename);
+  snprintf(basename, 32, "%s-db.dsqi", tmpfile); remove(basename);
+  snprintf(basename, 32, "%s-db.dsqm", tmpfile); remove(basename);
+  snprintf(basename, 32, "%s-db.dsqs", tmpfile); remove(basename);
+  for (i = 0; i < nseq; i++) esl_sq_Destroy(sqarr[i]);
+  free(sqarr);
+}
 #endif /*eslDSQDATA_TESTDRIVE*/
+
+
 
 /*****************************************************************
  * 8. Test driver
@@ -1419,7 +1490,7 @@ utest_packing(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int nsamples)
 static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",        eslARG_NONE,   FALSE, NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",           0 },
-  { "-s",        eslARG_INT,     "42", NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                  0 },
+  { "-s",        eslARG_INT,      "0", NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                  0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options]";
@@ -1439,6 +1510,9 @@ main(int argc, char **argv)
 
   utest_packing(rng, nucleic, nsamples);
   utest_packing(rng, amino,   nsamples);
+  
+  utest_readwrite(rng, nucleic);
+  utest_readwrite(rng, amino);
 
   fprintf(stderr, "#  status = ok\n");
 
@@ -1560,7 +1634,7 @@ main(int argc, char **argv)
 
   for (x = 0; x < 127; x++) ct[x] = 0;
 
-  while ((status = esl_dsqdata_Read(dd, &chu)) != eslEOF)
+  while ((status = esl_dsqdata_Read(dd, &chu)) == eslOK)
     {
       if (! no_count)
 	for (i = 0; i < chu->N; i++)

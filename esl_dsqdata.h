@@ -24,7 +24,7 @@ typedef struct esl_dsqdata_chunk_s {
   char    **name;         // Names, \0 terminated.  Ptr into <metadata> buffer.
   char    **acc;          // Optional accessions, \0 terminated;   "\0" if none. 
   char    **desc;         // Optional descriptions, \0 terminated; "\0" if none
-  int32_t  *taxid;        // NCBI taxonomy identifiers. (>=1 is a taxid; 0 means none)
+  int32_t  *taxid;        // NCBI taxonomy identifiers. (>=1 is a taxid; -1 means none)
   int64_t  *L;            // Sequence lengths, in residues. The unpacker figures these out.
 
   /* Memory management */

@@ -1,15 +1,15 @@
-/* A sequence.
+/* esl_sq : a single biological sequence.
  * 
  * Contents:
  *   1. Text version of the ESL_SQ object.
  *   2. Digitized version of the ESL_SQ object.     [with <alphabet>]
  *   3. Other functions that operate on sequences.
  *   4. Getting single sequences from MSAs.         [with <msa>]
- *   5. Internal functions.
- *   6. Unit tests.
- *   7. Test driver.
- *   8. Examples.
- *   9. Copyright and license information.
+ *   5. Debugging, development tools                [with <random>, <randomseq>]
+ *   6. Internal functions.
+ *   7. Unit tests.
+ *   8. Test driver.
+ *   9. Examples.
  */
 #include "esl_config.h"
 
@@ -19,15 +19,19 @@
 #include <ctype.h>
 
 #include "easel.h"
+#include "esl_sq.h"
+#include "esl_vectorops.h"
+
 #ifdef eslAUGMENT_ALPHABET
-#include "esl_alphabet.h"	/* alphabet aug adds digital sequences */
+#include "esl_alphabet.h"	/* alphabet adds digital sequences */
 #endif 
 #ifdef eslAUGMENT_MSA
-#include "esl_msa.h"		/* msa aug adds ability to extract sq from an MSA  */
+#include "esl_msa.h"		/* msa adds ability to extract sq from an MSA  */
 #endif
-#include "esl_sq.h"
-
-#include "esl_vectorops.h"
+#if defined eslAUGMENT_RANDOM && defined eslAUGMENT_RANDOMSEQ
+#include "esl_random.h"         /* random, randomseq add ability to sample random sq objects for unit tests */
+#include "esl_randomseq.h"
+#endif
 
 
 /* Shared parts of text/digital creation functions (defined in "internal functions" section) */
@@ -1969,10 +1973,117 @@ esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq)
 
 
 
+/*****************************************************************
+ *# 5. Debugging/development tools [with <random> and <randomseq>]
+ *****************************************************************/
+#if defined eslAUGMENT_RANDOM && defined eslAUGMENT_RANDOMSEQ
+
+/* Function:  esl_sq_Sample()
+ * Synopsis:  Sample a random, ugly <ESL_SQ> for test purposes.
+ * Incept:    SRE, Tue Feb 23 08:32:54 2016 [H1/83]
+ *
+ * Purpose:   Sample a random sequence with random annotation, with a
+ *            sequence length of <0..maxL> (note 0 is included!),
+ *            using the random number generator <rng>. Return the
+ *            newly allocated sequence in <*ret_sq>. Caller is 
+ *            responsible for free'ing it with <esl_sq_Destroy()>.
+ *            
+ *            If <abc> is <NULL>, a text mode sequence is sampled.  If
+ *            a digital alphabet <abc> is provided, a digital mode
+ *            sequence is sampled.
+ *            
+ *            This routine is intended for producing test cases. The
+ *            sequence object contains randomized contents. If you
+ *            want to synthesize random sequences (as opposed to
+ *            sampling an entirely synthetic <ESL_SQ> object), see
+ *            the <randomseq> module.
+ *
+ * Args:      rng    : random number generator
+ *            abc    : digital alphabet; or <NULL> for text mode
+ *            maxL   : sequence length sampled is 0..maxL 
+ *            ret_sq : RESULT: new <ESL_SQ>
+ *
+ * Returns:   <eslOK> on success
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ */
+int
+esl_sq_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int maxL, ESL_SQ **ret_sq)
+{
+  ESL_SQ *sq   = *ret_sq;               // caller may or may not provide an existing <sq>
+  int     maxn = eslSQ_NAMECHUNK *2;    // by being bigger than the initial alloc size, we will exercise realloc
+  int     maxa = eslSQ_ACCCHUNK  *2;
+  int     maxd = eslSQ_DESCCHUNK *2;
+  char   *buf  = NULL;
+  int     n;
+  int     status;
+  
+  n = ESL_MAX(maxn, ESL_MAX(maxa, maxd));
+  ESL_ALLOC(buf, sizeof(char) * (n+1));
+
+  if (! sq)
+    {
+      if (abc == NULL) { if (( sq = esl_sq_Create())           == NULL) { status = eslEMEM; goto ERROR; } }
+#ifdef eslAUGMENT_ALPHABET
+      else             { if (( sq = esl_sq_CreateDigital(abc)) == NULL) { status = eslEMEM; goto ERROR; } }
+#endif /*eslAUGMENT_ALPHABET*/
+    }
+    
+  /* Name */
+  do {
+    n = 1 + esl_rnd_Roll(rng, maxn);                    // 1..maxn
+    esl_rsq_Sample(rng, eslRSQ_SAMPLE_GRAPH, n, &buf);  // one word: no space
+  } while (ispunct(buf[0]));                            // #, // are bad things for names to start with in Stockholm 
+  esl_sq_SetName(sq, buf);
+  
+  /* Optional accession */
+  if (esl_rnd_Roll(rng, 2))                              // 50% chance of an accession
+    {
+      n = 1 + esl_rnd_Roll(rng, maxa);                   // 1..maxa
+      esl_rsq_Sample(rng, eslRSQ_SAMPLE_GRAPH, n, &buf); // one word: no space
+      esl_sq_SetAccession(sq, buf);
+    }
+
+  /* Optional description */
+  if (esl_rnd_Roll(rng, 2))                                // 50% chance of a description
+    {
+      do {
+	n = 1 + esl_rnd_Roll(rng, maxd);                     // 1..maxa
+	esl_rsq_Sample(rng, eslRSQ_SAMPLE_PRINT, n, &buf);   // include spaces in descriptions...
+      } while (isspace(buf[0]));                             // ... just not as the first char.
+      esl_sq_SetDesc(sq, buf);
+    }
+
+  /* Optional taxid.  */
+  if (esl_rnd_Roll(rng, 2))                               // 50% chance of taxid
+    {
+      sq->tax_id = 1 + esl_rnd_Roll(rng, 2147483647);     // 1..2^31-1
+    }
+
+  /* Sequence, in text or digital mode */
+  n = esl_rnd_Roll(rng, maxL+1);                                             //0..maxL; 0 len seqs happen
+  esl_sq_GrowTo(sq, n);
+  if (abc == NULL) esl_rsq_Sample(rng, eslRSQ_SAMPLE_ALPHA, n, &(sq->seq));
+#ifdef eslAUGMENT_ALPHABET
+  else             esl_rsq_SampleDirty(rng, abc, NULL, n, sq->dsq);         // "dirty" = with ambig residues
+#endif /*eslAUGMENT_ALPHABET*/
+  esl_sq_SetCoordComplete(sq, n);
+
+  free(buf);
+  *ret_sq = sq;
+  return eslOK;
+
+ ERROR:
+  if (buf)               free(buf);
+  if (!(*ret_sq) && sq)  esl_sq_Destroy(sq);
+  return status;
+}
+#endif /*eslAUGMENT_RANDOM && eslAUGMENT_RANDOMSEQ */
+
 
 
 /*****************************************************************
- * 5. Internal functions
+ * 6. Internal functions
  *****************************************************************/
 
 /* Create and CreateDigital() are almost identical, so
@@ -2183,7 +2294,7 @@ sq_free(ESL_SQ *sq)
 
 
 /*****************************************************************
- * 5. Unit tests.
+ * 7. Unit tests.
  *****************************************************************/
 #ifdef eslSQ_TESTDRIVE
 #include "esl_random.h"
@@ -2522,7 +2633,7 @@ ERROR:
 /*--------------------- end, unit tests -------------------------*/
 
 /*****************************************************************
- * 6. Test driver.
+ * 8. Test driver.
  *****************************************************************/
 #ifdef eslSQ_TESTDRIVE
 /* gcc -g -Wall -o esl_sq_utest -I. -L. -DeslSQ_TESTDRIVE esl_sq.c -leasel -lm
@@ -2545,7 +2656,7 @@ ERROR:
 static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
-  { "-s",        eslARG_INT,     "42",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
+  { "-s",        eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options]";
@@ -2580,7 +2691,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 7. Examples.
+ * 9. Examples.
  *****************************************************************/
 
 #ifdef eslSQ_EXAMPLE
@@ -2702,9 +2813,3 @@ int main(void)
 #endif /*eslSQ_EXAMPLE2*/
 /*------------------ end, example drivers ------------------------*/
 
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

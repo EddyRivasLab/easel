@@ -582,9 +582,10 @@ esl_sqio_Parse(char *buf, int size, ESL_SQ *s, int format)
 /* Function:  esl_sqio_Write()
  * Synopsis:  Write a sequence to a file.
  *
- * Purpose:   Write sequence <s> to an open FILE <fp> in 
- *            file format <format>.  If <update> is true,
- *            set the offsets for sequence <s>.
+ * Purpose:   Write sequence <s> to an open FILE <fp> in file format
+ *            <format>.
+ * 
+ *            If <update> is <TRUE>, set the offsets for sequence <s>.
  *            
  * Returns:   <eslOK> on success.
  *

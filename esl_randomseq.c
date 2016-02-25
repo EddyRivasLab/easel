@@ -38,34 +38,58 @@
  * Purpose:   Sample a random character string of length <L>, 
  *            consisting of characters in the set defined by
  *            an integer flag <allowed_chars>, using 
- *            random number generator <rng>. Return the newly
- *            allocated, NUL-terminated string in <*ret_s>.
+ *            random number generator <rng>. 
+ * 
+ *            Return the new NUL-terminated string in <*ret_s>.  This
+ *            may either be a new allocation, or in pre-allocated
+ *            storage provided by the caller. If caller passes
+ *            <*ret_s> as <NULL>, new space is allocated, and the
+ *            caller is responsible for freeing it. That is: 
+ *              \begin{cchunk}
+ *                 char *s  = NULL; 
+ *                 esl_rsq_Sample(..., &s); 
+ *                 free(s);
+ *               \end{cchunk}
+ *
+ *            If caller passes a non-<NULL> <*ret_s>, it is assumed to
+ *            be a preallocated space of at least <L+1> characters,
+ *            and caller is (of course) responsible for freeing
+ *            it. That is: 
+ *                \begin{cchunk}
+ *                   char *s = malloc(L+1);
+ *                   esl_rsq_Sample(...,L, &s);
+ *                   free(s);
+ *                \end{cchunk}
  *            
  *            Allowed values of the flag <allowed_char_flag> mirror
  *            the standard C99 character set functions in <ctype.h>:
  *            
- *            | <eslRSQ_SAMPLE_ALNUM>  |  isalnum()  |
- *            | <eslRSQ_SAMPLE_ALPHA>  |  isalpha()  |
- *            | <eslRSQ_SAMPLE_LOWER>  |  islower()  |
- *            | <eslRSQ_SAMPLE_UPPER>  |  isupper()  |
- *            | <eslRSQ_SAMPLE_DIGIT>  |  isdigit()  |
- *            | <eslRSQ_SAMPLE_XDIGIT> |  isxdigit() |
- *            | <eslRSQ_SAMPLE_CNTRL>  |  iscntrl()  |
- *            | <eslRSQ_SAMPLE_GRAPH>  |  isgraph()  |
- *            | <eslRSQ_SAMPLE_SPACE>  |  isspace()  |
- *            | <eslRSQ_SAMPLE_BLANK>  |  isblank()  |
- *            | <eslRSQ_SAMPLE_PRINT>  |  isprint()  |
- *            | <eslRSQ_SAMPLE_PUNCT>  |  ispunct()  |
+ *            | <eslRSQ_SAMPLE_ALNUM>  |  isalnum()  | isalpha() or isdigit() |
+ *            | <eslRSQ_SAMPLE_ALPHA>  |  isalpha()  | islower() or isupper() |
+ *            | <eslRSQ_SAMPLE_LOWER>  |  islower()  | [a-z] |
+ *            | <eslRSQ_SAMPLE_UPPER>  |  isupper()  | [A-Z] |
+ *            | <eslRSQ_SAMPLE_DIGIT>  |  isdigit()  | [0-9] |
+ *            | <eslRSQ_SAMPLE_XDIGIT> |  isxdigit() | [0-9] or [a-f] or [A-F] |
+ *            | <eslRSQ_SAMPLE_CNTRL>  |  iscntrl()  | ASCII control characters |
+ *            | <eslRSQ_SAMPLE_GRAPH>  |  isgraph()  | any printing char except space |
+ *            | <eslRSQ_SAMPLE_SPACE>  |  isspace()  | space, and other whitespace such as tab, newline |
+ *            | <eslRSQ_SAMPLE_BLANK>  |  isblank()  | space or tab |
+ *            | <eslRSQ_SAMPLE_PRINT>  |  isprint()  | any printing char including space |
+ *            | <eslRSQ_SAMPLE_PUNCT>  |  ispunct()  | punctuation |
  *
  *            Note that with <eslRSQ_SAMPLE_CNTRL>, your string
  *            may sample NUL control characters (<0>), in addition to
  *            the string-terminating one at <(*ret_s)[L]>, so <strlen(*ret_s)>
- *            may not equal <L> in this case.
+ *            may not equal <L> in this case. 
+ *             
+ *            These values are exclusive: you use one and only one of
+ *            them as <allowed_chars>, you can't logically OR or NOT
+ *            them together.
  *
  * Args:      rng           - ESL_RANDOMNESS object, the random number generator
  *            allowed_chars - allowed character set flag: eslRSQ_SAMPLE_*
  *            L             - length of string to sample
- *            ret_s         - RETURN: the newly allocated, NUL-terminated string
+ *            ret_s         - RETURN: the NUL-terminated string
  *
  * Returns:   <eslOK> on success; <*ret_s> is the sampled string, which was
  *            newly allocated here, and caller becomes responsible for free'ing.
@@ -77,7 +101,7 @@
 int
 esl_rsq_Sample(ESL_RANDOMNESS *rng, int allowed_chars, int L, char **ret_s)
 {
-  char *s = NULL;
+  char *s = *ret_s;  // if s == NULL, we will allocate here. Else, we're using caller-provided allocation
   int   n = 0;
   char  c[127];
   int   x,i;
@@ -106,16 +130,17 @@ esl_rsq_Sample(ESL_RANDOMNESS *rng, int allowed_chars, int L, char **ret_s)
   default: ESL_XEXCEPTION(eslEINVAL, "bad flag; wanted something like eslRSQ_SAMPLE_ALPHA");
   }
 
-  ESL_ALLOC(s, sizeof(char) * (L+1)); /* +\0 */
+  if (!s) ESL_ALLOC(s, sizeof(char) * (L+1)); /* +\0 */
+
   for (i = 0; i < L; i++)
     s[i] = c[ esl_rnd_Roll(rng, n) ];
   s[L] = '\0';
   
-  *ret_s = s;
+  *ret_s = s;   // if using caller-provided space, this is a no-op, passing back the same *ret_s we got.
   return eslOK;
 
  ERROR:
-  *ret_s = NULL;
+  if (! *ret_s && s) free(s);  // if we allocated s here, clean up.
   return status;
 }
 

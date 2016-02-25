@@ -128,6 +128,7 @@
 #undef eslAUGMENT_MINIMIZER
 #undef eslAUGMENT_MSA		
 #undef eslAUGMENT_RANDOM
+#undef eslAUGMENT_RANDOMSEQ
 #undef eslAUGMENT_SSI
 #undef eslAUGMENT_STATS
 #endif
@@ -144,6 +145,7 @@
 #define eslAUGMENT_MINIMIZER
 #define eslAUGMENT_MSA		
 #define eslAUGMENT_RANDOM
+#define eslAUGMENT_RANDOMSEQ
 #define eslAUGMENT_SSI
 #define eslAUGMENT_STATS
 #endif
@@ -151,10 +153,3 @@
 
 #endif /*eslCONFIG_INCLUDED*/
 
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- * SRE, Fri Mar  3 08:03:32 2006 [St. Louis]
- *****************************************************************/

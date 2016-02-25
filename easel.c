@@ -1587,11 +1587,19 @@ esl_FileConcat(const char *dir, const char *file, char **ret_path)
  *            
  *            For example, if <filename> is "foo" and <sfx> is "ssi",
  *            returns "foo.ssi". If <filename> is "foo.db" and <sfx>
- *            is "idx", returns "foo.idx". 
+ *            is "idx", returns "foo.idx". You can remove a suffix
+ *            too; if <filename> is "foo.db", and <sfx> is "", the
+ *            result is "foo".
+ *            
+ *            Caller can either ask for <*ret_newpath> to be a new
+ *            allocation by passing <*ret_newpath = NULL>, or can
+ *            provide a ptr to a preallocated space.
  *
  * Returns:   <eslOK> on success, and <ret_newpath> is set
- *            string "<base_filename>.<sfx>". Caller must <free()>
- *            this string.
+ *            string "<base_filename>.<sfx>". Caller is 
+ *            responsible for free'ing this string, whether it
+ *            provided it as preallocated space or asked for a new
+ *            allocation.
  *
  * Throws:    <eslEMEM> on allocation failure.
  *
@@ -1600,7 +1608,7 @@ esl_FileConcat(const char *dir, const char *file, char **ret_path)
 int 
 esl_FileNewSuffix(const char *filename, const char *sfx, char **ret_newpath)
 {
-  char *new = NULL;
+  char *new = *ret_newpath;  // caller either provides memory, or asks for allocation w/ <NULL>
   char *lastdot;
   int   nf;
   int   status;
@@ -1611,17 +1619,16 @@ esl_FileNewSuffix(const char *filename, const char *sfx, char **ret_newpath)
     lastdot = NULL; /*foo.1/filename case - don't be fooled.*/
   nf = (lastdot == NULL)? strlen(filename) : lastdot-filename;
   
-  ESL_ALLOC(new, sizeof(char) * (nf+strlen(sfx)+2)); /* '.' too */
+  if (! new) ESL_ALLOC(new, sizeof(char) * (nf+strlen(sfx)+2)); /* '.' too */
   strncpy(new, filename, nf);
   *(new+nf) = '.';
   strcpy(new+nf+1, sfx);
 
-  *ret_newpath = new; 
+  *ret_newpath = new;  
   return eslOK;
 
  ERROR:
-  if (new) free(new);
-  *ret_newpath = NULL;
+  if (!(*ret_newpath) && new) free(new);
   return status;
 }
 
@@ -2192,8 +2199,8 @@ utest_sprintf(void)
   if (strcmp(s, "99 bottles of beer")                != 0)     esl_fatal(msg);
   free(s); 
 
-  if (esl_sprintf(&s, NULL)                          != eslOK) esl_fatal(msg);
-  if (s                                              != NULL)  esl_fatal(msg);
+  if (esl_sprintf(&s, NULL) != eslOK) esl_fatal(msg);
+  if (s                     != NULL)  esl_fatal(msg);
 }
 
 

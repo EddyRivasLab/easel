@@ -1,8 +1,4 @@
-/* A sequence.
- * 
- * SRE, Mon Mar 31 17:03:51 2008 [Janelia]
- * SVN $Id$
- * SVN $URL$
+/* esl_sq : a single biological sequence
  */
 #ifndef eslSQ_INCLUDED
 #define eslSQ_INCLUDED
@@ -13,7 +9,10 @@
 #ifdef eslAUGMENT_MSA
 #include "esl_msa.h"
 #endif
-
+#if defined eslAUGMENT_RANDOM && defined eslAUGMENT_RANDOMSEQ
+#include "esl_random.h"         /* random, randomseq add ability to sample random sq objects for unit tests */
+#include "esl_randomseq.h"         /* random, randomseq add ability to sample random sq objects for unit tests */
+#endif
 
 /* ESL_SQ - a biosequence
  * 
@@ -90,7 +89,7 @@ typedef struct {
   char    *name;           /* name; one word, no whitespace ("\0" if no name)  */
   char    *acc;            /* optional accession (1 word) ("\0" if none)       */
   char    *desc;           /* description line ("\0" if no description)        */
-  int32_t  tax_id;	   /* NCBI taxonomy id (-1 if none)                    */
+  int32_t  tax_id;         /* NCBI taxonomy id (-1 if none)                    */
   char    *seq;            /* sequence [0..n-1], or NULL if digital            */
   ESL_DSQ *dsq;            /* digitized sequence [1..n], or NULL if text       */
   char    *ss;             /* optional sec structure [0..n-1], [1..n], or NULL */
@@ -100,14 +99,14 @@ typedef struct {
   /* Coordinate info for:                                       seq       subseq     window     info */
   /*                                                           ----       ------     ------    ----- */
   int64_t  start;  /* coord of seq[0],dsq[1] on source  [1..L]    1      1<=i<=L    1<=i<=L      0   */
-  int64_t  end;	   /* coord of seq[n-1],dsq[n] on source[1..L]    L      1<=j<=L    1<=j<=L      0   */
-  int64_t  C;	   /* # of context residues for a window          0            0        n-W      0   */
-  int64_t  W;	   /* window width                                L            n        n-C      0   */
-  int64_t  L;	   /* source sequence length in residues          L     L (or -1)   L (or -1)    L   */
+  int64_t  end;    /* coord of seq[n-1],dsq[n] on source[1..L]    L      1<=j<=L    1<=j<=L      0   */
+  int64_t  C;      /* # of context residues for a window          0            0        n-W      0   */
+  int64_t  W;      /* window width                                L            n        n-C      0   */
+  int64_t  L;      /* source sequence length in residues          L     L (or -1)   L (or -1)    L   */
   /* and   n: length of seq (or dsq) and ss actually stored:      L   abs(j-i)+1        C+W      0   */
   /* In all the above bookkeeping, a -1 means "unknown" */
   char    *source; /* name of the source of a subseq/window; or MSA name; or ""*/
-  
+
   /* Memory allocation bookkeeping:  (all inclusive of \0;  >= strlen()+1)     */
   int      nalloc;         /* allocated length of name                         */
   int      aalloc;         /* allocated length of accession                    */
@@ -116,18 +115,18 @@ typedef struct {
   int      srcalloc;	   /* allocated length for source name                 */
 
   /* Disk offset bookkeeping:                                                  */
-  int64_t  idx;	           /* ctr for which # seq this is; -1 if not counting  */
-  off_t    roff;	   /* record offset (start of record); -1 if none      */
-  off_t    hoff;	   /* offset to last byte of header; -1 if unknown     */
-  off_t    doff;	   /* data offset (start of sequence data); -1 if none */
-  off_t    eoff;	   /* offset to last byte of record; -1 if unknown     */
+  int64_t  idx;           /* ctr for which # seq this is; -1 if not counting   */
+  off_t    roff;          /* record offset (start of record); -1 if none       */
+  off_t    hoff;          /* offset to last byte of header; -1 if unknown      */
+  off_t    doff;          /* data offset (start of sequence data); -1 if none  */
+  off_t    eoff;          /* offset to last byte of record; -1 if unknown      */
 
   /* Optional information for extra residue markups.
    * The number of them, and their tags are arbitrary
    */
   char  **xr_tag;          /* markup tags for extra residue markups [0..ntr-1][free-text], [0..ntr-1][free-text], or NULL */
   char  **xr;              /* annotations for extra residue markups [0..ntr-1][0..n-1],    [0..ntr-1][1..n],      or NULL */
-  int     nxr;		   /* number of extra residue markups                                                             */
+  int     nxr;             /* number of extra residue markups                                                             */
 
   /* Copy of a pointer to the alphabet, if digital mode */
 #if defined(eslAUGMENT_ALPHABET)
@@ -201,6 +200,10 @@ extern int esl_sq_BlockGrowTo(ESL_SQ_BLOCK *sqblock, int newsize, int do_digital
 extern ESL_SQ_BLOCK *esl_sq_CreateDigitalBlock(int count, const ESL_ALPHABET *abc);
 #endif
 extern void          esl_sq_DestroyBlock(ESL_SQ_BLOCK *sqBlock);
+
+#if defined eslAUGMENT_RANDOM && defined eslAUGMENT_RANDOMSEQ
+extern int esl_sq_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int maxL, ESL_SQ **ret_sq);
+#endif /* eslAUGMENT_RANDOM && eslAUGMENT_RANDOMSEQ */
 
 #endif /*eslSQ_INCLUDED*/
 /*****************************************************************
