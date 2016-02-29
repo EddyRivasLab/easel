@@ -800,6 +800,11 @@ special names are called \esldef{common interfaces}.
   & \ccode{ESL\_}\itcode{FOO}\ccode{ *}
   & \ccode{esl\_msa\_Clone()} \\
 
+\ccode{\_Shadow}
+  & Partially duplicate an object, creating a dependent shadow.
+  & \ccode{ESL\_}\itcode{FOO}\ccode{ *}
+  & \ccode{p7\_oprofile\_Shadow()} \\
+
 \ccode{\_Copy}
   & Make a copy of an object, using an existing allocated object for space.
   & [standard]
@@ -1050,6 +1055,7 @@ Equivalent to (and is a shortcut for, and is generally implemented as)
 for free'ing the duplicate object, just as if it had been
 \ccode{\_Create}'d. Throws \ccode{NULL} if allocation fails.
 
+
 \hypertarget{ifc:Copy}
 {\item[\_Copy(src, dest)]}
 
@@ -1062,6 +1068,17 @@ example, two matrices that are not the same size).
 Note that the order of the arguments is always \ccode{src}
 $\rightarrow$ \ccode{dest} (unlike the C library's \ccode{strcpy()}
 convention, which is the opposite order).
+
+
+\hypertarget{ifc:Shadow}
+{\item[\_Shadow(obj)]}
+
+Creates and returns a pointer to a partial, dependent copy of
+\ccode{obj}. Shadow creation arises in multithreading, when threads
+can share some but not all internal object data. A shadow keeps
+constant data as pointers to the original object.  The object needs to
+know whether it is a shadow or not, so that <_Destroy()> works
+properly on both the original and its shadows.
 
 \end{sreapi}
 
