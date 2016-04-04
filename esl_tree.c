@@ -1649,8 +1649,8 @@ cluster_engine(ESL_DMATRIX *D_original, int mode, ESL_TREE **ret_T)
        */
       T->ld[N-2] = T->rd[N-2] = height[N-2];
       if (! T->is_linkage_tree) {
-	if (idx[i] > 0) T->ld[N-2] -= height[idx[i]];
-	if (idx[j] > 0) T->rd[N-2] -= height[idx[j]];      
+	if (idx[i] > 0) T->ld[N-2] = ESL_MAX(0., T->ld[N-2] - height[idx[i]]);  // max to 0, to avoid fp roundoff giving us negative length
+	if (idx[j] > 0) T->rd[N-2] = ESL_MAX(0., T->rd[N-2] - height[idx[j]]);      
       }
       
       /* If either node was an internal node, record parent in it.
