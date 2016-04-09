@@ -97,7 +97,7 @@ typedef struct esl_dsqdata_s {
   pthread_t          unpacker_t;               // Unpacker thread id
   ESL_DSQDATA_CHUNK *unpacker_outbox;          // Unpacked chunk goes here, for _Read() 
   pthread_mutex_t    unpacker_outbox_mutex;    // mutex protecting the outbox
-  pthread_cond_t     unpacker_outbox_full_cv;  // signal to _Read() that chunk is ready
+  pthread_cond_t     unpacker_outbox_full_cv;  // signal to _Read() that chunk is ready (or at_eof)
   pthread_cond_t     unpacker_outbox_empty_cv; // signal from _Read() that it's got the chunk
   int                at_eof;                   // flag that goes up at end of the input file; 
                                                //  .. <at_eof> change is in unpacker's mutex
