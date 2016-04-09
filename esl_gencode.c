@@ -591,9 +591,9 @@ esl_gencode_Write(FILE *ofp, const ESL_GENCODE *gcode, int add_comment)
  * Purpose:   Translate the digital DNA/RNA codon sequence starting at 
  *            pointer <dsqp> and return the digital amino acid code.
  *
- *            Note that <dsqp> is a pointer into a digital sequence,
+ *            <dsqp> is a pointer into a digital sequence,
  *            not a complete digital sequence, so there are no sentinels.
- *            Moreover, caller must be sure that a full codon dsqp[0..2] exists
+ *            Also, caller must be sure that a full codon dsqp[0..2] exists
  *            at this location.
  *            
  *            Ambiguity codes are allowed in the DNA/RNA codon. If 
