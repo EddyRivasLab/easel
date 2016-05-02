@@ -114,19 +114,19 @@ msa_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 {
   char         *msafile = esl_opt_GetArg(go, 1);
   int           infmt   = eslMSAFILE_UNKNOWN;
-  ESLX_MSAFILE *afp     = NULL;
+  ESL_MSAFILE  *afp     = NULL;
   ESL_MSA      *msa     = NULL;
   ESL_MSA      *shuf    = NULL;
   int           N       = esl_opt_GetInteger(go, "-N");
   int           i;
   int           status;
 
-  if ( (status = eslx_msafile_Open(NULL, msafile, NULL, infmt, NULL, &afp)) != eslOK)
-    eslx_msafile_OpenFailure(afp, status);
+  if ( (status = esl_msafile_Open(NULL, msafile, NULL, infmt, NULL, &afp)) != eslOK)
+    esl_msafile_OpenFailure(afp, status);
   
-  while ((status = eslx_msafile_Read(afp, &msa)) != eslEOF)
+  while ((status = esl_msafile_Read(afp, &msa)) != eslEOF)
     {
-      if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
+      if (status != eslOK) esl_msafile_ReadFailure(afp, status);
 
       shuf = esl_msa_Clone(msa);
 
@@ -154,14 +154,14 @@ msa_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 	    }
 	  }
 
-	  eslx_msafile_Write(ofp, shuf, afp->format);
+	  esl_msafile_Write(ofp, shuf, afp->format);
 	}
 
       esl_msa_Destroy(shuf);
       esl_msa_Destroy(msa);
     }
 
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
   return eslOK;
 }
 

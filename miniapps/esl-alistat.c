@@ -61,7 +61,7 @@ main(int argc, char **argv)
   ESL_ALPHABET *abc     = NULL;      	       /* biological alphabet             */
   char         *alifile = NULL;	               /* alignment file name             */
   int           fmt     = eslMSAFILE_UNKNOWN;  /* format code for alifile         */
-  ESLX_MSAFILE *afp     = NULL;		       /* open msa file                   */
+  ESL_MSAFILE  *afp     = NULL;		       /* open msa file                   */
   ESL_MSAFILE2 *old_afp = NULL;	               /* open msa file, legacy (--small) */
   ESL_MSA      *msa     = NULL;	               /* one multiple sequence alignment */
   int           nali;		               /* number of alignments read       */
@@ -137,7 +137,7 @@ main(int argc, char **argv)
   alifile = esl_opt_GetArg(go, 1);
 
   if (esl_opt_IsOn(go, "--informat") &&
-      (fmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
+      (fmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
     esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
     
   if (esl_opt_GetBoolean(go, "--small") && fmt != eslMSAFILE_PFAM) esl_fatal("--small requires --informat pfam\n"); 
@@ -170,8 +170,8 @@ main(int argc, char **argv)
     }
   else
     {
-      if ( (status = eslx_msafile_Open(&abc, alifile, NULL, fmt, NULL, &afp)) != eslOK)
-	eslx_msafile_OpenFailure(afp, status);
+      if ( (status = esl_msafile_Open(&abc, alifile, NULL, fmt, NULL, &afp)) != eslOK)
+	esl_msafile_OpenFailure(afp, status);
     }
 
   /**************************************
@@ -233,7 +233,7 @@ main(int argc, char **argv)
 
   while ( (status = ( esl_opt_GetBoolean(go, "--small") ? 
 		      esl_msafile2_ReadInfoPfam(old_afp, listfp, abc, -1, NULL, NULL, &msa, &nseq, &alen, NULL, NULL, NULL, NULL, NULL, &abc_ct, &pp_ct, NULL, NULL, NULL) :
-		      eslx_msafile_Read        (afp, &msa))) == eslOK)
+		      esl_msafile_Read        (afp, &msa))) == eslOK)
     { 
       nali++;
       nres = 0;
@@ -261,7 +261,7 @@ main(int argc, char **argv)
 	  printf("%-6d %-20s %10s %7d %7" PRId64 " %12" PRId64, 
 		 nali, 
 		 msa->name,
-		 eslx_msafile_DecodeFormat(fmt),
+		 esl_msafile_DecodeFormat(fmt),
 		 nseq,
 		 alen,
 		 nres);
@@ -281,7 +281,7 @@ main(int argc, char **argv)
 	  printf("Alignment number:    %d\n",     nali);
 	  if (msa->name != NULL)
 	    printf("Alignment name:      %s\n",        msa->name); 
-	  printf("Format:              %s\n",          eslx_msafile_DecodeFormat(fmt));
+	  printf("Format:              %s\n",          esl_msafile_DecodeFormat(fmt));
 	  printf("Number of sequences: %d\n",          nseq);
 	  printf("Alignment length:    %" PRId64 "\n", alen);
 	  printf("Total # residues:    %" PRId64 "\n", nres);
@@ -374,7 +374,7 @@ main(int argc, char **argv)
     }
   else
     {
-      if (nali == 0 || status != eslEOF) eslx_msafile_ReadFailure(afp, status);
+      if (nali == 0 || status != eslEOF) esl_msafile_ReadFailure(afp, status);
     }
 
   /* Cleanup, normal return
@@ -413,7 +413,7 @@ main(int argc, char **argv)
   }
 
 
-  if (afp)     eslx_msafile_Close(afp);
+  if (afp)     esl_msafile_Close(afp);
   if (old_afp) esl_msafile2_Close(old_afp);
   esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
@@ -1150,7 +1150,4 @@ static int check_msa_weights(ESL_MSA *msa)
 
 /*****************************************************************
  * @LICENSE@
- *
- * SVN $URL$
- * SVN $Id: esl-alistat.c 712 2011-07-27 22:15:08Z eddys $
  *****************************************************************/

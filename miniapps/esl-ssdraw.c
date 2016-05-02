@@ -580,7 +580,7 @@ main(int argc, char **argv)
   char           *templatefile = NULL;  /* template file, specifying >= 1 SS diagrams 
 		  		         * (each must have a unique consensus length) */
   int             fmt;		        /* format code for alifile         */
-  ESLX_MSAFILE   *afp     = NULL;	/* open alignment file, normal interface              */
+  ESL_MSAFILE    *afp     = NULL;	/* open alignment file, normal interface              */
   ESL_MSAFILE2   *afp2    = NULL;	/* open alignment file, legacy small-memory interface */
   ESL_MSA        *msa     = NULL;	/* one multiple sequence alignment */
   int             status;		/* easel return code               */
@@ -977,8 +977,8 @@ main(int argc, char **argv)
     }
   else
     {
-      status = eslx_msafile_Open(NULL, alifile, NULL, fmt, NULL, &afp);
-      if (status != eslOK) eslx_msafile_OpenFailure(afp, status);
+      status = esl_msafile_Open(NULL, alifile, NULL, fmt, NULL, &afp);
+      if (status != eslOK) esl_msafile_OpenFailure(afp, status);
     }
 
   /* Read the mask files, if nec */
@@ -1010,8 +1010,8 @@ main(int argc, char **argv)
     }
   else
     {
-      status = eslx_msafile_Read(afp, &msa); /* if ! do_small, we read full aln into memory */
-      if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
+      status = esl_msafile_Read(afp, &msa); /* if ! do_small, we read full aln into memory */
+      if (status != eslOK) esl_msafile_ReadFailure(afp, status);
 
       msa_nseq = msa->nseq; 
       msa_alen = msa->alen; 
@@ -1288,7 +1288,7 @@ main(int argc, char **argv)
   if(date != NULL) free(date);
   free_sspostscript(ps);
   esl_alphabet_Destroy(abc);
-  if (afp)  eslx_msafile_Close(afp);
+  if (afp)  esl_msafile_Close(afp);
   if (afp2) esl_msafile2_Close(afp2);
   esl_getopts_Destroy(go);
   free(hc_nbins);
@@ -7482,7 +7482,4 @@ void define_outline_procedure(FILE *fp)
 
 /*****************************************************************
  * @LICENSE@
- * 
- * SVN $URL$
- * SVN $Id$
  *****************************************************************/

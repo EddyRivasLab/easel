@@ -84,7 +84,7 @@ main(int argc, char **argv)
   char         *alifile = NULL;	               /* alignment file name             */
   int           infmt   = eslMSAFILE_UNKNOWN;  /* format code for alifile         */
   int           outfmt  = eslMSAFILE_UNKNOWN;  /* format code for output ali      */
-  ESLX_MSAFILE *afp     = NULL;	               /* open alignment file  normal version           */
+  ESL_MSAFILE  *afp     = NULL;	               /* open alignment file  normal version           */
   ESL_MSAFILE2 *afp2    = NULL;		       /* open alignment file: legacy small-mem version */
   FILE         *ofp;		               /* output file (default is stdout) */
   ESL_MSA      *msa     = NULL;	               /* one multiple sequence alignment */
@@ -259,12 +259,12 @@ main(int argc, char **argv)
   
   /* determine input/output formats */
   if (esl_opt_IsOn(go, "--informat")) {
-    infmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    infmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (infmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
     if (do_small && infmt != eslMSAFILE_PFAM) esl_fatal("small memory mode requires Pfam formatted alignments"); 
   }
   if (esl_opt_IsOn(go, "--outformat")) {
-    outfmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat"));
+    outfmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat"));
     if (outfmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --outformat", esl_opt_GetString(go, "--outformat")); 
     if (do_small && outfmt != eslMSAFILE_PFAM) esl_fatal("we can only output Pfam formatted alignments in small memory mode"); 
   }
@@ -308,8 +308,8 @@ main(int argc, char **argv)
     }
   else
     {
-      status = eslx_msafile_Open(NULL, alifile, NULL, infmt, NULL, &afp);
-      if (status != eslOK) eslx_msafile_OpenFailure(afp, status);
+      status = esl_msafile_Open(NULL, alifile, NULL, infmt, NULL, &afp);
+      if (status != eslOK) esl_msafile_OpenFailure(afp, status);
     }
 
   /* If nec, read mask from the mask file */
@@ -333,8 +333,8 @@ main(int argc, char **argv)
     }
   else
     {
-      status = eslx_msafile_Read(afp, &msa); /* if ! do_small, we read full aln into memory */
-      if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
+      status = esl_msafile_Read(afp, &msa); /* if ! do_small, we read full aln into memory */
+      if (status != eslOK) esl_msafile_ReadFailure(afp, status);
 
       orig_alen = msa->alen;
       if(do_postprob && msa->pp == NULL && (! esl_opt_IsOn(go, "--ppcons"))) esl_fatal("-p was enabled, but the MSA has no posterior probability (#=GR PP) annotation.");
@@ -531,7 +531,7 @@ main(int argc, char **argv)
    ************************/
   if (! do_small) 
     {
-      eslx_msafile_Write(ofp, msa, outfmt);
+      esl_msafile_Write(ofp, msa, outfmt);
     }
   else { 
     /* do_small==TRUE, we don't have the full msa stored, 
@@ -615,7 +615,7 @@ main(int argc, char **argv)
   if (msa)           esl_msa_Destroy(msa);
   if (abc)           esl_alphabet_Destroy(abc);
   if (w)             esl_stopwatch_Destroy(w);
-  if (afp)           eslx_msafile_Close(afp);
+  if (afp)           esl_msafile_Close(afp);
   if (afp2)          esl_msafile2_Close(afp2);
   esl_getopts_Destroy(go);
   return 0;
@@ -1209,7 +1209,4 @@ parse_coord_string(const char *cstring, uint32_t *ret_start, uint32_t *ret_end)
 
 /*****************************************************************
  * @LICENSE@
- *
- * SVN $URL$
- * SVN $Id: esl-alistat.c 393 2009-09-27 12:04:55Z eddys $
  *****************************************************************/

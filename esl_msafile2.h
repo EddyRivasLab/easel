@@ -1,11 +1,11 @@
 /* Memory-efficient multiple sequence alignment i/o from Pfam format
  * 
- * Legacy interface, now that ESLX_MSAFILE is rewritten.  Still need
+ * Legacy interface, now that ESL_MSAFILE is rewritten.  Still need
  * to support --small option in various tools, so the necessary parts
  * of the old interface were moved here.
  * 
  * To-do: 
- *   :: add memory-efficient interface in ESLX_MSAFILE
+ *   :: add memory-efficient interface in ESL_MSAFILE
  *   :: add memory-efficient ESL_MSA w/ API
  *   :: add space-efficient MSA file format
  */
@@ -28,7 +28,7 @@
 /* Object: ESL_MSAFILE2
  * 
  * Defines an alignment file that we open for reading,
- * in our legacy version. See ESLX_MSAFILE (esl_msafile.c) for the
+ * in our legacy version. See ESL_MSAFILE (esl_msafile.c) for the
  * preferred version.
  */
 typedef struct {
@@ -83,7 +83,4 @@ extern int   esl_msafile2_RegurgitatePfam(ESL_MSAFILE2 *afp, FILE *ofp, int maxn
 #endif //eslMSAFILE2_INCLUDED
 /*****************************************************************
  * @LICENSE@
- *
- * SVN $URL$
- * SVN $Id$
  *****************************************************************/

@@ -63,10 +63,10 @@ static ESL_OPTIONS options[] = {
 };
 
 static void symconvert(char *s, char *oldsyms, char *newsyms);
-static void regurgitate_pfam_as_afa(ESLX_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsym, int force_lower, int force_upper, 
+static void regurgitate_pfam_as_afa(ESL_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsym, int force_lower, int force_upper, 
 				    int force_rna, int force_dna, int iupac_to_n, int x_is_bad, char *rename, char *rfrom, 
 				    char *rto, int *ret_reached_eof);
-static int  regurgitate_pfam_as_pfam(ESLX_MSAFILE *afp, FILE *ofp, char *gapsym, int force_lower, int force_upper, int force_rna, 
+static int  regurgitate_pfam_as_pfam(ESL_MSAFILE *afp, FILE *ofp, char *gapsym, int force_lower, int force_upper, int force_rna, 
 				     int force_dna, int iupac_to_n, int x_is_bad, int wussify, int dewuss, int fullwuss, 
 				     char *rfrom, char *rto);
 static int  parse_replace_string(const char *rstring, char **ret_from, char **ret_to);
@@ -194,11 +194,11 @@ main(int argc, char **argv)
    */
   if (esl_sqio_IsAlignment(outfmt))
     {
-      ESLX_MSAFILE *afp;
-      ESL_MSA      *msa;
+      ESL_MSAFILE *afp;
+      ESL_MSA     *msa;
 
-      status = eslx_msafile_Open(NULL, infile, NULL, infmt, NULL, &afp);
-      if (status != eslOK) eslx_msafile_OpenFailure(afp, status);
+      status = esl_msafile_Open(NULL, infile, NULL, infmt, NULL, &afp);
+      if (status != eslOK) esl_msafile_OpenFailure(afp, status);
 
       if ( esl_opt_IsOn(go, "--ignore"))  esl_fatal("The --ignore option is unimplemented for alignment reformatting.");
       if ( esl_opt_IsOn(go, "--acceptx")) esl_fatal("The --acceptx option is unimplemented for alignment reformatting.");
@@ -218,20 +218,20 @@ main(int argc, char **argv)
 	    else if (status == eslEINVAL)  esl_fatal("--small alignment file parse error:\n%s\n", afp->errmsg);
 	    else if (status != eslOK)      esl_fatal("--small alignment file read failed with error code %d\n", status);
 	  }
-	  eslx_msafile_Close(afp);
+	  esl_msafile_Close(afp);
 	}
 	else { /* do_small enabled, but neither (infmt==pfam && outfmt=afa) nor (infmt==pfam && outfmt==pfam) */
 	  esl_fatal("--small requires '--informat pfam' and output format of either 'afa' or 'pfam'");
 	}
       }
       else { /* normal mode, --small not enabled */
-	while ((status = eslx_msafile_Read(afp, &msa)) != eslEOF)
+	while ((status = esl_msafile_Read(afp, &msa)) != eslEOF)
 	  {
-	    if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
+	    if (status != eslOK) esl_msafile_ReadFailure(afp, status);
 	    nali++;
 
-	    if (nali > 1 && ! eslx_msafile_IsMultiRecord(outfmt))
-	      esl_fatal("Input file contains >1 alignments, but %s formatted output file can only contain 1", eslx_msafile_DecodeFormat(outfmt));
+	    if (nali > 1 && ! esl_msafile_IsMultiRecord(outfmt))
+	      esl_fatal("Input file contains >1 alignments, but %s formatted output file can only contain 1", esl_msafile_DecodeFormat(outfmt));
 
 	    if (do_mingap)    if((status = esl_msa_MinimGapsText(msa, errbuf, "-_.~", esl_opt_GetBoolean(go, "--keeprf"), do_fixbps)) != eslOK) esl_fatal(errbuf);
 	    if (do_nogap)     if((status = esl_msa_NoGapsText   (msa, errbuf, "-_.~", do_fixbps))                                     != eslOK) esl_fatal(errbuf);
@@ -290,11 +290,11 @@ main(int argc, char **argv)
 		      }
 	      }
 
-	    eslx_msafile_Write(ofp, msa, outfmt);
+	    esl_msafile_Write(ofp, msa, outfmt);
 	    esl_msa_Destroy(msa);
 	  }
       }
-      eslx_msafile_Close(afp);
+      esl_msafile_Close(afp);
     } /* end of alignment->alignment conversion */
   else
     { /* else: conversion to unaligned file formats */
@@ -505,7 +505,7 @@ symconvert(char *s, char *oldsyms, char *newsyms)
  * Returns void. Dies upon any input error.
  */
 static void
-regurgitate_pfam_as_afa(ESLX_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsym, int force_lower, int force_upper, int force_rna, int force_dna, int iupac_to_n, int x_is_bad, char *rename, char *rfrom, char *rto, int *ret_reached_eof)
+regurgitate_pfam_as_afa(ESL_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsym, int force_lower, int force_upper, int force_rna, int force_dna, int iupac_to_n, int x_is_bad, char *rename, char *rfrom, char *rto, int *ret_reached_eof)
 {
   char      *p = NULL;
   esl_pos_t  n = 0;
@@ -551,7 +551,7 @@ regurgitate_pfam_as_afa(ESLX_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsy
 
   /* Check the magic Stockholm header line, allowing blank lines */
   do { 
-    status = eslx_msafile_GetLine(afp, &p, &n);
+    status = esl_msafile_GetLine(afp, &p, &n);
     if      (status == eslEOF) return; 
     else if (status != eslOK)  esl_fatal("small mem parse error. problem reading line %d of msafile", (int) afp->linenumber);
   } while (esl_memspn(afp->line, afp->n, " \t") == afp->n  ||                 /* skip blank lines             */
@@ -560,7 +560,7 @@ regurgitate_pfam_as_afa(ESLX_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsy
 
   if (! esl_memstrpfx(afp->line, afp->n, "# STOCKHOLM 1.")) esl_fatal("small mem parse failed (line %d): missing \"# STOCKHOLM\" header", (int) afp->linenumber);
 
-  while ((status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK) 
+  while ((status = esl_msafile_GetLine(afp, &p, &n)) == eslOK) 
     {
       while (n && ( *p == ' ' || *p == '\t')) { p++; n--; } /* skip leading whitespace */
 
@@ -590,7 +590,7 @@ regurgitate_pfam_as_afa(ESLX_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsy
   /* The regurgitate_*() functions are limited, and only deal with single-record Pfam files. 
    * If there appears to be more data in the file, drop the reached_eof flag.
    */
-  while ((status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK) 
+  while ((status = esl_msafile_GetLine(afp, &p, &n)) == eslOK) 
     {
       while (n && ( *p == ' ' || *p == '\t')) { p++; n--; } /* skip leading whitespace */
       if    (esl_memstrpfx(p, n, "# STOCKHOLM 1.")) break;
@@ -604,8 +604,8 @@ regurgitate_pfam_as_afa(ESLX_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsy
    * Pass 1 complete; rewind (close/reopen) all files
    *****************************************************************/
 
-  eslx_msafile_Close(afp);
-  if ((status = eslx_msafile_Open(NULL, alifile, NULL, eslMSAFILE_PFAM, NULL, &afp)) != eslOK)
+  esl_msafile_Close(afp);
+  if ((status = esl_msafile_Open(NULL, alifile, NULL, eslMSAFILE_PFAM, NULL, &afp)) != eslOK)
     esl_fatal("--small, second pass, unable to open file %s for reading", alifile);
   
   if (ac_fp) { /* open the tmpfile with the seq accessions */
@@ -628,7 +628,7 @@ regurgitate_pfam_as_afa(ESLX_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsy
    ******************************************************************************************/
 
   do { 
-    status = eslx_msafile_GetLine(afp, &p, &n);
+    status = esl_msafile_GetLine(afp, &p, &n);
     if      (status == eslEOF) return; 
     else if (status != eslOK)  esl_fatal("small mem parse pass 2 error. problem reading line %d of msafile", (int) afp->linenumber);
   } while (esl_memspn(afp->line, afp->n, " \t") == afp->n  ||                 /* skip blank lines             */
@@ -637,7 +637,7 @@ regurgitate_pfam_as_afa(ESLX_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsy
 
   if (! esl_memstrpfx(afp->line, afp->n, "# STOCKHOLM 1.")) esl_fatal("small mem parse pass 2 failed (line %d): missing \"# STOCKHOLM\" header", (int) afp->linenumber);
 
-  while ((status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK) 
+  while ((status = esl_msafile_GetLine(afp, &p, &n)) == eslOK) 
     {
       while (n && ( *p == ' ' || *p == '\t')) { p++; n--; } /* skip leading whitespace */
 
@@ -719,7 +719,7 @@ regurgitate_pfam_as_afa(ESLX_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsy
 
   if (ac_fp) fclose(ac_fp);
   if (de_fp) fclose(de_fp);
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
 
   if (first_seqname) free(first_seqname);
   if (ac_buf)        free(ac_buf);
@@ -742,7 +742,7 @@ regurgitate_pfam_as_afa(ESLX_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsy
  * message that indicates the cause of the problem.
  */
 static int
-regurgitate_pfam_as_pfam(ESLX_MSAFILE *afp, FILE *ofp, char *gapsym, int force_lower, int force_upper, int force_rna, int force_dna, int iupac_to_n, int x_is_bad, int wussify, int dewuss, int fullwuss, char *rfrom, char *rto)
+regurgitate_pfam_as_pfam(ESL_MSAFILE *afp, FILE *ofp, char *gapsym, int force_lower, int force_upper, int force_rna, int force_dna, int iupac_to_n, int x_is_bad, int wussify, int dewuss, int fullwuss, char *rfrom, char *rto)
 {
   char      *p;
   esl_pos_t  n;
@@ -771,7 +771,7 @@ regurgitate_pfam_as_pfam(ESLX_MSAFILE *afp, FILE *ofp, char *gapsym, int force_l
    */
   /* Check the magic Stockholm header line, allowing blank lines */
   do { 
-    status = eslx_msafile_GetLine(afp, &p, &n);
+    status = esl_msafile_GetLine(afp, &p, &n);
     if      (status == eslEOF) return eslEOF; 
     else if (status != eslOK)  esl_fatal("small mem parse error. problem reading line %d of msafile", (int) afp->linenumber);
     fprintf(ofp, "%.*s\n", (int) afp->n, afp->line);
@@ -782,7 +782,7 @@ regurgitate_pfam_as_pfam(ESLX_MSAFILE *afp, FILE *ofp, char *gapsym, int force_l
   if (! esl_memstrpfx(afp->line, afp->n, "# STOCKHOLM 1.")) esl_fatal("small mem parse failed (line %d): missing \"# STOCKHOLM\" header", (int) afp->linenumber);
 
   /* Read the alignment file one line at a time.  */
-  while ((status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK) 
+  while ((status = esl_msafile_GetLine(afp, &p, &n)) == eslOK) 
     {
       if ((int) afp->linenumber % flushpoint == 0) fflush(ofp);
       while (n && ( *p == ' ' || *p == '\t')) { p++; n--; } /* skip leading whitespace */
@@ -944,8 +944,5 @@ parse_replace_string(const char *rstring, char **ret_from, char **ret_to)
 
 /*****************************************************************
  * @LICENSE@
- *
- * SVN $URL$
- * SVN $Id: esl-reformat.c 711 2011-07-27 20:06:15Z eddys $            
  *****************************************************************/
 

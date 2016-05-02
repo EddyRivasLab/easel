@@ -33,7 +33,7 @@ main(int argc, char **argv)
   char         *msafile = esl_opt_GetArg(go, 1);
   ESL_ALPHABET *abc     = NULL;
   int           infmt   = eslMSAFILE_UNKNOWN;
-  ESLX_MSAFILE *afp     = NULL;
+  ESL_MSAFILE  *afp     = NULL;
   ESL_MSA      *msa     = NULL;
   FILE         *ofp     = stdout;
   int           nali    = 0;
@@ -55,15 +55,15 @@ main(int argc, char **argv)
 
   /* allow user to assert the input MSA format */
   if (esl_opt_IsOn(go, "--informat") &&
-      (infmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
+      (infmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
     esl_fatal("%s is not a valid MSA file format for --informat", esl_opt_GetString(go, "--informat"));
 
   /* digital open */
-  if ( ( status = eslx_msafile_Open(&abc, msafile, NULL, infmt, NULL, &afp)) != eslOK)
-    eslx_msafile_OpenFailure(afp, status);
+  if ( ( status = esl_msafile_Open(&abc, msafile, NULL, infmt, NULL, &afp)) != eslOK)
+    esl_msafile_OpenFailure(afp, status);
 
   if (header) fprintf(ofp, "# seqname1 seqname2 %%id nid denomid %%match nmatch denommatch\n");
-  while ((status = eslx_msafile_Read(afp, &msa)) == eslOK)
+  while ((status = esl_msafile_Read(afp, &msa)) == eslOK)
     {	
       nali++;
 
@@ -79,9 +79,9 @@ main(int argc, char **argv)
 
       esl_msa_Destroy(msa);
     }
-  if (nali == 0 || status != eslEOF) eslx_msafile_ReadFailure(afp, status); 
+  if (nali == 0 || status != eslEOF) esl_msafile_ReadFailure(afp, status); 
 
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
   esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
   return 0;
@@ -89,7 +89,4 @@ main(int argc, char **argv)
   
 /*****************************************************************
  * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
  *****************************************************************/

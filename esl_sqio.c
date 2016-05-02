@@ -602,7 +602,7 @@ esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update)
   if (esl_sqio_IsAlignment(format))
     {
       if ((status = convert_sq_to_msa(s, &msa)) != eslOK) return status;
-      status = eslx_msafile_Write(fp, msa, format);
+      status = esl_msafile_Write(fp, msa, format);
       esl_msa_Destroy(msa);
       return status;
     }
@@ -740,7 +740,7 @@ esl_sqio_EncodeFormat(char *fmtstring)
   if (strcasecmp(fmtstring, "ncbi")      == 0) return eslSQFILE_NCBI;
 #endif
 #ifdef eslAUGMENT_MSA
-  return eslx_msafile_EncodeFormat(fmtstring);
+  return esl_msafile_EncodeFormat(fmtstring);
 #endif
   return eslSQFILE_UNKNOWN;
 }
@@ -759,7 +759,7 @@ char *
 esl_sqio_DecodeFormat(int fmt)
 {
 #ifdef eslAUGMENT_MSA
-  if (esl_sqio_IsAlignment(fmt)) return eslx_msafile_DecodeFormat(fmt);
+  if (esl_sqio_IsAlignment(fmt)) return esl_msafile_DecodeFormat(fmt);
 #endif
 
   switch (fmt) {

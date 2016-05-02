@@ -1,6 +1,6 @@
 /* Memory-efficient multiple sequence alignment i/o from Pfam format
  * 
- * Legacy interface, now that ESLX_MSAFILE is rewritten. Just enough
+ * Legacy interface, now that ESL_MSAFILE is rewritten. Just enough
  * of the old interface is retained to support --small option in
  * various tools, for reading Pfam format in memory-efficient ways.
  *
@@ -13,7 +13,7 @@
  *    6. Copyright and license information.
  * 
  * to-do:
- *   :: add memory-efficient interface in ESLX_MSAFILE
+ *   :: add memory-efficient interface in ESL_MSAFILE
  *   :: add memory-efficient ESL_MSA w/ API
  *   :: add space-efficient MSA file format
  */
@@ -1384,7 +1384,7 @@ utest_RegurgitatePfam(char *filename)
 {
   char         *msg         = "RegurgitatePfam() unit test failure";
   ESL_MSAFILE2 *mfp         = NULL;
-  ESLX_MSAFILE *afp         = NULL;
+  ESL_MSAFILE  *afp         = NULL;
   char          tmpfile[16] = "esltmpXXXXXX";
   FILE         *fp          = NULL;
   ESL_MSA      *msa1        = NULL;
@@ -1409,14 +1409,14 @@ utest_RegurgitatePfam(char *filename)
   esl_msafile2_Close(mfp);
 
   /* Using normal interface, read in msa from filename as msa1 */
-  if (eslx_msafile_Open(NULL, filename, NULL, eslMSAFILE_PFAM, NULL, &afp) != eslOK) esl_fatal(msg); 
-  if (eslx_msafile_Read(afp, &msa1)                                        != eslOK) esl_fatal(msg);
-  eslx_msafile_Close(afp);
+  if (esl_msafile_Open(NULL, filename, NULL, eslMSAFILE_PFAM, NULL, &afp) != eslOK) esl_fatal(msg); 
+  if (esl_msafile_Read(afp, &msa1)                                        != eslOK) esl_fatal(msg);
+  esl_msafile_Close(afp);
 
   /* Using normal interface, read in msa from tmpfile as msa2 */
-  if (eslx_msafile_Open(NULL, tmpfile, NULL, eslMSAFILE_PFAM, NULL, &afp) != eslOK) esl_fatal(msg);
-  if (eslx_msafile_Read(afp, &msa2)                                       != eslOK) esl_fatal(msg);
-  eslx_msafile_Close(afp);
+  if (esl_msafile_Open(NULL, tmpfile, NULL, eslMSAFILE_PFAM, NULL, &afp) != eslOK) esl_fatal(msg);
+  if (esl_msafile_Read(afp, &msa2)                                       != eslOK) esl_fatal(msg);
+  esl_msafile_Close(afp);
 
   if (esl_msa_Compare(msa1, msa2) != eslOK) esl_fatal(msg);
 
@@ -1474,9 +1474,8 @@ main(int argc, char **argv)
 #endif /*eslMSAFILE2_TESTDRIVE*/
 /*----------------- end, test driver ----------------------------*/
 
+
+
 /*****************************************************************
  * @LICENSE@
- * 
- * SVN $URL$
- * SVN $Id$
  *****************************************************************/

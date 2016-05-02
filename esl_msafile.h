@@ -1,4 +1,7 @@
 /* Multiple sequence alignment file i/o
+ *
+ * See also: esl_msafile2.[ch], which contains a legacy ESL_MSAFILE2 interface
+ * that includes support for --small option in various tools.
  */
 #ifndef eslMSAFILE_INCLUDED
 #define eslMSAFILE_INCLUDED
@@ -10,7 +13,7 @@
 #include "esl_msa.h"		/* ESL_MSA structure                         */
 #include "esl_ssi.h"        	/* indexes of large flatfiles on disk        */
 
-/* Object: ESLX_MSAFILE_FMTDATA
+/* Object: ESL_MSAFILE_FMTDATA
  * 
  * Additional (often optional) information about variants of some file
  * formats. Not much in here right now - but figured this might need
@@ -18,7 +21,7 @@
  *
  * Used in three ways:
  *   1. When opening an MSA file in a known format (as opposed to
- *      guessing an unknown format), caller may provide an <ESLX_MSAFILE_FMTDATA>
+ *      guessing an unknown format), caller may provide an <ESL_MSAFILE_FMTDATA>
  *      structure containing any additional constraints on the format.
  *      The new <afp> will copy this information into <afp->fmtd>.
  *   2. When opening an MSA file in an unknown format (calling GuessFileFormat()),
@@ -41,11 +44,11 @@
 typedef struct {
   int namewidth;   /* PHYLIP only:     width of the name field (usually 10, but can vary) unset=0 */
   int rpl;	   /* several formats: residues per line                                  unset=0 */
-} ESLX_MSAFILE_FMTDATA;
+} ESL_MSAFILE_FMTDATA;
 
 
 
-/* Object: ESLX_MSAFILE
+/* Object: ESL_MSAFILE
  * 
  * An alignment file open for parsing.
  */
@@ -53,7 +56,7 @@ typedef struct {
   ESL_BUFFER          *bf;            /* input file/data being parsed                          */
 
   int32_t              format;	      /* format of alignment file we're reading                */
-  ESLX_MSAFILE_FMTDATA fmtd;          /* additional (often optional) format-specific details.  */
+  ESL_MSAFILE_FMTDATA fmtd;          /* additional (often optional) format-specific details.  */
 
   char                *line;	      /* line read from <bf> by <esl_msafile_GetLine()>        */
   esl_pos_t            n;	      /* length of line in bytes (line is not NUL-terminated)  */
@@ -64,7 +67,7 @@ typedef struct {
   const ESL_ALPHABET  *abc;	      /* non-NULL if augmented and in digital mode             */
   ESL_SSI             *ssi;	      /* open SSI index; or NULL, if none or not augmented     */
   char                 errmsg[eslERRBUFSIZE];   /* user-directed message for normal errors     */
-} ESLX_MSAFILE;
+} ESL_MSAFILE;
 
 
 /* Alignment file format codes.
@@ -87,44 +90,44 @@ typedef struct {
 #define eslMSAFILE_PHYLIPS     110  /* sequential PHYLIP format                    */
 
 
-/* 1. Opening/closing an ESLX_MSAFILE */
-extern int   eslx_msafile_Open      (ESL_ALPHABET **byp_abc, const char *msafile, const char *env, int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE **ret_afp);
-extern int   eslx_msafile_OpenMem   (ESL_ALPHABET **byp_abc, const char *p, esl_pos_t n,           int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE **ret_afp);
-extern int   eslx_msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf,                       int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE **ret_afp);
-extern void  eslx_msafile_OpenFailure(ESLX_MSAFILE *afp, int status);
-extern int   eslx_msafile_SetDigital (ESLX_MSAFILE *afp, const ESL_ALPHABET *abc);
-extern void  eslx_msafile_Close(ESLX_MSAFILE *afp);
+/* 1. Opening/closing an ESL_MSAFILE */
+extern int   esl_msafile_Open      (ESL_ALPHABET **byp_abc, const char *msafile, const char *env, int format, ESL_MSAFILE_FMTDATA *fmtd, ESL_MSAFILE **ret_afp);
+extern int   esl_msafile_OpenMem   (ESL_ALPHABET **byp_abc, const char *p, esl_pos_t n,           int format, ESL_MSAFILE_FMTDATA *fmtd, ESL_MSAFILE **ret_afp);
+extern int   esl_msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf,                       int format, ESL_MSAFILE_FMTDATA *fmtd, ESL_MSAFILE **ret_afp);
+extern void  esl_msafile_OpenFailure(ESL_MSAFILE *afp, int status);
+extern int   esl_msafile_SetDigital (ESL_MSAFILE *afp, const ESL_ALPHABET *abc);
+extern void  esl_msafile_Close(ESL_MSAFILE *afp);
 
-/* 2. ESLX_MSAFILE_FMTDATA: optional extra constraints on formats */
-extern int   eslx_msafile_fmtdata_Init(ESLX_MSAFILE_FMTDATA *fmtd);
-extern int   eslx_msafile_fmtdata_Copy(ESLX_MSAFILE_FMTDATA *src,  ESLX_MSAFILE_FMTDATA *dst);
+/* 2. ESL_MSAFILE_FMTDATA: optional extra constraints on formats */
+extern int   esl_msafile_fmtdata_Init(ESL_MSAFILE_FMTDATA *fmtd);
+extern int   esl_msafile_fmtdata_Copy(ESL_MSAFILE_FMTDATA *src,  ESL_MSAFILE_FMTDATA *dst);
 
 /* 3. Utilities for different file formats */
-extern int   eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESLX_MSAFILE_FMTDATA *fmtd); 
-extern int   eslx_msafile_IsMultiRecord(int fmt);
-extern int   eslx_msafile_EncodeFormat(char *fmtstring);
-extern char *eslx_msafile_DecodeFormat(int fmt);
+extern int   esl_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESL_MSAFILE_FMTDATA *fmtd); 
+extern int   esl_msafile_IsMultiRecord(int fmt);
+extern int   esl_msafile_EncodeFormat(char *fmtstring);
+extern char *esl_msafile_DecodeFormat(int fmt);
 
 /* 4. Utilities for different alphabets */
 #ifdef eslAUGMENT_ALPHABET
-extern int eslx_msafile_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type);
+extern int esl_msafile_GuessAlphabet(ESL_MSAFILE *afp, int *ret_type);
 #endif
 
 /* 5. Random access in a MSA flatfile database */
 #ifdef eslAUGMENT_SSI
-extern int eslx_msafile_PositionByKey(ESLX_MSAFILE *afp, const char *key);
+extern int esl_msafile_PositionByKey(ESL_MSAFILE *afp, const char *key);
 #endif
 
-/* 6. Reading an MSA from an ESLX_MSAFILE */
-extern int  eslx_msafile_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa);
-extern void eslx_msafile_ReadFailure(ESLX_MSAFILE *afp, int status);
+/* 6. Reading an MSA from an ESL_MSAFILE */
+extern int  esl_msafile_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
+extern void esl_msafile_ReadFailure(ESL_MSAFILE *afp, int status);
 
 /* 7. Writing an MSA to a stream */
-extern int eslx_msafile_Write(FILE *fp, ESL_MSA *msa, int fmt);
+extern int esl_msafile_Write(FILE *fp, ESL_MSA *msa, int fmt);
 
 /* 8. Utilities for specific parsers */
-extern int eslx_msafile_GetLine(ESLX_MSAFILE *afp, char **opt_p, esl_pos_t *opt_n);
-extern int eslx_msafile_PutLine(ESLX_MSAFILE *afp);
+extern int esl_msafile_GetLine(ESL_MSAFILE *afp, char **opt_p, esl_pos_t *opt_n);
+extern int esl_msafile_PutLine(ESL_MSAFILE *afp);
 
 #include "esl_msafile_a2m.h"
 #include "esl_msafile_afa.h"
@@ -135,9 +138,8 @@ extern int eslx_msafile_PutLine(ESLX_MSAFILE *afp);
 #include "esl_msafile_stockholm.h"
 #endif /*eslMSAFILE_INCLUDED*/
 
+
+
 /*****************************************************************
  * @LICENSE@
- *
- * SVN $URL$
- * SVN $Id$
  *****************************************************************/

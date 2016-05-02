@@ -92,7 +92,7 @@ main(int argc, char **argv)
   char         *listfile = NULL;	       /* list file name (stays NULL unless --list) */
   int           infmt   = eslMSAFILE_UNKNOWN;  /* format code for input alifiles  */
   int           outfmt  = eslMSAFILE_UNKNOWN;  /* format code for output ali      */
-  ESLX_MSAFILE *afp     = NULL;	               /* open alignment file, normal interface */
+  ESL_MSAFILE  *afp     = NULL;	               /* open alignment file, normal interface */
   ESL_MSAFILE2 *afp2    = NULL;	               /* open alignment file, small-mem interface */
   FILE         *ofp;		               /* output file (default is stdout) */
   char        **alifile_list = NULL;           /* list of alignment files to merge */
@@ -196,12 +196,12 @@ main(int argc, char **argv)
   } else ofp = stdout;
 
   if (esl_opt_IsOn(go, "--informat")) {
-    infmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    infmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (infmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
     if (do_small && infmt != eslMSAFILE_PFAM) esl_fatal("small memory mode requires Pfam formatted alignments"); 
   }
   if (esl_opt_IsOn(go, "--outformat")) {
-    outfmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat"));
+    outfmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat"));
     if (outfmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --outformat", esl_opt_GetString(go, "--outformat")); 
     if (do_small && outfmt != eslMSAFILE_PFAM) esl_fatal("we can only output Pfam formatted alignments in small memory mode"); 
   }
@@ -287,15 +287,15 @@ main(int argc, char **argv)
       }
     else 
       {
-	status = eslx_msafile_Open(NULL, alifile_list[fi], NULL, infmt, NULL, &afp);
-	if (status != eslOK) eslx_msafile_OpenFailure(afp, status);
+	status = esl_msafile_Open(NULL, alifile_list[fi], NULL, infmt, NULL, &afp);
+	if (status != eslOK) esl_msafile_OpenFailure(afp, status);
       }
 
 
     /* while loop: while we have an alignment in current alignment file, (statement looks weird b/c we use a different function if --small) */
     while((status = (do_small) ? 
 	   esl_msafile2_ReadInfoPfam(afp2, NULL, NULL, -1, NULL,NULL, &(msaA[ai]), &nseq_cur, &alen_cur, &ngs_cur, &maxname_cur, &maxgf_cur, &maxgc_cur, &maxgr_cur, NULL, NULL, NULL, NULL, NULL) : 
-	   eslx_msafile_Read        (afp, &(msaA[ai]))) == eslOK) { 
+	   esl_msafile_Read        (afp, &(msaA[ai]))) == eslOK) { 
 
       if(msaA[ai]->rf == NULL) esl_fatal("Error, all alignments must have #=GC RF annotation; alignment %d of file %d does not (%s)\n", nali_per_file[fi], (fi+1), alifile_list[fi]); 
       msaA[ai]->abc = abc; /* msa's are read in text mode, so this is (currently) only used to define gap characters, it doesn't even have to be the correct alphabet. if --small, this is set as RNA regardless of input */
@@ -367,7 +367,7 @@ main(int argc, char **argv)
 	free(tmpstr);
       }
       ai++;
-    } /* end of while eslx_msafile_Read() loop */
+    } /* end of while esl_msafile_Read() loop */
 
     if (do_small) 
       {
@@ -375,12 +375,12 @@ main(int argc, char **argv)
 	else if (status == eslEINVAL)  esl_fatal("Alignment file %s, parse error:\n%s\n", alifile_list[fi], afp2->errbuf);
 	else if (status != eslEOF)     esl_fatal("Alignment file %s, read failed with error code %d\n", alifile_list[fi], status);
       }
-    else if (status != eslEOF) eslx_msafile_ReadFailure(afp, status);
+    else if (status != eslEOF) esl_msafile_ReadFailure(afp, status);
 
     if(nali_per_file[fi] == 0)     esl_fatal("Failed to read any alignments from file %s\n", alifile_list[fi]);
 
     if (do_small) esl_msafile2_Close(afp2);
-    else          eslx_msafile_Close(afp);
+    else          esl_msafile_Close(afp);
   } /* end of for (fi=0; fi < nalifile; fi++) */
   nali_tot = ai;
   
@@ -533,7 +533,7 @@ main(int argc, char **argv)
     if(esl_opt_GetBoolean(go, "-v")) { fprintf(stdout, "done.\n#\n"); fflush(stdout); }
     mmsa->alen = alen_mmsa; /* it was -1, b/c we filled in each seq as we marched through each msaA[] alignment */
     if(ofp != stdout) { fprintf(stdout, "# Saving alignment to file %s ... ", esl_opt_GetString(go, "-o")); }
-    status = eslx_msafile_Write(ofp, mmsa, outfmt);
+    status = esl_msafile_Write(ofp, mmsa, outfmt);
     if(status != eslOK) esl_fatal("Error, during alignment output; status code: %d\n", status);
   }
   if(ofp != stdout) { 
