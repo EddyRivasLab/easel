@@ -1649,8 +1649,8 @@ cluster_engine(ESL_DMATRIX *D_original, int mode, ESL_TREE **ret_T)
        */
       T->ld[N-2] = T->rd[N-2] = height[N-2];
       if (! T->is_linkage_tree) {
-	if (idx[i] > 0) T->ld[N-2] -= height[idx[i]];
-	if (idx[j] > 0) T->rd[N-2] -= height[idx[j]];      
+	if (idx[i] > 0) T->ld[N-2] = ESL_MAX(0., T->ld[N-2] - height[idx[i]]);  // max to 0, to avoid fp roundoff giving us negative length
+	if (idx[j] > 0) T->rd[N-2] = ESL_MAX(0., T->rd[N-2] - height[idx[j]]);      
       }
       
       /* If either node was an internal node, record parent in it.
@@ -2134,13 +2134,13 @@ main(int argc, char **argv)
 int main(int argc, char **argv)
 {
   ESL_TREE     *tree = NULL;
-  ESLX_MSAFILE *afp  = NULL;
+  ESL_MSAFILE  *afp  = NULL;
   ESL_MSA      *msa  = NULL;
   ESL_DMATRIX  *D    = NULL;
 
-  eslx_msafile_Open(NULL, argv[1], NULL, eslMSAFILE_UNKNOWN, NULL, &afp);
-  eslx_msafile_Read(afp, &msa);
-  eslx_msafile_Close(afp);
+  esl_msafile_Open(NULL, argv[1], NULL, eslMSAFILE_UNKNOWN, NULL, &afp);
+  esl_msafile_Read(afp, &msa);
+  esl_msafile_Close(afp);
 
   esl_dst_CDiffMx(msa->aseq, msa->nseq, &D);
   esl_tree_UPGMA(D, &tree);
@@ -2188,7 +2188,4 @@ int main(int argc, char **argv)
 
 /*****************************************************************  
  * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
  *****************************************************************/

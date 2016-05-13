@@ -38,7 +38,7 @@ main(int argc, char **argv)
   int           kstatus, tstatus;/* return code from Easel routine  */
   int           fmt;		 /* expected format of kfile, tfile */
   char         *kfile, *tfile;   /* known, test structure file      */
-  ESLX_MSAFILE *kfp, *tfp;       /* open kfile, tfile               */
+  ESL_MSAFILE  *kfp, *tfp;       /* open kfile, tfile               */
   ESL_MSA      *ka,  *ta; 	 /* known, trusted alignment        */
   int64_t       klen, tlen;	 /* lengths of dealigned seqs       */
   int          *kct, *tct;       /* known, test CT rep of structure */
@@ -104,8 +104,8 @@ main(int argc, char **argv)
    * Open the two Stockholm files.
    ***********************************************/
 
-  if ( (status = eslx_msafile_Open(NULL, kfile, NULL, fmt, NULL, &kfp)) != eslOK) eslx_msafile_OpenFailure(kfp, status);
-  if ( (status = eslx_msafile_Open(NULL, tfile, NULL, fmt, NULL, &tfp)) != eslOK) eslx_msafile_OpenFailure(tfp, status);
+  if ( (status = esl_msafile_Open(NULL, kfile, NULL, fmt, NULL, &kfp)) != eslOK) esl_msafile_OpenFailure(kfp, status);
+  if ( (status = esl_msafile_Open(NULL, tfile, NULL, fmt, NULL, &tfp)) != eslOK) esl_msafile_OpenFailure(tfp, status);
   
   /***********************************************
    * Do structure comparisons, one seq at a time;
@@ -119,10 +119,10 @@ main(int argc, char **argv)
   
   printf("%20s   %17s %17s\n", "", "[sensitivity]", "[PPV]");
 
-  while ( (kstatus = eslx_msafile_Read(kfp, &ka)) != eslEOF)
+  while ( (kstatus = esl_msafile_Read(kfp, &ka)) != eslEOF)
     {
-      if (  kstatus                                != eslOK) eslx_msafile_ReadFailure(kfp, kstatus);
-      if ( (tstatus = eslx_msafile_Read(tfp, &ta)) != eslOK) eslx_msafile_ReadFailure(tfp, tstatus);
+      if (  kstatus                               != eslOK) esl_msafile_ReadFailure(kfp, kstatus);
+      if ( (tstatus = esl_msafile_Read(tfp, &ta)) != eslOK) esl_msafile_ReadFailure(tfp, tstatus);
 
       /* Sanity check on alignment
        */
@@ -323,8 +323,8 @@ main(int argc, char **argv)
   puts("");
 
   esl_getopts_Destroy(go);
-  eslx_msafile_Close(tfp);
-  eslx_msafile_Close(kfp);
+  esl_msafile_Close(tfp);
+  esl_msafile_Close(kfp);
   return 0;
 
  ERROR:
@@ -334,7 +334,4 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
- * 
- * SVN $URL$
- * SVN $Id: esl-compstruct.c 668 2011-03-01 14:28:28Z nawrockie $
  *****************************************************************/

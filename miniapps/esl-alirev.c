@@ -29,7 +29,7 @@ main(int argc, char **argv)
   int           infmt   = eslMSAFILE_UNKNOWN;
   int           outfmt  = eslMSAFILE_UNKNOWN;
   ESL_ALPHABET *abc     = NULL;
-  ESLX_MSAFILE *afp     = NULL;
+  ESL_MSAFILE  *afp     = NULL;
   ESL_MSA      *msa     = NULL;
   int           nali    = 0;
   int           status;
@@ -40,13 +40,13 @@ main(int argc, char **argv)
 
   /* MSA input file format from cmdline? */
   if (esl_opt_IsOn(go, "--informat") &&
-      (infmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
+      (infmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
     esl_fatal("Your --informat, %s, is not a recognized multiple alignment file format",
 	      esl_opt_GetString(go, "--informat"));
 
   /* Open in digital mode. Autoguess alphabet, format if we haven't set them already. */
-  if (( status = eslx_msafile_Open(&abc, msafile, NULL, infmt, NULL, &afp)) != eslOK)
-    eslx_msafile_OpenFailure(afp, status);
+  if (( status = esl_msafile_Open(&abc, msafile, NULL, infmt, NULL, &afp)) != eslOK)
+    esl_msafile_OpenFailure(afp, status);
   
   /* Reverse complementation only makes sense for alphabets that have abc->complement set */
   if (! abc->complement)
@@ -59,7 +59,7 @@ main(int argc, char **argv)
    */
   if ( esl_opt_IsOn(go, "--outformat") )
     {
-      outfmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat"));
+      outfmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat"));
       if (outfmt == eslMSAFILE_UNKNOWN)
 	esl_fatal("Your --outformat, %s, is not a recognized multiple alignment file format.\n",
 		  esl_opt_GetString(go, "--outformat"));
@@ -67,20 +67,20 @@ main(int argc, char **argv)
   else outfmt = afp->format;
 
   /* Here we go. */
-  while ((status = eslx_msafile_Read(afp, &msa)) == eslOK)
+  while ((status = esl_msafile_Read(afp, &msa)) == eslOK)
     {	
       nali++;
 
       status = esl_msa_ReverseComplement(msa);
 
-      eslx_msafile_Write(stdout, msa, outfmt);
+      esl_msafile_Write(stdout, msa, outfmt);
 
       esl_msa_Destroy(msa);
     }
    if (nali   == 0)      esl_fatal("No alignments found in input file %s\n", msafile);
-   if (status != eslEOF) eslx_msafile_ReadFailure(afp, status);
+   if (status != eslEOF) esl_msafile_ReadFailure(afp, status);
 
-   eslx_msafile_Close(afp);
+   esl_msafile_Close(afp);
    esl_alphabet_Destroy(abc);
    esl_getopts_Destroy(go);
    return 0;

@@ -742,7 +742,7 @@ main(int argc, char **argv)
 {
   ESL_GETOPTS  *go;
   char         *msafile;
-  ESLX_MSAFILE *afp;
+  ESL_MSAFILE  *afp;
   ESL_MSA      *msa;
   float        *sqd;
   int          status;
@@ -788,12 +788,12 @@ main(int argc, char **argv)
 
   /* Weight one or more alignments from input file
    */
-  if ((status = eslx_msafile_Open(NULL, msafile, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK)
-    eslx_msafile_OpenFailure(afp, status);
+  if ((status = esl_msafile_Open(NULL, msafile, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK)
+    esl_msafile_OpenFailure(afp, status);
 
-  while ( (status = eslx_msafile_Read(afp, &msa)) != eslEOF)
+  while ( (status = esl_msafile_Read(afp, &msa)) != eslEOF)
     {
-      if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
+      if (status != eslOK) esl_msafile_ReadFailure(afp, status);
 
       if (maxN > 0 && msa->nseq > maxN) { esl_msa_Destroy(msa); continue; }
 
@@ -834,7 +834,7 @@ main(int argc, char **argv)
       esl_msa_Destroy(msa);
       free(sqd);
     } 
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
 
   if (nbadali == 0) 
     printf("OK: all weights identical between squid and Easel in %d alignment(s)\n", nali);
@@ -894,7 +894,7 @@ main(int argc, char **argv)
   ESL_STOPWATCH *w;
   ESL_GETOPTS   *go;
   char          *msafile;
-  ESLX_MSAFILE  *afp;
+  ESL_MSAFILE   *afp;
   ESL_MSA       *msa;
   int            do_gsc;
   int            do_pb;
@@ -932,12 +932,12 @@ main(int argc, char **argv)
 
   /* Weight one or more alignments from input file
    */
-  if ((status = eslx_msafile_Open(NULL, msafile, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK)
-    eslx_msafile_OpenFailure(afp, status);
+  if ((status = esl_msafile_Open(NULL, msafile, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK)
+    esl_msafile_OpenFailure(afp, status);
 
-  while ( (status = eslx_msafile_Read(afp, &msa)) != eslEOF) 
+  while ( (status = esl_msafile_Read(afp, &msa)) != eslEOF) 
     {
-      if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
+      if (status != eslOK) esl_msafile_ReadFailure(afp, status);
       if (maxN > 0 && msa->nseq > maxN) { esl_msa_Destroy(msa); continue; }
 
       esl_stopwatch_Start(w);
@@ -951,7 +951,7 @@ main(int argc, char **argv)
       printf("%-20s %6d  %6d  %.3f\n", msa->name, msa->alen, msa->nseq, cpu);
       esl_msa_Destroy(msa);
     } 
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
 
   esl_stopwatch_Destroy(w);
   return eslOK;
@@ -1001,7 +1001,7 @@ main(int argc, char **argv)
 {
   ESL_GETOPTS  *go;
   char         *msafile;
-  ESLX_MSAFILE *afp;
+  ESL_MSAFILE  *afp;
   ESL_MSA      *msa;
   int           do_gsc;
   int           do_pb;
@@ -1037,12 +1037,12 @@ main(int argc, char **argv)
 
   /* Weight one or more alignments from input file
    */
-  if ((status = eslx_msafile_Open(NULL, msafile, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK)
-    eslx_msafile_OpenFailure(afp, status);
+  if ((status = esl_msafile_Open(NULL, msafile, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK)
+    esl_msafile_OpenFailure(afp, status);
 
-  while ( (status = eslx_msafile_Read(afp, &msa)) != eslEOF)
+  while ( (status = esl_msafile_Read(afp, &msa)) != eslEOF)
     {
-      if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
+      if (status != eslOK) esl_msafile_ReadFailure(afp, status);
       if (maxN > 0 && msa->nseq > maxN) { esl_msa_Destroy(msa); continue; }
 
       if      (do_gsc) 	  esl_msaweight_GSC(msa);
@@ -1064,7 +1064,7 @@ main(int argc, char **argv)
 	     nbig);
       esl_msa_Destroy(msa);
     } 
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
   return eslOK;
 }
 #endif /* eslMSAWEIGHT_STATS */
@@ -1092,16 +1092,16 @@ main(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-  ESLX_MSAFILE *afp;
+  ESL_MSAFILE  *afp;
   ESL_MSA      *msa;
   int           i;
   int           status;
 
-  if ( (status = eslx_msafile_Open(NULL, argv[1], NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK)
-    eslx_msafile_OpenFailure(afp, status);
-  if ( (status = eslx_msafile_Read(afp, &msa)) != eslOK)
-    eslx_msafile_ReadFailure(afp, status);
-  eslx_msafile_Close(afp);
+  if ( (status = esl_msafile_Open(NULL, argv[1], NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK)
+    esl_msafile_OpenFailure(afp, status);
+  if ( (status = esl_msafile_Read(afp, &msa)) != eslOK)
+    esl_msafile_ReadFailure(afp, status);
+  esl_msafile_Close(afp);
 
   esl_msaweight_GSC(msa);
   
@@ -1117,7 +1117,4 @@ int main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
  *****************************************************************/

@@ -64,8 +64,8 @@ main(int argc, char **argv)
   char         *alifile1= NULL;	/* alignment 1 file name           */
   char         *alifile2= NULL;	/* alignment 2 file name           */
   int           fmt;		/* format code for alifiles        */
-  ESLX_MSAFILE *afp1    = NULL;	/* open alignment file 1           */
-  ESLX_MSAFILE *afp2    = NULL;	/* open alignment file 2           */
+  ESL_MSAFILE  *afp1    = NULL;	/* open alignment file 1           */
+  ESL_MSAFILE  *afp2    = NULL;	/* open alignment file 2           */
   ESL_MSA      *msa1    = NULL;	/* multiple sequence alignment 1   */
   ESL_MSA      *msa2    = NULL;	/* multiple sequence alignment 2   */
   int           status;		/* easel return code               */
@@ -119,15 +119,15 @@ main(int argc, char **argv)
   else if (esl_opt_GetBoolean(go, "--dna"))     abc = esl_alphabet_Create(eslDNA);
   else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
 
-  if ( (status = eslx_msafile_Open(&abc, alifile1, NULL, fmt, NULL, &afp1)) != eslOK) eslx_msafile_OpenFailure(afp1, status);
-  if ( (status = eslx_msafile_Open(&abc, alifile2, NULL, fmt, NULL, &afp2)) != eslOK) eslx_msafile_OpenFailure(afp2, status);
+  if ( (status = esl_msafile_Open(&abc, alifile1, NULL, fmt, NULL, &afp1)) != eslOK) esl_msafile_OpenFailure(afp1, status);
+  if ( (status = esl_msafile_Open(&abc, alifile2, NULL, fmt, NULL, &afp2)) != eslOK) esl_msafile_OpenFailure(afp2, status);
 
   /******************************************************************
    * Read first alignment from each file, we only use the first one 
    ******************************************************************/
 
-  if ((status = eslx_msafile_Read(afp1, &msa1)) != eslOK) eslx_msafile_ReadFailure(afp1, status);
-  if ((status = eslx_msafile_Read(afp2, &msa2)) != eslOK) eslx_msafile_ReadFailure(afp2, status);
+  if ((status = esl_msafile_Read(afp1, &msa1)) != eslOK) esl_msafile_ReadFailure(afp1, status);
+  if ((status = esl_msafile_Read(afp2, &msa2)) != eslOK) esl_msafile_ReadFailure(afp2, status);
 
   /* map the alignments in msa1 and msa2 */
   if(! esl_opt_IsOn(go, "--submap")) { 
@@ -149,8 +149,8 @@ main(int argc, char **argv)
   
   /* Cleanup, normal return
    */
-  eslx_msafile_Close(afp1);
-  eslx_msafile_Close(afp2);
+  esl_msafile_Close(afp1);
+  esl_msafile_Close(afp2);
   esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
   esl_msa_Destroy(msa1);
@@ -158,8 +158,8 @@ main(int argc, char **argv)
   return 0;
   
  ERROR:
-  if (afp1)   eslx_msafile_Close(afp1);
-  if (afp2)   eslx_msafile_Close(afp2);
+  if (afp1)   esl_msafile_Close(afp1);
+  if (afp2)   esl_msafile_Close(afp2);
   if (go)     esl_getopts_Destroy(go);
   if (msa1)   esl_msa_Destroy(msa1);
   if (msa2)   esl_msa_Destroy(msa2);

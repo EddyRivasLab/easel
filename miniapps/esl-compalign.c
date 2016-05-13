@@ -49,7 +49,7 @@ main(int argc, char **argv)
   int          kstatus, tstatus;/* return code from Easel routine  */
   int          fmt;		/* expected format of kfile, tfile */
   char        *kfile, *tfile;   /* known, test structure file      */
-  ESLX_MSAFILE *kfp, *tfp;      /* open kfile, tfile               */
+  ESL_MSAFILE *kfp, *tfp;       /* open kfile, tfile               */
   ESL_MSA     *ka,  *ta; 	/* known, trusted alignment        */
   int64_t      klen, tlen;	/* lengths of dealigned seqs       */
   int          i;		/* counter over sequences          */
@@ -153,8 +153,8 @@ main(int argc, char **argv)
   else if (esl_opt_GetBoolean(go, "--dna"))     abc = esl_alphabet_Create(eslDNA);
   else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
 
-  if ( (kstatus = eslx_msafile_Open(&abc, kfile, NULL, fmt, NULL, &kfp)) != eslOK) eslx_msafile_OpenFailure(kfp, kstatus);
-  if ( (tstatus = eslx_msafile_Open(&abc, tfile, NULL, fmt, NULL, &tfp)) != eslOK) eslx_msafile_OpenFailure(tfp, tstatus);
+  if ( (kstatus = esl_msafile_Open(&abc, kfile, NULL, fmt, NULL, &kfp)) != eslOK) esl_msafile_OpenFailure(kfp, kstatus);
+  if ( (tstatus = esl_msafile_Open(&abc, tfile, NULL, fmt, NULL, &tfp)) != eslOK) esl_msafile_OpenFailure(tfp, tstatus);
 
   do_post = esl_opt_GetBoolean(go, "-p");
 
@@ -172,10 +172,10 @@ main(int argc, char **argv)
    * this means looping over all seqs in all alignments.
    ***********************************************/
   nali = 0;
-  while ( (kstatus = eslx_msafile_Read(kfp, &ka)) != eslEOF)
+  while ( (kstatus = esl_msafile_Read(kfp, &ka)) != eslEOF)
     {
-      if (  kstatus                                != eslOK) eslx_msafile_ReadFailure(kfp, kstatus);
-      if ( (tstatus = eslx_msafile_Read(tfp, &ta)) != eslOK) eslx_msafile_ReadFailure(tfp, tstatus);
+      if (  kstatus                               != eslOK) esl_msafile_ReadFailure(kfp, kstatus);
+      if ( (tstatus = esl_msafile_Read(tfp, &ta)) != eslOK) esl_msafile_ReadFailure(tfp, tstatus);
 
       nali++;
       if((nali > 1) && (esl_opt_IsOn(go, "--c2dfile"))) esl_fatal("--c2dfile is only meant for msafiles with single alignments"); 
@@ -492,8 +492,8 @@ main(int argc, char **argv)
 	   
   if(abc) esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
-  eslx_msafile_Close(tfp);
-  eslx_msafile_Close(kfp);
+  esl_msafile_Close(tfp);
+  esl_msafile_Close(kfp);
   return 0;
 
  ERROR:

@@ -79,11 +79,11 @@ static int                      stockholm_parsedata_ExpandSeq  (ESL_STOCKHOLM_PA
 static int                      stockholm_parsedata_ExpandBlock(ESL_STOCKHOLM_PARSEDATA *pd);
 static void                     stockholm_parsedata_Destroy    (ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa);
 
-static int stockholm_parse_gf(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n);
-static int stockholm_parse_gs(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n);
-static int stockholm_parse_gc(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n);
-static int stockholm_parse_gr(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n);
-static int stockholm_parse_sq(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n);
+static int stockholm_parse_gf(ESL_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n);
+static int stockholm_parse_gs(ESL_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n);
+static int stockholm_parse_gc(ESL_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n);
+static int stockholm_parse_gr(ESL_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n);
+static int stockholm_parse_sq(ESL_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n);
 static int stockholm_parse_comment(ESL_MSA *msa, char *p, esl_pos_t n);
 
 static int stockholm_get_seqidx   (ESL_MSA *msa, ESL_STOCKHOLM_PARSEDATA *pd, char *name, esl_pos_t n,      int *ret_idx);
@@ -111,7 +111,7 @@ static int stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl);
  *            where we don't do mapped input.)
  */
 int
-esl_msafile_stockholm_SetInmap(ESLX_MSAFILE *afp)
+esl_msafile_stockholm_SetInmap(ESL_MSAFILE *afp)
 {
   int sym;
 
@@ -152,7 +152,7 @@ esl_msafile_stockholm_SetInmap(ESLX_MSAFILE *afp)
  *            started at.
  */
 int
-esl_msafile_stockholm_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
+esl_msafile_stockholm_GuessAlphabet(ESL_MSAFILE *afp, int *ret_type)
 {
   int       alphatype     = eslUNKNOWN;
   esl_pos_t anchor        = -1;
@@ -212,7 +212,7 @@ esl_msafile_stockholm_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
 /* Function:  esl_msafile_stockholm_Read()
  * Synopsis:  Read an alignment in Stockholm format.
  *
- * Purpose:   Read an MSA from open <ESLX_MSAFILE> <afp>, 
+ * Purpose:   Read an MSA from open <ESL_MSAFILE> <afp>, 
  *            parsing for Stockholm format. Create a new
  *            MSA, and return it by reference through 
  *            <*ret_msa>. Caller is responsible for freeing
@@ -245,7 +245,7 @@ esl_msafile_stockholm_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
  *            <*ret_msa> is returned <NULL>.
  */
 int
-esl_msafile_stockholm_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
+esl_msafile_stockholm_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 {
   ESL_MSA                 *msa      = NULL;
   ESL_STOCKHOLM_PARSEDATA *pd       = NULL;
@@ -267,7 +267,7 @@ esl_msafile_stockholm_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 
   /* Skip leading blank lines in file. EOF here is a normal EOF return. */
   do { 
-    if ( ( status = eslx_msafile_GetLine(afp, &p, &n)) != eslOK) goto ERROR;  /* eslEOF is OK here - end of input (eslEOF) [eslEMEM|eslESYS] */
+    if ( ( status = esl_msafile_GetLine(afp, &p, &n)) != eslOK) goto ERROR;  /* eslEOF is OK here - end of input (eslEOF) [eslEMEM|eslESYS] */
   } while (esl_memspn(afp->line, afp->n, " \t") == afp->n ||                  /* skip blank lines             */
 	   (esl_memstrpfx(afp->line, afp->n, "#")                             /* and skip comment lines       */
 	    && ! esl_memstrpfx(afp->line, afp->n, "# STOCKHOLM")));           /* but stop on Stockholm header */
@@ -275,7 +275,7 @@ esl_msafile_stockholm_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
   /* Check for the magic Stockholm header */
   if (! esl_memstrpfx(afp->line, afp->n, "# STOCKHOLM 1."))  ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing Stockholm header");
 
-  while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK) /* (eslEOF) [eslEMEM|eslESYS] */
+  while ( (status = esl_msafile_GetLine(afp, &p, &n)) == eslOK) /* (eslEOF) [eslEMEM|eslESYS] */
     {
       while (n && ( *p == ' ' || *p == '\t')) { p++; n--; } /* skip leading whitespace */
 
@@ -525,7 +525,7 @@ stockholm_parsedata_Destroy(ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa)
  * recognized featurenames: { ID | AC | DE | AU | GA | NC | TC }
  */
 static int
-stockholm_parse_gf(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n)
+stockholm_parse_gf(ESL_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n)
 {
   char      *gf,  *tag,   *tok;
   esl_pos_t gflen, taglen, toklen;
@@ -612,7 +612,7 @@ stockholm_parse_gf(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
  * recognized featurenames: { WT | AC | DE }
  */
 static int
-stockholm_parse_gs(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n)
+stockholm_parse_gs(ESL_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n)
 {
   char      *gs,   *seqname,   *tag,   *tok;
   esl_pos_t  gslen, seqnamelen, taglen, toklen;
@@ -665,7 +665,7 @@ stockholm_parse_gs(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
  * recognized featurenames: { SS_cons | SA_cons | PP_cons | RF }
  */
 static int
-stockholm_parse_gc(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n)
+stockholm_parse_gc(ESL_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n)
 {
   char      *gc,    *tag;
   esl_pos_t  gclen,  taglen;
@@ -753,7 +753,7 @@ stockholm_parse_gc(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
  * 
  */
 static int
-stockholm_parse_gr(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n)
+stockholm_parse_gr(ESL_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n)
 {
   char      *gr,   *name,    *tag;
   esl_pos_t  grlen, namelen,  taglen;
@@ -858,7 +858,7 @@ stockholm_parse_gr(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
  *   <seqname>  <aligned text>
  */
 static int
-stockholm_parse_sq(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n)
+stockholm_parse_sq(ESL_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n)
 {
   char     *seqname;
   esl_pos_t seqnamelen;
@@ -2318,7 +2318,7 @@ static void
 utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expected_nseq, int expected_alen)
 {
   ESL_ALPHABET        *abc          = NULL;
-  ESLX_MSAFILE        *afp          = NULL;
+  ESL_MSAFILE        *afp          = NULL;
   ESL_MSA             *msa1         = NULL;
   ESL_MSA             *msa2         = NULL;
   char                 tmpfile1[32] = "esltmpXXXXXX";
@@ -2327,15 +2327,15 @@ utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expec
   int                  status;
 
   /* guessing both the format and the alphabet should work: this is a digital open */
-  if ( (status = eslx_msafile_Open(&abc, filename, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK) esl_fatal("stockholm good file test %d failed: digital open", testnumber);  
-  if (abc->type   != expected_alphatype)                                                            esl_fatal("stockholm good file test %d failed: alphabet autodetection", testnumber);
-  if (afp->format != eslMSAFILE_STOCKHOLM)                                                          esl_fatal("stockholm good file test %d failed: format autodetection",   testnumber); /* eslMSAFILE_PFAM is autodetected as STOCKHOLM, and that's fine */
+  if ( (status = esl_msafile_Open(&abc, filename, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK) esl_fatal("stockholm good file test %d failed: digital open", testnumber);  
+  if (abc->type   != expected_alphatype)                                                           esl_fatal("stockholm good file test %d failed: alphabet autodetection", testnumber);
+  if (afp->format != eslMSAFILE_STOCKHOLM)                                                         esl_fatal("stockholm good file test %d failed: format autodetection",   testnumber); /* eslMSAFILE_PFAM is autodetected as STOCKHOLM, and that's fine */
 
   /* This is a digital read, using <abc>. */
   if ( (status = esl_msafile_stockholm_Read(afp, &msa1))   != eslOK) esl_fatal("stockholm good file test %d failed: msa read, digital", testnumber);  
   if (msa1->nseq != expected_nseq || msa1->alen != expected_alen)    esl_fatal("stockholm good file test %d failed: nseq/alen",         testnumber);
   if (esl_msa_Validate(msa1, NULL) != eslOK)                         esl_fatal("stockholm good file test %d failed: msa1 invalid",      testnumber);
-  eslx_msafile_Close(afp);  
+  esl_msafile_Close(afp);  
 
   /* write it back out to a new tmpfile (digital write) */
   if ( (status = esl_tmpfile_named(tmpfile1, &ofp))                            != eslOK) esl_fatal("stockholm good file test %d failed: tmpfile creation",   testnumber);
@@ -2343,11 +2343,11 @@ utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expec
   fclose(ofp);
 
   /* now open and read it as text mode, in known format. (We have to pass fmtd now, to deal with the possibility of a nonstandard name width) */
-  if ( (status = eslx_msafile_Open(NULL, tmpfile1, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp)) != eslOK) esl_fatal("stockholm good file test %d failed: text mode open", testnumber);  
-  if ( (status = esl_msafile_stockholm_Read(afp, &msa2))                                    != eslOK) esl_fatal("stockholm good file test %d failed: msa read, text", testnumber);  
-  if (msa2->nseq != expected_nseq || msa2->alen != expected_alen)                                     esl_fatal("stockholm good file test %d failed: nseq/alen",      testnumber);
-  if (esl_msa_Validate(msa2, NULL) != eslOK)                                                          esl_fatal("stockholm good file test %d failed: msa2 invalid",   testnumber);
-  eslx_msafile_Close(afp);
+  if ( (status = esl_msafile_Open(NULL, tmpfile1, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp)) != eslOK) esl_fatal("stockholm good file test %d failed: text mode open", testnumber);  
+  if ( (status = esl_msafile_stockholm_Read(afp, &msa2))                                   != eslOK) esl_fatal("stockholm good file test %d failed: msa read, text", testnumber);  
+  if (msa2->nseq != expected_nseq || msa2->alen != expected_alen)                                    esl_fatal("stockholm good file test %d failed: nseq/alen",      testnumber);
+  if (esl_msa_Validate(msa2, NULL) != eslOK)                                                         esl_fatal("stockholm good file test %d failed: msa2 invalid",   testnumber);
+  esl_msafile_Close(afp);
   
   /* write it back out to a new tmpfile (text write) */
   if ( (status = esl_tmpfile_named(tmpfile2, &ofp))                        != eslOK) esl_fatal("stockholm good file test %d failed: tmpfile creation", testnumber);
@@ -2356,10 +2356,10 @@ utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expec
   esl_msa_Destroy(msa2);
 
   /* open and read it in digital mode */
-  if ( (status = eslx_msafile_Open(&abc, tmpfile1, NULL, eslMSAFILE_PFAM, NULL, &afp)) != eslOK) esl_fatal("stockholm good file test %d failed: 2nd digital mode open", testnumber);  
-  if ( (status = esl_msafile_stockholm_Read(afp, &msa2))                               != eslOK) esl_fatal("stockholm good file test %d failed: 2nd digital msa read",  testnumber);  
-  if (esl_msa_Validate(msa2, NULL) != eslOK)                                                     esl_fatal("stockholm good file test %d failed: msa2 invalid",          testnumber);
-  eslx_msafile_Close(afp);
+  if ( (status = esl_msafile_Open(&abc, tmpfile1, NULL, eslMSAFILE_PFAM, NULL, &afp)) != eslOK) esl_fatal("stockholm good file test %d failed: 2nd digital mode open", testnumber);  
+  if ( (status = esl_msafile_stockholm_Read(afp, &msa2))                              != eslOK) esl_fatal("stockholm good file test %d failed: 2nd digital msa read",  testnumber);  
+  if (esl_msa_Validate(msa2, NULL) != eslOK)                                                    esl_fatal("stockholm good file test %d failed: msa2 invalid",          testnumber);
+  esl_msafile_Close(afp);
 
   /* this msa <msa2> should be identical to <msa1> */
   if (esl_msa_Compare(msa1, msa2) != eslOK) esl_fatal("stockholm good file test %d failed: msa compare", testnumber);  
@@ -2375,16 +2375,16 @@ static void
 utest_bad_format(char *filename, int testnumber, int expected_linenumber, char *expected_errmsg)
 {
   ESL_ALPHABET *abc = esl_alphabet_Create(eslAMINO);
-  ESLX_MSAFILE *afp = NULL;
+  ESL_MSAFILE *afp = NULL;
   int           fmt = eslMSAFILE_STOCKHOLM;
   ESL_MSA      *msa = NULL;
   int           status;
   
-  if ( (status = eslx_msafile_Open(&abc, filename, NULL, fmt, NULL, &afp)) != eslOK)  esl_fatal("stockholm bad format test %d failed: unexpected open failure", testnumber);
-  if ( (status = esl_msafile_stockholm_Read(afp, &msa)) != eslEFORMAT)                esl_fatal("stockholm bad format test %d failed: unexpected error code",   testnumber);
-  if (strstr(afp->errmsg, expected_errmsg) == NULL)                                   esl_fatal("stockholm bad format test %d failed: unexpected errmsg",       testnumber);
-  if (afp->linenumber != expected_linenumber)                                         esl_fatal("stockholm bad format test %d failed: unexpected linenumber",   testnumber);
-  eslx_msafile_Close(afp);
+  if ( (status = esl_msafile_Open(&abc, filename, NULL, fmt, NULL, &afp)) != eslOK)  esl_fatal("stockholm bad format test %d failed: unexpected open failure", testnumber);
+  if ( (status = esl_msafile_stockholm_Read(afp, &msa)) != eslEFORMAT)               esl_fatal("stockholm bad format test %d failed: unexpected error code",   testnumber);
+  if (strstr(afp->errmsg, expected_errmsg) == NULL)                                  esl_fatal("stockholm bad format test %d failed: unexpected errmsg",       testnumber);
+  if (afp->linenumber != expected_linenumber)                                        esl_fatal("stockholm bad format test %d failed: unexpected linenumber",   testnumber);
+  esl_msafile_Close(afp);
   esl_alphabet_Destroy(abc);
   esl_msa_Destroy(msa);
 }
@@ -2394,16 +2394,16 @@ static void
 utest_good_format(ESL_ALPHABET **byp_abc, int fmt, int expected_nseq, int64_t expected_alen, char *buf)
 {
   char          msg[] = "good format test failed";
-  ESLX_MSAFILE *afp = NULL;
+  ESL_MSAFILE *afp = NULL;
   ESL_MSA      *msa = NULL;
 
-  if (eslx_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, NULL, &afp) != eslOK) esl_fatal(msg);
-  if (esl_msafile_stockholm_Read(afp, &msa)                            != eslOK) esl_fatal(msg);
-  if (msa->nseq != expected_nseq)                                                esl_fatal(msg);
-  if (msa->alen != expected_alen)                                                esl_fatal(msg);
+  if (esl_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, NULL, &afp) != eslOK) esl_fatal(msg);
+  if (esl_msafile_stockholm_Read(afp, &msa)                           != eslOK) esl_fatal(msg);
+  if (msa->nseq != expected_nseq)                                               esl_fatal(msg);
+  if (msa->alen != expected_alen)                                               esl_fatal(msg);
 
   esl_msa_Destroy(msa);
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
 }
 
 static void
@@ -2413,7 +2413,7 @@ utest_identical_io(ESL_ALPHABET **byp_abc, int fmt, char *buf)
   char   tmpfile1[32] = "esltmpXXXXXX";
   char   tmpfile2[32] = "esltmpXXXXXX";
   FILE  *fp = NULL;
-  ESLX_MSAFILE *afp = NULL;
+  ESL_MSAFILE *afp = NULL;
   ESL_MSA *msa1 = NULL;
   ESL_MSA *msa2 = NULL;
 
@@ -2421,17 +2421,17 @@ utest_identical_io(ESL_ALPHABET **byp_abc, int fmt, char *buf)
   fputs(buf, fp);
   fclose(fp);
 
-  if (eslx_msafile_Open(byp_abc, tmpfile1, NULL, fmt, NULL, &afp) != eslOK) esl_fatal(msg);
-  if (esl_msafile_stockholm_Read(afp, &msa1)                      != eslOK) esl_fatal(msg);
-  eslx_msafile_Close(afp);
+  if (esl_msafile_Open(byp_abc, tmpfile1, NULL, fmt, NULL, &afp) != eslOK) esl_fatal(msg);
+  if (esl_msafile_stockholm_Read(afp, &msa1)                     != eslOK) esl_fatal(msg);
+  esl_msafile_Close(afp);
 
   if (esl_tmpfile_named(tmpfile2, &fp) != eslOK) esl_fatal(msg);
   if (esl_msafile_stockholm_Write(fp, msa1, eslMSAFILE_STOCKHOLM) != eslOK) esl_fatal(msg);
   fclose(fp);
 
-  if (eslx_msafile_Open(byp_abc, tmpfile2, NULL, fmt, NULL, &afp) != eslOK) esl_fatal(msg);
-  if (esl_msafile_stockholm_Read(afp, &msa2)                      != eslOK) esl_fatal(msg);
-  eslx_msafile_Close(afp);
+  if (esl_msafile_Open(byp_abc, tmpfile2, NULL, fmt, NULL, &afp) != eslOK) esl_fatal(msg);
+  if (esl_msafile_stockholm_Read(afp, &msa2)                     != eslOK) esl_fatal(msg);
+  esl_msafile_Close(afp);
   
   if (esl_msa_Compare(msa1, msa2) != eslOK) esl_fatal(msg);
 
@@ -2445,26 +2445,26 @@ static void
 utest_bad_open(ESL_ALPHABET **byp_abc, int fmt, int expected_status, char *buf)
 {
   char          msg[] = "bad open test failed";
-  ESLX_MSAFILE *afp   = NULL;
+  ESL_MSAFILE *afp   = NULL;
 
-  if (eslx_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, NULL, &afp) != expected_status) esl_fatal(msg);
-  eslx_msafile_Close(afp);
+  if (esl_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, NULL, &afp) != expected_status) esl_fatal(msg);
+  esl_msafile_Close(afp);
 }
 
 static void
 utest_bad_read(ESL_ALPHABET **byp_abc, int fmt, char *expected_errmsg, int expected_line, char *buf)
 {
   char          msg[] = "bad format test failed";
-  ESLX_MSAFILE *afp   = NULL;
+  ESL_MSAFILE *afp   = NULL;
   ESL_MSA      *msa   = NULL;
 
-  if (eslx_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, NULL, &afp) != eslOK)      esl_fatal(msg);
-  if (esl_msafile_stockholm_Read(afp, &msa)                            != eslEFORMAT) esl_fatal(msg);
-  if (strstr(afp->errmsg, expected_errmsg)                             == NULL)       esl_fatal(msg);
-  if (afp->linenumber != expected_line)                                               esl_fatal(msg);
+  if (esl_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, NULL, &afp) != eslOK)      esl_fatal(msg);
+  if (esl_msafile_stockholm_Read(afp, &msa)                           != eslEFORMAT) esl_fatal(msg);
+  if (strstr(afp->errmsg, expected_errmsg)                            == NULL)       esl_fatal(msg);
+  if (afp->linenumber != expected_line)                                              esl_fatal(msg);
 
   esl_msa_Destroy(msa);
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
 }
 #endif /*eslMSAFILE_STOCKHOLM_TESTDRIVE*/
 /*----------------- end, unit tests -----------------------------*/
@@ -2661,7 +2661,7 @@ main(int argc, char **argv)
   char               *filename    = esl_opt_GetArg(go, 1);
   int                 infmt       = eslMSAFILE_UNKNOWN;
   ESL_ALPHABET       *abc         = NULL;
-  ESLX_MSAFILE       *afp         = NULL;
+  ESL_MSAFILE        *afp         = NULL;
   ESL_MSA            *msa         = NULL;
   int                 status;
 
@@ -2674,9 +2674,9 @@ main(int argc, char **argv)
   /* Text mode: pass NULL for alphabet.
    * Digital mode: pass ptr to expected ESL_ALPHABET; and if abc=NULL, alphabet is guessed 
    */
-  if   (esl_opt_GetBoolean(go, "-t"))  status = eslx_msafile_Open(NULL, filename, NULL, infmt, NULL, &afp);
-  else                                 status = eslx_msafile_Open(&abc, filename, NULL, infmt, NULL, &afp);
-  if (status != eslOK) eslx_msafile_OpenFailure(afp, status);
+  if   (esl_opt_GetBoolean(go, "-t"))  status = esl_msafile_Open(NULL, filename, NULL, infmt, NULL, &afp);
+  else                                 status = esl_msafile_Open(&abc, filename, NULL, infmt, NULL, &afp);
+  if (status != eslOK) esl_msafile_OpenFailure(afp, status);
 
   while ( (status = esl_msafile_stockholm_Read(afp, &msa)) == eslOK)
     {
@@ -2690,9 +2690,9 @@ main(int argc, char **argv)
 
       esl_msa_Destroy(msa);
     }
-  if (status != eslEOF) eslx_msafile_ReadFailure(afp, status);
+  if (status != eslEOF) esl_msafile_ReadFailure(afp, status);
 
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
   if (abc) esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
   exit(0);
@@ -2721,12 +2721,12 @@ main(int argc, char **argv)
 {
   char        *filename = argv[1];
   int          infmt    = eslMSAFILE_STOCKHOLM;
-  ESLX_MSAFILE *afp     = NULL;
-  ESL_MSA      *msa      = NULL;
+  ESL_MSAFILE  *afp     = NULL;
+  ESL_MSA      *msa     = NULL;
   int           status;
 
-  if ( (status = eslx_msafile_Open(NULL, filename, NULL, infmt, NULL, &afp)) != eslOK)
-    eslx_msafile_OpenFailure(afp, status);
+  if ( (status = esl_msafile_Open(NULL, filename, NULL, infmt, NULL, &afp)) != eslOK)
+    esl_msafile_OpenFailure(afp, status);
 
   while  ( (status = esl_msafile_stockholm_Read(afp, &msa)) == eslOK)
     {
@@ -2734,9 +2734,9 @@ main(int argc, char **argv)
       esl_msafile_stockholm_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
       esl_msa_Destroy(msa);
     }
-  if (status != eslEOF)  eslx_msafile_ReadFailure(afp, status);
+  if (status != eslEOF)  esl_msafile_ReadFailure(afp, status);
 
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
   exit(0);
 }
 /*::cexcerpt::msafile_stockholm_example2::end::*/
@@ -2746,7 +2746,4 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
  *****************************************************************/

@@ -31,11 +31,11 @@
 
 #define eslMSAFILE_PHYLIP_LEGALSYMS  "-ABCDEFGHIJKLMNOPQRSTUVWZYX*?."
 
-static int phylip_interleaved_Read(ESLX_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_stated);
-static int phylip_interleaved_Write(FILE *fp, const ESL_MSA *msa, ESLX_MSAFILE_FMTDATA *opt_fmtd);
+static int phylip_interleaved_Read(ESL_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_stated);
+static int phylip_interleaved_Write(FILE *fp, const ESL_MSA *msa, ESL_MSAFILE_FMTDATA *opt_fmtd);
 
-static int phylip_sequential_Read(ESLX_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_stated);
-static int phylip_sequential_Write(FILE *fp, const ESL_MSA *msa, ESLX_MSAFILE_FMTDATA *opt_fmtd);
+static int phylip_sequential_Read(ESL_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_stated);
+static int phylip_sequential_Write(FILE *fp, const ESL_MSA *msa, ESL_MSAFILE_FMTDATA *opt_fmtd);
 
 static int phylip_check_interleaved       (ESL_BUFFER *bf, int *ret_namewidth);
 static int phylip_check_sequential_known  (ESL_BUFFER *bf, int namewidth);
@@ -83,7 +83,7 @@ static int phylip_rectify_output_seq_text(char *buf);
  * Xref:      http://evolution.genetics.washington.edu/phylip/doc/sequence.html
  */
 int 
-esl_msafile_phylip_SetInmap(ESLX_MSAFILE *afp)
+esl_msafile_phylip_SetInmap(ESL_MSAFILE *afp)
 {
   int sym;
 
@@ -141,7 +141,7 @@ esl_msafile_phylip_SetInmap(ESLX_MSAFILE *afp)
  *            <eslESYS> on failures of fread() or other system calls
  */
 int
-esl_msafile_phylip_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
+esl_msafile_phylip_GuessAlphabet(ESL_MSAFILE *afp, int *ret_type)
 {
   int       namewidth     = (afp->fmtd.namewidth ? afp->fmtd.namewidth : 10); /* default: strict PHYLIP, namewidth 10 */
   int       alphatype     = eslUNKNOWN;
@@ -213,7 +213,7 @@ esl_msafile_phylip_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
 /* Function:  esl_msafile_phylip_Read()
  * Synopsis:  Read in a PHYLIP format alignment.
  *
- * Purpose:   Read an MSA from an open <ESLX_MSAFILE> <afp>, parsing for
+ * Purpose:   Read an MSA from an open <ESL_MSAFILE> <afp>, parsing for
  *            Phylip format, starting from the current point. The
  *            format may be either the interleaved or sequential
  *            variant, according to the format set in <afp->format>:
@@ -248,7 +248,7 @@ esl_msafile_phylip_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
  *            <eslEINCONCEIVABLE> - "impossible" corruption 
  */
 int
-esl_msafile_phylip_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
+esl_msafile_phylip_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 {
   ESL_MSA  *msa       = NULL;
   int32_t   alen_stated;	/* int32_t because we're using strtoi32() to parse it from the file */
@@ -262,7 +262,7 @@ esl_msafile_phylip_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
   afp->errmsg[0] = '\0';
 
   /* skip leading blank lines (though there shouldn't be any) */
-  while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK  && esl_memspn(p, n, " \t") == n) ;
+  while ( (status = esl_msafile_GetLine(afp, &p, &n)) == eslOK  && esl_memspn(p, n, " \t") == n) ;
   if      (status != eslOK)  goto ERROR; /* includes normal EOF */
 
   /* the first line: <nseq> <alen> */
@@ -280,7 +280,7 @@ esl_msafile_phylip_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 
   /* load next line, skipping any blank ones (though there shouldn't be any) */
   do {
-    status = eslx_msafile_GetLine(afp, &p, &n);
+    status = esl_msafile_GetLine(afp, &p, &n);
     if      (status == eslEOF) ESL_XFAIL(eslEFORMAT, afp->errmsg, "no alignment data following PHYLIP header");
     else if (status != eslOK) goto ERROR;
   } while (esl_memspn(p, n, " \t") == n); /* idiom for "blank line" */
@@ -328,11 +328,11 @@ esl_msafile_phylip_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
  *            <eslEWRITE> on any system write error, such as a filled disk.
  */
 int
-esl_msafile_phylip_Write(FILE *fp, const ESL_MSA *msa, int format, ESLX_MSAFILE_FMTDATA *opt_fmtd)
+esl_msafile_phylip_Write(FILE *fp, const ESL_MSA *msa, int format, ESL_MSAFILE_FMTDATA *opt_fmtd)
 {
   if      (format == eslMSAFILE_PHYLIP)  return phylip_interleaved_Write(fp, msa, opt_fmtd);
   else if (format == eslMSAFILE_PHYLIPS) return phylip_sequential_Write (fp, msa, opt_fmtd);
-  else ESL_EXCEPTION(eslEINVAL, "format %s is not a PHYLIP format", eslx_msafile_DecodeFormat(format));
+  else ESL_EXCEPTION(eslEINVAL, "format %s is not a PHYLIP format", esl_msafile_DecodeFormat(format));
 }
 
 /* Function:  esl_msafile_phylip_CheckFileFormat()
@@ -399,7 +399,7 @@ esl_msafile_phylip_CheckFileFormat(ESL_BUFFER *bf, int *ret_format, int *ret_nam
  * In <afp>, we've loaded the first line of the alignment data.
  */
 static int
-phylip_interleaved_Read(ESLX_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_stated)
+phylip_interleaved_Read(ESL_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_stated)
 {
   int       namewidth  = (afp->fmtd.namewidth ? afp->fmtd.namewidth : 10); /* default: strict PHYLIP, namewidth 10 */
   char     *namebuf    = NULL;
@@ -443,7 +443,7 @@ phylip_interleaved_Read(ESLX_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_
 
       /* get next line. */
       idx++;
-      status = eslx_msafile_GetLine(afp, &p, &n);
+      status = esl_msafile_GetLine(afp, &p, &n);
     } while (status == eslOK && idx < nseq && esl_memspn(p, n, " \t") < n); /* stop block on: read error, EOF; idx == nseq; or blank line */
     
     if (idx != nseq) ESL_XFAIL(eslEFORMAT, afp->errmsg, "unexpected number of sequences in block (saw %d, expected %d)", idx, nseq);
@@ -452,7 +452,7 @@ phylip_interleaved_Read(ESLX_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_
 
     /* tolerate blank lines only at the end of a block */
     while (status == eslOK && esl_memspn(p, n, " \t") == n)
-      status = eslx_msafile_GetLine(afp, &p, &n); /* [eslEMEM,eslESYS] */
+      status = esl_msafile_GetLine(afp, &p, &n); /* [eslEMEM,eslESYS] */
     /* now status can be: read error, EOF, or OK.  */
   } while (status == eslOK && alen < alen_stated);
 
@@ -460,7 +460,7 @@ phylip_interleaved_Read(ESLX_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_
    * so we should be EOF; unless we're in a seqboot file, in which
    * case we just read the first line of the next MSA.
    */
-  if      (status == eslOK)     eslx_msafile_PutLine(afp); /* put <nseq> <alen> line back in the stream, so we will read it properly w/ next msa read */
+  if      (status == eslOK)     esl_msafile_PutLine(afp); /* put <nseq> <alen> line back in the stream, so we will read it properly w/ next msa read */
   else if (status != eslEOF)    goto ERROR;
   else if (alen != alen_stated) ESL_XFAIL(eslEFORMAT, afp->errmsg, "alignment length disagrees with header: header said %d, parsed %" PRId64, alen_stated, alen);
 
@@ -480,7 +480,7 @@ phylip_interleaved_Read(ESLX_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_
  * Throws <eslEWRITE> on any system write error.
  */
 static int
-phylip_interleaved_Write(FILE *fp, const ESL_MSA *msa, ESLX_MSAFILE_FMTDATA *opt_fmtd)
+phylip_interleaved_Write(FILE *fp, const ESL_MSA *msa, ESL_MSAFILE_FMTDATA *opt_fmtd)
 {
   int     rpl        = ( (opt_fmtd && opt_fmtd->rpl)       ? opt_fmtd->rpl       : 60);
   int     namewidth  = ( (opt_fmtd && opt_fmtd->namewidth) ? opt_fmtd->namewidth : 10);
@@ -536,7 +536,7 @@ phylip_interleaved_Write(FILE *fp, const ESL_MSA *msa, ESLX_MSAFILE_FMTDATA *opt
  * In <afp>, we've loaded the first line of the alignment data.
  */
 static int
-phylip_sequential_Read(ESLX_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_stated)
+phylip_sequential_Read(ESL_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_stated)
 {
   int       namewidth = (afp->fmtd.namewidth ? afp->fmtd.namewidth : 10); /* default: strict PHYLIP, namewidth 10 */
   char     *namebuf   = NULL;
@@ -571,12 +571,12 @@ phylip_sequential_Read(ESLX_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_s
 	  else if (status != eslOK)        goto ERROR;
 
 	  /* get next line */
-	  status = eslx_msafile_GetLine(afp, &p, &n);
+	  status = esl_msafile_GetLine(afp, &p, &n);
 	} /* end looping over a seq */
 
       /* tolerate blank lines after sequences. */
       while (status == eslOK && esl_memspn(p, n, " \t") == n) 
-	status = eslx_msafile_GetLine(afp, &p, &n);
+	status = esl_msafile_GetLine(afp, &p, &n);
 
       if      (status == eslEOF) { if (idx < nseq-1) ESL_XFAIL(eslEFORMAT, afp->errmsg, "premature end of file: header said to expect %d sequences", nseq); }
       else if (status != eslOK)                      goto ERROR;
@@ -586,7 +586,7 @@ phylip_sequential_Read(ESLX_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_s
   /* we should be EOF; we've swallowed all trailing blank lines.
    * Exception: if we're in a seqboot file, we just read the <nseq> <alen> line of the next msa record; push it back on stream
    */
-  if (status == eslOK) eslx_msafile_PutLine(afp);
+  if (status == eslOK) esl_msafile_PutLine(afp);
 
   msa->nseq = nseq;
   msa->alen = alen;
@@ -600,7 +600,7 @@ phylip_sequential_Read(ESLX_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_s
 }
 
 static int
-phylip_sequential_Write(FILE *fp, const ESL_MSA *msa, ESLX_MSAFILE_FMTDATA *opt_fmtd)
+phylip_sequential_Write(FILE *fp, const ESL_MSA *msa, ESL_MSAFILE_FMTDATA *opt_fmtd)
 {
   int     rpl        = ( (opt_fmtd && opt_fmtd->rpl)       ? opt_fmtd->rpl       : 60);
   int     namewidth  = ( (opt_fmtd && opt_fmtd->namewidth) ? opt_fmtd->namewidth : 10);
@@ -1411,8 +1411,8 @@ static void
 utest_goodfile(char *filename, int testnumber, int expected_format, int expected_alphatype, int expected_nseq, int expected_alen)
 {
   ESL_ALPHABET        *abc          = NULL;
-  ESLX_MSAFILE        *afp          = NULL;
-  ESLX_MSAFILE_FMTDATA fmtd;                      /* for writing formats with nonstandard name field widths */
+  ESL_MSAFILE         *afp          = NULL;
+  ESL_MSAFILE_FMTDATA fmtd;                      /* for writing formats with nonstandard name field widths */
   ESL_MSA             *msa1         = NULL;
   ESL_MSA             *msa2         = NULL;
   char                 tmpfile1[32] = "esltmpXXXXXX";
@@ -1420,19 +1420,19 @@ utest_goodfile(char *filename, int testnumber, int expected_format, int expected
   FILE                *ofp          = NULL;
   int                  status;
 
-  eslx_msafile_fmtdata_Init(&fmtd);
+  esl_msafile_fmtdata_Init(&fmtd);
   
   /* guessing both the format and the alphabet should work: this is a digital open */
-  if ( (status = eslx_msafile_Open(&abc, filename, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK) esl_fatal("phylip good file unit test %d failed: digital open",           testnumber);  
-  if (afp->format != expected_format)                                                               esl_fatal("phylip good file unit test %d failed: format autodetection",   testnumber);
-  if (abc->type   != expected_alphatype)                                                            esl_fatal("phylip good file unit test %d failed: alphabet autodetection", testnumber);
+  if ( (status = esl_msafile_Open(&abc, filename, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK) esl_fatal("phylip good file unit test %d failed: digital open",           testnumber);  
+  if (afp->format != expected_format)                                                              esl_fatal("phylip good file unit test %d failed: format autodetection",   testnumber);
+  if (abc->type   != expected_alphatype)                                                           esl_fatal("phylip good file unit test %d failed: alphabet autodetection", testnumber);
 
   /* This is a digital read, using <abc>. */
   if ( (status = esl_msafile_phylip_Read(afp, &msa1))   != eslOK) esl_fatal("phylip good file unit test %d failed: msa read, digital", testnumber);  
   if (msa1->nseq != expected_nseq || msa1->alen != expected_alen) esl_fatal("phylip good file unit test %d failed: nseq/alen",         testnumber);
   if (esl_msa_Validate(msa1, NULL) != eslOK)                      esl_fatal("phylip good file test %d failed: msa1 invalid",           testnumber);
   fmtd.namewidth = afp->fmtd.namewidth;
-  eslx_msafile_Close(afp);  
+  esl_msafile_Close(afp);  
 
   /* write it back out to a new tmpfile (digital write) */
   if ( (status = esl_tmpfile_named(tmpfile1, &ofp))                           != eslOK) esl_fatal("phylip good file unit test %d failed: tmpfile creation",   testnumber);
@@ -1440,12 +1440,12 @@ utest_goodfile(char *filename, int testnumber, int expected_format, int expected
   fclose(ofp);
 
   /* now open and read it as text mode, in known format. (We have to pass fmtd now, to deal with the possibility of a nonstandard name width) */
-  if ( (status = eslx_msafile_Open(NULL, tmpfile1, NULL, expected_format, &fmtd, &afp)) != eslOK) esl_fatal("phylip good file unit test %d failed: text mode open", testnumber);  
-  if ( (status = esl_msafile_phylip_Read(afp, &msa2))                                   != eslOK) esl_fatal("phylip good file unit test %d failed: msa read, text", testnumber);  
-  if (esl_msa_Validate(msa2, NULL) != eslOK)                                                      esl_fatal("phylip good file test %d failed: msa2 invalid",        testnumber);
-  if (msa2->nseq != expected_nseq || msa2->alen != expected_alen)                                 esl_fatal("phylip good file unit test %d failed: nseq/alen",      testnumber);
+  if ( (status = esl_msafile_Open(NULL, tmpfile1, NULL, expected_format, &fmtd, &afp)) != eslOK) esl_fatal("phylip good file unit test %d failed: text mode open", testnumber);  
+  if ( (status = esl_msafile_phylip_Read(afp, &msa2))                                  != eslOK) esl_fatal("phylip good file unit test %d failed: msa read, text", testnumber);  
+  if (esl_msa_Validate(msa2, NULL) != eslOK)                                                     esl_fatal("phylip good file test %d failed: msa2 invalid",        testnumber);
+  if (msa2->nseq != expected_nseq || msa2->alen != expected_alen)                                esl_fatal("phylip good file unit test %d failed: nseq/alen",      testnumber);
   fmtd.namewidth = afp->fmtd.namewidth;
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
   
   /* write it back out to a new tmpfile (text write) */
   if ( (status = esl_tmpfile_named(tmpfile2, &ofp))                           != eslOK) esl_fatal("phylip good file unit test %d failed: tmpfile creation", testnumber);
@@ -1454,10 +1454,10 @@ utest_goodfile(char *filename, int testnumber, int expected_format, int expected
   esl_msa_Destroy(msa2);
 
   /* open and read it in digital mode */
-  if ( (status = eslx_msafile_Open(&abc, tmpfile1, NULL, expected_format, &fmtd, &afp)) != eslOK) esl_fatal("phylip good file unit test %d failed: 2nd digital mode open", testnumber);  
-  if ( (status = esl_msafile_phylip_Read(afp, &msa2))                                   != eslOK) esl_fatal("phylip good file unit test %d failed: 2nd digital msa read",  testnumber);  
-  if (esl_msa_Validate(msa2, NULL) != eslOK)                                                      esl_fatal("phylip good file test %d failed: msa2 invalid",               testnumber);
-  eslx_msafile_Close(afp);
+  if ( (status = esl_msafile_Open(&abc, tmpfile1, NULL, expected_format, &fmtd, &afp)) != eslOK) esl_fatal("phylip good file unit test %d failed: 2nd digital mode open", testnumber);  
+  if ( (status = esl_msafile_phylip_Read(afp, &msa2))                                  != eslOK) esl_fatal("phylip good file unit test %d failed: 2nd digital msa read",  testnumber);  
+  if (esl_msa_Validate(msa2, NULL) != eslOK)                                                     esl_fatal("phylip good file test %d failed: msa2 invalid",               testnumber);
+  esl_msafile_Close(afp);
 
   /* this msa <msa2> should be identical to <msa1> */
   if (esl_msa_Compare(msa1, msa2) != eslOK) esl_fatal("phylip good file unit test %d failed: msa compare", testnumber);  
@@ -1473,15 +1473,15 @@ static void
 utest_badfile(char *filename, int testnumber, int expected_alphatype, int expected_status, int expected_linenumber, char *expected_errmsg)
 {
   ESL_ALPHABET *abc = esl_alphabet_Create(expected_alphatype);
-  ESLX_MSAFILE *afp = NULL;
+  ESL_MSAFILE  *afp = NULL;
   ESL_MSA      *msa = NULL;
   int           status;
   
-  if ( (status = eslx_msafile_Open(&abc, filename, NULL, eslMSAFILE_PHYLIP, NULL, &afp)) != eslOK)  esl_fatal("phylip bad file unit test %d failed: unexpected open failure", testnumber);
-  if ( (status = esl_msafile_phylip_Read(afp, &msa)) != expected_status)                            esl_fatal("phylip bad file unit test %d failed: unexpected error code",   testnumber);
-  if (strstr(afp->errmsg, expected_errmsg) == NULL)                                                 esl_fatal("phylip bad file unit test %d failed: unexpected errmsg",       testnumber);
-  if (afp->linenumber != expected_linenumber)                                                       esl_fatal("phylip bad file unit test %d failed: unexpected linenumber",   testnumber);
-  eslx_msafile_Close(afp);
+  if ( (status = esl_msafile_Open(&abc, filename, NULL, eslMSAFILE_PHYLIP, NULL, &afp)) != eslOK)  esl_fatal("phylip bad file unit test %d failed: unexpected open failure", testnumber);
+  if ( (status = esl_msafile_phylip_Read(afp, &msa)) != expected_status)                           esl_fatal("phylip bad file unit test %d failed: unexpected error code",   testnumber);
+  if (strstr(afp->errmsg, expected_errmsg) == NULL)                                                esl_fatal("phylip bad file unit test %d failed: unexpected errmsg",       testnumber);
+  if (afp->linenumber != expected_linenumber)                                                      esl_fatal("phylip bad file unit test %d failed: unexpected linenumber",   testnumber);
+  esl_msafile_Close(afp);
   esl_alphabet_Destroy(abc);
   esl_msa_Destroy(msa);
 }
@@ -1503,7 +1503,7 @@ utest_seqboot(void)
   int   expected_nali;
   int   i;
   ESL_ALPHABET *abc = NULL;
-  ESLX_MSAFILE *afp = NULL;
+  ESL_MSAFILE  *afp = NULL;
   ESL_MSA      *msa = NULL;
 
   /* Write a tmp testfile with good1 concatenated 3 times. */
@@ -1515,11 +1515,11 @@ utest_seqboot(void)
   fclose(ofp);
   
   /* open it and loop over it, reading MSAs. there should be 3, of the expected size.  */
-  if (eslx_msafile_Open(&abc, tmpfile, /*env=*/NULL, eslMSAFILE_UNKNOWN, /*fmtd=*/NULL, &afp) != eslOK) esl_fatal(msg);
+  if (esl_msafile_Open(&abc, tmpfile, /*env=*/NULL, eslMSAFILE_UNKNOWN, /*fmtd=*/NULL, &afp) != eslOK) esl_fatal(msg);
   if (abc->type   != expected_alphatype) esl_fatal(msg);
   if (afp->format != expected_fmt)       esl_fatal(msg);
   i = 0;
-  while ( eslx_msafile_Read(afp, &msa) == eslOK)
+  while ( esl_msafile_Read(afp, &msa) == eslOK)
     {
       i++;
       if (msa->nseq != expected_nseq) esl_fatal(msg);
@@ -1529,7 +1529,7 @@ utest_seqboot(void)
   if (i != expected_nali) esl_fatal(msg);
 
   remove(tmpfile);
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
   esl_alphabet_Destroy(abc);
 }
 
@@ -1681,9 +1681,9 @@ main(int argc, char **argv)
   char               *filename    = esl_opt_GetArg(go, 1);
   int                 infmt       = eslMSAFILE_UNKNOWN;
   ESL_ALPHABET       *abc         = NULL;
-  ESLX_MSAFILE       *afp         = NULL;
+  ESL_MSAFILE        *afp         = NULL;
   ESL_MSA            *msa         = NULL;
-  ESLX_MSAFILE_FMTDATA fmtd;
+  ESL_MSAFILE_FMTDATA fmtd;
   int                 status;
 
   if      (esl_opt_GetBoolean(go, "-1"))      infmt = eslMSAFILE_PHYLIP;  /* interleaved format */
@@ -1698,20 +1698,20 @@ main(int argc, char **argv)
    * But if PHYLIP or PHYLIPS format is set (no guessing), caller may also 
    * want to allow a nonstandard name field width to be set.
    */
-  eslx_msafile_fmtdata_Init(&fmtd);
+  esl_msafile_fmtdata_Init(&fmtd);
   fmtd.namewidth = esl_opt_GetInteger(go, "-w");
   
   /* Text mode: pass NULL for alphabet.
    * Digital mode: pass ptr to expected ESL_ALPHABET; and if abc=NULL, alphabet is guessed 
    */
-  if   (esl_opt_GetBoolean(go, "-t"))  status = eslx_msafile_Open(NULL, filename, NULL, infmt, &fmtd, &afp);
-  else                                 status = eslx_msafile_Open(&abc, filename, NULL, infmt, &fmtd, &afp);
-  if (status != eslOK) eslx_msafile_OpenFailure(afp, status);
+  if   (esl_opt_GetBoolean(go, "-t"))  status = esl_msafile_Open(NULL, filename, NULL, infmt, &fmtd, &afp);
+  else                                 status = esl_msafile_Open(&abc, filename, NULL, infmt, &fmtd, &afp);
+  if (status != eslOK) esl_msafile_OpenFailure(afp, status);
 
   if ( (status = esl_msafile_phylip_Read(afp, &msa)) != eslOK)
-    eslx_msafile_ReadFailure(afp, status);
+    esl_msafile_ReadFailure(afp, status);
 
-  printf("format variant: %s\n", eslx_msafile_DecodeFormat(afp->format));
+  printf("format variant: %s\n", esl_msafile_DecodeFormat(afp->format));
   printf("name width:     %d\n", afp->fmtd.namewidth); 
   printf("alphabet:       %s\n", (abc ? esl_abc_DecodeType(abc->type) : "none (text mode)"));
   printf("# of seqs:      %d\n", msa->nseq);
@@ -1724,7 +1724,7 @@ main(int argc, char **argv)
     esl_msafile_phylip_Write(stdout, msa, eslMSAFILE_PHYLIP, &fmtd);
 
   esl_msa_Destroy(msa);
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
   if (abc) esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
   exit(0);
@@ -1752,12 +1752,12 @@ main(int argc, char **argv)
 {
   char         *filename = argv[1];
   int           infmt    = eslMSAFILE_PHYLIP; /* or eslMSAFILE_PHYLIPS, for sequential format */
-  ESLX_MSAFILE *afp      = NULL;
+  ESL_MSAFILE  *afp      = NULL;
   ESL_MSA      *msa      = NULL;
   int           status;
 
-  if ( (status = eslx_msafile_Open(NULL, filename, NULL, infmt, NULL, &afp)) != eslOK) eslx_msafile_OpenFailure(afp, status);
-  if ( (status = esl_msafile_phylip_Read(afp, &msa))                         != eslOK) eslx_msafile_ReadFailure(afp, status);
+  if ( (status = esl_msafile_Open(NULL, filename, NULL, infmt, NULL, &afp)) != eslOK) esl_msafile_OpenFailure(afp, status);
+  if ( (status = esl_msafile_phylip_Read(afp, &msa))                        != eslOK) esl_msafile_ReadFailure(afp, status);
 
   printf("# of seqs:      %d\n", msa->nseq);
   printf("# of cols:      %d\n", (int) msa->alen);
@@ -1766,7 +1766,7 @@ main(int argc, char **argv)
   esl_msafile_phylip_Write(stdout, msa, eslMSAFILE_PHYLIP, NULL);
 
   esl_msa_Destroy(msa);
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
   exit(0);
 }
 /*::cexcerpt::msafile_phylip_example::end::*/
@@ -1778,7 +1778,4 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
  *****************************************************************/

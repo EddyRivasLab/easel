@@ -239,7 +239,7 @@ sqncbi_ParseIndexFile(ESL_SQNCBI_DATA *ncbi, int dbtype)
   /* read in database stats */
   if (fread(&info[0], sizeof(uint32_t), 4, ncbi->fppin) != 4) { status = eslFAIL; goto ERROR; }
   ncbi->num_seq   = htobe32(info[0]);
-  ncbi->total_res = *(uint64_t *)(info+1);
+  memcpy(&ncbi->total_res, info+1, sizeof(uint64_t)); 
   ncbi->max_seq   = htobe32(info[3]);
 
   /* save the offsets to the index tables */

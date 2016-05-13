@@ -67,7 +67,7 @@ main(int argc, char **argv)
   ESL_ALPHABET *abc     = NULL;	/* biological alphabet             */
   char         *alifile = NULL;	/* alignment file name             */
   int           fmt;		/* format code for alifiles        */
-  ESLX_MSAFILE *afp     = NULL;	/* open alignment file             */
+  ESL_MSAFILE  *afp     = NULL;	/* open alignment file             */
   ESL_MSA      *msa     = NULL;	/* multiple sequence alignment     */
   int           status;		/* easel return code               */
 
@@ -178,8 +178,8 @@ main(int argc, char **argv)
   if      (esl_opt_GetBoolean(go, "--dna"))  abc = esl_alphabet_Create(eslDNA);
   else if (esl_opt_GetBoolean(go, "--rna"))  abc = esl_alphabet_Create(eslRNA);
 
-  if ( (status = eslx_msafile_Open(&abc, alifile, NULL, fmt, NULL, &afp)) != eslOK)
-    eslx_msafile_OpenFailure(afp, status);
+  if ( (status = esl_msafile_Open(&abc, alifile, NULL, fmt, NULL, &afp)) != eslOK)
+    esl_msafile_OpenFailure(afp, status);
 
   /* open output file */
   if (esl_opt_GetString(go, "-o") != NULL) {
@@ -222,9 +222,9 @@ main(int argc, char **argv)
   lmax = esl_opt_GetInteger(go, "--lmax");
   if(esl_opt_GetBoolean(go, "-v")) be_verbose = TRUE; 
 
-  while ((status = eslx_msafile_Read(afp, &msa)) != eslEOF)
+  while ((status = esl_msafile_Read(afp, &msa)) != eslEOF)
     {
-      if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
+      if (status != eslOK) esl_msafile_ReadFailure(afp, status);
       nali++;
 
       /* determine max length name */
@@ -642,7 +642,7 @@ main(int argc, char **argv)
 	if((status = esl_ct2wuss(cons_ct, msa->alen, sscons)) != eslOK) goto ERROR;
 	if(msa->ss_cons != NULL) { free(msa->ss_cons); msa->ss_cons = NULL; }
 	if((status = esl_strcat(&(msa->ss_cons), -1, sscons, msa->alen)) != eslOK) goto ERROR;
-	status = eslx_msafile_Write(ofp, msa, (esl_opt_GetBoolean(go, "--pfam") ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM));
+	status = esl_msafile_Write(ofp, msa, (esl_opt_GetBoolean(go, "--pfam") ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM));
 	if      (status == eslEMEM) esl_fatal("Memory error when outputting alignment\n");
 	else if (status != eslOK)   esl_fatal("Writing alignment file failed with error %d\n", status);
       }
@@ -664,12 +664,12 @@ main(int argc, char **argv)
     printf("# Alignment(s) saved to file %s\n", esl_opt_GetString(go, "-o"));
     fclose(ofp);
   }
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
   esl_getopts_Destroy(go);
   return 0;
 
  ERROR:
-  if(afp) eslx_msafile_Close(afp);
+  if(afp) esl_msafile_Close(afp);
   if(go)  esl_getopts_Destroy(go);
   if(msa) esl_msa_Destroy(msa);
   if(lfp) fclose(lfp);

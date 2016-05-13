@@ -250,7 +250,7 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
        * could open a second .gz pipe, but that's ugly; and in any case,
        * we can't rewind stdin. Eventually, this will get resolved, by
        * having sqio open an ESL_BUFFER, then doing an
-       * eslx_msafile_OpenBuffer() if we need to hand control to the
+       * esl_msafile_OpenBuffer() if we need to hand control to the
        * msafile module. For now, sqio is already documented to be
        * unable to autodetect MSA file formats in stdin or .gz pipes,
        * so leave it that way.
@@ -266,7 +266,7 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
 #ifdef eslAUGMENT_MSA
   if (format == eslSQFILE_UNKNOWN || esl_sqio_IsAlignment(format))
     {
-      status = eslx_msafile_Open(NULL, filename, NULL, format, NULL, &(ascii->afp));
+      status = esl_msafile_Open(NULL, filename, NULL, format, NULL, &(ascii->afp));
       if (status != eslOK) { status = eslEFORMAT; goto ERROR; } /* This was our last attempt. Failure to open == failure to detect format */
       sqfp->format = format = ascii->afp->format;
     }
@@ -498,7 +498,7 @@ sqascii_Position(ESL_SQFILE *sqfp, off_t offset)
   if (esl_sqio_IsAlignment(sqfp->format)) 
     {/* msa file: close and reopen. maybe sometime we'll have esl_msafile_Rewind() */
         /* we have already verified that offset==0 for MSA file */
-      eslx_msafile_Close(ascii->afp);
+      esl_msafile_Close(ascii->afp);
       if (ascii->msa != NULL) esl_msa_Destroy(ascii->msa);
       ascii->afp = NULL;
       ascii->msa = NULL;
@@ -510,7 +510,7 @@ sqascii_Position(ESL_SQFILE *sqfp, off_t offset)
          EFORMAT error can't occur because we know the format and
          don't use autodetection.
        */
-      status = eslx_msafile_Open(NULL, sqfp->filename, NULL, sqfp->format, NULL, &(ascii->afp));
+      status = esl_msafile_Open(NULL, sqfp->filename, NULL, sqfp->format, NULL, &(ascii->afp));
       if      (status == eslENOTFOUND) ESL_EXCEPTION(eslENOTFOUND, "failed to reopen alignment file");
       else if (status != eslOK)        return status;
     }
@@ -558,7 +558,7 @@ sqascii_Close(ESL_SQFILE *sqfp)
 #endif
 
 #ifdef eslAUGMENT_MSA
-  if (ascii->afp      != NULL) eslx_msafile_Close(ascii->afp);
+  if (ascii->afp      != NULL) esl_msafile_Close(ascii->afp);
   if (ascii->msa      != NULL) esl_msa_Destroy(ascii->msa);
 #endif /*eslAUGMENT_MSA*/
 
@@ -627,7 +627,7 @@ sqascii_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc)
   else
     {
 #ifdef eslAUGMENT_MSA
-      eslx_msafile_SetDigital(ascii->afp, abc);
+      esl_msafile_SetDigital(ascii->afp, abc);
 #else
       status = eslEFORMAT;
 #endif
@@ -675,7 +675,7 @@ sqascii_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
 
   /* Special case: for MSA files, hand this off to msafile_GuessAlphabet. */
 #ifdef eslAUGMENT_MSA
-  if (esl_sqio_IsAlignment(sqfp->format)) return eslx_msafile_GuessAlphabet(ascii->afp, ret_type);
+  if (esl_sqio_IsAlignment(sqfp->format)) return esl_msafile_GuessAlphabet(ascii->afp, ret_type);
 #endif
 
   /* set the sqfp to record; we'll rewind afterwards and use the recording */
@@ -781,7 +781,7 @@ sqascii_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
       if (ascii->msa == NULL || ascii->idx >= ascii->msa->nseq)
       { /* we need to load a new alignment? */
         esl_msa_Destroy(ascii->msa);
-        status = eslx_msafile_Read(ascii->afp, &(ascii->msa));
+        status = esl_msafile_Read(ascii->afp, &(ascii->msa));
         if (status == eslEFORMAT)
         { /* oops, a parse error; upload the error info from afp to sqfp */
            ascii->linenumber = ascii->afp->linenumber;
@@ -878,7 +878,7 @@ sqascii_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
       if (ascii->msa == NULL || ascii->idx >= ascii->msa->nseq)
       { /* we need to load a new alignment? */
         esl_msa_Destroy(ascii->msa);
-        status = eslx_msafile_Read(ascii->afp, &(ascii->msa));
+        status = esl_msafile_Read(ascii->afp, &(ascii->msa));
         if (status == eslEFORMAT)
         { /* oops, a parse error; upload the error info from afp to sqfp */
           ascii->linenumber = ascii->afp->linenumber;
@@ -983,7 +983,7 @@ sqascii_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
       if (ascii->msa == NULL || ascii->idx >= ascii->msa->nseq)
       { /* we need to load a new alignment? */
         esl_msa_Destroy(ascii->msa);
-        status = eslx_msafile_Read(ascii->afp, &(ascii->msa));
+        status = esl_msafile_Read(ascii->afp, &(ascii->msa));
         if (status == eslEFORMAT)
         { /* oops, a parse error; upload the error info from afp to sqfp */
           ascii->linenumber = ascii->afp->linenumber;
@@ -1164,7 +1164,7 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
     if (ascii->msa == NULL || ascii->idx >= ascii->msa->nseq)
     { /* need new alignment? */
       esl_msa_Destroy(ascii->msa);
-      status = eslx_msafile_Read(ascii->afp, &(ascii->msa));
+      status = esl_msafile_Read(ascii->afp, &(ascii->msa));
       if (status == eslEFORMAT)
       { /* oops, a parse error; upload the error info from afp to sqfp */
         ascii->linenumber = ascii->afp->linenumber;
@@ -3394,9 +3394,6 @@ fileheader_hmmpgmd(ESL_SQFILE *sqfp)
 
 /*****************************************************************
  * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
  *****************************************************************/
 
 

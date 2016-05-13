@@ -66,7 +66,7 @@ main(int argc, char **argv)
   char           *msafile  = NULL;
   int             fmt      = eslMSAFILE_UNKNOWN;
   ESL_ALPHABET   *abc      = NULL;
-  ESLX_MSAFILE   *afp      = NULL;
+  ESL_MSAFILE    *afp      = NULL;
   ESL_MSA        *msa      = NULL;
   int             status;
   FILE           *ofp;	   /* output stream       */
@@ -80,7 +80,7 @@ main(int argc, char **argv)
   msafile = esl_opt_GetArg(go, 1);
 
   if (esl_opt_IsOn(go, "--informat")) {
-    fmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    fmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (fmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
   }
 
@@ -91,35 +91,35 @@ main(int argc, char **argv)
   else if (esl_opt_GetBoolean(go, "--dna"))     abc = esl_alphabet_Create(eslDNA);
   else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
   
-  if ((status = eslx_msafile_Open(&abc, msafile, NULL, fmt, NULL, &afp)) != eslOK)
-    eslx_msafile_OpenFailure(afp, status);
+  if ((status = esl_msafile_Open(&abc, msafile, NULL, fmt, NULL, &afp)) != eslOK)
+    esl_msafile_OpenFailure(afp, status);
 
 
-  while ((status = eslx_msafile_Read(afp, &msa)) != eslEOF)
+  while ((status = esl_msafile_Read(afp, &msa)) != eslEOF)
     {
-      if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
+      if (status != eslOK) esl_msafile_ReadFailure(afp, status);
 
       if       (esl_opt_GetBoolean(go, "-f")) 
 	{
 	  ESL_MSA *fmsa;
 	  status = esl_msaweight_IDFilter(msa, esl_opt_GetReal(go, "--idf"), &fmsa);
-	  eslx_msafile_Write(ofp, fmsa, eslMSAFILE_STOCKHOLM); 
+	  esl_msafile_Write(ofp, fmsa, eslMSAFILE_STOCKHOLM); 
 	  if (fmsa != NULL) esl_msa_Destroy(fmsa);
 	}
       else if  (esl_opt_GetBoolean(go, "-g"))
 	{ 
 	  status = esl_msaweight_GSC(msa);                                 
-	  eslx_msafile_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
+	  esl_msafile_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
 	} 
       else if  (esl_opt_GetBoolean(go, "-p")) 
 	{
 	  status = esl_msaweight_PB(msa);                                  
-	  eslx_msafile_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
+	  esl_msafile_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
 	} 
       else if  (esl_opt_GetBoolean(go, "-b"))
 	{ 
 	  status = esl_msaweight_BLOSUM(msa, esl_opt_GetReal(go, "--id")); 
- 	  eslx_msafile_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
+ 	  esl_msafile_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
 	} 
      else     esl_fatal("internal error: no weighting algorithm selected");
       if (status != eslOK) esl_fatal("Failed to calculate weights for msa %s", msa->name);
@@ -128,7 +128,7 @@ main(int argc, char **argv)
     }
 
   esl_alphabet_Destroy(abc);
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
   if (ofp != stdout) fclose(ofp); 
   esl_getopts_Destroy(go);
   exit(0);
@@ -136,7 +136,4 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
- *
- * SVN $URL$
- * SVN $Id$
  *****************************************************************/

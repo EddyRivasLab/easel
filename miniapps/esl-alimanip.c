@@ -139,7 +139,7 @@ main(int argc, char **argv)
   int           infmt   = eslMSAFILE_UNKNOWN; /* format code for alifile    */
   int           outfmt  = eslMSAFILE_UNKNOWN; /* format code for output ali */
   int           i;              /* counter */
-  ESLX_MSAFILE *afp     = NULL;	/* open ali file, normal interface           */
+  ESL_MSAFILE  *afp     = NULL;	/* open ali file, normal interface           */
   ESL_MSAFILE2 *afp2    = NULL; /* open ali file, legacy small-mem interface */
   ESL_MSA      *msa     = NULL;	/* one multiple sequence alignment */
   int           status;		/* easel return code               */
@@ -276,7 +276,7 @@ main(int argc, char **argv)
 
   if (esl_opt_IsOn(go, "--informat"))
     {
-      infmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
+      infmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
       if (infmt == eslMSAFILE_UNKNOWN)
 	esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
       if (esl_opt_GetBoolean(go, "--small") && infmt != eslMSAFILE_PFAM)
@@ -285,7 +285,7 @@ main(int argc, char **argv)
 
   if (esl_opt_IsOn(go, "--outformat"))
     {
-      outfmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat"));
+      outfmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat"));
       if (outfmt == eslMSAFILE_UNKNOWN)
 	esl_fatal("%s is not a valid input sequence file format for --outformat", esl_opt_GetString(go, "--outformat")); 
       if (esl_opt_GetBoolean(go, "--small") && outfmt != eslMSAFILE_PFAM)
@@ -309,8 +309,8 @@ main(int argc, char **argv)
     }
   else
     {
-      if ( (status = eslx_msafile_Open(&abc, alifile, NULL, infmt, NULL, &afp)) != eslOK)
-	eslx_msafile_OpenFailure(afp, status);
+      if ( (status = esl_msafile_Open(&abc, alifile, NULL, infmt, NULL, &afp)) != eslOK)
+	esl_msafile_OpenFailure(afp, status);
       infmt = afp->format;
     }
 
@@ -386,9 +386,9 @@ main(int argc, char **argv)
 
   nali = 0;
   if (! esl_opt_GetBoolean(go, "--small")) { 
-    while ((status = eslx_msafile_Read(afp, &msa)) != eslEOF)
+    while ((status = esl_msafile_Read(afp, &msa)) != eslEOF)
       {
-	if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
+	if (status != eslOK) esl_msafile_ReadFailure(afp, status);
 	nali++;
 
 	/* if RF exists, get i_am_rf array[0..alen] which tells us which positions are non-gap RF positions
@@ -656,7 +656,7 @@ main(int argc, char **argv)
 	  nmin = esl_opt_IsOn(go, "--c-nmin") ? esl_opt_GetInteger(go, "--c-nmin") : 1;
 	  for(m = 0; m < nmsa; m++) { 
 	    if(cmsa[m]->nseq >= nmin) { 
-	      status = eslx_msafile_Write(ofp, cmsa[m], outfmt);
+	      status = esl_msafile_Write(ofp, cmsa[m], outfmt);
 	      if      (status == eslEMEM) esl_fatal("Memory error when outputting alignment\n");
 	      else if (status != eslOK)   esl_fatal("Writing alignment file failed with error %d\n", status);
 	    }
@@ -678,7 +678,7 @@ main(int argc, char **argv)
 	 * Output alignment *
 	 ********************/
 	if(! esl_opt_IsOn(go, "-M")) { /* if -M, we already output the alignments in minorize_msa() */
-	  status = eslx_msafile_Write(ofp, msa, outfmt);
+	  status = esl_msafile_Write(ofp, msa, outfmt);
 	  if      (status == eslEMEM) esl_fatal("Memory error when outputting alignment\n");
 	  else if (status != eslOK)   esl_fatal("Writing alignment file failed with error %d\n", status);
 	}
@@ -743,7 +743,7 @@ main(int argc, char **argv)
   }
 
   if (esl_opt_GetBoolean(go, "--small")) esl_msafile2_Close(afp2);
-  else                                   eslx_msafile_Close(afp);
+  else                                   esl_msafile_Close(afp);
   esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
   
@@ -2908,9 +2908,9 @@ minorize_msa(const ESL_GETOPTS *go, ESL_MSA *msa, char *errbuf, FILE *fp, char *
   }
   if((status = reorder_msa(msa, order, errbuf)) != eslOK) return status;
 
-  eslx_msafile_Write(fp, msa, outfmt);
+  esl_msafile_Write(fp, msa, outfmt);
   for(m = 0; m < nmin; m++) { 
-    eslx_msafile_Write(fp, minor_msaA[m], outfmt);
+    esl_msafile_Write(fp, minor_msaA[m], outfmt);
     esl_msa_Destroy(minor_msaA[m]);
   }
   free(minor_msaA);
@@ -3325,7 +3325,4 @@ compare_ints(const void *el1, const void *el2)
 
 /*****************************************************************
  * @LICENSE@
- * 
- * $SVN $URL$
- * SVN $Id: esl-alimanip.c 711 2011-07-27 20:06:15Z eddys $
  *****************************************************************/

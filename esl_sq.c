@@ -2505,8 +2505,8 @@ utest_ExtraResMarkups()
   char                 tmpfile[32];
   FILE                *ofp  = NULL;
   ESL_ALPHABET        *abc  = NULL;
-  ESLX_MSAFILE        *afp1 = NULL;
-  ESLX_MSAFILE        *afp2 = NULL;
+  ESL_MSAFILE         *afp1 = NULL;
+  ESL_MSAFILE         *afp2 = NULL;
   ESL_MSA             *msa1 = NULL;
   ESL_MSA             *msa2 = NULL;
   ESL_SQ              *sq   = NULL;
@@ -2519,7 +2519,7 @@ utest_ExtraResMarkups()
   fclose(ofp);
 
   /* Digital msa to digital sq */
-  eslx_msafile_Open(&abc, tmpfile, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp1);  
+  esl_msafile_Open(&abc, tmpfile, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp1);  
   esl_msafile_stockholm_Read(afp1, &msa1);  
 
   sq = esl_sq_CreateDigital(abc);
@@ -2544,7 +2544,7 @@ utest_ExtraResMarkups()
 
   
   /* Text msa to text sq */
-  eslx_msafile_Open(NULL, tmpfile, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp2);  
+  esl_msafile_Open(NULL, tmpfile, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp2);  
   esl_msafile_stockholm_Read(afp2, &msa2);  
   
   sq = esl_sq_Create();
@@ -2568,8 +2568,8 @@ utest_ExtraResMarkups()
 
   /* clean up */
   remove(tmpfile);
-  eslx_msafile_Close(afp1);
-  eslx_msafile_Close(afp2);
+  esl_msafile_Close(afp1);
+  esl_msafile_Close(afp2);
   esl_msa_Destroy(msa1);
   esl_msa_Destroy(msa2);
   esl_alphabet_Destroy(abc);

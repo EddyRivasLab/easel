@@ -384,8 +384,8 @@ main(int argc, char **argv)
   char        *filename   = argv[1];
   int          fmt        = eslMSAFILE_UNKNOWN; 
   ESL_ALPHABET *abc       = NULL;
-  ESLX_MSAFILE *afp       = NULL;
-  ESL_MSA     *msa        = NULL;
+  ESL_MSAFILE  *afp       = NULL;
+  ESL_MSA      *msa       = NULL;
   double       maxid      = 0.62; /* cluster at 62% identity: the BLOSUM62 rule */
   int         *assignment = NULL;
   int         *nin        = NULL;
@@ -394,12 +394,12 @@ main(int argc, char **argv)
   int          status;
 
   /* Open; guess alphabet; set to digital mode */
-  if ((status = eslx_msafile_Open(&abc, filename, NULL, fmt, NULL, &afp)) != eslOK)
-    eslx_msafile_OpenFailure(afp, status);
+  if ((status = esl_msafile_Open(&abc, filename, NULL, fmt, NULL, &afp)) != eslOK)
+    esl_msafile_OpenFailure(afp, status);
 
   /* read one alignment */
-  if ((status = eslx_msafile_Read(afp, &msa)) != eslOK)
-    eslx_msafile_ReadFailure(afp, status);
+  if ((status = esl_msafile_Read(afp, &msa)) != eslOK)
+    esl_msafile_ReadFailure(afp, status);
 
   /* do the clustering */
   esl_msacluster_SingleLinkage(msa, maxid, &assignment, &nin, &nclusters);
@@ -412,7 +412,7 @@ main(int argc, char **argv)
   }
 
   esl_msa_Destroy(msa);
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
   free(assignment);
   free(nin);
   return 0;
@@ -426,8 +426,5 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
  *****************************************************************/
 

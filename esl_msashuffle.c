@@ -463,13 +463,13 @@ main(int argc, char **argv)
   char           *msafile   = esl_opt_GetArg(go, 1);
   int             fmt       = eslMSAFILE_UNKNOWN;
   ESL_ALPHABET   *abc       = NULL;
-  ESLX_MSAFILE   *afp       = NULL;
+  ESL_MSAFILE    *afp       = NULL;
   ESL_MSA        *msa       = NULL;
   int             textmode  = esl_opt_GetBoolean(go, "--text");
   int             nali      = 0;
   int             status;
 
-  /* If you know the alphabet you want, create it - you'll pass it to eslx_msafile_Open() */
+  /* If you know the alphabet you want, create it - you'll pass it to esl_msafile_Open() */
   if      (esl_opt_GetBoolean(go, "--rna"))   abc = esl_alphabet_Create(eslRNA);
   else if (esl_opt_GetBoolean(go, "--dna"))   abc = esl_alphabet_Create(eslDNA);
   else if (esl_opt_GetBoolean(go, "--amino")) abc = esl_alphabet_Create(eslAMINO); 
@@ -478,16 +478,16 @@ main(int argc, char **argv)
    *   To let the Open() function autoguess the format, you pass <infmt=eslMSAFILE_UNKNOWN>. 
    *   To let it autoguess the alphabet, you set <abc=NULL> and pass <&abc>.
    *   To open in text mode instead of digital, you pass <NULL> for the alphabet argument.
-   * eslx_msafile_OpenFailure() is a convenience, printing various diagnostics of any
+   * esl_msafile_OpenFailure() is a convenience, printing various diagnostics of any
    * open failure to <stderr>. You can of course handle your own diagnostics instead.
    */
-  if (textmode) status = eslx_msafile_Open(NULL, msafile, NULL, fmt, NULL, &afp);
-  else          status = eslx_msafile_Open(&abc, msafile, NULL, fmt, NULL, &afp);
-  if (status != eslOK)   eslx_msafile_OpenFailure(afp, status);
+  if (textmode) status = esl_msafile_Open(NULL, msafile, NULL, fmt, NULL, &afp);
+  else          status = esl_msafile_Open(&abc, msafile, NULL, fmt, NULL, &afp);
+  if (status != eslOK)   esl_msafile_OpenFailure(afp, status);
   
   fmt = afp->format;
 
-  while ((status = eslx_msafile_Read(afp, &msa)) == eslOK)
+  while ((status = esl_msafile_Read(afp, &msa)) == eslOK)
     {	
       /* if digital MSA: msa->ax[idx=0..nseq-1][acol=1..alen] is the alignment data; 
        * if text MSA:  msa->aseq[idx=0..nseq-1][acol=0..alen-1] */
@@ -496,13 +496,13 @@ main(int argc, char **argv)
       /* permute it */
       esl_msashuffle_PermuteSequenceOrder(rng, msa);
 
-      eslx_msafile_Write(stdout, msa, fmt);
+      esl_msafile_Write(stdout, msa, fmt);
       esl_msa_Destroy(msa);
     }
-  if (nali == 0 || status != eslEOF) eslx_msafile_ReadFailure(afp, status); /* a convenience, like eslx_msafile_OpenFailure() */
+  if (nali == 0 || status != eslEOF) esl_msafile_ReadFailure(afp, status); /* a convenience, like esl_msafile_OpenFailure() */
 
   esl_alphabet_Destroy(abc);
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
   esl_randomness_Destroy(rng);
   esl_getopts_Destroy(go);
   exit(0);
@@ -511,7 +511,4 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
  *****************************************************************/

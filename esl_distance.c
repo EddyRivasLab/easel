@@ -1602,17 +1602,17 @@ main(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-  ESLX_MSAFILE *afp; 
+  ESL_MSAFILE  *afp; 
   ESL_MSA      *msa;
   ESL_DMATRIX  *P;
   int           i,j;
   double        min, avg, max;
   int           status;
 
-  if ((status = eslx_msafile_Open(NULL, argv[1], NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK)
-    eslx_msafile_OpenFailure(afp, status);
-  if ((status = eslx_msafile_Read(afp, &msa)) != eslOK)
-    eslx_msafile_ReadFailure(afp, status);
+  if ((status = esl_msafile_Open(NULL, argv[1], NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK)
+    esl_msafile_OpenFailure(afp, status);
+  if ((status = esl_msafile_Read(afp, &msa)) != eslOK)
+    esl_msafile_ReadFailure(afp, status);
 
   esl_dst_CPairIdMx(msa->aseq, msa->nseq, &P);
 
@@ -1634,7 +1634,7 @@ int main(int argc, char **argv)
 
   esl_dmatrix_Destroy(P);
   esl_msa_Destroy(msa);
-  eslx_msafile_Close(afp);
+  esl_msafile_Close(afp);
   return 0;
 }
 /*::cexcerpt::distance_example::end::*/
@@ -1643,9 +1643,6 @@ int main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
  *****************************************************************/
 
 
