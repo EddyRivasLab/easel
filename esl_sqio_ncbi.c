@@ -1185,9 +1185,9 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 	  else
 	  { /* DNA, not an alignment.  Might be really long sequences */
 
-		  /*this variable is used instead of the MAX_RESIDUE_COUNT macro because impl_dummy may require shorter sequences to fit in memory*/
-		  if (max_residues < 0)
-		    max_residues = MAX_RESIDUE_COUNT;
+      /*this variable is used instead of the MAX_RESIDUE_COUNT macro because impl_dummy may require shorter sequences to fit in memory*/
+      if (max_residues < 0)
+        max_residues = MAX_RESIDUE_COUNT;
 
 		  tmpsq = esl_sq_Create();
 
@@ -1250,9 +1250,16 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 
 		  for (  ; i < sqBlock->listSize && size < max_residues; ++i)
 		  {
+	      /* restricted request_size is used to ensure that all blocks are pretty close to the
+	       * same size. Without it, we may either naively keep asking for max_residue windows,
+	       * which can result in a window with ~2*max_residues ... or we can end up with absurdly
+	       * short fragments at the end of blocks
+	       */
+		    int request_size = ESL_MAX(max_residues-size, max_residues * .05);
+
 			  esl_sq_Reuse(tmpsq);
 			  esl_sq_Reuse(sqBlock->list + i);
-			  status = sqncbi_ReadWindow(sqfp, 0, max_residues, tmpsq);
+			  status = sqncbi_ReadWindow(sqfp, 0, request_size, tmpsq);
 			  if (status != eslOK) break; // end of sequences
 
 			  size += sqBlock->list[i].n - sqBlock->list[i].C;
