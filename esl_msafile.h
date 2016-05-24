@@ -56,7 +56,7 @@ typedef struct {
   ESL_BUFFER          *bf;            /* input file/data being parsed                          */
 
   int32_t              format;	      /* format of alignment file we're reading                */
-  ESL_MSAFILE_FMTDATA fmtd;          /* additional (often optional) format-specific details.  */
+  ESL_MSAFILE_FMTDATA  fmtd;          /* additional (often optional) format-specific details.  */
 
   char                *line;	      /* line read from <bf> by <esl_msafile_GetLine()>        */
   esl_pos_t            n;	      /* length of line in bytes (line is not NUL-terminated)  */
@@ -103,7 +103,7 @@ extern int   esl_msafile_fmtdata_Init(ESL_MSAFILE_FMTDATA *fmtd);
 extern int   esl_msafile_fmtdata_Copy(ESL_MSAFILE_FMTDATA *src,  ESL_MSAFILE_FMTDATA *dst);
 
 /* 3. Utilities for different file formats */
-extern int   esl_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESL_MSAFILE_FMTDATA *fmtd); 
+extern int   esl_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESL_MSAFILE_FMTDATA *fmtd, char *errbuf); 
 extern int   esl_msafile_IsMultiRecord(int fmt);
 extern int   esl_msafile_EncodeFormat(char *fmtstring);
 extern char *esl_msafile_DecodeFormat(int fmt);

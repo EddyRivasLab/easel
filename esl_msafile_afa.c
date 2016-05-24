@@ -269,7 +269,8 @@ esl_msafile_afa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
  *            If <msa> is in text mode, residues and gaps are written
  *            exactly as they appear in the data structure. If <msa>
  *            is digital, residues are in uppercase and all gaps are
- *            -.
+ *            dots (.). Dots are preferred to dashes because it 
+ *            minimizes confusion with A2M format.
  *
  * Args:      fp  - open stream to write to
  *            msa - MSA to write
@@ -314,7 +315,7 @@ esl_msafile_afa_Write(FILE *fp, const ESL_MSA *msa)
  * 2. Unit tests.
  *****************************************************************/
 #ifdef eslMSAFILE_AFA_TESTDRIVE
-/* a standard globin example, but dusted with evil:
+/* a standard globin example, dusted with evil:
  *  1. \r\n DOS line terminators;
  *  2. extra blank lines and whitespace
  *  3. unusual but legal residues
@@ -347,30 +348,6 @@ utest_write_good1(FILE *ofp, int *ret_alphatype, int *ret_nseq, int *ret_alen)
   *ret_alen      = 165;
 }
 
-/* note: alphabet detection for DNA/RNA doesn't work if unusual codes are used */
-static void
-utest_write_good2(FILE *ofp, int *ret_alphatype, int *ret_nseq, int *ret_alen)
-{
-  fputs(">tRNA2\n", ofp);
-  fputs("UCCGAUAUAGUGUAACGGCUAUCACAUCACGCUUUCACCGUGG-AGACCGGGGUUCGACU\n", ofp);
-  fputs("CCCCGUAUCGGAG\n", ofp);
-  fputs(">tRNA3\n", ofp);
-  fputs("UCCGUGAUAGUUUAAUGGUCAGAAUGG-GCGCUUGUCGCGUGCCAGAUCGGGGUUCAAUU\n", ofp);
-  fputs("CCCCGUCGCGGAG\n", ofp);
-  fputs(">tRNA5\n", ofp);
-  fputs("GGGCACAUGGCGCAGUUGGUAGCGCGCUUCCCUUGCAAGGAAGAGGUCAUCGGUUCGAUU\n", ofp);
-  fputs("CCGGUUGCGUCCA\n", ofp);
-  fputs(">tRNA1\n", ofp);
-  fputs("GCGGAUUUAGCUCAGUUGGGAGAGCGCCAGACUGAAGAUCUGGAGGUCCUGUGUUCGAUC\n", ofp);
-  fputs("CACAGAAUUCGCA\n", ofp);
-  fputs(">tRNA4\n", ofp);
-  fputs("GCUCGUAUGGCGCAGUGG-UAGCGCAGCAGAUUGCAAAUCUGUUGGUCCUUAGUUCGAUC\n", ofp);
-  fputs("CUGAGUGCGAGCU\n", ofp);
-
-  *ret_alphatype = eslRNA;
-  *ret_nseq      = 5;
-  *ret_alen      = 73;
-}
 
 static void
 utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expected_nseq, int expected_alen)
@@ -429,6 +406,7 @@ utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expec
   esl_msa_Destroy(msa2);
   esl_alphabet_Destroy(abc);
 }
+
 
 static void
 write_test_msas(FILE *ofp1, FILE *ofp2)
@@ -593,7 +571,7 @@ main(int argc, char **argv)
   char            stkfile[32] = "esltmpstkXXXXXX";
   FILE           *afafp, *stkfp;
   int             testnumber;
-  int             ngoodtests = 2;
+  int             ngoodtests  = 1;
   char            tmpfile[32];
   FILE           *ofp;
   int             expected_alphatype;
@@ -617,7 +595,6 @@ main(int argc, char **argv)
       if (esl_tmpfile_named(tmpfile, &ofp) != eslOK) esl_fatal(msg);
       switch (testnumber) {
       case  1:  utest_write_good1 (ofp, &expected_alphatype, &expected_nseq, &expected_alen); break;
-      case  2:  utest_write_good2 (ofp, &expected_alphatype, &expected_nseq, &expected_alen); break;
       }
       fclose(ofp);
       utest_goodfile(tmpfile, testnumber, expected_alphatype, expected_nseq, expected_alen);
