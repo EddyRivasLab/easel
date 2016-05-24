@@ -671,15 +671,15 @@ utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expec
   ESL_MSAFILE         *afp          = NULL;
   ESL_MSA             *msa1         = NULL;
   ESL_MSA             *msa2         = NULL;
-  char                 tmpfile1[32] = "esltmpXXXXXX";
+  char                 tmpfile1[32] = "esltmpXXXXXX";   
   char                 tmpfile2[32] = "esltmpXXXXXX";
   FILE                *ofp          = NULL;
   int                  status;
 
-  /* guessing both the format and the alphabet should work: this is a digital open */
-  if ( (status = esl_msafile_Open(&abc, filename, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK) esl_fatal("a2m good file test %d failed: digital open",           testnumber);  
-  if (afp->format != eslMSAFILE_A2M)                                                               esl_fatal("a2m good file test %d failed: format autodetection",   testnumber);
-  if (abc->type   != expected_alphatype)                                                           esl_fatal("a2m good file test %d failed: alphabet autodetection", testnumber);
+  /* A2M must be specified (no format guessing, unless we use .a2m suffix) but guessing the alphabet should work: this is a digital open */
+  if ( (status = esl_msafile_Open(&abc, filename, NULL, eslMSAFILE_A2M, NULL, &afp)) != eslOK) esl_fatal("a2m good file test %d failed: digital open",           testnumber);  
+  if (afp->format != eslMSAFILE_A2M)                                                           esl_fatal("a2m good file test %d failed: bad format",             testnumber);
+  if (abc->type   != expected_alphatype)                                                       esl_fatal("a2m good file test %d failed: alphabet autodetection", testnumber);
 
   /* This is a digital read, using <abc>. */
   if ( (status = esl_msafile_a2m_Read(afp, &msa1))   != eslOK)     esl_fatal("a2m good file test %d failed: msa read, digital", testnumber);  
@@ -692,7 +692,7 @@ utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expec
   if ( (status = esl_msafile_a2m_Write(ofp, msa1))  != eslOK) esl_fatal("a2m good file test %d failed: msa write, digital", testnumber);
   fclose(ofp);
 
-  /* now open and read it as text mode, in known format. (We have to pass fmtd now, to deal with the possibility of a nonstandard name width) */
+  /* now open and read it as text mode, in known format. */
   if ( (status = esl_msafile_Open(NULL, tmpfile1, NULL, eslMSAFILE_A2M, NULL, &afp)) != eslOK) esl_fatal("a2m good file test %d failed: text mode open", testnumber);  
   if ( (status = esl_msafile_a2m_Read(afp, &msa2))                                   != eslOK) esl_fatal("a2m good file test %d failed: msa read, text", testnumber);  
   if (msa2->nseq != expected_nseq || msa2->alen != expected_alen)                              esl_fatal("a2m good file test %d failed: nseq/alen",      testnumber);
@@ -907,7 +907,7 @@ main(int argc, char **argv)
   /* Various "good" files that should be parsed correctly */
   for (testnumber = 1; testnumber <= ngoodtests; testnumber++)
     {
-      strcpy(tmpfile, "esltmpXXXXXX"); 
+      strcpy(tmpfile, "esltmpXXXXXX");   
       if (esl_tmpfile_named(tmpfile, &ofp) != eslOK) esl_fatal(msg);
       switch (testnumber) {
       case  1:  utest_write_good1 (ofp, &expected_alphatype, &expected_nseq, &expected_alen); break;

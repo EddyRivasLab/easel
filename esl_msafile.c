@@ -116,9 +116,18 @@ static int msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format
  *            <ESL_MSAFILE_FMTDATA> structure that the caller may
  *            initialize and provide, in order to assert any
  *            additional unusual constraints on the input format --
- *            for example, to dictate that a PHYLIP format file has
- *            some nonstandard name field width. Generally, though,
- *            <fmtd> will be <NULL>.
+ *            for example, to dictate that a PHYLIP format file must
+ *            have some nonstandard name field width. Generally,
+ *            though, <fmtd> will be <NULL>, and such things would
+ *            either be autodetected as part of the autodetected
+ *            format, or the strict version of the parser will be
+ *            used.  (That is, if you open a PHYLIP file with
+ *            <format=eslMSAFILE_UNKNOWN> and a <NULL fmtd>, the
+ *            format autodetector is used, and it will automagically
+ *            detect nonstandard PHYLIP namewidths != 10. But if you
+ *            open a PHYLIP file with <format=eslMSAFILE_PHYLIP> and a
+ *            <NULL fmtd>, then you get the strict interleaved PHYLIP
+ *            parser, which requires a name width of exactly 10.)
  *
  * Args:      byp_abc   - digital alphabet to use, or NULL for text mode
  *                        if <*byp_abc> is NULL, guess the digital alphabet,
@@ -149,8 +158,9 @@ static int msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format
  *
  *            <eslENOFORMAT> if we tried to autodetect the file format
  *            (caller provided <format=eslMSAFILE_UNKNOWN>), and
- *            failed. <afp->errmsg> is something like "couldn't
- *            determine alignment input format".
+ *            failed. <afp->errmsg> is an informative user-directed
+ *            message, minimally something like "couldn't determine alignment 
+ *            input format", possibly more detailed.
  *
  *            <eslENOALPHABET> if we tried to autodetect the alphabet
  *            (caller provided <&abc>, <abc=NULL> to request digital
@@ -394,12 +404,9 @@ msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESL_MSAFI
   if (fmtd) esl_msafile_fmtdata_Copy(fmtd, &(afp->fmtd));
 
   /* Determine the format */
-  if (format == eslMSAFILE_UNKNOWN) 
-    {
-      status = esl_msafile_GuessFileFormat(afp->bf, &format, &(afp->fmtd));
-      if      (status == eslENOFORMAT) ESL_XFAIL(eslENOFORMAT, afp->errmsg, "couldn't determine alignment input format"); /* ENOFORMAT is normal failure */
-      else if (status != eslOK)        goto ERROR;
-    }
+  if (format == eslMSAFILE_UNKNOWN && 
+      (status = esl_msafile_GuessFileFormat(afp->bf, &format, &(afp->fmtd), afp->errmsg)) != eslOK)
+    goto ERROR;
   afp->format = format;
 
   /* Determine the alphabet; set <abc>. (<abc> == NULL means text mode.)  */
@@ -496,7 +503,6 @@ esl_msafile_fmtdata_Copy(ESL_MSAFILE_FMTDATA *src, ESL_MSAFILE_FMTDATA *dst)
  *# 3. Guessing file format.
  *****************************************************************/
 
-static int msafile_guess_afalike(ESL_BUFFER *bf, int *ret_format);
 static int msafile_check_selex  (ESL_BUFFER *bf);
 
 /* Function:  esl_msafile_GuessFileFormat()
@@ -506,20 +512,10 @@ static int msafile_check_selex  (ESL_BUFFER *bf);
  *            alignment file format (if any) its input is in. If a
  *            format can be determined, return <eslOK> and set
  *            <*ret_fmtcode> to the format code.  If not, return
- *            <eslEFORMAT> and set <*ret_fmtcode> to
+ *            <eslENOFORMAT> and set <*ret_fmtcode> to
  *            <eslMSAFILE_UNKNOWN>.  In either case, the buffer <bf> is
  *            restored to its original position upon return.
- *
- *            If the <bf> corresponds to an open file with a file
- *            name, we attempt to use the suffix as a clue. Suffix
- *            rules for alignment files are as follows:
- *                 | Stockholm     |  .sto .sth .stk |
- *                 | Aligned FASTA |  .afa .afasta   |
- *                 | CLUSTAL       |  .aln           |
- *                 | Pfam          |  .pfam          |
- *                 | A2M           |  .a2m           | 
- *                 | SELEX         |  .slx .selex    |   
- *                 
+ *            
  *            Some formats may have variants that require special
  *            handling. Caller may pass a pointer <*opt_fmtd> to a
  *            <ESL_MSAFILE_FMTDATA> structure to capture this
@@ -537,15 +533,18 @@ static int msafile_check_selex  (ESL_BUFFER *bf);
  *            ret_fmtcode - RETURN:    format code that's determined
  *            opt_fmtd    - optRETURN: ptr to an <ESL_MSAFILE_FMTDATA> structure to
  *                          be filled in with additional format-specific data, or <NULL>
+ *            errbuf      - optRETURN: space for an informative error message if 
+ *                          format autodetection fails; caller allocates for <eslERRBUFSIZE> bytes.
  *
  * Returns:   <eslOK> on success, and <*ret_fmtcode> contains the format code.
- *            <eslENOFORMAT> if format can't be guessed, and <*ret_fmtcode> contains
- *            <eslMSAFILE_UNKNOWN>.
+ *
+ *            <eslENOFORMAT> if format can't be guessed; now <*ret_fmtcode> contains
+ *            <eslMSAFILE_UNKNOWN>, and optional <errbuf> contains an explanation.
  *
  * Throws:    (no abnormal error conditions)
  */
 int
-esl_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESL_MSAFILE_FMTDATA *opt_fmtd)
+esl_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESL_MSAFILE_FMTDATA *opt_fmtd, char *errbuf)
 {
   esl_pos_t  initial_offset;
   char      *p;
@@ -556,6 +555,7 @@ esl_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESL_MSAFILE_FMTDAT
 
   /* Initialize the optional data, if provided (move this initialization to a function someday) */
   if (opt_fmtd) esl_msafile_fmtdata_Init(opt_fmtd);
+  if (errbuf)   errbuf[0] = '\0';
 
   /* As we start, save parser status:
    *   remember the offset where we started (usually 0, but not necessarily)
@@ -564,7 +564,8 @@ esl_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESL_MSAFILE_FMTDAT
   initial_offset = esl_buffer_GetOffset(bf);
   esl_buffer_SetAnchor(bf, initial_offset);
 
-  /* First we try to guess based on the filename suffix.
+  /* We may use a filename suffix as a clue, especially when 
+   * distinguishing formats that may not be distinguishable.
    * (if there's a filename, and if it has a suffix, anyway.)
    */
   if (bf->filename)
@@ -578,22 +579,26 @@ esl_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESL_MSAFILE_FMTDAT
 	  else if (esl_memstrcmp(p, n, ".stk"))    fmt_bysuffix = eslMSAFILE_STOCKHOLM;
 	  else if (esl_memstrcmp(p, n, ".afa"))    fmt_bysuffix = eslMSAFILE_AFA;
 	  else if (esl_memstrcmp(p, n, ".afasta")) fmt_bysuffix = eslMSAFILE_AFA;
-	  else if (esl_memstrcmp(p, n, ".aln"))    fmt_bysuffix = eslMSAFILE_CLUSTAL;
 	  else if (esl_memstrcmp(p, n, ".pfam"))   fmt_bysuffix = eslMSAFILE_PFAM;
 	  else if (esl_memstrcmp(p, n, ".a2m"))    fmt_bysuffix = eslMSAFILE_A2M;
 	  else if (esl_memstrcmp(p, n, ".slx"))    fmt_bysuffix = eslMSAFILE_SELEX;
 	  else if (esl_memstrcmp(p, n, ".selex"))  fmt_bysuffix = eslMSAFILE_SELEX;
+	  else if (esl_memstrcmp(p, n, ".pb"))     fmt_bysuffix = eslMSAFILE_PSIBLAST;
+	  else if (esl_memstrcmp(p, n, ".ph"))     fmt_bysuffix = eslMSAFILE_PHYLIP;
+	  else if (esl_memstrcmp(p, n, ".phy"))    fmt_bysuffix = eslMSAFILE_PHYLIP;
+	  else if (esl_memstrcmp(p, n, ".phyi"))   fmt_bysuffix = eslMSAFILE_PHYLIP;
+	  else if (esl_memstrcmp(p, n, ".phys"))   fmt_bysuffix = eslMSAFILE_PHYLIPS;
 	}
     }
 
-  /* Second, we peek at the first non-blank line of the file.
+  /* We peek at the first non-blank line of the file.
    * Multiple sequence alignment files are often identifiable by a token on this line.
    */
   /* Skip blank lines, get first non-blank one */
   do   { 
     status = esl_buffer_GetLine(bf, &p, &n);
   } while (status == eslOK && esl_memspn(p, n, " \t") == n);
-  if (status == eslEOF) { *ret_fmtcode = eslMSAFILE_UNKNOWN; return eslENOFORMAT; }
+  if (status == eslEOF) ESL_XFAIL(eslENOFORMAT, errbuf, "can't guess alignment input format: empty file/no data");
 
   if      (esl_memstrpfx(p, n, "# STOCKHOLM"))                      fmt_byfirstline = eslMSAFILE_STOCKHOLM;
   else if (esl_memstrpfx(p, n, ">"))                                fmt_byfirstline = eslMSAFILE_AFA;
@@ -632,24 +637,36 @@ esl_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESL_MSAFILE_FMTDAT
     }
   else if (fmt_byfirstline == eslMSAFILE_AFA)
     {
-      if      (fmt_bysuffix == eslMSAFILE_AFA) *ret_fmtcode = eslMSAFILE_AFA;
-      else if (fmt_bysuffix == eslMSAFILE_A2M) *ret_fmtcode = eslMSAFILE_A2M;
-      else    msafile_guess_afalike  (bf, ret_fmtcode);
+      if      (fmt_bysuffix == eslMSAFILE_A2M) *ret_fmtcode = eslMSAFILE_A2M;  // A2M requires affirmative identification by caller,
+      else                                     *ret_fmtcode = eslMSAFILE_AFA;  //  because of ambiguity w/ AFA.
     }
   else if (fmt_byfirstline == eslMSAFILE_PHYLIP)
     {
-      int namewidth;
-      esl_msafile_phylip_CheckFileFormat(bf, ret_fmtcode, &namewidth);  // Don't need to check return status. *ret_fmtcode == eslMSAFILE_UNKNOWN if the check fails.
-      if      (opt_fmtd)         opt_fmtd->namewidth = namewidth;
-      else if (namewidth != 10) *ret_fmtcode = eslMSAFILE_UNKNOWN; /* if we can't store the nonstandard width, we can't allow the caller to think it can parse this */
+      if      (fmt_bysuffix == eslMSAFILE_PHYLIP)  *ret_fmtcode = eslMSAFILE_PHYLIP;
+      else if (fmt_bysuffix == eslMSAFILE_PHYLIPS) *ret_fmtcode = eslMSAFILE_PHYLIPS;
+      else 
+	{
+	  int namewidth;
+	  status = esl_msafile_phylip_CheckFileFormat(bf, ret_fmtcode, &namewidth);  
+	  if      (status == eslEAMBIGUOUS) ESL_XFAIL(eslENOFORMAT, errbuf, "can't guess format: it's consistent w/ both phylip, phylips.");
+	  else if (status == eslFAIL)       ESL_XFAIL(eslENOFORMAT, errbuf, "format unrecognized, though it looks phylip-like");
+	  
+	  if      (opt_fmtd)                opt_fmtd->namewidth = namewidth;
+	  else if (namewidth != 10)         ESL_XFAIL(eslENOFORMAT, errbuf, "can't parse nonstandard PHYLIP name width (expected 10)"); /* if we can't store the nonstandard width, we can't allow the caller to think it can parse this */
+	}
     }
-  else
+  else // if we haven't guessed so far, try selex.
     {				/* selex parser can handle psiblast too */
       if      (fmt_bysuffix == eslMSAFILE_SELEX) *ret_fmtcode = eslMSAFILE_SELEX;
       else if (msafile_check_selex(bf) == eslOK) *ret_fmtcode = eslMSAFILE_SELEX;
+      else    ESL_XFAIL(eslENOFORMAT, errbuf, "couldn't guess alignment input format - doesn't even look like selex");
     }
-  
-  return ((*ret_fmtcode == eslMSAFILE_UNKNOWN) ? eslENOFORMAT: eslOK);
+
+  return eslOK;
+
+ ERROR:
+  *ret_fmtcode = eslMSAFILE_UNKNOWN;
+  return status;
 }
 
 
@@ -751,100 +768,6 @@ esl_msafile_DecodeFormat(int fmt)
   return NULL;
 }
 
-
-/* An aligned FASTA-like format can either be:
- *    eslMSAFILE_AFA
- *    eslMSAFILE_A2M
- *    
- * Let alen  = # of residues+gaps per sequence
- * Let ncons = # of uppercase + '-': consensus positions in A2M
- * 
- * If two seqs have same nonzero ncons, different alen, and no dots, that's a
- * positive identification of dotless A2M.
- * 
- * If two seqs have same alen but different ncons, that positive id of
- * AFA.
- *
- * If we get ~100 sequences in and we still haven't decided, just call
- * it AFA.
- */
-static int
-msafile_guess_afalike(ESL_BUFFER *bf, int *ret_format)
-{
-  int       format   = eslMSAFILE_UNKNOWN;
-  int       max_nseq = 100;
-  esl_pos_t anchor   = -1;
-  char     *p;
-  esl_pos_t n, pos;
-  int       nseq;
-  int       nupper, nlower, ndash, ndot, nother;
-  int       alen, ncons;
-  int       saw_other = FALSE;
-  int       status;
-
-  anchor = esl_buffer_GetOffset(bf);
-  if ((status = esl_buffer_SetAnchor(bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
-
-  while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK)  {
-    while (n && isspace(*p)) { p++; n--; }    
-    if    (!n) continue;	
-    if    (*p != '>') { status = eslEFORMAT; goto ERROR; } else break;
-  }
-  if      (status == eslEOF) { status = eslEFORMAT; goto ERROR; }
-  else if (status != eslOK) goto ERROR;
-
-  alen = ncons = 0;
-  for (nseq = 0; nseq < max_nseq; nseq++)
-    {
-      nupper = nlower = ndash = ndot = nother = 0;
-      while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK)  
-	{
-	  while (n && isspace(*p)) { p++; n--; }    
-	  if    (!n)        continue;	
-	  if    (*p == '>') break;
-
-	  for (pos = 0; pos < n; pos++)
-	    {
-	      if      (isupper(p[pos]))  nupper++;
-	      else if (islower(p[pos]))  nlower++;
-	      else if (p[pos] == '-')    ndash++;
-	      else if (p[pos] == '.')    ndot++;
-	      else if (!isspace(p[pos])) nother++;
-	    }
-	}
-      if (status != eslOK && status != eslEOF) goto ERROR;
-      if (nother) saw_other = TRUE; /* A2M is strict: only allows .-[a-z][A-Z] */
-
-      if (nseq == 0)
-	{
-	  alen  = nupper+nlower+ndash+ndot+nother;
-	  ncons = nupper+ndash;
-	}
-      else
-	{ /* in ungapped alignments w/ no insertions, we can't distinguish AFA, A2M. These are *positive* id tests  */
-	  if (                                nupper+nlower+ndash+ndot+nother == alen && nupper+ndash != ncons) { format = eslMSAFILE_AFA; goto DONE; }
-	  if (ncons && !saw_other && !ndot && nupper+nlower+ndash             != alen && nupper+ndash == ncons) { format = eslMSAFILE_A2M; goto DONE; }
-	  /* and there's a *negative* id test, for an unaligned FASTA file: must have nonzero ncons to be A2M, must have equal-length seqs to be AFA */
-	  /* the example we're catching here is an unaligned FASTA file of all lower case residues: don't call that A2M. Hence the test for nonzero <ncons> */
-	  if (!ncons && nupper+nlower+ndash+ndot+nother != alen) { format = eslMSAFILE_UNKNOWN; goto DONE; }
-	}
-    }
-  format = eslMSAFILE_AFA;	/* if we haven't positively id'ed A2M vs AFA, it probably doesn't matter (gapless alignment): call it AFA */
-  /* deliberate flowthrough */
- DONE:
-  esl_buffer_SetOffset(bf, anchor);   /* Rewind to where we were. */
-  esl_buffer_RaiseAnchor(bf, anchor);
-  *ret_format = format;
-  return eslOK;
-
- ERROR:
-  if (anchor != -1) {
-    esl_buffer_SetOffset(bf, anchor);   
-    esl_buffer_RaiseAnchor(bf, anchor);
-  }
-  *ret_format = eslMSAFILE_UNKNOWN;
-  return status;
-}
 
 
 /* msafile_check_selex()
@@ -1325,9 +1248,6 @@ utest_format2format(int fmt1, int fmt2)
   ESL_ALPHABET *abc          = esl_alphabet_Create(alphatype);
   ESL_ALPHABET *abc2         = NULL;
 
-  /* The test alignment has to have a shorter seq1, to make A2M format distinct from AFA. (w/ no RF line, A2M defaults to using 1st seq as consensus)
-   * It must be longer than 60 residues, to make Phylip interleaved distinct from Phylip sequential.
-   */
   char *testmsa = "\
 # STOCKHOLM 1.0\n\
 seq1    ACDEFGHIKLMNPQRSTVWYacdefghiklmnpq------ACDEFGHIKLMNPQRSTVWYacde......mnpqrstvwyACDEFGHI______RSTVWYacdefghiklmnpqrstvwy\n\
@@ -1340,28 +1260,46 @@ seq2    ACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwyACDEFGHIKLMNPQRSTVWYacdefghiklmn
   esl_msafile_Close(afp);
 
   /* Write it to tmpfile1 in fmt1. (This exercises writing of digital MSAs, in all <fmt1> formats) */
-  if ( esl_tmpfile_named(tmpfile1, &ofp)   != eslOK) esl_fatal(msg);
+  if ( esl_tmpfile_named(tmpfile1, &ofp)  != eslOK) esl_fatal(msg);
   if ( esl_msafile_Write(ofp, msa1, fmt1) != eslOK) esl_fatal(msg);
   fclose(ofp);
 
-  /* Read it back from <fmt1> in TEXT mode (verbatim), with format autodetection */
-  if ( esl_msafile_Open(NULL, tmpfile1, NULL, eslMSAFILE_UNKNOWN, NULL, &afp) != eslOK) esl_fatal(msg);
-  if (fmt1 == eslMSAFILE_PFAM     && afp->format == eslMSAFILE_STOCKHOLM) afp->format = eslMSAFILE_PFAM;
-  if (fmt1 == eslMSAFILE_PSIBLAST && afp->format == eslMSAFILE_SELEX)     afp->format = eslMSAFILE_PSIBLAST;
-  if ( esl_msafile_Read(afp, &msa2) != eslOK) esl_fatal(msg);
-  esl_msafile_Close(afp);
+  /* Read it back from <fmt1> in TEXT mode (verbatim), with format autodetection (except A2M) */
+  if (fmt1 != eslMSAFILE_A2M)
+    {
+      if ( esl_msafile_Open(NULL, tmpfile1, NULL, eslMSAFILE_UNKNOWN, NULL, &afp) != eslOK) esl_fatal(msg);
+      if (fmt1 == eslMSAFILE_PFAM     && afp->format == eslMSAFILE_STOCKHOLM) afp->format = eslMSAFILE_PFAM;
+      if (fmt1 == eslMSAFILE_PSIBLAST && afp->format == eslMSAFILE_SELEX)     afp->format = eslMSAFILE_PSIBLAST;
+      if ( esl_msafile_Read(afp, &msa2) != eslOK) esl_fatal(msg);
+      esl_msafile_Close(afp);
+    }
+  else // without autodetection:
+    {
+      if ( esl_msafile_Open(NULL, tmpfile1, NULL, fmt1, NULL, &afp) != eslOK) esl_fatal(msg);
+      if ( esl_msafile_Read(afp, &msa2) != eslOK) esl_fatal(msg);
+      esl_msafile_Close(afp);
+    }
 
   /* Write it to tmpfile2 in fmt2. (This exercises writing of text-mode MSAs, in all <fmt2> formats) */
-  if ( esl_tmpfile_named(tmpfile2, &ofp)   != eslOK) esl_fatal(msg);
+  if ( esl_tmpfile_named(tmpfile2, &ofp)  != eslOK) esl_fatal(msg);
   if ( esl_msafile_Write(ofp, msa2, fmt2) != eslOK) esl_fatal(msg);
   fclose(ofp);
 
-  /* Read it back in TEXT mode. */
-  if ( esl_msafile_Open(NULL, tmpfile2, NULL, eslMSAFILE_UNKNOWN, NULL, &afp) != eslOK) esl_fatal(msg);
-  if (fmt2 == eslMSAFILE_PFAM     && afp->format == eslMSAFILE_STOCKHOLM) afp->format = eslMSAFILE_PFAM;
-  if (fmt2 == eslMSAFILE_PSIBLAST && afp->format == eslMSAFILE_SELEX)     afp->format = eslMSAFILE_PSIBLAST;
-  if ( esl_msafile_Read(afp, &msa3) != eslOK) esl_fatal(msg);
-  esl_msafile_Close(afp);
+  /* Read it back in TEXT mode, with format autodetection  (except A2M) */
+  if (fmt2 != eslMSAFILE_A2M)
+    {
+      if ( esl_msafile_Open(NULL, tmpfile2, NULL, eslMSAFILE_UNKNOWN, NULL, &afp) != eslOK) esl_fatal(msg);
+      if (fmt2 == eslMSAFILE_PFAM     && afp->format == eslMSAFILE_STOCKHOLM) afp->format = eslMSAFILE_PFAM;
+      if (fmt2 == eslMSAFILE_PSIBLAST && afp->format == eslMSAFILE_SELEX)     afp->format = eslMSAFILE_PSIBLAST;
+      if ( esl_msafile_Read(afp, &msa3) != eslOK) esl_fatal(msg);
+      esl_msafile_Close(afp);
+    }
+  else // without autodetection:
+    {
+      if ( esl_msafile_Open(NULL, tmpfile2, NULL, fmt2, NULL, &afp) != eslOK) esl_fatal(msg);
+      if ( esl_msafile_Read(afp, &msa3) != eslOK) esl_fatal(msg);
+      esl_msafile_Close(afp);
+    }
 
   /* Write it to tmpfile4 in fmt2. (This exercises writing of digital-mode MSAs, in all <fmt2> formats */
   if ( esl_tmpfile_named(tmpfile3, &ofp)   != eslOK) esl_fatal(msg);
@@ -1404,27 +1342,6 @@ seq2    ACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwyACDEFGHIKLMNPQRSTVWYacdefghiklmn
   esl_alphabet_Destroy(abc);
   esl_alphabet_Destroy(abc2);
 }
-
-static void
-utest_tricky_format_decisions(void)
-{
-  ESL_MSAFILE *afp;
-  int status;
-
-  /* an all-lower case unaligned FASTA file should not get called A2M format
-   * an A2M file should have at least one consensus column, not be all-insert.
-   */
-  char *testmsa1 = "\
->seq1\n\
-aaaaaa\n\
->seq2\n\
-aaaaa\n";
-  status = esl_msafile_OpenMem(NULL, testmsa1, strlen(testmsa1), eslMSAFILE_UNKNOWN, NULL, &afp);
-  if      (status == eslOK)        esl_fatal("testmsa1 erroneously detected as %s", esl_msafile_DecodeFormat(afp->format));
-  else if (status != eslENOFORMAT) esl_fatal("tricky_format_decisions test failed");
-
-  esl_msafile_Close(afp);
-}
 #endif /*eslMSAFILE_TESTDRIVE*/
 /*----------------- end, unit tests -----------------------------*/
 
@@ -1463,8 +1380,6 @@ main(int argc, char **argv)
   for (fmt1 = eslMSAFILE_STOCKHOLM; fmt1 <= eslMSAFILE_PHYLIPS; fmt1++)
     for (fmt2 = eslMSAFILE_STOCKHOLM; fmt2 <= eslMSAFILE_PHYLIPS; fmt2++)
       utest_format2format(fmt1, fmt2);
-
-  utest_tricky_format_decisions();
 
   esl_getopts_Destroy(go);
   exit(0);
