@@ -811,7 +811,7 @@ sqascii_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
   /* Main case: read next seq from sqfp's stream */
   if (ascii->nc == 0) return eslEOF;
-  if ((status = ascii->parse_header(sqfp, sq)) != eslOK) return status; /* EOF, EFORMAT */
+  if ((status = ascii->parse_header(sqfp, sq)) != eslOK) return status; /* EMEM, EOF, EFORMAT */
 
   do {
     if ((status = seebuf(sqfp, -1, &n, &epos)) == eslEFORMAT) return status;
@@ -3066,8 +3066,9 @@ header_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq)
   sq->hoff = ascii->boff + ascii->bpos;
   
   while (status == eslOK && (c == '\n' || c == '\r')) status = nextchar(sqfp, &c); /* skip past eol (DOS \r\n, MAC \r, UNIX \n */
+  if (status != eslOK && status != eslEOF) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Unexpected failure in parsing FASTA name/description line");
+  /* Edge case: if the last sequence in the file is L=0, no residues, we are EOF now, not OK; but we'll return OK because we parsed the header line */
 
-  if (status != eslOK) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Premature EOF in parsing FASTA name/description line");
   sq->doff = ascii->boff + ascii->bpos;
   ascii->prvrpl = ascii->prvbpl = -1;
   ascii->currpl = ascii->curbpl = 0;
