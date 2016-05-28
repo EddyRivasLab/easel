@@ -731,6 +731,13 @@ esl_gencode_WorkstateDestroy(ESL_GENCODE_WORKSTATE *wrk)
   if (wrk)
     {
       for (f = 0; f < 3; f++) esl_sq_Destroy(wrk->psq[f]);
+
+      if(wrk->orf_block != NULL)
+      {
+         esl_sq_DestroyBlock(wrk->orf_block);
+         wrk->orf_block = NULL;
+      }
+
       free(wrk);
     }
 }
