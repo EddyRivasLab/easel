@@ -1,13 +1,16 @@
-/* Huffman codes for digitized alphabets.
+/* Huffman coding, especially for digitized alphabets.
  * 
  * Contents:
- *   1. Internal functions and structures; components of creating huffman codes
- *   2. The ESL_HUFFMAN object
- *   3. Huffman encoding
- *   4. Huffman decoding
- *   5. Debugging, development
+ *   1. The ESL_HUFFMAN object
+ *   2. Huffman encoding
+ *   3. Huffman decoding
+ *   4. Debugging, development
+ *   5. Internal function, components of creating huffman codes
  *   6. Example driver
- *   7. Copyright and license information.
+ *
+ * Useful emacs gdb tricks for displaying bit field v:
+ *   p /t v     (no leading zeros, beware!)
+ *   x &v 
  */
 
 #include "easel.h"
@@ -15,23 +18,346 @@
 #include "esl_huffman.h"
 
 
-/*****************************************************************
- * 1. Internal functions and structures
- *****************************************************************/
-
+/* Declarations of stuff in internal functions/structures section  */
 struct hufftree_s {
   float val;    // Sum of frequencies of all leaves under this node
   int   depth;  // Depth of node
   int   left;   // index of left child in array of tree nodes (0..N-2; 0 is the root)
   int   right;  //  "" for right child
 };
+static int  sort_floats_decreasing(const void *data, int e1, int e2);
+static int  sort_canonical        (const void *data, int e1, int e2);
+static int  huffman_tree          (ESL_HUFFMAN *hc, struct hufftree_s *htree, const float *fq);
+static int  huffman_codelengths   (ESL_HUFFMAN *hc, struct hufftree_s *htree, const float *fq);
+static int  huffman_canonize      (ESL_HUFFMAN *hc);
+static int  huffman_decoding_table(ESL_HUFFMAN *hc);
+static void dump_uint32(FILE *fp, uint32_t v, int L);
+
+static void huffman_pack(uint32_t *X, int *ip, int *ap, uint32_t code, int L);
+static void huffman_unpack(const ESL_HUFFMAN *hc, uint32_t *vp, const uint32_t *X, int n, int *ip, int *ap, char *ret_x, int *ret_L);
+
+
+
+/*****************************************************************
+ * 1. The ESL_HUFFMAN object
+ *****************************************************************/
+
+/* Function:  esl_huffman_Build()
+ * Synopsis:  Build a new Huffman code.
+ * Incept:    SRE, Thu Nov 12 11:08:09 2015
+ *
+ * Purpose:   Build a canonical Huffman code for observed symbol 
+ *            frequencies <fq[0..K]> for <K> possible symbols.
+ *            
+ *            If you're encoding an Easel digital alphabet, you want
+ *            <K = abc->Kp>, inclusive of ambiguity codes, gaps,
+ *            missing data, and rare digital codes.
+ *
+ *            If you're encoding 7-bit ASCII text, you want K=128, and
+ *            the symbols codes are ASCII codes.
+ *            
+ *            If you're encoding MTF-encoded ASCII text, again you
+ *            want K=128 and the "symbol" codes are 0..127 offsets in
+ *            the move-to-front encoding.
+ *
+ *            If you're encoding an arbitrary symbol table -- a table
+ *            of gap lengths, perhaps? -- <K> can be
+ *            anything. However, although you can build a Huffman code
+ *            for arbitrary symbol frequency tables,
+ *            <esl_huffman_Encode()> and <esl_huffman_Decode()> do
+ *            assume that the plaintext consists of ASCII characters
+ *            0..127.
+ *
+ *            Unobserved symbols (with <fq[] = 0>) will not be encoded;
+ *            they get a code length of 0, and a code of 0.
+ *            
+ * Args:      fq     - symbol frequencies 0..K-1; sum to 1
+ *            K      - size of fq (encoded alphabet size)
+ *            ret_hc - RETURN: new huffman code object
+ *            
+ * Returns:   <eslOK> on success, and <*ret_hc> points to the new
+ *            <ESL_HUFFMAN> object.
+ *            
+ * Throws:    <eslEMEM> on allocation error.
+ * 
+ *            <eslERANGE> if the encoding requires a code length
+ *            that exceeds <eslHUFFMAN_MAXCODE>, and won't fit in 
+ *            a <uint32_t>.
+ */
+int
+esl_huffman_Build(const float *fq, int K, ESL_HUFFMAN **ret_hc)
+{
+  ESL_HUFFMAN       *hc    = NULL;
+  struct hufftree_s *htree = NULL;  // only need tree temporarily, during code construction.
+  int                i,r;
+  int                status;
+
+  ESL_DASSERT1(( fq    ));
+  ESL_DASSERT1(( K > 0 ));
+
+  ESL_ALLOC(hc, sizeof(ESL_HUFFMAN));
+  hc->len       = NULL;
+  hc->code      = NULL;
+  hc->sorted_at = NULL;
+  hc->dt_len    = NULL;
+  hc->dt_lcode  = NULL;
+  hc->dt_rank   = NULL;
+
+  hc->K         = K;
+  hc->Ku        = 0;
+  hc->D         = 0;
+  hc->Lmax      = 0;
+
+  ESL_ALLOC(hc->len,       sizeof(int)      * hc->K);
+  ESL_ALLOC(hc->code,      sizeof(uint32_t) * hc->K);
+  ESL_ALLOC(hc->sorted_at, sizeof(int)      * hc->K);
+
+  for (i = 0; i < hc->K; i++) hc->len[i]  = 0;
+  for (i = 0; i < hc->K; i++) hc->code[i] = 0;
+  
+  /* Sort the symbol frequencies, largest to smallest */
+  esl_quicksort(fq, hc->K, sort_floats_decreasing, hc->sorted_at);
+  
+  /* Figure out how many are nonzero: that's hc->Ku */
+  for (r = hc->K-1; r >= 0; r--)
+    if (fq[hc->sorted_at[r]] > 0.) break;
+  hc->Ku = r+1;
+
+  ESL_ALLOC(htree,         sizeof(struct hufftree_s) * (hc->Ku-1));
+  if ( (status = huffman_tree       (hc, htree, fq)) != eslOK) goto ERROR;
+  if ( (status = huffman_codelengths(hc, htree, fq)) != eslOK) goto ERROR; // can fail eslERANGE on maxlen > 32
+  if ( (status = huffman_canonize   (hc))            != eslOK) goto ERROR;
+
+
+  ESL_ALLOC(hc->dt_len,   sizeof(int)      * hc->D);
+  ESL_ALLOC(hc->dt_lcode, sizeof(uint32_t) * hc->D);
+  ESL_ALLOC(hc->dt_rank,  sizeof(int)      * hc->D);
+  if ( (status = huffman_decoding_table(hc))         != eslOK) goto ERROR;
+
+  free(htree);
+  *ret_hc = hc;
+  return eslOK;
+
+ ERROR:
+  free(htree);
+  esl_huffman_Destroy(hc);
+  *ret_hc = NULL;
+  return status;
+}
+
+
+
+/* Function:  esl_huffman_Destroy()
+ * Synopsis:  Free an <ESL_HUFFMAN> code.
+ * Incept:    SRE, Thu Nov 12 11:07:39 2015
+ */
+void
+esl_huffman_Destroy(ESL_HUFFMAN *hc)
+{
+  if (hc) {
+    free(hc->len);
+    free(hc->code);
+    free(hc->sorted_at);
+    free(hc->dt_len);
+    free(hc->dt_lcode);
+    free(hc->dt_rank);
+    free(hc);
+  }
+}
+
+  
+
+/*****************************************************************
+ * 2. Encoding
+ *****************************************************************/
+
+
+/* Function:  esl_huffman_Encode()
+ * Synopsis:  Encode a string.
+ * Incept:    SRE, Thu Jun  2 09:27:43 2016 [Hamilton]
+ *
+ * Purpose:   Use Huffman code <hc> to encode the plaintext input <T> of
+ *            length <n>. The encoded result <X> consists of <nb> bits,
+ *            stored in an array of <nX> <uint32_t>'s; this result is
+ *            returned through the pointers <*ret_X>, <*ret_nX>, and
+ *            <*ret_nb>.
+ *           
+ *            The encoded array <X> is allocated here, and must be
+ *            free'd by the caller.
+ *
+ * Args:      hc     - Huffman code to use for encoding
+ *            T      - plaintext input to encode, [0..n-1]; does not need to be NUL-terminated.
+ *            n      - length of T
+ *            ret_X  - RETURN: encoded bit array
+ *            ret_nb - RETURN: length of X in bits  (nX = nb / 32, rounded up)
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure. Now <*ret_X = NULL> and <*ret_nb = 0>.
+ */
+int
+esl_huffman_Encode(const ESL_HUFFMAN *hc, const char *T, int n, uint32_t **ret_X, int *ret_nb)
+{
+  uint32_t *X      = NULL; 
+  int       xalloc = ESL_MAX(16, (n+15)/16);   // current allocation for X, in uint32_t's
+  int       pos    = 0;                        // current position in X's uint32_t array
+  int       nb;
+  int       i;
+  int       status;
+
+  ESL_DASSERT1(( hc != NULL ));
+  ESL_DASSERT1(( T  != NULL ));
+  ESL_DASSERT1(( n > 0      ));
+
+  ESL_ALLOC(X, sizeof(uint32_t) * xalloc);
+
+  X[0] = 0;
+  nb     = 0;
+  for (i = 0; i < n; i++)
+    {
+      huffman_pack(X, &pos, &nb, hc->code[(int) T[i]], hc->len[(int) T[i]]);
+      
+      if (pos+1 == xalloc) {
+	xalloc *= 2;
+	ESL_REALLOC(X, sizeof(uint32_t) * xalloc);
+      }
+    }
+
+  *ret_X  = X;            // X consists of <pos+1> uint32_t's
+  *ret_nb = 32*pos + nb;  //  ... we return exact # of bits.
+  return eslOK;
+
+ ERROR:
+  *ret_X  = NULL;
+  *ret_nb = 0;
+  return status;
+}
+
+
+
+
+/*****************************************************************
+ * 3. Decoding
+ *****************************************************************/
+
+
+/* Function:  esl_huffman_Decode()
+ * Synopsis:  Decode a bit stream.
+ * Incept:    SRE, Thu Jun  2 09:52:46 2016 [Hamilton, Act I]
+ *
+ * Purpose:   Use Huffman code <hc> to decode a bit stream <X> of length
+ *            <n> integers and <nb> bits. The result is a plaintext 
+ *            string <T> of length <nT> characters. Return this result
+ *            through <*ret_T> and <*ret_nT>. 
+ *            
+ *            The decoded plaintext <T> is allocated here, and must be
+ *            free'd by the caller.
+ *            
+ *            <T> is NUL-terminated, just in case that's useful --
+ *            though the caller isn't necessarily going to treat <T>
+ *            as a string. (It could be using "symbols" 0..127, which
+ *            would include <\0> as a valid symbol.)
+ *
+ * Args:      hc     - Huffman code to use to decode <X>
+ *            X      - bit stream to decode 
+ *            nb     - length of <X> in BITS (nX = nb/32, rounded up)
+ *            ret_T  - RETURN: decoded plaintext string, \0-terminated
+ *            ret_n  - RETURN: length of <T> in chars
+ *
+ * Returns:   <eslOK> on success; <*ret_T> and <*ret_nT> hold the result.
+ *
+ * Throws:    <eslEMEM> on allocation failure. Now <*ret_T> is <NULL> and
+ *            <*ret_nT> is 0.
+ *
+ * Xref:      
+ */
+int
+esl_huffman_Decode(const ESL_HUFFMAN *hc, const uint32_t *X, int nb, char **ret_T, int *ret_n)
+{
+  char    *T   = NULL;
+  int      allocT;                   // current allocation for T
+  uint32_t v   = X[0];               // current (full) 32 bits we're going to decode in this step
+  int      i   = 1;                  // index of X[i] we will first pull *new* bits from, after decoding v
+  int      nX  = (nb+31)/32;         // length of X in uint32_t's: nb/32 rounded up.
+  int      a   = (nX > 1 ? 32 : 0);
+  int      pos = 0;
+  int      L;                        // length of code we just decoded, in bits
+  int      status;
+  
+  allocT = nX * 4;                  // an initial guess: 4 bytes per X, maybe 4x compression
+  ESL_ALLOC(T, sizeof(char) * allocT);
+
+  while (nb > 0)
+    {
+      huffman_unpack(hc, &v, X, nX, &i, &a, &(T[pos]), &L);
+      nb -= L;
+
+      if (++pos == allocT) {
+	allocT *= 2;
+	ESL_REALLOC(T, sizeof(char) * allocT);
+      }
+    }
+  
+  /* We know we have space for the \0, from how we reallocated. */
+  T[pos] = '\0';
+  *ret_T  = T;
+  *ret_n  = pos;
+  return eslOK;
+
+ ERROR:
+  *ret_T  = NULL;
+  *ret_n  = 0;
+  return status;
+}
+
+
+
+
+
+/*****************************************************************
+ * 4. Debugging, development
+ *****************************************************************/
+    
+int
+esl_huffman_Dump(FILE *fp, ESL_HUFFMAN *hc)
+{
+  int r,x;
+  int d,L;
+
+  for (r = 0; r < hc->Ku; r++)
+    {
+      x = hc->sorted_at[r];
+      fprintf(fp, "%3d %3d ", x, hc->len[x]);
+      dump_uint32(fp, hc->code[x], hc->len[x]);
+      fprintf(fp, "\n");
+    }
+  fputc('\n', fp);
+
+
+  if (hc->dt_len)
+    for (d = 0; d < hc->D; d++)
+      {
+	L = hc->dt_len[d];
+	fprintf(fp, "L=%2d  r=%3d (%3d) ", L, hc->dt_rank[d], hc->sorted_at[hc->dt_rank[d]]);
+	dump_uint32(fp, hc->dt_lcode[d], eslHUFFMAN_MAXCODE);
+	fputc('\n', fp);
+      }
+
+  return eslOK;
+}
+
+
+
+/*****************************************************************
+ * 5. Internal functions and structures
+ *****************************************************************/
 
 /* sort_floats_decreasing()
  * Sorting function for esl_quicksort(), putting 
  * symbol frequencies in decreasing order.
  */
 static int
-sort_floats_decreasing(void *data, int e1, int e2)
+sort_floats_decreasing(const void *data, int e1, int e2)
 {
   float *fq = (float *) data;
   if (fq[e1] > fq[e2]) return -1;
@@ -45,11 +371,11 @@ sort_floats_decreasing(void *data, int e1, int e2)
  * secondarily by ascending symbol code.
  */
 static int
-sort_canonical(void *data, int e1, int e2)
+sort_canonical(const void *data, int e1, int e2)
 {
-  ESL_HUFFMAN *hm = (ESL_HUFFMAN *) data;
-  int          L1 = hm->len[e1];
-  int          L2 = hm->len[e2];
+  ESL_HUFFMAN *hc = (ESL_HUFFMAN *) data;
+  int          L1 = hc->len[e1];
+  int          L2 = hc->len[e2];
   
   if      (L2 == 0) return -1;   // len=0 means symbol isn't encoded at all, doesn't occur
   else if (L1 == 0) return 1;
@@ -67,8 +393,8 @@ sort_canonical(void *data, int e1, int e2)
  * looking at the last ones.
  * 
  * Input: 
- *   hm->sorted_at[] lists symbol indices from largest to smallest freq.
- *   hm->Ku          is the number of syms w/ nonzero freq; tree has Ku-1 nodes
+ *   hc->sorted_at[] lists symbol indices from largest to smallest freq.
+ *   hc->Ku          is the number of syms w/ nonzero freq; tree has Ku-1 nodes
  *   htree           blank, allocated for at least Ku-1 nodes
  *   
  * Output:
@@ -78,23 +404,23 @@ sort_canonical(void *data, int e1, int e2)
  *   <eslOK> on success.  
  */
 static int
-huffman_tree(ESL_HUFFMAN *hm, struct hufftree_s *htree, float *fq)
+huffman_tree(ESL_HUFFMAN *hc, struct hufftree_s *htree, const float *fq)
 {
-  int r = hm->Ku-1;   // r = smallest leaf symbol that hasn't been included in tree yet; r+1 = # of leaves left
-  int k = hm->Ku-2;   // k = smallest internal node not used as a child yet; k-j = # nodes not used as child yet
+  int r = hc->Ku-1;   // r = smallest leaf symbol that hasn't been included in tree yet; r+1 = # of leaves left
+  int k = hc->Ku-2;   // k = smallest internal node not used as a child yet; k-j = # nodes not used as child yet
   int j;
 
-  for (j = hm->Ku-2; j >= 0; j--)  // j = index of next node we add; we add one per iteration
+  for (j = hc->Ku-2; j >= 0; j--)  // j = index of next node we add; we add one per iteration
     {       
       /* Should we join two leaves?
        *   If we have no internal nodes yet (because we're just starting),
        *   or the two smallest frequencies are <= the smallest unjoined node's value
        */
-      if ( (j == hm->Ku-2) ||  (r >= 1 && fq[hm->sorted_at[r]] <= htree[k].val))
+      if ( (j == hc->Ku-2) ||  (r >= 1 && fq[hc->sorted_at[r]] <= htree[k].val))
 	{
-	  htree[j].right = -hm->sorted_at[r];    // leaves are signified by negative indices in tree
-	  htree[j].left  = -hm->sorted_at[r-1];
-	  htree[j].val   = fq[hm->sorted_at[r]] + fq[hm->sorted_at[r-1]];
+	  htree[j].right = -hc->sorted_at[r];    // leaves are signified by negative indices in tree
+	  htree[j].left  = -hc->sorted_at[r-1];
+	  htree[j].val   = fq[hc->sorted_at[r]] + fq[hc->sorted_at[r-1]];
 	  r -= 2;
 	}
 
@@ -102,7 +428,7 @@ huffman_tree(ESL_HUFFMAN *hm, struct hufftree_s *htree, float *fq)
        *  If we have no leaves left, 
        *  or (we do have two nodes) and both are smaller than smallest unjoined leaf's value
        */
-       else if (r == -1  || (k-j >= 2 && htree[k-1].val < fq[hm->sorted_at[r]]))
+       else if (r == -1  || (k-j >= 2 && htree[k-1].val < fq[hc->sorted_at[r]]))
 	 {
 	   htree[j].right = k;
 	   htree[j].left  = k-1;
@@ -113,9 +439,9 @@ huffman_tree(ESL_HUFFMAN *hm, struct hufftree_s *htree, float *fq)
       /* Otherwise, we join smallest node and smallest leaf. */
        else 
 	 {
-	   htree[j].right = -hm->sorted_at[r];
+	   htree[j].right = -hc->sorted_at[r];
 	   htree[j].left  = k;
-	   htree[j].val   = fq[hm->sorted_at[r]] + htree[k].val;
+	   htree[j].val   = fq[hc->sorted_at[r]] + htree[k].val;
 	   r--;
 	   k--;
 	 }
@@ -130,39 +456,39 @@ huffman_tree(ESL_HUFFMAN *hm, struct hufftree_s *htree, float *fq)
  * tree is already indexed in traversal order.
  * 
  * Input:
- *   hm->Ku          is the number of syms w/ nonzero freqs; tree has Ku-1 nodes.
+ *   hc->Ku          is the number of syms w/ nonzero freqs; tree has Ku-1 nodes.
  *   htree[0..Ku-2]  is the constructed Huffman tree, with right/left/val set.
  *   htree[].len     has been initialized to 0 for all symbols 0..K
  *
  * Output:
  *   htree's depth field is set.
- *   hm->len is set for all encoded symbols (left at 0 for unused symbols)
- *   hm->Lmax is set
+ *   hc->len is set for all encoded symbols (left at 0 for unused symbols)
+ *   hc->Lmax is set
  *   
  * Return: 
  *   <eslOK> on success
  *   <eslERANGE> if max code length > eslHUFFMAN_MAXCODE and won't fit in uint32_t   
  */
 static int
-huffman_codelengths(ESL_HUFFMAN *hm, struct hufftree_s *htree, float *fq)
+huffman_codelengths(ESL_HUFFMAN *hc, struct hufftree_s *htree, const float *fq)
 {
   int i;
 
   htree[0].depth = 0;
-  for (i = 0; i < hm->Ku-1; i++)
+  for (i = 0; i < hc->Ku-1; i++)
     {
-      if (htree[i].right <= 0) hm->len[-htree[i].right]    = htree[i].depth + 1;
+      if (htree[i].right <= 0) hc->len[-htree[i].right]    = htree[i].depth + 1;
       else                     htree[htree[i].right].depth = htree[i].depth + 1;
       
-      if (htree[i].left <= 0)  hm->len[-htree[i].left]     = htree[i].depth + 1;
+      if (htree[i].left <= 0)  hc->len[-htree[i].left]     = htree[i].depth + 1;
       else                     htree[htree[i].left].depth  = htree[i].depth + 1;
     }
 
-  hm->Lmax = 0;
-  for (i = 0; i < hm->K; i++)
-    hm->Lmax = ESL_MAX(hm->len[i], hm->Lmax);
+  hc->Lmax = 0;
+  for (i = 0; i < hc->K; i++)
+    hc->Lmax = ESL_MAX(hc->len[i], hc->Lmax);
 
-  return (hm->Lmax > eslHUFFMAN_MAXCODE ? eslERANGE : eslOK);
+  return (hc->Lmax > eslHUFFMAN_MAXCODE ? eslERANGE : eslOK);
 }
 
 
@@ -170,38 +496,38 @@ huffman_codelengths(ESL_HUFFMAN *hm, struct hufftree_s *htree, float *fq)
  * Given code lengths, now we calculate the canonical Huffman encoding.
  * 
  * Input:
- *   hm->len[]  code lengths are set for all K (0 for unused symbols)
- *   hm->code[] have been initialized to 0 for all K
+ *   hc->len[]  code lengths are set for all K (0 for unused symbols)
+ *   hc->code[] have been initialized to 0 for all K
  *   
  * Output:  
- *   hm->code[] have been set for all used symbols.
- *   hm->D      number of different code lengths is set
+ *   hc->code[] have been set for all used symbols.
+ *   hc->D      number of different code lengths is set
  *   
  * Returns:
  *  <eslOK> on success.  
  */
 static int
-huffman_canonize(ESL_HUFFMAN *hm)
+huffman_canonize(ESL_HUFFMAN *hc)
 {
-  int i,r;
+  int r;
 
   /* Sort symbols according to 1) code length; 2) order in digital alphabet (i.e. symbol code itself)
    * Reuse/reset <sorted_at>.
    * You can't just sort the encoded Ku; you have to sort all K, because
    * quicksort expects indices to be contiguous (0..K-1).
    */
-  esl_quicksort(hm, hm->K, sort_canonical, hm->sorted_at);
+  esl_quicksort(hc, hc->K, sort_canonical, hc->sorted_at);
 
   /* Assign codes. (All K have been initialized to zero already.) */
-  for (r = 1; r < hm->Ku; r++)
-    hm->code[hm->sorted_at[r]] =
-      (hm->code[hm->sorted_at[r-1]] + 1) << (hm->len[hm->sorted_at[r]] - hm->len[hm->sorted_at[r-1]]);
+  for (r = 1; r < hc->Ku; r++)
+    hc->code[hc->sorted_at[r]] =
+      (hc->code[hc->sorted_at[r-1]] + 1) << (hc->len[hc->sorted_at[r]] - hc->len[hc->sorted_at[r-1]]);
 
 
   /* Set D, the number of different code lengths */
-  hm->D = 1;
-  for (r = 1; r < hm->Ku; r++)
-    if (hm->len[hm->sorted_at[r]] > hm->len[hm->sorted_at[r-1]]) hm->D++;
+  hc->D = 1;
+  for (r = 1; r < hc->Ku; r++)
+    if (hc->len[hc->sorted_at[r]] > hc->len[hc->sorted_at[r-1]]) hc->D++;
 
   return eslOK;
 }
@@ -212,46 +538,46 @@ huffman_canonize(ESL_HUFFMAN *hm)
  * efficiently decode it.
  * 
  * Input:
- *   hm->K         is set: total # of symbols (inclusive of unused ones)
- *   hm->Ku        is set: total # of encoded/used symbols
- *   hm->code      is set: canonical Huffman codes for symbols 0..K-1
- *   hm->len       is set: code lengths for symbols 0..K-1
- *   hm->sorted_at is set: canonical Huffman sort order 
- *   hm->Lmax      is set: maximum code length
- *   hm->D         is set: # of different code lengths
+ *   hc->K         is set: total # of symbols (inclusive of unused ones)
+ *   hc->Ku        is set: total # of encoded/used symbols
+ *   hc->code      is set: canonical Huffman codes for symbols 0..K-1
+ *   hc->len       is set: code lengths for symbols 0..K-1
+ *   hc->sorted_at is set: canonical Huffman sort order 
+ *   hc->Lmax      is set: maximum code length
+ *   hc->D         is set: # of different code lengths
  *
- *   hm->dt_len    is allocated for hm->D, but otherwise uninitialized
- *   hm->dt_lcode  is allocated for hm->D, but otherwise uninitialized
- *   hm->dt_rank   is allocated for hm->D, but otherwise uninitialized
+ *   hc->dt_len    is allocated for hc->D, but otherwise uninitialized
+ *   hc->dt_lcode  is allocated for hc->D, but otherwise uninitialized
+ *   hc->dt_rank   is allocated for hc->D, but otherwise uninitialized
  *   
  * Output:  
- *   hm->dt_len    is set: lengths of each used code length 0..D-1
- *   hm->dt_lcode  is set: left-flushed first code for each code length [d]
- *   hm->dt_rank   is set: rank r for 1st code for each used code length [d]
+ *   hc->dt_len    is set: lengths of each used code length 0..D-1
+ *   hc->dt_lcode  is set: left-flushed first code for each code length [d]
+ *   hc->dt_rank   is set: rank r for 1st code for each used code length [d]
  */
 static int 
-huffman_decoding_table(ESL_HUFFMAN *hm)
+huffman_decoding_table(ESL_HUFFMAN *hc)
 {
   int r;
   int D = 0;
 
-  hm->dt_len[0]   = hm->len[hm->sorted_at[0]];
-  hm->dt_lcode[0] = hm->code[hm->sorted_at[0]] << (eslHUFFMAN_MAXCODE - hm->len[hm->sorted_at[0]]);
-  hm->dt_rank[0]  = 0;
-  for (r = 1; r < hm->Ku; r++)
-    if (hm->len[hm->sorted_at[r]] > hm->len[hm->sorted_at[r-1]]) 
+  hc->dt_len[0]   = hc->len[hc->sorted_at[0]];
+  hc->dt_lcode[0] = hc->code[hc->sorted_at[0]] << (eslHUFFMAN_MAXCODE - hc->len[hc->sorted_at[0]]);
+  hc->dt_rank[0]  = 0;
+  for (r = 1; r < hc->Ku; r++)
+    if (hc->len[hc->sorted_at[r]] > hc->len[hc->sorted_at[r-1]]) 
       {
 	D++;
-	hm->dt_len[D]   = hm->len[hm->sorted_at[r]];
-	hm->dt_lcode[D] = hm->code[hm->sorted_at[r]] << (eslHUFFMAN_MAXCODE - hm->len[hm->sorted_at[r]]);
-	hm->dt_rank[D]  = r;
+	hc->dt_len[D]   = hc->len[hc->sorted_at[r]];
+	hc->dt_lcode[D] = hc->code[hc->sorted_at[r]] << (eslHUFFMAN_MAXCODE - hc->len[hc->sorted_at[r]]);
+	hc->dt_rank[D]  = r;
       }
-  ESL_DASSERT1(( hm->D == D ));
+  ESL_DASSERT1(( hc->D == D+1 ));
   return eslOK;
 }
 
 
-void
+static void
 dump_uint32(FILE *fp, uint32_t v, int L)
 {
   uint32_t mask;
@@ -263,124 +589,24 @@ dump_uint32(FILE *fp, uint32_t v, int L)
 
 
 
-
-
-/*****************************************************************
- * 2. The ESL_HUFFMAN object
- *****************************************************************/
-
-/* Function:  esl_huffman_Create()
- * Synopsis:  Create a new Huffman code.
- * Incept:    SRE, Thu Nov 12 11:08:09 2015
- *
- * Purpose:   Create a canonical Huffman code for observed symbol 
- *            frequencies <fq[0..K]> for <K> possible symbols.
- *            
- *            If you're encoding an Easel digital alphabet, 
- *            <K = abc->Kp>, inclusive of ambiguity codes, gaps,
- *            missing data, rare digital codes.
- *
- *            If you're encoding 7-bit ASCII text, K=128 and the
- *            symbols codes are ASCII codes.
- *            
- *            If you're encoding MTF-encoded ASCII text, K=128
- *            and the "symbol" codes are 0..127 offsets in 
- *            the move-to-front encoding.
- *
- *            Unobserved symbols (with <fq[] = 0>) will not be encoded;
- *            they get a code length of 0, and a code of 0.
- */
-ESL_HUFFMAN *
-esl_huffman_Create(float *fq, int K)
-{
-  ESL_HUFFMAN       *hm    = NULL;
-  struct hufftree_s *htree = NULL;  // only need tree temporarily, during code construction.
-  int                i,j,k,r;
-  int                status;
-
-  ESL_ALLOC(hm, sizeof(ESL_HUFFMAN));
-  hm->len       = NULL;
-  hm->code      = NULL;
-  hm->sorted_at = NULL;
-  hm->dt_len    = NULL;
-  hm->dt_lcode  = NULL;
-  hm->dt_rank   = NULL;
-
-  hm->K         = K;
-  hm->Ku        = 0;
-  hm->D         = 0;
-  hm->Lmax      = 0;
-
-  ESL_ALLOC(hm->len,       sizeof(int)               * hm->K);
-  ESL_ALLOC(hm->code,      sizeof(uint32_t)          * hm->K);
-  ESL_ALLOC(hm->sorted_at, sizeof(int)               * hm->K);
-
-  for (i = 0; i < hm->K; i++) hm->len[i]  = 0;
-  for (i = 0; i < hm->K; i++) hm->code[i] = 0;
-  
-  /* Sort the symbol frequencies, largest to smallest */
-  esl_quicksort(fq, hm->K, sort_floats_decreasing, hm->sorted_at);
-  
-  /* Figure out how many are nonzero */
-  for (r = hm->K-1; r >= 0; r--)
-    if (fq[hm->sorted_at[r]] > 0.) break;
-  hm->Ku = r+1;
-
-  ESL_ALLOC(htree,         sizeof(struct hufftree_s) * (hm->Ku-1));
-  if ( (status = huffman_tree       (hm, htree, fq)) != eslOK) goto ERROR;
-  if ( (status = huffman_codelengths(hm, htree, fq)) != eslOK) goto ERROR; // can fail eslERANGE on maxlen > 32
-  if ( (status = huffman_canonize   (hm))            != eslOK) goto ERROR;
-
-
-  ESL_ALLOC(hm->dt_len,   sizeof(int)      * hm->D);
-  ESL_ALLOC(hm->dt_lcode, sizeof(uint32_t) * hm->D);
-  ESL_ALLOC(hm->dt_rank,  sizeof(int)      * hm->D);
-  if ( (status = huffman_decoding_table(hm))         != eslOK) goto ERROR;
-
-  free(htree);
-  return hm;
-
- ERROR:
-  if (hm)    esl_huffman_Destroy(hm);
-  if (htree) free(htree);
-  return NULL;
-}
-
-
-
-/* Function:  esl_huffman_Destroy()
- * Synopsis:  Free an <ESL_HUFFMAN> code.
- * Incept:    SRE, Thu Nov 12 11:07:39 2015
- */
-void
-esl_huffman_Destroy(ESL_HUFFMAN *hm)
-{
-  if (hm) {
-    if (hm->len)       free(hm->len);
-    if (hm->code)      free(hm->code);
-    if (hm->sorted_at) free(hm->sorted_at);
-    if (hm->dt_len)    free(hm->dt_len);
-    if (hm->dt_lcode)  free(hm->dt_lcode);
-    if (hm->dt_rank)   free(hm->dt_rank);
-    free(hm);
-  }
-}
-
-  
-
-/*****************************************************************
- * 3. Encoding
- *****************************************************************/
-
 /* huffman_pack()
+ *
  * <X[i]> is the current uint32_t unit in the encoded buffer <X>. It
- * has <a> bits in it, maximally left-shifted. 32-a bits are
- * available.
+ * has <a> bits in it so far, maximally left-shifted; therefore (32-a)
+ * bits are available.
+ *
+ * <code> is the next Huffman code to pack into the buffer, of length
+ * <L>, and it's right flush.
+ *
+ *     a=10 used      (32-a)=20 free
+ *    |xxxxxxxxxx|......................| X[i]
+ *    |........................|yyyyyyyy| code, L=8
+ *               |----- w -----|
+ *                w = 32-(a+L)
  * 
- * <code> is the next Huffman code to pack into the buffer, of length <L>.
- * 
- * If L < 32-a, then we just pack it into X[i]. Else, we pack
- * what we can into X[i], and leave the remainder in X[i+1].
+ * If L < 32-a, then we just shift by w and pack it into X[i]. Else,
+ * we shift the other way (by -w), pack what we can into X[i], and
+ * leave the remainder in X[i+1].
  * 
  * We update <i> and <a> for <X> accordingly... so we pass them by
  * reference in <ip> and <ap>.
@@ -399,47 +625,19 @@ huffman_pack(uint32_t *X, int *ip, int *ap, uint32_t code, int L)
     {
       X[*ip] = X[*ip] | (code >> (-w));
       (*ip)++;
-      X[*ip] = code >> (32+w);
+      X[*ip] = code << (32+w);
       (*ap) = -w;
     }
-  else           // code packs exactly.
+  else           // code packs exactly; w=0, no leftshift needed, OR it as is.
     {
-      X[*ip] = X[*ip] | (code << w);
-      *ap =  0;
-      *ip += 1;
+      X[*ip] = X[*ip] | code;
+      *ip += 1; 
+      *ap =  0;  
+      X[*ip] = 0;  // don't forget to initialize X[i+1]!
     }
 }
 
-int
-esl_huffman_Encode(ESL_HUFFMAN *hm, uint8_t *T, int n, uint32_t **ret_X, int *ret_nX, int *ret_nb)
-{
-  int       xalloc = 4096;
-  uint32_t *X      = malloc(sizeof(uint32_t) * xalloc);
-  int       pos      = 0;
-  int       nb;
-  int       i;
 
-  X[0] = 0;
-  nb     = 0;
-  for (i = 0; i < n; i++)
-    {
-      huffman_pack(X, &pos, &nb, hm->code[T[i]], hm->len[T[i]]);
-      
-      if (pos+1 == xalloc) {
-	xalloc *= 2;
-	X       = realloc(X, sizeof(uint32_t) * xalloc);
-      }
-    }
-  *ret_X  = X;
-  *ret_nX = (pos+1);
-  *ret_nb = 32*pos + nb;
-  return eslOK;
-}
-
-
-/*****************************************************************
- * 4. Decoding
- *****************************************************************/
 
 /* huffman_unpack()
  * *vp  : ptr to v; v = next 32 bits
@@ -453,45 +651,41 @@ esl_huffman_Encode(ESL_HUFFMAN *hm, uint8_t *T, int n, uint32_t **ret_X, int *re
  * it's just an array.
  */
 static void
-huffman_unpack(ESL_HUFFMAN *hm, uint32_t *vp, uint32_t *X, int n, int *ip, int *ap, uint8_t *ret_x, int *ret_L)
+huffman_unpack(const ESL_HUFFMAN *hc, uint32_t *vp, const uint32_t *X, int n, int *ip, int *ap, char *ret_x, int *ret_L)
 {
-  int  L,D;
-  int  idx;
+  int      L,D;
+  int      idx;
+  uint32_t w;
 
-  //printf("Unpacking...\n");
-  //dump_uint32(stdout, *vp, 32);               fputc('\n', stdout);
-
-  for (D = 0; D < hm->D-1; D++)
-    if ((*vp) < hm->dt_lcode[D+1]) break;
-  L = hm->dt_len[D];
+  for (D = 0; D < hc->D-1; D++)
+    if ((*vp) < hc->dt_lcode[D+1]) break;
+  L = hc->dt_len[D];
   /* L is now the next code's length (prefix of v) */
-  //printf("code length = %d\n", L);
 
-  /* Take advantage of lexicographic sort/numerical order of canonical code, within each L */
-  idx     = hm->dt_rank[D] +  ( ((*vp) - hm->dt_lcode[D]) >> (eslHUFFMAN_MAXCODE-L) );
+  /* Decode, by taking advantage of lexicographic sort/numerical order of canonical code, within each L */
+  idx     = hc->dt_rank[D] +  ( ((*vp) - hc->dt_lcode[D]) >> (eslHUFFMAN_MAXCODE-L) );
   
   /* Now refill v, as much as we can, from bits in X[i] and X[i+1], and update i, a */
-  *vp  = (*vp << L);                    // Take L bits from *vp by leftshifting it.
-  //dump_uint32(stdout, *vp, 32); fputc('\n', stdout);
+  *vp  = ( (*vp) << L);                // Remove L bits from *vp by leftshifting it.
 
-  if (*ip < n) {                        // Take either L or all *ap bits from X[i], if it exists.
-    *vp   |= (X[*ip] >> (32-L));
-    //dump_uint32(stdout, *vp, 32); fputc('\n', stdout);
-    X[*ip] =  X[*ip] << L;
-    *ap -= L;
+  if (*ip < n) {                      // Take either L or all *ap bits from X[i], if it exists.
+    w    = X[*ip] << (32-(*ap));      // Shift off the bits we already used in X[i]. w is now X[i], left-flushed.
+    *vp |= (w >> (32-L));             // Right-shift w into position, leaving it with leading 0's where *vp already has bits.
+    *ap -= L;                         // We used up to L bits from X[i]
+
+    // if *ap is still >0, we have bits left to use in X[i]. Otherwise:
     if (*ap == 0)                       // If we exactly finished off X[i]:
       {
-	(*ip)++;
+	(*ip)++;                        // then advance in X[].
 	*ap = 32;
       }
     else if (*ap < 0)                   // If we finished off X[i] but still need some bits
       { 
-	(*ip)++;                        //   then go on to X[i+1].
+	(*ip)++;                        //   then go on to X[i+1] and 32 fresh bits.
 	if (*ip < n)                    //   If it exists...
 	  {                             //       (...no, I don't like all these branches either...)
 	    *ap += 32;                  //     then we're going to leave it w/ <*ap> bits
 	    *vp |= (X[*ip] >> *ap);     //     after taking the bits we need to fill v
-	    X[*ip] = X[*ip] << (32 - *ap);  //     and leftshifting X[i+1] by that many.
 	  }
 	else 
 	  {
@@ -500,79 +694,172 @@ huffman_unpack(ESL_HUFFMAN *hm, uint32_t *vp, uint32_t *X, int n, int *ip, int *
       }
   }
 
-  *ret_x  = hm->sorted_at[idx];
+  *ret_x  = (char) hc->sorted_at[idx];
   *ret_L  = L;
 }
 
-int
-esl_huffman_Decode(ESL_HUFFMAN *hm, uint32_t *X, int n, int nb, uint8_t **ret_T, int *ret_nT)
-{
-  uint8_t *T   = NULL;
-  int      allocT;
-  uint32_t v   = X[0];
-  int      i   = 1;
-  int      a   = (n > 1 ? 32 : 0);
-  int      pos = 0;
-  int      L;
-  
-  allocT = 4096;
-  T      = malloc(sizeof(uint8_t) * allocT);
-
-  while (nb > 0)
-    {
-      huffman_unpack(hm, &v, X, n, &i, &a, &(T[pos]), &L);
-      nb -= L;
-
-      if (++pos == allocT) {
-	allocT *= 2;
-	T = realloc(T, sizeof(uint8_t) * allocT);
-      }
-    }
-  
-  *ret_T  = T;
-  *ret_nT = pos;
-  return eslOK;
-}
-
-
-
 
 /*****************************************************************
- * x. Debugging, development
+ * 6. Unit tests
  *****************************************************************/
-    
-int
-esl_huffman_Dump(FILE *fp, ESL_HUFFMAN *hm)
+#ifdef eslHUFFMAN_TESTDRIVE
+#include "esl_random.h"
+#include "esl_randomseq.h"
+#include "esl_vectorops.h"
+
+#include <string.h>
+
+
+static void
+utest_kryptos(ESL_RANDOMNESS *rng)
 {
-  int r,x;
-  int d,L;
+  char         msg[]   = "kryptos utest failed";
+  ESL_HUFFMAN *hc      = NULL;
+  char         T[]     = "THE CAKE IS A LIE";
+  //  char         T[]     = "BETWEEN SUBTLE SHADING AND THE ABSENCE OF LIGHT LIES THE NUANCE OF IQLUSION";
+  int          n       = strlen(T);
+  uint32_t    *X       = NULL;
+  int          nb;
+  char        *T2      = NULL;
+  int          n2;
+  float        fq[128];
+  int          K       = 128;
+  int          i;
+  int          status;
 
-  for (r = 0; r < hm->Ku; r++)
-    {
-      x = hm->sorted_at[r];
-      fprintf(fp, "%3d %3d ", x, hm->len[x]);
-      dump_uint32(fp, hm->code[x], hm->len[x]);
-      fprintf(fp, "\n");
-    }
-  fputc('\n', fp);
+  /* Any half-assed frequency distribution will do for this, over [ A-Z] */
+  for (i = 0;   i <  128; i++) fq[i] = 0.;
+  for (i = 'A'; i <= 'Z'; i++) fq[i] = esl_random(rng);
+  fq[' '] = esl_random(rng);
+  esl_vec_FNorm(fq, 128);
+
+  if (( status = esl_huffman_Build (fq, K, &hc) )         != eslOK) esl_fatal(msg);
+  if (( status = esl_huffman_Encode(hc, T, n, &X, &nb))   != eslOK) esl_fatal(msg);
+  if (( status = esl_huffman_Decode(hc, X, nb, &T2, &n2)) != eslOK) esl_fatal(msg);
+
+  //esl_huffman_Dump(stdout, hc);
+  //printf("%s\n", T);
+  //printf("%s\n", T2);
+
+  if (n2 != n)            esl_fatal(msg);
+  if (strcmp(T, T2) != 0) esl_fatal(msg);
+  
 
 
-  if (hm->dt_len)
-    for (d = 0; d < hm->D; d++)
-      {
-	L = hm->dt_len[d];
-	fprintf(fp, "L=%2d  r=%3d (%3d) ", L, hm->dt_rank[d], hm->sorted_at[hm->dt_rank[d]]);
-	dump_uint32(fp, hm->dt_lcode[d], eslHUFFMAN_MAXCODE);
-	fputc('\n', fp);
-      }
-
-  return eslOK;
+  free(X);
+  free(T2);
+  esl_huffman_Destroy(hc);
 }
+  
+  
+
+/* utest_backandforth()
+ * Encode and decode a random text string, and test 
+ * that it decodes to the original.
+ */
+static void
+utest_backandforth(ESL_RANDOMNESS *rng)
+{
+  char         msg[] = "back and forth utest failed";
+  ESL_HUFFMAN *hc    = NULL;
+  double      *fq0   = NULL;
+  float       *fq    = NULL;
+  int          K;             // alphabet size: randomly chosen from 1..128
+  char        *T     = NULL;  // random plaintext
+  int          n;             // randomly chosen length of plaintext T
+  uint32_t    *X     = NULL;  // Huffman-coded bit stream
+  int          nb;	      // length of X in bits
+  char        *T2    = NULL;  // decoded plaintext
+  int          n2;            // length of T2 in chars
+  int          i;          
+  int          status;
+
+  /* Sample a zero-peppered frequency distribution <fq> for a randomly
+   * selected alphabet size <K>.
+   */
+  K  = 1 + esl_rnd_Roll(rng, 128);                  // Choose a random alphabet size from 1 to 128
+  if (( fq0 = malloc(sizeof(double) * K)) == NULL) esl_fatal(msg);  // esl_random works in doubles
+  if (( fq  = malloc(sizeof(float)  * K)) == NULL) esl_fatal(msg);  // esl_huffman works in floats
+  esl_rnd_Dirichlet(rng, NULL, K, fq0);             // Sample a uniform random probability vector
+  for (i = 0; i < K; i++)                           // Pepper it with exact 0's while converting to float
+    fq[i] =  ( esl_rnd_Roll(rng, 4) == 0 ? 0. : (float) fq0[i] );
+  esl_vec_FNorm(fq, K);                             // and renormalize.
+
+  /* Sample a random plaintext array <T>, of randomly selected length <n>.
+   * We're using codes 0..K-1 -- T is not a string, it's an array -- don't \0 it.
+   */
+  n = 1 + esl_rnd_Roll(rng, 10);
+  if (( T = malloc(sizeof(char) * (n+1))) == NULL) esl_fatal(msg);
+  for (i = 0; i < n; i++) T[i] = esl_rnd_FChoose(rng,fq,K);
+
+  if (( status = esl_huffman_Build (fq, K, &hc) )         != eslOK) esl_fatal(msg);
+  if (( status = esl_huffman_Encode(hc, T, n, &X, &nb))   != eslOK) esl_fatal(msg);
+  if (( status = esl_huffman_Decode(hc, X, nb, &T2, &n2)) != eslOK) esl_fatal(msg);
+
+  //esl_huffman_Dump(stdout, hc);
+  
+  if ( n2 != n)               esl_fatal(msg);
+  if ( memcmp(T, T2, n) != 0) esl_fatal(msg);
+
+  free(T2);
+  free(X);
+  free(fq0);
+  free(fq);
+  free(T);
+  esl_huffman_Destroy(hc);
+}
+#endif /*eslHUFFMAN_TESTDRIVE*/
+
 
 
 
 /*****************************************************************
- * x. Example
+ * 7. Test driver
+ *****************************************************************/
+#ifdef eslHUFFMAN_TESTDRIVE
+#include "esl_config.h"
+
+#include <stdio.h>
+
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_huffman.h"
+#include "esl_random.h"
+
+static ESL_OPTIONS options[] = {
+   /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
+  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",             0},
+  {"-s",  eslARG_INT,       "0", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>",   0},
+  { 0,0,0,0,0,0,0,0,0,0},
+};
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for huffman module";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS    *go   = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng  = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+
+  fprintf(stderr, "## %s\n", argv[0]);
+  fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
+
+  utest_kryptos     (rng);
+  utest_backandforth(rng);
+  
+  fprintf(stderr, "#  status = ok\n");
+  
+  esl_getopts_Destroy(go);
+  esl_randomness_Destroy(rng);
+  return eslOK;
+}
+#endif /*eslHUFFMAN_TESTDRIVE*/
+
+
+
+
+/*****************************************************************
+ * 8. Example
  *****************************************************************/
 #ifdef eslHUFFMAN_EXAMPLE
 
@@ -587,7 +874,7 @@ esl_huffman_Dump(FILE *fp, ESL_HUFFMAN *hm)
  * Optionally return the number of characters in <opt_n>.
  * Convert all \n to spaces.
  */
-static uint8_t *
+static char *
 read_text(FILE *fp, int *opt_n)
 {
   int   maxlinelen = 4096;
@@ -604,7 +891,7 @@ read_text(FILE *fp, int *opt_n)
     }
 
   if (opt_n) *opt_n = n;
-  return (uint8_t *) text;
+  return text;
 }
 
 int
@@ -612,37 +899,37 @@ main(int argc, char **argv)
 {
   FILE     *fp = fopen(argv[1], "r");
   int       n;
-  uint8_t  *T  = read_text(fp, &n);
+  char     *T  = read_text(fp, &n);
   uint32_t *X  = NULL;
   float     fq[128];
   int       c,i;
-  int       nX, nb;
-  ESL_HUFFMAN *hm = NULL;
-  uint8_t     *newT = NULL;
+  int       nb;
+  ESL_HUFFMAN *hc   = NULL;
+  char        *newT = NULL;
   int          nT;
 
-  for (c = 0; c < 128; c++) fq[c]     = 0.;
-  for (i = 0; i < n;   i++) fq[T[i]] += 1.;
+  for (c = 0; c < 128; c++) fq[c]          = 0.;
+  for (i = 0; i < n;   i++) fq[(int) T[i]] += 1.;
   
-  hm = esl_huffman_Create(fq, 128);
-  esl_huffman_Dump(stdout, hm);
+  esl_huffman_Build(fq, 128, &hc);
+  esl_huffman_Dump(stdout, hc);
 
-  esl_huffman_Encode(hm, T, n, &X, &nX, &nb);
+  esl_huffman_Encode(hc, T, n, &X, &nb);
 
   printf("Original:   %d bytes\n", n);
-  printf("Compressed: %d bytes (%d bits)\n", nX*4, nb);
+  printf("Compressed: %d bytes (%d bits)\n", 4*(nb+31)/32, nb);
 
   for (i = 0; i < 30; i++) {
     dump_uint32(stdout, X[i], 32);
     fputc('\n', stdout);
   }
 
-  esl_huffman_Decode(hm, X, nX, nb, &newT, &nT);
-  for (i = 0; i < 30; i++)
+  esl_huffman_Decode(hc, X, nb, &newT, &nT);
+  for (i = 0; i < 100; i++)
     fputc(newT[i], stdout);
   fputc('\n', stdout);
 
-  esl_huffman_Destroy(hm);
+  esl_huffman_Destroy(hc);
   free(T);
   fclose(fp);
   return 0;

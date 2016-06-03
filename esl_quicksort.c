@@ -16,9 +16,62 @@
 #include "easel.h"
 #include "esl_quicksort.h"
 
+static void partition(const void *data, int (*comparison)(const void *data, int o1, int o2), int *ord, int lo, int hi);
+
+
 /*****************************************************************
  * 1. Quicksort
  *****************************************************************/
+
+/* Function:  esl_quicksort()
+ * Synopsis:  Quicksort algorithm.
+ * Incept:    SRE, Wed Nov 11 16:34:05 2015
+ *
+ * Purpose:   <data> points to an array or structure that consists of
+ *            <n> elements that we can identify with unique integer
+ *            identifiers 0..<n-1>. Sort these elements, using a
+ *            <*comparison()> function that returns -1, 0, or 1 when
+ *            element <o1> should be sorted before, equal to, or after
+ *            element <o2>. Caller provides an allocated array
+ *            <sorted_at> to hold the result, allocated for at least
+ *            <n> integers. The result in <sorted_at> consists of the
+ *            ordered array of identifiers. For example,
+ *            <sorted_at[0]> is the index of the best (first) element
+ *            in the original <data> array, and <sorted_at[n-1]> is
+ *            the id of the worst (last) element; <data[sorted_at[0]]>
+ *            and <data[sorted_at[n-1]]> are the best and worst
+ *            elements themselves. The original <data> array is 
+ *            unaltered.
+ *            
+ *            Compared to standard <qsort()>, the main advantage of
+ *            <esl_qsort()> is that it is reentrant: it passes an
+ *            arbitrary <data> pointer to the comparison function, so
+ *            it can sort the elements of arbitrary structures or
+ *            arrays without having to globally or statically expose
+ *            those data. (A reentrant <qsort_r()> function is
+ *            available in the libc of some platforms, but is not
+ *            standard POSIX ANSI C, so we cannot rely on it.)  The
+ *            main disadvantage is that <esl_quicksort()> takes
+ *            additional memory (the <sorted_at> array), whereas
+ *            <qsort()> sorts in place.
+ *            
+ * Args:      data         - generic pointer to the data to be sorted.
+ *            n            - <data> consists of <n> elements numbered 0..n-1
+ *            comparison() - returns -1,0,1 if o1 is better, equal, worse than o2
+ *            sorted_at    - sorted array of the data[] idx's 0..n-1.
+ *            
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_quicksort(const void *data, int n, int (*comparison)(const void *data, int o1, int o2), int *sorted_at)
+{
+  int i;
+  for (i = 0; i < n; i++) sorted_at[i] = i;
+  partition(data, comparison, sorted_at, 0, n-1);
+  return eslOK;
+}
+
+
 
 /* 
  * We're sorting a subrange of <ord>, from <ord[lo]..ord[hi]>
@@ -26,7 +79,7 @@
  *   We're sorting <ord> by data[ord[i]] better than data[ord[i+1]]
  */
 static void
-partition(void *data, int (*comparison)(void *data, int o1, int o2), int *ord, int lo, int hi)
+partition(const void *data, int (*comparison)(const void *data, int o1, int o2), int *ord, int lo, int hi)
 {
   int i = lo;
   int j = hi+1;
@@ -61,51 +114,6 @@ partition(void *data, int (*comparison)(void *data, int o1, int o2), int *ord, i
 }
   
 
-/* Function:  esl_quicksort()
- * Synopsis:  Quicksort algorithm.
- * Incept:    SRE, Wed Nov 11 16:34:05 2015
- *
- * Purpose:   <data> points to an array or structure that consists of
- *            <n> elements that we can identify with unique integer
- *            identifiers 0..<n-1>. Sort these elements, using a
- *            <*comparison()> function that returns -1, 0, or 1 when
- *            element <o1> should be sorted before, equal to, or after
- *            element <o2>. Caller provides an allocated array
- *            <sorted_at> to hold the result, allocated for at least
- *            <n> integers. The result in <sorted_at> consists of the
- *            ordered array of identifiers. For example,
- *            <sorted_at[0]> is the id of the best (first) element,
- *            and <sorted_at[n-1]> is the id of the worst (last)
- *            element; <data[sorted_at[0]]> and <data[sorted_at[n-1]]>
- *            are the best and worst elements themselves.
- *            
- *            Compared to standard <qsort()>, the main advantage of
- *            <esl_qsort()> is that it is reentrant: it passes an
- *            arbitrary <data> pointer to the comparison function, so
- *            it can sort the elements of arbitrary structures or
- *            arrays without having to globally or statically expose
- *            those data. (A reentrant <qsort_r()> function is
- *            available in the libc of some platforms, but is not
- *            standard POSIX ANSI C, so we cannot rely on it.)  The
- *            main disadvantage is that <esl_quicksort()> takes
- *            additional memory (the <sorted_at> array), whereas
- *            <qsort()> sorts in place.
- *            
- * Args:      data         - generic pointer to the data to be sorted.
- *            n            - <data> consists of <n> elements numbered 0..n-1
- *            comparison() - returns -1,0,1 if o1 is better, equal, worse than o2
- *            sorted_at    - sorted array of the data[] idx's 0..n-1.
- *            
- * Returns:   <eslOK> on success.
- */
-int
-esl_quicksort(void *data, int n, int (*comparison)(void *data, int o1, int o2), int *sorted_at)
-{
-  int i;
-  for (i = 0; i < n; i++) sorted_at[i] = i;
-  partition(data, comparison, sorted_at, 0, n-1);
-  return eslOK;
-}
 
 
 /*****************************************************************
@@ -116,7 +124,7 @@ esl_quicksort(void *data, int n, int (*comparison)(void *data, int o1, int o2), 
 #include "esl_random.h"
 
 int 
-sort_floats_ascending(void *data, int o1, int o2)
+sort_floats_ascending(const void *data, int o1, int o2)
 {
   float *x = (float *) data;
   if (x[o1] < x[o2]) return -1;

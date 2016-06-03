@@ -97,6 +97,7 @@ HDRS = 	easel.h\
 	esl_heap.h\
 	esl_histogram.h\
 	esl_hmm.h\
+	esl_huffman.h\
 	esl_hyperexp.h\
 	esl_keyhash.h\
 	esl_mem.h\
@@ -118,6 +119,7 @@ HDRS = 	easel.h\
 	esl_msaweight.h\
 	esl_normal.h\
 	esl_paml.h\
+	esl_quicksort.h\
 	esl_random.h\
 	esl_randomseq.h\
 	esl_ratematrix.h\
@@ -162,6 +164,7 @@ OBJS =	easel.o\
 	esl_heap.o\
 	esl_histogram.o\
 	esl_hmm.o\
+	esl_huffman.o\
 	esl_hyperexp.o\
 	esl_keyhash.o\
 	esl_mem.o\
@@ -183,6 +186,7 @@ OBJS =	easel.o\
 	esl_msaweight.o\
 	esl_normal.o\
 	esl_paml.o\
+	esl_quicksort.o\
 	esl_random.o\
 	esl_randomseq.o\
 	esl_ratematrix.o\
@@ -207,6 +211,7 @@ OBJS =	easel.o\
 	esl_weibull.o\
 	esl_workqueue.o\
 	esl_wuss.o
+
 #	esl_swat.o
 
 
@@ -238,6 +243,7 @@ UTESTS =\
 	esl_heap_utest\
 	esl_histogram_utest\
 	esl_hmm_utest\
+	esl_huffman_utest\
 	esl_hyperexp_utest\
 	esl_keyhash_utest\
 	esl_mem_utest\
@@ -254,6 +260,7 @@ UTESTS =\
 	esl_msafile_stockholm_utest\
 	esl_msaweight_utest\
 	esl_normal_utest\
+	esl_quicksort_utest\
 	esl_random_utest\
 	esl_randomseq_utest\
 	esl_ratematrix_utest\
@@ -281,9 +288,9 @@ UTESTS =\
 #	swat_utest\
 
 EXAMPLES = \
-        easel_example\
-        esl_alphabet_example\
-        esl_alphabet_example2\
+	easel_example\
+	esl_alphabet_example\
+	esl_alphabet_example2\
 	esl_alphabet_example3\
 	esl_buffer_example\
 	esl_buffer_example2\
@@ -291,32 +298,33 @@ EXAMPLES = \
 	esl_buffer_example4\
 	esl_buffer_example5\
 	esl_buffer_example6\
-        esl_cluster_example\
-        esl_dirichlet_example\
-        esl_dmatrix_example\
-        esl_dsqdata_example\
-        esl_dsqdata_example2\
-        esl_exponential_example\
-        esl_fileparser_example\
-        esl_fileparser_example2\
-        esl_gamma_example\
+	esl_cluster_example\
+	esl_dirichlet_example\
+	esl_dmatrix_example\
+	esl_dsqdata_example\
+	esl_dsqdata_example2\
+	esl_exponential_example\
+	esl_fileparser_example\
+	esl_fileparser_example2\
+	esl_gamma_example\
 	esl_gencode_example\
 	esl_gencode_example2\
-        esl_getopts_example\
-        esl_getopts_example2\
-        esl_gev_example\
-        esl_gumbel_example\
-        esl_histogram_example\
-        esl_histogram_example2\
-        esl_histogram_example3\
-        esl_histogram_example4\
-        esl_histogram_example5\
-        esl_hmm_example\
-        esl_hyperexp_example\
-        esl_keyhash_example\
-        esl_minimizer_example\
-        esl_mixgev_example\
-        esl_msafile_example\
+	esl_getopts_example\
+	esl_getopts_example2\
+	esl_gev_example\
+	esl_gumbel_example\
+	esl_histogram_example\
+	esl_histogram_example2\
+	esl_histogram_example3\
+	esl_histogram_example4\
+	esl_histogram_example5\
+	esl_hmm_example\
+	esl_huffman_example\
+	esl_hyperexp_example\
+	esl_keyhash_example\
+	esl_minimizer_example\
+	esl_mixgev_example\
+	esl_msafile_example\
 	esl_msafile_a2m_example\
 	esl_msafile_a2m_example2\
 	esl_msafile_afa_example\
@@ -331,38 +339,40 @@ EXAMPLES = \
 	esl_msafile_selex_example2\
 	esl_msafile_stockholm_example\
 	esl_msafile_stockholm_example2\
-        esl_msacluster_example\
-        esl_msashuffle_example\
-        esl_msaweight_example\
-        esl_normal_example\
-        esl_random_example\
+	esl_msacluster_example\
+	esl_msashuffle_example\
+	esl_msaweight_example\
+	esl_normal_example\
+	esl_quicksort_example\
+	esl_random_example\
 	esl_regexp_example\
 	esl_regexp_example2\
 	esl_regexp_example3\
-        esl_rootfinder_example\
-        esl_rootfinder_example2\
-        esl_scorematrix_example\
-        esl_sq_example\
-        esl_sq_example2\
-        esl_sqio_example\
-        esl_sqio_example2\
-        esl_sqio_example3\
-        esl_sse_example\
-        esl_ssi_example\
-        esl_ssi_example2\
-        esl_stack_example\
-        esl_stats_example\
-        esl_stats_example2\
-        esl_stopwatch_example\
-        esl_stretchexp_example\
-        esl_threads_example\
-        esl_threads_example2\
-        esl_tree_example\
-        esl_tree_example2\
-        esl_vectorops_example\
-        esl_vmx_example\
-        esl_weibull_example\
-        esl_workqueue_example
+	esl_rootfinder_example\
+	esl_rootfinder_example2\
+	esl_scorematrix_example\
+	esl_sq_example\
+	esl_sq_example2\
+	esl_sqio_example\
+	esl_sqio_example2\
+	esl_sqio_example3\
+	esl_sse_example\
+	esl_ssi_example\
+	esl_ssi_example2\
+	esl_stack_example\
+	esl_stats_example\
+	esl_stats_example2\
+	esl_stopwatch_example\
+	esl_stretchexp_example\
+	esl_threads_example\
+	esl_threads_example2\
+	esl_tree_example\
+	esl_tree_example2\
+	esl_vectorops_example\
+	esl_vmx_example\
+	esl_weibull_example\
+	esl_workqueue_example
+
 #       esl_distance_example\
 #       esl_hmm_example\
 #       esl_msafile_clustal_example\

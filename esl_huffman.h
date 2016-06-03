@@ -25,12 +25,13 @@ typedef struct huffman_s {
 
 #define eslHUFFMAN_MAXCODE  32    // Maximum <code> length in bits: uint32_t
 
-extern ESL_HUFFMAN *esl_huffman_Create(float *fq, int K);
-extern void         esl_huffman_Destroy(ESL_HUFFMAN *hm);
+extern int  esl_huffman_Build(const float *fq, int K, ESL_HUFFMAN **ret_hc);
+extern void esl_huffman_Destroy(ESL_HUFFMAN *hc);
 
-extern int          esl_huffman_Encode(ESL_HUFFMAN *hc, uint8_t *T, int n, uint32_t **ret_X, int *ret_nX, int *ret_nb);
+extern int  esl_huffman_Encode(const ESL_HUFFMAN *hc, const char     *T, int n,  uint32_t **ret_X, int *ret_nb);
+extern int  esl_huffman_Decode(const ESL_HUFFMAN *hc, const uint32_t *X, int nb, char     **ret_T, int *ret_n);
 
-extern int          esl_huffman_Dump(FILE *fp, ESL_HUFFMAN *hm);
+extern int  esl_huffman_Dump(FILE *fp, ESL_HUFFMAN *hc);
 
 #endif /*eslHUFFMAN_INCLUDED*/
 

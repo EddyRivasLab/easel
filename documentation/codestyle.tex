@@ -942,6 +942,8 @@ fill data into it. It does not necessarily mean that the object
 contains valid data.
 
 \begin{sreapi}
+
+
 \hypertarget{ifc:Create} 
 {\item[\_Create(n)]}
 
@@ -950,8 +952,13 @@ size information as arguments (there often aren't any), and it returns a
 pointer to the newly allocated object. If an (optional) number of
 elements \ccode{n} is provided, this specifies the number of elements
 that the object is going to contain (for a fixed-size object) or the
-initial allocation size (for a resizable object). In the event of any
-failure, the a \ccode{\_Create} procedure throws \ccode{NULL}.
+initial allocation size (for a resizable object). In the event of an
+allocation failure, a \ccode{\_Create} procedure throws \ccode{NULL}.
+
+(If any error other than an allocation failure can happen, you should
+use \ccode{\_Build()} instead. A caller is allowed to assume that a
+\ccode{NULL} return from \ccode{\_Create()} is equivalent to
+\ccode{eslEMEM}.)
 
 The internals of some resizeable objects have an \ccode{nredline}
 parameter that controls an additional memory management rule. These
@@ -970,6 +977,21 @@ At least one module (\ccode{esl\_tree}) allows for creating either a
 fixed-size or a resizeable object; in this case, there is a
 \ccode{\_CreateGrowable()} call for the resizeable version.
 
+
+
+
+\hypertarget{ifc:Build} 
+{\item[\_Build()]}
+
+A \ccode{\_Build()} interface is the same as \ccode{\_Create()}, but
+instead of returning a pointer to the new object, we return an Easel
+error code, and the new object is returned through a \ccode{*ret\_obj}
+argument.
+
+
+
+
+
 \hypertarget{ifc:Destroy} 
 {\item[\_Destroy(obj)]}
 A \ccode{\_Destroy()} interface takes an object pointer as an
@@ -985,6 +1007,9 @@ For example:
    sq = esl_sq_Create();
    esl_sq_Destroy(sq);
 \end{cchunk}
+
+
+
 
 %%%%%%%%%%%%%%%%
   \subsubsection{opening and closing input streams}

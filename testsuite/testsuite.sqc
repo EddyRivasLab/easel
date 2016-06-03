@@ -36,6 +36,7 @@
 1 exercise msafile-stockholm  @esl_msafile_stockholm_utest@
 1 exercise msaweight-utest    @esl_msaweight_utest@
 1 exercise normal-utest       @esl_normal_utest@
+1 exercise quicksort-utest    @esl_quicksort_utest@
 1 exercise random-utest       @esl_random_utest@
 1 exercise randomseq-utest    @esl_randomseq_utest@
 1 exercise ratematrix-utest   @esl_ratematrix_utest@
