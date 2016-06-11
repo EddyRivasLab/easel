@@ -206,8 +206,9 @@ AS_IF([test "x$check_threads" != xno],
 
 AC_ARG_ENABLE(gcov,[AS_HELP_STRING([--enable-gcov],[compile for code coverage testing])], enable_gcov=$enableval,  enable_gcov=no)
 AC_ARG_ENABLE(gprof,[AS_HELP_STRING([--enable-gprof],[compile for gcc code profiling])],  enable_gprof=$enableval, enable_gprof=no)
-AC_ARG_ENABLE(sse,[AS_HELP_STRING([--enable-sse],[enable SSE optimizations])] ,           enable_sse=$enableval,   enable_sse=check)
-AC_ARG_ENABLE(vmx,[AS_HELP_STRING([--enable-vmx],[enable Altivec/VMX optimizations])],    enable_vmx=$enableval,   enable_vmx=check)
+# Temporary change for ARM
+#AC_ARG_ENABLE(sse,[AS_HELP_STRING([--enable-sse],[enable SSE optimizations])] ,           enable_sse=$enableval,   enable_sse=check)
+#AC_ARG_ENABLE(vmx,[AS_HELP_STRING([--enable-vmx],[enable Altivec/VMX optimizations])],    enable_vmx=$enableval,   enable_vmx=check)
 AC_ARG_WITH(gsl,[AS_HELP_STRING([--with-gsl],[use the GSL, GNU Scientific Library])],     with_gsl=$withval,       with_gsl=no)
 AC_ARG_ENABLE(mpi,[AS_HELP_STRING([--enable-mpi],[enable MPI parallelization])],          enable_mpi=$enableval,   enable_mpi=no)
 
@@ -310,7 +311,8 @@ if test "$enable_sse" = "check" && test "$enable_vmx" != "yes"; then
 		                      [[__m128i v = _mm_set1_epi8(0);]])],
                    [AC_MSG_RESULT([yes])
                      enable_sse=yes],
-                   [AC_MSG_RESULT([no])])])
+                   [AC_MSG_RESULT([no])
+					 enable_sse=no])])
    CFLAGS="$sre_save_CFLAGS"
    CPPFLAGS="$sre_save_CPPFLAGS"
 fi
@@ -327,8 +329,7 @@ if test "$enable_sse" != "yes"; then
        AX_CHECK_COMPILER_FLAGS(-faltivec, [VMX_SIMD_CFLAGS="-faltivec"],
          [AX_CHECK_COMPILER_FLAGS(-maltivec -mabi=altivec,
  	     [VMX_SIMD_CFLAGS="-maltivec -mabi=altivec"],
-             [AX_CHECK_COMPILER_FLAGS(-fvec, [VMX_SIMD_CFLAGS="-fvec"],
-		     [AC_MSG_ERROR([Need a version of gcc with -maltivec])])])])
+             [AX_CHECK_COMPILER_FLAGS(-fvec, [VMX_SIMD_CFLAGS="-fvec"])])])
     elif test "${ax_cv_c_compiler_vendor}" = "ibm"; then
        AX_CHECK_COMPILER_FLAGS(-qenablevmx, [VMX_SIMD_CFLAGS="$VMX_SIMD_CFLAGS -qenablevmx"],[])
        AX_CHECK_COMPILER_FLAGS(-qaltivec,   [VMX_SIMD_CFLAGS="$VMX_SIMD_CFLAGS -qaltivec"],[])
