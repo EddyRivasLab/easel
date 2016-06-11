@@ -206,8 +206,11 @@ AS_IF([test "x$check_threads" != xno],
 
 AC_ARG_ENABLE(gcov,[AS_HELP_STRING([--enable-gcov],[compile for code coverage testing])], enable_gcov=$enableval,  enable_gcov=no)
 AC_ARG_ENABLE(gprof,[AS_HELP_STRING([--enable-gprof],[compile for gcc code profiling])],  enable_gprof=$enableval, enable_gprof=no)
-AC_ARG_ENABLE(sse,[AS_HELP_STRING([--enable-sse],[enable SSE optimizations])] ,           enable_sse=$enableval,   enable_sse=check)
-AC_ARG_ENABLE(vmx,[AS_HELP_STRING([--enable-vmx],[enable Altivec/VMX optimizations])],    enable_vmx=$enableval,   enable_vmx=check)
+# Temporary change for ARM
+AC_ARG_ENABLE(neon, [AS_HELP_STRING([--enable-neon],[enable NEON optimizations])], 
+	enable_neon=$enableval, enable_neon=check)
+#AC_ARG_ENABLE(sse,[AS_HELP_STRING([--enable-sse],[enable SSE optimizations])] ,           enable_sse=$enableval,   enable_sse=check)
+#AC_ARG_ENABLE(vmx,[AS_HELP_STRING([--enable-vmx],[enable Altivec/VMX optimizations])],    enable_vmx=$enableval,   enable_vmx=check)
 AC_ARG_WITH(gsl,[AS_HELP_STRING([--with-gsl],[use the GSL, GNU Scientific Library])],     with_gsl=$withval,       with_gsl=no)
 AC_ARG_ENABLE(mpi,[AS_HELP_STRING([--enable-mpi],[enable MPI parallelization])],          enable_mpi=$enableval,   enable_mpi=no)
 
@@ -281,98 +284,36 @@ fi
 ESL_PIC_FLAGS
 
 
-# SSE: figure out our @SIMD_CFLAGS@, define HAVE_SSE2
-# The AC_RUN_IFELSE() is there because it's possible to have 
-# hardware that doesn't support SSE2 instructions, yet the
-# compiler can generate them: example AMD Athlons with gcc.
-# So we need to test that an SSE2 program actually runs without
-# generating an "illegal instruction" error. The program
-# here is sufficient [xref J3/127].
-# Note: some platforms (Ubuntu 32-bit for example) absolutely
-# must have the -msse2 cflag on in order to detect a working
-# emmintrin.h, so we set SIMD_CFLAGS before running the test.
-if test "$enable_sse" = "yes" || test "$enable_sse" = "check"; then
+# NEON: Check for NEON compiler flag
+# todo: we can always check for other ARM floating point flags later
+if test "$enable_neon" = "yes" || test "$enable_neon" = "check"; then
    if test "x$SIMD_CFLAGS" = x; then
      case $ax_cv_c_compiler_vendor in
-       gnu)   AX_CHECK_COMPILER_FLAGS(-msse2,[SIMD_CFLAGS="-msse2"],[]);;
+       gnu)   AX_CHECK_COMPILER_FLAGS(-mfpu=neon,[SIMD_CFLAGS="-mfpu=neon"],[]);;
        *)     ;;
      esac   
    fi
 fi
-if test "$enable_sse" = "check" && test "$enable_vmx" != "yes"; then
+if test "$enable_neon" = "check"; then
    sre_save_CFLAGS="$CFLAGS"
    sre_save_CPPFLAGS="$CPPFLAGS"
    CFLAGS="$CFLAGS $SIMD_CFLAGS"
    CPPFLAGS="$CPPFLAGS $SIMD_CFLAGS"
-   AC_CHECK_HEADER([emmintrin.h],[
-     AC_MSG_CHECKING([if platform can run SSE/SSE2 instructions])
-     AC_RUN_IFELSE([AC_LANG_PROGRAM( [[#include <emmintrin.h>]],
-		                      [[__m128i v = _mm_set1_epi8(0);]])],
+   AC_CHECK_HEADER([arm_neon.h],[
+     AC_MSG_CHECKING([if platform can run NEON instructions])
+     AC_RUN_IFELSE([AC_LANG_PROGRAM( [[#include <arm_neon.h>]],
+		                      [[int8x16_t v = vdupq_n_s8(0);]])],
                    [AC_MSG_RESULT([yes])
-                     enable_sse=yes],
-                   [AC_MSG_RESULT([no])])])
+                     enable_neon=yes],
+                   [AC_MSG_RESULT([no])
+					 enable_neon=no])])
    CFLAGS="$sre_save_CFLAGS"
    CPPFLAGS="$sre_save_CPPFLAGS"
 fi
-if test "$enable_sse" = "yes"; then
-   AC_DEFINE(HAVE_SSE2,1,[Support SSE2 (Streaming SIMD Extensions 2) instructions])
+if test "$enable_neon" = "yes"; then
+   AC_DEFINE(HAVE_NEON,1,[Support NEON (ARM Advanced SIMD extension) instructions])
 fi
 
-
-# VMX/Altivec (not autodetected yet; must use --enable-vmx to enable)
-if test "$enable_sse" != "yes"; then
-  if test "x$SIMD_CFLAGS" = x; then
-    VMX_SIMD_CFLAGS=""
-    if test "$GCC" = "yes"; then
-       AX_CHECK_COMPILER_FLAGS(-faltivec, [VMX_SIMD_CFLAGS="-faltivec"],
-         [AX_CHECK_COMPILER_FLAGS(-maltivec -mabi=altivec,
- 	     [VMX_SIMD_CFLAGS="-maltivec -mabi=altivec"],
-             [AX_CHECK_COMPILER_FLAGS(-fvec, [VMX_SIMD_CFLAGS="-fvec"],
-		     [AC_MSG_ERROR([Need a version of gcc with -maltivec])])])])
-    elif test "${ax_cv_c_compiler_vendor}" = "ibm"; then
-       AX_CHECK_COMPILER_FLAGS(-qenablevmx, [VMX_SIMD_CFLAGS="$VMX_SIMD_CFLAGS -qenablevmx"],[])
-       AX_CHECK_COMPILER_FLAGS(-qaltivec,   [VMX_SIMD_CFLAGS="$VMX_SIMD_CFLAGS -qaltivec"],[])
-    else
-       AX_CHECK_COMPILER_FLAGS(-faltivec, [VMX_SIMD_CFLAGS="-faltivec"],[])
-    fi
-  else
-    VMX_SIMD_CFLAGS="$SIMD_CFLAGS"
-  fi
-  if test "$enable_vmx" = "check"; then
-     sre_save_cflags="$CFLAGS"
-     CFLAGS="$CFLAGS $VMX_SIMD_CFLAGS"
-     AC_MSG_CHECKING([if platform can run Altivec/VMX instructions])
-     AC_RUN_IFELSE([AC_LANG_PROGRAM( [[#include <altivec.h>]],
-   	 			   [[vector unsigned char zerov;
-                                     vector unsigned char onev;
-                                     zerov = vec_splat_u8(0);
-                                     onev = vec_splat_u8(1);
-                                     onev = vec_adds(onev, zerov);
-				   ]])],
-                     [AC_MSG_RESULT([yes])
-                       enable_vmx=yes],
-                     [AC_MSG_RESULT([no])
-                        if test "${ax_cv_c_compiler_vendor}" = "ibm"; then
-                           echo "******************************************************"
-                           echo "*  You seem to have the IBM  C compiler.  If your    *"
-                           echo "*  processor supports vector instructions it is      *"
-                           echo "*  possible specifying an architecture would enable  *"
-                           echo "*  vector support, i.e.                              *"
-                           echo "*                                                    *"
-                           echo "*    --with-xlc-arch=XXX                             *"
-                           echo "*                                                    *"
-                           echo "*  where XXX is pwr6, auto or whatever kind of CPU   *"
-                           echo "*  you have.                                         *"
-                           echo "******************************************************"
-                        fi
-                   ])
-     CFLAGS="$sre_save_cflags"
-  fi
-  if test "$enable_vmx" = "yes"; then
-    SIMD_CFLAGS="$VMX_SIMD_CFLAGS"
-    AC_DEFINE(HAVE_VMX,1,[Support Altivec/VMX vector instructions])
-  fi
-fi
 
 AC_SUBST(SIMD_CFLAGS)
 
