@@ -80,7 +80,6 @@ endif
 #
 HDRS = 	easel.h\
 	esl_alphabet.h\
-	esl_avx.h\
 	esl_buffer.h\
 	esl_cluster.h\
 	esl_composition.h\
@@ -130,7 +129,6 @@ HDRS = 	easel.h\
 	esl_sqio.h\
 	esl_sqio_ascii.h\
 	esl_sqio_ncbi.h\
-	esl_sse.h\
 	esl_ssi.h\
 	esl_stack.h\
 	esl_stats.h\
@@ -146,7 +144,6 @@ HDRS = 	easel.h\
 
 OBJS =	easel.o\
 	esl_alphabet.o\
-	esl_avx.o\
 	esl_buffer.o\
 	esl_cluster.o\
 	esl_composition.o\
@@ -196,7 +193,6 @@ OBJS =	easel.o\
 	esl_sqio.o\
 	esl_sqio_ascii.o\
 	esl_sqio_ncbi.o\
-	esl_sse.o\
 	esl_ssi.o\
 	esl_stack.o\
 	esl_stats.o\
@@ -265,7 +261,6 @@ UTESTS =\
 	esl_scorematrix_utest\
 	esl_sq_utest\
 	esl_sqio_utest\
-	esl_sse_utest\
 	esl_ssi_utest\
 	esl_stack_utest\
 	esl_stats_utest\
@@ -349,7 +344,6 @@ EXAMPLES = \
         esl_sqio_example\
         esl_sqio_example2\
         esl_sqio_example3\
-        esl_sse_example\
         esl_ssi_example\
         esl_ssi_example2\
         esl_stack_example\
