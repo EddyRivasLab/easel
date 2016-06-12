@@ -206,13 +206,11 @@ AS_IF([test "x$check_threads" != xno],
 
 AC_ARG_ENABLE(gcov,[AS_HELP_STRING([--enable-gcov],[compile for code coverage testing])], enable_gcov=$enableval,  enable_gcov=no)
 AC_ARG_ENABLE(gprof,[AS_HELP_STRING([--enable-gprof],[compile for gcc code profiling])],  enable_gprof=$enableval, enable_gprof=no)
-# Temporary change for ARM
-AC_ARG_ENABLE(neon, [AS_HELP_STRING([--enable-neon],[enable NEON optimizations])], 
-	enable_neon=$enableval, enable_neon=check)
-#AC_ARG_ENABLE(sse,[AS_HELP_STRING([--enable-sse],[enable SSE optimizations])] ,           enable_sse=$enableval,   enable_sse=check)
-#AC_ARG_ENABLE(vmx,[AS_HELP_STRING([--enable-vmx],[enable Altivec/VMX optimizations])],    enable_vmx=$enableval,   enable_vmx=check)
+AC_ARG_ENABLE(neon, [AS_HELP_STRING([--enable-neon],[enable NEON optimizations])], enable_neon=$enableval, enable_neon=check)
 AC_ARG_WITH(gsl,[AS_HELP_STRING([--with-gsl],[use the GSL, GNU Scientific Library])],     with_gsl=$withval,       with_gsl=no)
 AC_ARG_ENABLE(mpi,[AS_HELP_STRING([--enable-mpi],[enable MPI parallelization])],          enable_mpi=$enableval,   enable_mpi=no)
+AC_ARG_ENABLE(targeting,[AS_HELP_STRING([--enable-targeting],[enable CPU targeted optimizations])],          enable_targeting=$enableval,   enable_targeting=no)
+
 
 
 
@@ -286,32 +284,65 @@ ESL_PIC_FLAGS
 
 # NEON: Check for NEON compiler flag
 # todo: we can always check for other ARM floating point flags later
-if test "$enable_neon" = "yes" || test "$enable_neon" = "check"; then
+#if test "$enable_neon" = "yes" || test "$enable_neon" = "check"; then
+# Determine target if targeting is specified.
+# Do this by attempting to execute code with different 
+# cominations of NEON/VFP compiler options. This allows 
+# us to determine the best compile options for each 
+# ARM architecture. 
+if test "$enable_targeting" = "yes"; then
+  cortex_a5="-mfpu=neon-fp16"
+  cortex_a7="-mfpu=neon-vfpv4"
+  cortex_a8="-mfpu=neon"
+  cortex_a9="-mfpu=neon-fp16"
+  cortex_a15="-mfpu=neon-vfpv4"
+  sre_save_CFLAGS="$CFLAGS"
+  sre_save_CPPFLAGS="$CPPFLAGS"
+  CFLAGS="$CFLAGS $cortex_a5"
+  CPPFLAGS="$CPPFLAGS $cortex_a5"     
+  AC_RUN_IFELSE([AC_LANG_PROGRAM( [[]],[[int a = 32;]])],
+                    [vector_flags="-mfpu=neon-fp16"], [])
+  CFLAGS="$sre_save_CFLAGS $cortex_a7"  
+  CPPFLAGS="$sre_save_CPPFLAGS $cortex_a7"
+  AC_RUN_IFELSE([AC_LANG_PROGRAM( [[]],[[int a = 32;]])],
+                    [vector_flags="-mfpu=neon-vfpv4"], [])
+  CFLAGS="$sre_save_CFLAGS $cortex_a8"  
+  CPPFLAGS="$sre_save_CPPFLAGS $cortex_a8"
+  AC_RUN_IFELSE([AC_LANG_PROGRAM( [[]],[[int a = 32;]])],
+                    [vector_flags="-mfpu=neon"], [])
+  CFLAGS="$sre_save_CFLAGS $cortex_a9"  
+  CPPFLAGS="$sre_save_CPPFLAGS $cortex_a9"
+  AC_RUN_IFELSE([AC_LANG_PROGRAM( [[]],[[int a = 32;]])],
+                    [vector_flags="-mfpu=neon-fp16"], [])
+  CFLAGS="$sre_save_CFLAGS $cortex_a15"  
+  CPPFLAGS="$sre_save_CPPFLAGS $cortex_a15"
+  AC_RUN_IFELSE([AC_LANG_PROGRAM( [[]],[[int a = 32;]])],
+                    [vector_flags="-mfpu=neon-vfpv4"], [])
+  
+  CFLAGS="$sre_save_CFLAGS"
+  CPPFLAGS="$sre_save_CPPFLAGS"
+
+else
    if test "x$SIMD_CFLAGS" = x; then
      case $ax_cv_c_compiler_vendor in
-       gnu)   AX_CHECK_COMPILER_FLAGS(-mfpu=neon,[SIMD_CFLAGS="-mfpu=neon"],[]);;
-       *)     ;;
-     esac   
+       gnu)   AX_CHECK_COMPILER_FLAGS(-mfpu=neon,[SIMD_CFLAGS="-mfpu=neon"],
+               [AC_MSG_ERROR([no NEON hardware detected])]);;
+       *)     ;;   
+       esac
    fi
 fi
-if test "$enable_neon" = "check"; then
-   sre_save_CFLAGS="$CFLAGS"
-   sre_save_CPPFLAGS="$CPPFLAGS"
-   CFLAGS="$CFLAGS $SIMD_CFLAGS"
-   CPPFLAGS="$CPPFLAGS $SIMD_CFLAGS"
-   AC_CHECK_HEADER([arm_neon.h],[
-     AC_MSG_CHECKING([if platform can run NEON instructions])
-     AC_RUN_IFELSE([AC_LANG_PROGRAM( [[#include <arm_neon.h>]],
-		                      [[int8x16_t v = vdupq_n_s8(0);]])],
-                   [AC_MSG_RESULT([yes])
-                     enable_neon=yes],
-                   [AC_MSG_RESULT([no])
-					 enable_neon=no])])
-   CFLAGS="$sre_save_CFLAGS"
-   CPPFLAGS="$sre_save_CPPFLAGS"
+
+if test "y$vector_flags" != y; then
+  CFLAGS="$CFLAGS $vector_flags"
+  CPPFLAGS="$CPPFLAGS $vector_flags"
 fi
+# Probably don't need this anymore, remove soon? 
+#if test "$enable_neon" = "yes"; then
+#  AC_DEFINE(HAVE_NEON,1,[Support NEON (ARM Advanced SIMD extension) instructions])
+#fi
+
 if test "$enable_neon" = "yes"; then
-   AC_DEFINE(HAVE_NEON,1,[Support NEON (ARM Advanced SIMD extension) instructions])
+  AC_DEFINE(HAVE_NEON,1,[Support NEON (ARM Advanced SIMD extension) instructions])
 fi
 
 
