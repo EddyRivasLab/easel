@@ -220,21 +220,21 @@ esl_sse_any_gt_epi16(__m128i a, __m128i b)
 }
 */
 
-/* Function:  esl_sse_hmax_epu8()
+/* Function:  esl_sse_hmax_u8()
  * Synopsis:  Return the max of the 16 elements in epu8 vector.
  *
  * Purpose:   Returns the maximum value of the 16 elements in
  *            an <epu8> vector.
  */
-//static inline uint8_t
-//esl_sse_hmax_epu8(__m128i a)
-//{
-//  a = _mm_max_epu8(a, _mm_srli_si128(a, 8));
-//  a = _mm_max_epu8(a, _mm_srli_si128(a, 4));
-//  a = _mm_max_epu8(a, _mm_srli_si128(a, 2));
-//  a = _mm_max_epu8(a, _mm_srli_si128(a, 1));
-//  return (uint8_t) _mm_extract_epi16(a, 0);   /* only low-order 8 bits set; so _epi16 or _epi8 equiv; _epi8 is SSE4.1 */
-//}
+static inline uint8_t
+esl_sse_hmax_u8(__arm128i a)
+{
+  a.u8x16 = vmaxq_u8(a.u8x16, vrev64q_u8(a.u8x16));
+  a.u8x16 = vmaxq_u8(a.u8x16, vreinterpretq_u8_u32(vrev64q_u32(a.u32x4)));
+  a.u8x16 = vmaxq_u8(a.u8x16, vrev64q_u8(a.u8x16)); 
+  a.u8x16 = vmaxq_u8(a.u8x16, vreinterpretq_u8_u32(vrev64q_u32(a.u32x4)));
+  return vgetq_lane_u8(a.u8x16, 15);
+}
 
 /* Function:  esl_sse_hmax_epi16()
  * Synopsis:  Return the max of the 8 elements in epi16 vector.
