@@ -44,11 +44,18 @@ typedef union
 	int16x8_t s16x8;
 	int32x4_t s32x4;
 	int64x2_t s64x2;
+	int8x8x2_t s8x8x2;
 	uint8x16_t u8x16;
 	uint32x4_t u32x4;
 	uint64x2_t u64x2;
+	uint8x8x2_t u8x8x2;
 } __arm128i;
 
+typedef union
+{
+	int8x8_t s8x8;
+	uint8x8_t u8x8;
+} __arm64i;
 /* Union type for vectorized floating point values. Note: AArch32 does not 
  * allow double-precision floating-point vector operations; this was newly 
  * introduced in AArch64. */
@@ -58,6 +65,10 @@ typedef union
 	float32x2_t f32x2;
 } __arm64f;
 
+typedef union
+{
+	float32x4_t f32x4;
+} __arm128f;
 /* Union type for polynomial values. */
 typedef union
 {
@@ -65,3 +76,33 @@ typedef union
 	poly16x8_t p16x8;
 } __arm128p;
 
+/* Composite types */
+typedef union
+{
+	int8x8x2_t s8x8x2;
+	int16x4x2_t s16x4x2;
+	int32x2x2_t s32x2x2;
+	uint8x8x2_t u8x8x2;
+	uint16x4x2_t u16x4x2;
+	uint32x2x2_t u32x2x2;
+} __arm128i_composite;
+
+typedef union
+{
+	int8x16x2_t s8x16x2;
+	int16x8x2_t s16x8x2;
+	int32x4x2_t s32x4x2;
+	uint8x16x2_t u8x16x2;
+	uint16x8x2_t u16x8x2;
+	uint32x4x2_t u32x4x2;
+} __arm256i_composite;
+
+typedef union
+{
+	float32x2x2_t f32x2x2;
+} __arm128f_composite;
+
+typedef union
+{
+	float32x4x2_t f32x4x2;
+} __arm256f_composite;
