@@ -160,7 +160,7 @@ esl_sse_rightshift_ps(__m128 a, __m128 b)
   return _mm_move_ss(_mm_shuffle_ps(a, a, _MM_SHUFFLE(2, 1, 0, 0)), b);
 }
 */
-/* Function:  esl_sse_leftshift_ps()
+/* Function:  esl_sse_leftshift_float()
  * Synopsis:  Shift vector elements to the left.
  *
  * Purpose:   Returns a vector containing
@@ -170,12 +170,18 @@ esl_sse_rightshift_ps(__m128 a, __m128 b)
  *            <b> into the first slot.
  */
 
-//static inline __m128
-//esl_sse_leftshift_ps(__m128 a, __m128 b)
-//{
-//  register __m128 v = _mm_move_ss(a, b);                 /* now b[0] a[1] a[2] a[3] */
-//  return _mm_shuffle_ps(v, v, _MM_SHUFFLE(0, 3, 2, 1));  /* now a[1] a[2] a[3] b[0] */
-//}
+static inline __arm128f
+esl_sse_leftshift_float(__arm128f a, __arm128f b)
+{
+  register __arm128f v;
+  __arm128i ia, ib, iv;
+  ia.u32x4 = vreinterpretq_u32_f32(a.f32x4); /* reinterpret as int for select */
+  ib.u32x4 = vreinterpretq_u32_f32(b.f32x4);
+  iv.u32x4 = vreinterpretq_u32_f32(v.f32x4); 
+  iv.u32x4 = vextq_u32(ia.u32x4, ib.u32x4, 1);/* now a[1] a[2] a[3] b[0] */
+  v.f32x4 = vreinterpretq_f32_u32(iv.u32x4);
+  return v;
+}
 
 
 
