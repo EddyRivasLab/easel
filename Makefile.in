@@ -116,6 +116,7 @@ HDRS = 	easel.h\
 	esl_msafile_stockholm.h\
 	esl_msashuffle.h\
 	esl_msaweight.h\
+	esl_neon.h\
 	esl_normal.h\
 	esl_paml.h\
 	esl_random.h\
@@ -180,6 +181,7 @@ OBJS =	easel.o\
 	esl_msafile_stockholm.o\
 	esl_msashuffle.o\
 	esl_msaweight.o\
+	esl_neon.o\
 	esl_normal.o\
 	esl_paml.o\
 	esl_random.o\
@@ -212,7 +214,7 @@ BENCHMARKS =\
 	esl_buffer_benchmark\
 	esl_keyhash_benchmark\
 	esl_mem_benchmark\
-	esl_sse_benchmark\
+	esl_neon_benchmark\
 	esl_random_benchmark
 
 EXPERIMENTS = \
@@ -251,6 +253,7 @@ UTESTS =\
 	esl_msafile_selex_utest\
 	esl_msafile_stockholm_utest\
 	esl_msaweight_utest\
+	esl_neon_utest\
 	esl_normal_utest\
 	esl_random_utest\
 	esl_randomseq_utest\

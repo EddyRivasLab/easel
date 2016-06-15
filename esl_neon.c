@@ -81,7 +81,7 @@
  * Note:      Derived from an ARM implementation by Julian
  *            Pommier. Added handling of IEEE754 specials.
  */
-__arm128f esl_neon_log(__arm128f x) {
+__arm128f esl_neon_logf(__arm128f x) {
 
   __arm128f one, e, tmp, z, y, origx;
   __arm128i invalid_mask, emm0, ux, si, mask;
@@ -378,31 +378,33 @@ main(int argc, char **argv)
 static void
 utest_logf(ESL_GETOPTS *go)
 {
-  __m128 x;			       /* test input  */
-  union { __m128 v; float x[4]; } r;   /* test output */
+  __arm128f x;			       /* test input  */
+  union { __arm128f v; float x[4]; } r;   /* test output */
   
   /* Test IEEE754 specials: 
    *    log(-inf) = NaN     log(x<0)  = NaN  log(-0)   = NaN
    *    log(0)    = -inf    log(inf)  = inf  log(NaN)  = NaN
    */
-  x   = _mm_set_ps(0.0, -0.0, -1.0, -eslINFINITY); /* set_ps() is in order 3 2 1 0 */
-  r.v =  esl_sse_logf(x); 
+  float test1[4] = {-eslINFINITY, -1.0, -0.0, 0.0};
+  x.f32x4   = vld1q_f32(test1); 
+  r.v =  esl_neon_logf(x); 
   if (esl_opt_GetBoolean(go, "-v")) {
     printf("logf");
-    esl_sse_dump_ps(stdout, x);    printf(" ==> ");
-    esl_sse_dump_ps(stdout, r.v);  printf("\n");
+    esl_neon_dump_ps(stdout, x);    printf(" ==> ");
+    esl_neon_dump_ps(stdout, r.v);  printf("\n");
   }
   if (! isnan(r.x[0]))                 esl_fatal("logf(-inf) should be NaN");
   if (! isnan(r.x[1]))                 esl_fatal("logf(-1)   should be NaN");
   if (! isnan(r.x[2]))                 esl_fatal("logf(-0)   should be NaN");
   if (! (r.x[3] < 0 && isinf(r.x[3]))) esl_fatal("logf(0)    should be -inf");
-
-  x   = _mm_set_ps(FLT_MAX, FLT_MIN, eslNaN, eslINFINITY);
-  r.v = esl_sse_logf(x);
+	
+  float test2[4] = {eslINFINITY, eslNaN, FLT_MIN, FLT_MAX};
+  x.f32x4   = vld1q_f32(test2);
+  r.v = esl_neon_logf(x);
   if (esl_opt_GetBoolean(go, "-v")) {
     printf("logf");
-    esl_sse_dump_ps(stdout, x);    printf(" ==> ");
-    esl_sse_dump_ps(stdout, r.v);  printf("\n");
+    esl_neon_dump_ps(stdout, x);    printf(" ==> ");
+    esl_neon_dump_ps(stdout, r.v);  printf("\n");
   }
   if (! isinf(r.x[0]))  esl_fatal("logf(inf)  should be inf");
   if (! isnan(r.x[1]))  esl_fatal("logf(NaN)  should be NaN");
@@ -532,7 +534,7 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
  *****************************************************************/
 
 #ifdef eslNEON_TESTDRIVE
-/* gcc -msse2 -g -Wall -o test -I. -L. -DeslNEON_TESTDRIVE esl_sse.c -leasel -lm
+/* gcc -mfpu=neon -g -Wall -o test -I. -L. -DeslNEON_TESTDRIVE esl_neon.c -leasel -lm
  */
 #include "esl_config.h"
 
@@ -542,7 +544,7 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
 #include "easel.h"
 #include "esl_getopts.h"
 #include "esl_random.h"
-#include "esl_sse.h"
+#include "esl_neon.h"
 
 static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
@@ -580,8 +582,8 @@ main(int argc, char **argv)
  *****************************************************************/
 
 #ifdef eslNEON_EXAMPLE
-/*::cexcerpt::sse_example::begin::*/
-/* gcc -msse2 -g -Wall -o example -I. -L. -DeslNEON_EXAMPLE esl_sse.c -leasel -lm
+/*::cexcerpt::neon_example::begin::*/
+/* gcc -mfpu=neon -g -Wall -o example -I. -L. -DeslNEON_EXAMPLE esl_neon.c -leasel -lm
  */
 #include "esl_config.h"
 
@@ -589,26 +591,26 @@ main(int argc, char **argv)
 #include <math.h>
 
 #include "easel.h"
-#include "esl_sse.h"
+#include "esl_neon.h"
 
 int
 main(int argc, char **argv)
 {
   float    x;                           /* scalar input */
-  __m128   xv;                          /* input vector */
-  union { __m128 v; float x[4]; } rv;   /* result vector*/
+  __arm128f   xv;                          /* input vector */
+  union { __arm128f v; float x[4]; } rv;   /* result vector*/
 
   x    = 2.0;
-  xv   = _mm_set1_ps(x);
-  rv.v = esl_sse_logf(xv);
+  xv.f32x4   = vdupq_n_f32(x);
+  rv.v = esl_neon_logf(xv);
   printf("logf(%f) = %f\n", x, rv.x[0]);
   
-  rv.v = esl_sse_expf(xv);
+  rv.v = esl_neon_expf(xv);
   printf("expf(%f) = %f\n", x, rv.x[0]);
 
   return 0;
 }
-/*::cexcerpt::sse_example::end::*/
+/*::cexcerpt::neon_example::end::*/
 #endif
 
 
@@ -664,28 +666,4 @@ main(int argc, char **argv)
    Inspired by Intel Approximate Math library, and based on the
    corresponding algorithms of the cephes math library
 */
-
-/* Copyright (C) 2011  Julien Pommier
-
-  This software is provided 'as-is', without any express or implied
-  warranty.  In no event will the authors be held liable for any damages
-  arising from the use of this software.
-
-  Permission is granted to anyone to use this software for any purpose,
-  including commercial applications, and to alter it and redistribute it
-  freely, subject to the following restrictions:
-
-  1. The origin of this software must not be misrepresented; you must not
-     claim that you wrote the original software. If you use this software
-     in a product, an acknowledgment in the product documentation would be
-     appreciated but is not required.
-  2. Altered source versions must be plainly marked as such, and must not be
-     misrepresented as being the original software.
-  3. This notice may not be removed or altered from any source distribution.
-
-  (this is the zlib license)
-*/
-
-/* This is an altered source version changed to better fit our library code. */
-
 
