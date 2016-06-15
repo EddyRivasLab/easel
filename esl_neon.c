@@ -292,16 +292,16 @@ esl_neon_expf(__arm128f x)
 
 
 /*****************************************************************
- * 2. Utilities for ps vectors (4 floats in a __m128)
+ * 2. Utilities for fq vectors (4 floats in an __arm128f)
  *****************************************************************/ 
-/*
+
 void
-esl_see_dump_ps(FILE *fp, __m128 v)
+esl_neon_dump_ps(FILE *fp, __arm128f v)
 {
   float *p = (float *)&v;
   fprintf(fp, "[%13.8g, %13.8g, %13.8g, %13.8g]", p[0], p[1], p[2], p[3]);
 }
-*/
+
 
 
 
@@ -328,7 +328,7 @@ static ESL_OPTIONS options[] = {
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options]";
-static char banner[] = "benchmark driver for sse module";
+static char banner[] = "benchmark driver for neon module";
 
 int
 main(int argc, char **argv)
@@ -415,16 +415,17 @@ utest_logf(ESL_GETOPTS *go)
 static void
 utest_expf(ESL_GETOPTS *go)
 {
-  __m128 x;			       /* test input  */
-  union { __m128 v; float x[4]; } r;   /* test output */
+  __arm128f x;			       /* test input  */
+  union { __arm128f v; float x[4]; } r;   /* test output */
   
   /* exp(-inf) = 0    exp(-0)  = 1   exp(0) = 1  exp(inf) = inf   exp(NaN)  = NaN */
-  x = _mm_set_ps(eslINFINITY, 0.0, -0.0, -eslINFINITY); /* set_ps() is in order 3 2 1 0 */
-  r.v =  esl_sse_expf(x); 
+  float test1[4] = {-eslINFINITY, -0.0, 0.0, eslINFINITY};
+  x.f32x4   = vld1q_f32(test1); 
+  r.v =  esl_neon_expf(x); 
   if (esl_opt_GetBoolean(go, "-v")) {
     printf("expf");
-    esl_sse_dump_ps(stdout, x);    printf(" ==> ");
-    esl_sse_dump_ps(stdout, r.v);  printf("\n");
+    esl_neon_dump_ps(stdout, x);    printf(" ==> ");
+    esl_neon_dump_ps(stdout, r.v);  printf("\n");
   }
   if (r.x[0] != 0.0f)   esl_fatal("expf(-inf) should be 0");
   if (r.x[1] != 1.0f)   esl_fatal("expf(-0)   should be 1");
@@ -432,12 +433,13 @@ utest_expf(ESL_GETOPTS *go)
   if (! isinf(r.x[3]))  esl_fatal("expf(inf)  should be inf");
 
   /* exp(NaN) = NaN    exp(large)  = inf   exp(-large) = 0  exp(1) = exp(1) */
-  x = _mm_set_ps(1.0f, -666.0f, 666.0f, eslNaN); /* set_ps() is in order 3 2 1 0 */
-  r.v =  esl_sse_expf(x); 
+  float test2[4] = {eslNaN, 666.0f, -666.0f, 1.0f};
+  x.f32x4   = vld1q_f32(test2);
+  r.v =  esl_neon_expf(x); 
   if (esl_opt_GetBoolean(go, "-v")) {
     printf("expf");
-    esl_sse_dump_ps(stdout, x);    printf(" ==> ");
-    esl_sse_dump_ps(stdout, r.v);  printf("\n");
+    esl_neon_dump_ps(stdout, x);    printf(" ==> ");
+    esl_neon_dump_ps(stdout, r.v);  printf("\n");
   }
   if (! isnan(r.x[0]))  esl_fatal("expf(NaN)      should be NaN");
   if (! isinf(r.x[1]))  esl_fatal("expf(large x)  should be inf");
@@ -456,12 +458,15 @@ utest_expf(ESL_GETOPTS *go)
    *     (3): expf(-87.6832)   => 0
    *     (4): expf(-87.6831)   => <FLT_MIN (subnormal) : ~8.31e-39 (may become 0 in flush-to-zero mode for subnormals)
    */
-  x   = _mm_set_ps(-88.3763, -88.3762, -87.6832, -87.6831);
-  r.v = esl_sse_expf(x); 
+  float test3[4] = {-87.6831, -87.6832, -88.3762, -88.3763};
+  x.f32x4   = vld1q_f32(test3);
+ 
+  
+  r.v = esl_neon_expf(x); 
   if (esl_opt_GetBoolean(go, "-v")) {
     printf("expf");
-    esl_sse_dump_ps(stdout, x);    printf(" ==> ");
-    esl_sse_dump_ps(stdout, r.v);  printf("\n");
+    esl_neon_dump_ps(stdout, x);    printf(" ==> ");
+    esl_neon_dump_ps(stdout, r.v);  printf("\n");
   }
   if ( r.x[0] >= FLT_MIN) esl_fatal("expf( -126.5 log2 + eps) should be around FLT_MIN");
   if ( r.x[1] != 0.0f)    esl_fatal("expf( -126.5 log2 - eps) should be 0.0 (by calculation)");
@@ -480,8 +485,8 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
   int    very_verbose = esl_opt_GetBoolean(go, "--vv");
   int    i;
   float  p1, p2, odds;
-  union { __m128 v; float x[4]; } r1;   
-  union { __m128 v; float x[4]; } r2;   
+  union { __arm128f v; float x[4]; } r1;   
+  union { __arm128f v; float x[4]; } r2;   
   float  scalar_r1, scalar_r2;
   double  err1, maxerr1 = 0.0, avgerr1 = 0.0; /* errors on logf() */
   double  err2, maxerr2 = 0.0, avgerr2 = 0.0; /* errors on expf() */
@@ -493,8 +498,9 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
       odds  = p1 / p2;
 
       if (odds == 0.0) esl_fatal("whoa, odds ratio can't be 0!\n");
-
-      r1.v      = esl_sse_logf(_mm_set1_ps(odds));  /* r1.x[z] = log(p1/p2) */
+	  __arm128f tmp;
+      tmp.f32x4 = vdupq_n_f32(odds);
+      r1.v      = esl_neon_logf(tmp);  /* r1.x[z] = log(p1/p2) */
       scalar_r1 = log(odds);
 
       err1       = (r1.x[0] == 0. && scalar_r1 == 0.) ? 0.0 : 2 * fabs(r1.x[0] - scalar_r1) / fabs(r1.x[0] + scalar_r1);
@@ -502,7 +508,7 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
       avgerr1   += err1 / (float) N;
       if (isnan(avgerr1)) esl_fatal("whoa, what?\n");
 
-      r2.v      = esl_sse_expf(r1.v);        /* and back to odds */
+      r2.v      = esl_neon_expf(r1.v);        /* and back to odds */
       scalar_r2 = exp(r1.x[0]);
 
       err2       = (r2.x[0] == 0. && scalar_r2 == 0.) ? 0.0 : 2 * fabs(r2.x[0] - scalar_r2) / fabs(r2.x[0] + scalar_r2);
@@ -544,7 +550,7 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
 #include "easel.h"
 #include "esl_getopts.h"
 #include "esl_random.h"
-#include "esl_neon.h"
+
 
 static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
@@ -556,7 +562,7 @@ static ESL_OPTIONS options[] = {
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options]";
-static char banner[] = "test driver for sse module";
+static char banner[] = "test driver for neon module";
 
 int
 main(int argc, char **argv)
@@ -591,7 +597,6 @@ main(int argc, char **argv)
 #include <math.h>
 
 #include "easel.h"
-#include "esl_neon.h"
 
 int
 main(int argc, char **argv)
@@ -621,7 +626,7 @@ main(int argc, char **argv)
  * SVN $URL$
  *****************************************************************/
 
-/* Additionally, esl_sse_logf() and esl_sse_expf() are 
+/* Additionally, esl_neon_logf() and esl_neon_expf() are 
  *  Copyright (C) 2007 Julien Pommier
  *  Copyright (C) 1992 Stephen Moshier 
  *

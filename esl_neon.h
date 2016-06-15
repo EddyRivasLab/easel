@@ -132,7 +132,7 @@ esl_sse_hmin_ps(__m128 a, float *ret_min)
  *            that sum in <*ret_sum>.
  */
 
-
+/*
 static inline void
 esl_sse_hsum_float(__arm128f a, float *ret_sum)
 {
@@ -143,9 +143,9 @@ esl_sse_hsum_float(__arm128f a, float *ret_sum)
   a.f32x4 = vaddq_f32(fvec.f32x4x2.val[0], fvec.f32x4x2.val[1]);
   vst1q_lane_f32(ret_sum, a.f32x4, 0);
 }
+*/
 
-
-/* Function:  esl_sse_rightshift_ps()
+/* Function:  esl_neon_rightshift_ps()
  * Synopsis:  Shift vector elements to the right.
  *
  * Purpose:   Returns a vector containing
@@ -178,7 +178,7 @@ esl_neon_rightshift_float(__arm128f a, __arm128f b)
  */
 
 static inline __arm128f
-esl_sse_leftshift_float(__arm128f a, __arm128f b)
+esl_neon_leftshift_float(__arm128f a, __arm128f b)
 {
   register __arm128f v;
   __arm128i ia, ib, iv;
@@ -232,14 +232,14 @@ esl_neon_any_gt_s16(__arm128i a, __arm128i b)
   return maskbits != 0;
 }
 
-/* Function:  esl_sse_hmax_u8()
+/* Function:  esl_neon_hmax_u8()
  * Synopsis:  Return the max of the 16 elements in epu8 vector.
  *
  * Purpose:   Returns the maximum value of the 16 elements in
  *            an <epu8> vector.
  */
 static inline uint8_t
-esl_sse_hmax_u8(__arm128i a)
+esl_neon_hmax_u8(__arm128i a)
 {
   a.u8x16 = vmaxq_u8(a.u8x16, vrev64q_u8(a.u8x16));
   a.u8x16 = vmaxq_u8(a.u8x16, vreinterpretq_u8_u32(vrev64q_u32(a.u32x4)));
@@ -248,14 +248,14 @@ esl_sse_hmax_u8(__arm128i a)
   return vgetq_lane_u8(a.u8x16, 15);
 }
 
-/* Function:  esl_sse_hmax_s16()
+/* Function:  esl_neon_hmax_s16()
  * Synopsis:  Return the max of the 8 elements in s16 vector.
  *
  * Purpose:   Returns the maximum value of the 16 elements in
  *            an <s8> vector.
  */
 static inline int16_t
-esl_sse_hmax_s16(__arm128i a)
+esl_neon_hmax_s16(__arm128i a)
 {
   a.s16x8 = vmaxq_s16(a.s16x8, vrev64q_s16(a.s16x8));
   a.s16x8 = vmaxq_s16(a.s16x8, vreinterpretq_s16_s32(vrev64q_s32(a.s32x4)));
