@@ -55,6 +55,8 @@ typedef union
 {
 	int8x8_t s8x8;
 	uint8x8_t u8x8;
+	int64x1_t s64x1;
+	uint64x1_t u64x1;
 } __arm64i;
 /* Union type for vectorized floating point values. Note: AArch32 does not 
  * allow double-precision floating-point vector operations; this was newly 
@@ -85,6 +87,7 @@ typedef union
 	uint8x8x2_t u8x8x2;
 	uint16x4x2_t u16x4x2;
 	uint32x2x2_t u32x2x2;
+	uint64x1_t u64x1; /* useful for loading constants */
 } __arm128i_composite;
 
 typedef union

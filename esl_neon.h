@@ -153,14 +153,20 @@ esl_sse_hsum_float(__arm128f a, float *ret_sum)
  *            right, and load the first value of 
  *            <b> into the first slot.
  */
-/*
-static inline __m128 
-esl_sse_rightshift_ps(__m128 a, __m128 b)
+
+static inline __arm128f 
+esl_neon_rightshift_float(__arm128f a, __arm128f b)
 {
-  return _mm_move_ss(_mm_shuffle_ps(a, a, _MM_SHUFFLE(2, 1, 0, 0)), b);
+  register __arm128f v;
+  float floats[5];
+  vst1q_f32(&floats[1], a.f32x4); /* Store a[0] a[1] a[2] a[3] */
+  vst1q_lane_f32(floats, b.f32x4, 0); /* Store b[0] just below a[0] */
+  v.f32x4 = vld1q_f32(floats);
+  return v;
+
 }
-*/
-/* Function:  esl_sse_leftshift_float()
+
+/* Function:  esl_neon_leftshift_float()
  * Synopsis:  Shift vector elements to the left.
  *
  * Purpose:   Returns a vector containing
