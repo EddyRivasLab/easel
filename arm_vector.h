@@ -46,6 +46,7 @@ typedef union
 	int64x2_t s64x2;
 	int8x8x2_t s8x8x2;
 	uint8x16_t u8x16;
+	uint16x8_t u16x8;
 	uint32x4_t u32x4;
 	uint64x2_t u64x2;
 	uint8x8x2_t u8x8x2;

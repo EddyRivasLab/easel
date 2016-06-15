@@ -218,13 +218,18 @@ esl_sse_leftshift_float(__arm128f a, __arm128f b)
 //  int   maskbits  = _mm_movemask_epi8(_mm_xor_si128(mask,  _mm_cmpeq_epi8(mask, mask))); /* the xor incantation is a bitwise inversion */
 //  return maskbits != 0;
 //}
-/*
+
 static inline int 
-esl_sse_any_gt_epi16(__m128i a, __m128i b)
+esl_neon_any_gt_s16(__arm128i a, __arm128i b)
 {
-  return (_mm_movemask_epi8(_mm_cmpgt_epi16(a,b)) != 0); 
+   __arm128i mask;
+  int l0, l1;
+  mask.u16x8 = vcgtq_s16(a.s16x8,b.s16x8);
+  l0 = vgetq_lane_u64(mask.u64x2, 0);
+  l1 = vgetq_lane_u64(mask.u64x2, 1);
+  int maskbits = l0 | l1;
+  return maskbits != 0;
 }
-*/
 
 /* Function:  esl_sse_hmax_u8()
  * Synopsis:  Return the max of the 16 elements in epu8 vector.
