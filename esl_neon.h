@@ -26,7 +26,7 @@ extern void    esl_neon_dump_ps(FILE *fp, __arm128i v);
  * 2. Inline utilities for ps vectors (4 floats in __arm128f)
  *****************************************************************/
 
-/* Function:  esl_neon_select_ps()
+/* Function:  esl_neon_select_float()
  * Synopsis:  NEON equivalent of <vec_sel()>
  *
  * Purpose:   Vector select. Returns a vector <r[z] = a[z]> where <mask[z]>
@@ -43,21 +43,22 @@ extern void    esl_neon_dump_ps(FILE *fp, __arm128i v);
  *
  */
 
-/* SO it looks like AArch32 does not support floating-point vector 
- * bitwise and in its Advanced SIMD instruction set, so we can 
- * either work around this or move to AArch64. Back burner for now. */
-/*
 static inline __arm128f
-esl_neon_select_ps(__arm128f a, __arm128f b, __arm128f mask)
+esl_neon_select_float(__arm128f a, __arm128f b, __arm128f mask)
 {
-  b.s64x2 = vandq_s64(b.s64x2, mask.s64x2);
-  a.s64x2 = vbicq_s64(mask.s64x2, a.s64x2);
-  printf("After bicq: %x is lane 0\n", vgetq_lane_s32(a.s32x4, 0));
-  __arm128i ret; 
-  ret.s64x2 = vorrq_s64(a.s64x2,b.s64x2);  
+  
+  __arm128i aview, bview, maskview, masknot;
+  __arm128f masknotf, ret;
+  maskview.s64x2 = vreinterpretq_s64_f32(mask.f32x4);
+  bview.s64x2 = vreinterpretq_s64_f32(b.f32x4);
+  aview.s64x2 = vreinterpretq_s64_f32(a.f32x4);
+  bview.s64x2 = vandq_s64(bview.s64x2, maskview.s64x2);
+  masknot.s32x4 = vmvnq_s32(maskview.s32x4);
+  aview.s64x2 = vandq_s64(masknot.s64x2, aview.s64x2);
+  ret.f32x4 = vreinterpretq_f32_s64(vorrq_s64(aview.s64x2,bview.s64x2));  
   return ret; 
 }
-*/
+
 
 /* Function:  esl_neon_any_gt_float()
  * Synopsis:  Returns TRUE if any a[z] > b[z]
