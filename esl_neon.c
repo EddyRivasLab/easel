@@ -85,22 +85,57 @@ __arm128f esl_neon_logf(__arm128f x) {
 
   __arm128f one, e, tmp, z, y, origx;
   __arm128i invalid_mask, emm0, ux, si, mask;
-  __arm128i zero_mask, inf_mask, vexp; /* Special IEEE754 inputs */
-
-  vexp.s32x4 = vdupq_n_s32(0x78f00000); /* All floats with exponent bits high */
+  __arm128i zero_mask, inf_mask, vexp, vexpn; /* Special IEEE754 inputs */
+  uint32_t *idx = &x;
+  uint32_t negzero = (1 << 31);
+  __arm128i negzero_mask;
+  
+ printf("enter x: %x %x %x %x\n", *idx, *(idx+1), *(idx+2), *(idx+3)); 
+  
+  vexp.s32x4 = vdupq_n_s32(0x7f800000); /* All floats with exponent bits high */
+  vexpn.s32x4 = vdupq_n_s32(0xff800000); /* -inf */
   one.f32x4 = vdupq_n_f32(1);
-  x.f32x4 = vmaxq_f32(x.f32x4, vdupq_n_f32(0)); /* force flush to zero on denormal values */
-  invalid_mask.u32x4 = vcleq_f32(x.f32x4, vdupq_n_f32(0)); /* log(-x) = NaN */
+  //x.f32x4 = vmaxq_f32(x.f32x4, vdupq_n_f32(0)); /* force flush to zero on denormal values */
+  invalid_mask.u32x4 = vcltq_f32(x.f32x4, vdupq_n_f32(0)); /* log(-x) = NaN */
+    
+negzero_mask.u32x4 = vceqq_u32(vreinterpretq_u32_f32(x.f32x4),
+								 vdupq_n_u32(negzero)); 
+								 
+  invalid_mask.u32x4 = vorrq_u32(vceqq_u32(vreinterpretq_u32_f32(x.f32x4),
+								 vdupq_n_u32(negzero)), 
+								invalid_mask.u32x4); 
+  
+
 
   ux.s32x4 = vreinterpretq_s32_f32(x.f32x4);
-  emm0.s32x4 = vshrq_n_s32(ux.s32x4, 23);
+  emm0.u32x4 = vshrq_n_u32(ux.u32x4, 23);
 
   /* Mask 0 elements and infinity elements; log(0) = -inf, log(inf) = inf, log(NaN) = NaN */
-  zero_mask.u32x4 = vceqq_f32(vreinterpretq_f32_s32(emm0.s32x4),vdupq_n_f32(0));
-  inf_mask.u32x4 = vceqq_f32(vreinterpretq_f32_s32(vandq_s32(vreinterpretq_s32_f32(x.f32x4),
-															 vexp.s32x4)), 
-							 vreinterpretq_f32_s32(vexp.s32x4));
+  __arm128f zero_vector;
+  zero_vector.f32x4 = vdupq_n_f32(0.0f);
+  /* Casting avoids -0 and +0 being lumped together */
+  zero_mask.u32x4 = vceqq_u32(vreinterpretq_u32_f32(x.f32x4), 
+							  vreinterpretq_u32_f32(zero_vector.f32x4));
+ 
+   
+/* log(-0) = NaN */
+// negzero_mask.u32x4 = vceqq_u32(vreinterpretq_u32_f32(x.f32x4),
+//								 vdupq_n_u32(negzero)); 
+								 
+//  negzero_mask.u32x4 = veorq_u32(vceqq_u32(vreinterpretq_u32_f32(x.f32x4),
+//								 vdupq_n_u32(negzero)), 
+//								negzero_mask.u32x4); 
+  /* log(-0) = NaN */
+ // invalid_mask.u32x4 = veorq_u32(invalid_mask.u32x4, negzero_mask.u32x4);
+
+  /* +inf */
+  inf_mask.u32x4 = vceqq_u32(vreinterpretq_u32_f32(x.f32x4), vexp.u32x4);
+
   origx.f32x4 = x.f32x4; /* Store original x used for log(inf) = inf, log(NaN) = NaN */
+  
+ /* remove +inf from invalid */
+  //invalid_mask.u32x4 = vorrq_u32(inf_mask.u32x4, invalid_mask.u32x4);
+
 
   /* keep only the fractional part */
   ux.s32x4 = vandq_s32(ux.s32x4, vdupq_n_s32(c_inv_mant_mask));
@@ -158,16 +193,33 @@ __arm128f esl_neon_logf(__arm128f x) {
   tmp.f32x4 = vmulq_f32(e.f32x4, vdupq_n_f32(c_cephes_log_q2));
   x.f32x4 = vaddq_f32(x.f32x4, y.f32x4);
   x.f32x4 = vaddq_f32(x.f32x4, tmp.f32x4);
-  x.f32x4 = vreinterpretq_f32_u32(vorrq_u32(vreinterpretq_u32_f32(x.f32x4), invalid_mask.u32x4)); // negative arg will be NAN
+  //x.f32x4 = vreinterpretq_f32_u32(vorrq_u32(vreinterpretq_u32_f32(x.f32x4), invalid_mask.u32x4)); // negative arg will be NAN
   
   /* IEEE754 cleanup */
-  __arm128f inf_mask_view, zero_mask_view, inf_vector;
-  inf_vector.f32x4 = vdupq_n_f32(-eslINFINITY);
-  inf_mask_view.f32x4 = vreinterpretq_f32_s32(inf_mask.s32x4); 
+  uint32_t *a=&inf_mask, *b=&zero_mask, *c=&invalid_mask;
+
+  printf("inf_mask: %x %x %x %x\n", *a, *(a+1), *(a+2), *(a+3));
+  printf("zero_mask: %x %x %x %x\n", *b, *(b+1), *(b+2), *(b+3));
+  printf("invalid_mask: %x %x %x %x\n", *c, *(c+1), *(c+2), *(c+3));
+
+   __arm128f inf_mask_view, zero_mask_view, neginf_vector;
+  neginf_vector.f32x4 = vdupq_n_f32(-eslINFINITY); /* -inf */
+  
+  inf_mask_view.f32x4 = vreinterpretq_f32_s32(inf_mask.s32x4);
   zero_mask_view.f32x4 = vreinterpretq_f32_s32(zero_mask.s32x4);
-  x = esl_neon_select_float(x, origx, inf_mask_view); /* log(inf)=inf; log(NaN) = NaN */
-  x.f32x4 = vreinterpretq_f32_s32(vorrq_s32(vreinterpretq_s32_f32(x.f32x4), invalid_mask.s32x4)); /* log(x<0, including -0, -inf)=NaN */   
-  x = esl_neon_select_float(x, inf_vector, zero_mask_view);
+  /* check for negatives/-0, zero, and +inf */ 
+  x.f32x4 = vreinterpretq_f32_s32(vorrq_s32(vreinterpretq_s32_f32(x.f32x4), invalid_mask.s32x4)); // log(x<0, including -0, -inf)=NaN    
+  x = esl_neon_select_float(x, neginf_vector, zero_mask_view);
+  x = esl_neon_select_float(x, origx, inf_mask_view); // log(inf)=inf; log(NaN) = NaN 
+ 
+
+
+/* Mask -0 separately */
+  /*__arm128i negzero_mask;
+  negzero_mask.u32x4 = vceqq_f32(zero_mask_view.f32x4, inf_mask_view.f32x4); 
+  uint32_t *w = &negzero_mask;
+  printf("negzero_mask: %x %x %x %x\n", *w, *(w+1), *(w+2), *(w+3)); 
+  x.f32x4 = vreinterpretq_f32_s32(vorrq_s32(vreinterpretq_s32_f32(x.f32x4), negzero_mask.s32x4)); */    
   return x;
 }
 
@@ -393,6 +445,8 @@ utest_logf(ESL_GETOPTS *go)
     esl_neon_dump_ps(stdout, x);    printf(" ==> ");
     esl_neon_dump_ps(stdout, r.v);  printf("\n");
   }
+
+  printf("%f %f %f %f\n", r.x[0], r.x[1], r.x[2], r.x[3]);
   if (! isnan(r.x[0]))                 esl_fatal("logf(-inf) should be NaN");
   if (! isnan(r.x[1]))                 esl_fatal("logf(-1)   should be NaN");
   if (! isnan(r.x[2]))                 esl_fatal("logf(-0)   should be NaN");
