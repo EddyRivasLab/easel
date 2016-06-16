@@ -83,20 +83,16 @@
  */
 __arm128f esl_neon_logf(__arm128f x) {
 
-  __arm128f one, e, tmp, z, y, origx, inf_vector, neginf_vector;
-  __arm128i nan_mask, emm0, ux, si, mask;
+  __arm128f one, e, tmp, z, y, inf_vector, neginf_vector;
+  __arm128i nan_mask, emm0, ux, mask;
   __arm128i poszero_mask, inf_mask; /* Special IEEE754 inputs */
-  float *idx = &x;
   uint32_t negzero = (1 << 31);
-  __arm128i negzero_mask;
-  uint32_t *magic = &x;
 
   __arm128f zero_vector;
   zero_vector.f32x4 = vdupq_n_f32(0.0f); 
   inf_vector.f32x4 = vdupq_n_f32(eslINFINITY); /* All floats with exponent bits high */
   neginf_vector.f32x4 = vdupq_n_f32(-eslINFINITY); /* -inf */
   one.f32x4 = vdupq_n_f32(1);
-  //x.f32x4 = vmaxq_f32(x.f32x4, vdupq_n_f32(0)); /* force flush to zero on denormal values */
   
   nan_mask.u32x4 = vcltq_f32(x.f32x4, vdupq_n_f32(0.0)); /* log(-x) = NaN */						 
   nan_mask.u32x4 = vorrq_u32(vceqq_u32(vreinterpretq_u32_f32(x.f32x4),
@@ -112,38 +108,17 @@ __arm128f esl_neon_logf(__arm128f x) {
   mantissa_mask.u32x4 = vcgtq_u32(mantissa_mask.u32x4, vreinterpretq_u32_f32(zero_vector.f32x4));
   nan_mask.u32x4 = vorrq_u32(vandq_u32(mantissa_mask.u32x4, exp_hi_mask.u32x4), nan_mask.u32x4);
 
-  uint32_t *mark = &nan_mask;
-//  printf("it is: %x %x %x %x\n", *mark, *(mark+1), *(mark+2), *(mark+3)); 
-	
-
-
   ux.s32x4 = vreinterpretq_s32_f32(x.f32x4);
   emm0.u32x4 = vshrq_n_u32(ux.u32x4, 23);
 
   /* Mask 0 elements and infinity elements; log(0) = -inf, log(inf) = inf, log(NaN) = NaN */
- poszero_mask.u32x4 = vceqq_f32(x.f32x4, zero_vector.f32x4);
+  poszero_mask.u32x4 = vceqq_f32(x.f32x4, zero_vector.f32x4);
 
   /* (x == +0) : !(x < 0) && (x == 0) */
   poszero_mask.u32x4 = vandq_u32(vmvnq_u32(nan_mask.u32x4), poszero_mask.u32x4);  
    
-/* log(-0) = NaN */
-// negzero_mask.u32x4 = vceqq_u32(vreinterpretq_u32_f32(x.f32x4),
-//								 vdupq_n_u32(negzero)); 
-								 
-//  negzero_mask.u32x4 = veorq_u32(vceqq_u32(vreinterpretq_u32_f32(x.f32x4),
-//								 vdupq_n_u32(negzero)), 
-//								negzero_mask.u32x4); 
-  /* log(-0) = NaN */
- // nan_mask.u32x4 = veorq_u32(nan_mask.u32x4, negzero_mask.u32x4);
-
   /* +inf */
   inf_mask.u32x4 = vceqq_f32(x.f32x4, inf_vector.f32x4);
-
-  origx.f32x4 = x.f32x4; /* Store original x used for log(inf) = inf, log(NaN) = NaN */
-  
- /* remove +inf from invalid */
-  //nan_mask.u32x4 = vorrq_u32(inf_mask.u32x4, nan_mask.u32x4);
-
 
   /* keep only the fractional part */
   ux.s32x4 = vandq_s32(ux.s32x4, vdupq_n_s32(c_inv_mant_mask));
@@ -201,35 +176,16 @@ __arm128f esl_neon_logf(__arm128f x) {
   tmp.f32x4 = vmulq_f32(e.f32x4, vdupq_n_f32(c_cephes_log_q2));
   x.f32x4 = vaddq_f32(x.f32x4, y.f32x4);
   x.f32x4 = vaddq_f32(x.f32x4, tmp.f32x4);
-  //x.f32x4 = vreinterpretq_f32_u32(vorrq_u32(vreinterpretq_u32_f32(x.f32x4), nan_mask.u32x4)); // negative arg will be NAN
   
   /* IEEE754 cleanup */
-  uint32_t *a=&inf_mask, *b=&poszero_mask, *c=&nan_mask;
-
-  //printf("inf_mask: %x %x %x %x\n", *a, *(a+1), *(a+2), *(a+3));
-  //printf("zero_mask: %x %x %x %x\n", *b, *(b+1), *(b+2), *(b+3));
-  //printf("nan_mask: %x %x %x %x\n", *c, *(c+1), *(c+2), *(c+3));
-
-   __arm128f inf_mask_view, poszero_mask_view;
+  __arm128f inf_mask_view, poszero_mask_view;
   neginf_vector.f32x4 = vdupq_n_f32(-eslINFINITY); /* -inf */
   inf_mask_view.f32x4 = vreinterpretq_f32_s32(inf_mask.s32x4);
   poszero_mask_view.f32x4 = vreinterpretq_f32_s32(poszero_mask.s32x4);
-  /* check for negatives/-0, zero, and +inf */ 
-  x.f32x4 = vreinterpretq_f32_s32(vorrq_s32(vreinterpretq_s32_f32(x.f32x4), nan_mask.s32x4)); // log(x<0, including -0, -inf)=NaN    
-  //x = esl_neon_select_float(x, neginf_vector, zero_mask_view);
-  //x = esl_neon_select_float(x, origx, inf_mask_view); // log(inf)=inf; log(NaN) = NaN 
-  /* Mask +0 */
-  x = esl_neon_select_float(x, neginf_vector, poszero_mask_view);
-  /* Mask INF */
-  x = esl_neon_select_float(x, inf_vector, inf_mask_view);  
-
-
-/* Mask -0 separately */
-  /*__arm128i negzero_mask;
-  negzero_mask.u32x4 = vceqq_f32(zero_mask_view.f32x4, inf_mask_view.f32x4); 
-  uint32_t *w = &negzero_mask;
-  printf("negzero_mask: %x %x %x %x\n", *w, *(w+1), *(w+2), *(w+3)); 
-  x.f32x4 = vreinterpretq_f32_s32(vorrq_s32(vreinterpretq_s32_f32(x.f32x4), negzero_mask.s32x4)); */    
+  x.f32x4 = vreinterpretq_f32_s32(vorrq_s32(vreinterpretq_s32_f32(x.f32x4), 
+  								  nan_mask.s32x4)); /* log(x<0, including -0, -inf)=NaN */    
+  x = esl_neon_select_float(x, neginf_vector, poszero_mask_view); /* mask +0 */
+  x = esl_neon_select_float(x, inf_vector, inf_mask_view); /* mask +inf */ 
   return x;
 }
 
@@ -358,7 +314,7 @@ esl_neon_expf(__arm128f x)
  *****************************************************************/ 
 
 void
-esl_neon_dump_ps(FILE *fp, __arm128f v)
+esl_neon_dump_float(FILE *fp, __arm128f v)
 {
   float *p = (float *)&v;
   fprintf(fp, "[%13.8g, %13.8g, %13.8g, %13.8g]", p[0], p[1], p[2], p[3]);
@@ -418,7 +374,7 @@ main(int argc, char **argv)
   /* If you don't do something with x and xv, the compiler may optimize them away */
   printf("%g  => many scalar logf,expf cycles => %g\n", origx, x);
   printf("%g  => many vector logf,expf cycles => ", origx);
-  esl_neon_dump_ps(stdout, xv); printf("\n");
+  esl_neon_dump_float(stdout, xv); printf("\n");
 
   esl_stopwatch_Destroy(w);
   esl_getopts_Destroy(go);
@@ -452,8 +408,8 @@ utest_logf(ESL_GETOPTS *go)
   r.v =  esl_neon_logf(x); 
   if (esl_opt_GetBoolean(go, "-v")) {
     printf("logf");
-    esl_neon_dump_ps(stdout, x);    printf(" ==> ");
-    esl_neon_dump_ps(stdout, r.v);  printf("\n");
+    esl_neon_dump_float(stdout, x);    printf(" ==> ");
+    esl_neon_dump_float(stdout, r.v);  printf("\n");
   }
 
   if (! isnan(r.x[0]))                 esl_fatal("logf(-inf) should be NaN");
@@ -466,8 +422,8 @@ utest_logf(ESL_GETOPTS *go)
   r.v = esl_neon_logf(x);
   if (esl_opt_GetBoolean(go, "-v")) {
     printf("logf");
-    esl_neon_dump_ps(stdout, x);    printf(" ==> ");
-    esl_neon_dump_ps(stdout, r.v);  printf("\n");
+    esl_neon_dump_float(stdout, x);    printf(" ==> ");
+    esl_neon_dump_float(stdout, r.v);  printf("\n");
   }
   if (! isinf(r.x[0]))  esl_fatal("logf(inf)  should be inf");
   if (! isnan(r.x[1]))  esl_fatal("logf(NaN)  should be NaN");
@@ -487,8 +443,8 @@ utest_expf(ESL_GETOPTS *go)
   r.v =  esl_neon_expf(x); 
   if (esl_opt_GetBoolean(go, "-v")) {
     printf("expf");
-    esl_neon_dump_ps(stdout, x);    printf(" ==> ");
-    esl_neon_dump_ps(stdout, r.v);  printf("\n");
+    esl_neon_dump_float(stdout, x);    printf(" ==> ");
+    esl_neon_dump_float(stdout, r.v);  printf("\n");
   }
   if (r.x[0] != 0.0f)   esl_fatal("expf(-inf) should be 0");
   if (r.x[1] != 1.0f)   esl_fatal("expf(-0)   should be 1");
@@ -501,8 +457,8 @@ utest_expf(ESL_GETOPTS *go)
   r.v =  esl_neon_expf(x); 
   if (esl_opt_GetBoolean(go, "-v")) {
     printf("expf");
-    esl_neon_dump_ps(stdout, x);    printf(" ==> ");
-    esl_neon_dump_ps(stdout, r.v);  printf("\n");
+    esl_neon_dump_float(stdout, x);    printf(" ==> ");
+    esl_neon_dump_float(stdout, r.v);  printf("\n");
   }
   if (! isnan(r.x[0]))  esl_fatal("expf(NaN)      should be NaN");
   if (! isinf(r.x[1]))  esl_fatal("expf(large x)  should be inf");
@@ -528,8 +484,8 @@ utest_expf(ESL_GETOPTS *go)
   r.v = esl_neon_expf(x); 
   if (esl_opt_GetBoolean(go, "-v")) {
     printf("expf");
-    esl_neon_dump_ps(stdout, x);    printf(" ==> ");
-    esl_neon_dump_ps(stdout, r.v);  printf("\n");
+    esl_neon_dump_float(stdout, x);    printf(" ==> ");
+    esl_neon_dump_float(stdout, r.v);  printf("\n");
   }
   if ( r.x[0] >= FLT_MIN) esl_fatal("expf( -126.5 log2 + eps) should be around FLT_MIN");
   if ( r.x[1] != 0.0f)    esl_fatal("expf( -126.5 log2 - eps) should be 0.0 (by calculation)");

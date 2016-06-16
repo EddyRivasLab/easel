@@ -48,7 +48,7 @@ esl_neon_select_float(__arm128f a, __arm128f b, __arm128f mask)
 {
   
   __arm128i aview, bview, maskview, masknot;
-  __arm128f masknotf, ret;
+  __arm128f ret;
   maskview.s64x2 = vreinterpretq_s64_f32(mask.f32x4);
   bview.s64x2 = vreinterpretq_s64_f32(b.f32x4);
   aview.s64x2 = vreinterpretq_s64_f32(a.f32x4);
