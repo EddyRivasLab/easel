@@ -269,7 +269,7 @@ elif test "$enable_gprof" = "yes"; then
    CFLAGS="-O -g -pg"
 elif test "$enable_debugging" != "no"; then
    if test "$GCC" = "yes"; then
-      CFLAGS="-g -Wall"
+      CFLAGS="-g -Wall -marm"
    fi
 else
    CFLAGS="-O3"

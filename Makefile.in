@@ -214,7 +214,6 @@ BENCHMARKS =\
 	esl_buffer_benchmark\
 	esl_keyhash_benchmark\
 	esl_mem_benchmark\
-	esl_neon_benchmark\
 	esl_random_benchmark
 
 EXPERIMENTS = \
