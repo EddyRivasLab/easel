@@ -794,7 +794,7 @@ esl_gencode_ProcessOrf(ESL_GENCODE_WORKSTATE *wrk, ESL_SQ *sq)
       psq->dsq[1+psq->n] = eslDSQ_SENTINEL;
 
       esl_sq_FormatName(psq, "orf%d", wrk->orfcount);
-      esl_sq_FormatDesc(psq, "source=%s coords=%lld..%lld length=%lld frame=%d  %s", psq->source, psq->start, psq->end, psq->n, wrk->frame + 1 + (wrk->is_revcomp ? 3 : 0), sq->desc);
+      esl_sq_FormatDesc(psq, "source=%s coords=%" PRId64 "..%" PRId64 " length=%" PRId64 " frame=%d desc=%s", psq->source, psq->start, psq->end, psq->n, wrk->frame + 1 + (wrk->is_revcomp ? 3 : 0), sq->desc);
       /* if we do not have a block to write ORFs to then write ORFs to file */
       if (wrk->orf_block == NULL)
       {

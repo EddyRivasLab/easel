@@ -2011,7 +2011,7 @@ sqascii_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t start, int64_t
   sq->C     = 0;
   sq->W     = sq->n;
   sq->L     = (L > 0 ? L : -1);
-  esl_sq_FormatName(sq, "%s/%d-%d", source, start, end);
+  esl_sq_FormatName(sq, "%s/%" PRId64 "-%" PRId64, source, start, end);
   esl_sq_SetSource (sq, source);
   return eslOK;
 }  

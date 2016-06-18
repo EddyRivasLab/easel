@@ -1270,6 +1270,7 @@ esl_sq_FormatDesc(ESL_SQ *sq, const char *desc, ...)
 
   va_start(argp, desc);
   va_copy(argp2, argp);
+  
   if ((n = vsnprintf(sq->desc, sq->dalloc, desc, argp)) >= sq->dalloc)
     {
       ESL_RALLOC(sq->desc, tmp, sizeof(char) * (n+1)); 
