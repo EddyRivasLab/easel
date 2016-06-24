@@ -318,6 +318,12 @@ esl_huffman_Decode(const ESL_HUFFMAN *hc, const uint32_t *X, int nb, char **ret_
  * 4. Debugging, development
  *****************************************************************/
     
+/* Function:  esl_huffman_Dump()
+ * Synopsis:  Dump info on a huffman code structure.
+ * Incept:    SRE, Sat Jun  4 07:38:15 2016
+ *
+ * Purpose:   Dump the internals of object <hc> to output stream <fp>.
+ */
 int
 esl_huffman_Dump(FILE *fp, ESL_HUFFMAN *hc)
 {
@@ -327,7 +333,7 @@ esl_huffman_Dump(FILE *fp, ESL_HUFFMAN *hc)
   for (r = 0; r < hc->Ku; r++)
     {
       x = hc->sorted_at[r];
-      fprintf(fp, "%3d %3d ", x, hc->len[x]);
+      fprintf(fp, "%3d %2d ", x, hc->len[x]);
       dump_uint32(fp, hc->code[x], hc->len[x]);
       fprintf(fp, "\n");
     }
@@ -715,8 +721,7 @@ utest_kryptos(ESL_RANDOMNESS *rng)
 {
   char         msg[]   = "kryptos utest failed";
   ESL_HUFFMAN *hc      = NULL;
-  char         T[]     = "THE CAKE IS A LIE";
-  //  char         T[]     = "BETWEEN SUBTLE SHADING AND THE ABSENCE OF LIGHT LIES THE NUANCE OF IQLUSION";
+  char         T[]     = "BETWEEN SUBTLE SHADING AND THE ABSENCE OF LIGHT LIES THE NUANCE OF IQLUSION";
   int          n       = strlen(T);
   uint32_t    *X       = NULL;
   int          nb;
@@ -859,8 +864,88 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 8. Example
+ * 8. Examples
  *****************************************************************/
+#ifdef eslHUFFMAN_EXAMPLE2
+
+/* esl_huffman_example2 <fqfile>
+ *
+ * The input <fqfile> consists of N lines with 
+ * two whitespace-delimited fields:
+ *    <label>  <frequency>
+ * 
+ * Huffman code the frequency distribution, and output the resulting
+ * encoding.
+ */
+
+
+#include "easel.h"
+#include "esl_buffer.h"
+#include "esl_huffman.h"
+#include "esl_mem.h"
+#include "esl_vectorops.h"
+
+int 
+main(int argc, char **argv)
+{
+  ESL_HUFFMAN *hc     = NULL;
+  ESL_BUFFER  *bf     = NULL;
+  esl_pos_t    n;
+  char        *p;
+  char        *tok;
+  esl_pos_t    toklen;
+  int          kalloc = 16;
+  char       **label  = malloc(sizeof(char *) * kalloc);
+  float       *fq     = malloc(sizeof(float)  * kalloc);
+  int          K      = 0;
+  float        meanL  = 0.;
+  int          i;
+  int          status;
+
+  status = esl_buffer_Open(argv[1], NULL, &bf);
+  if      (status == eslENOTFOUND) esl_fatal("open failed: %s",   bf->errmsg);
+  else if (status == eslFAIL)      esl_fatal("gzip -dc failed: %s", bf->errmsg);
+  else if (status != eslOK)        esl_fatal("open failed with error code %d", status);
+  
+  while (( status = esl_buffer_GetLine(bf, &p, &n)) == eslOK) 
+    {
+      if ( esl_memtok(&p, &n, " \t\n", &tok, &toklen) != eslOK) continue;
+      if ( esl_memstrdup(tok, toklen, &(label[K]))    != eslOK) continue;
+      if ( esl_mem_strtof(p, n, NULL, &(fq[K]))       != eslOK) continue;
+
+      if (++K == kalloc) {
+	kalloc *= 2; 
+	label = realloc(label, sizeof(char *) * kalloc);
+	fq    = realloc(fq,    sizeof(float)  * kalloc); 
+      }
+    }
+  esl_vec_FNorm(fq, K);
+  
+  if (( status = esl_huffman_Build(fq, K, &hc)) != eslOK) esl_fatal("failed to build huffman code");
+  
+  for (i = 0; i < K; i++)
+    {
+      printf("%-10s %2d ", label[i], hc->len[i]);
+      dump_uint32(stdout, hc->code[i], hc->len[i]);
+      printf("\n");
+    }
+
+  for (i = 0; i < K; i++)
+    meanL += (float) hc->len[i] * fq[i];
+  printf("\nMean code length = %.2f bits\n", meanL);
+
+  for (i = 0; i < K; i++) free(label[i]);
+  free(label);
+  free(fq);
+  esl_huffman_Destroy(hc);
+  esl_buffer_Close(bf);
+  return 0;
+}
+#endif /*eslHUFFMAN_EXAMPLE2*/
+
+
+
+
 #ifdef eslHUFFMAN_EXAMPLE
 
 #include "easel.h"

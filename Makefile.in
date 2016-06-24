@@ -320,6 +320,7 @@ EXAMPLES = \
 	esl_histogram_example5\
 	esl_hmm_example\
 	esl_huffman_example\
+	esl_huffman_example2\
 	esl_hyperexp_example\
 	esl_keyhash_example\
 	esl_minimizer_example\
