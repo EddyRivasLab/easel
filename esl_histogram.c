@@ -1052,8 +1052,8 @@ esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
       if (fprintf(fp, "%f %llu\n", x, (unsigned long long) h->obs[i]) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
     }
   x = esl_histogram_Bin2LBound(h,i);   /* Print a trailing y=0, needed to make xmgrace display the last bar */
-  if (fprintf(fp, "%f %llu\n", x, 0) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
-  if (fprintf(fp, "&\n")             < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
+  if (fprintf(fp, "%f %d\n", x, 0) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
+  if (fprintf(fp, "&\n")           < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
 
 
   /* Second data set is the theoretical (expected) histogram
