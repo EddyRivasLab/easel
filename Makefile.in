@@ -80,6 +80,7 @@ endif
 #
 HDRS = 	easel.h\
 	esl_alphabet.h\
+	esl_avx.h\
 	esl_buffer.h\
 	esl_cluster.h\
 	esl_composition.h\
@@ -147,6 +148,7 @@ HDRS = 	easel.h\
 
 OBJS =	easel.o\
 	esl_alphabet.o\
+	esl_avx.o\
 	esl_buffer.o\
 	esl_cluster.o\
 	esl_composition.o\
