@@ -1026,6 +1026,12 @@ esl_histogram_Write(FILE *fp, ESL_HISTOGRAM *h)
  * Purpose:   Print observed (and expected, if set) binned counts
  *            in a histogram <h> to open file pointer <fp>
  *            in xmgrace XY input file format.
+ *            
+ *            The number that's plotted on the X axis is the minimum
+ *            (starting) value of the bin's interval. The Y value is
+ *            the total # of counts in the interval (x,x+w] for bin
+ *            width w. In xmgrace, you want to set "right stairs" as
+ *            the line type in an XY plot.
  *
  * Returns:   <eslOK> on success.
  *
@@ -1045,7 +1051,10 @@ esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
       x = esl_histogram_Bin2LBound(h,i);
       if (fprintf(fp, "%f %llu\n", x, (unsigned long long) h->obs[i]) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
     }
-  if (fprintf(fp, "&\n") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
+  x = esl_histogram_Bin2LBound(h,i);   /* Print a trailing y=0, needed to make xmgrace display the last bar */
+  if (fprintf(fp, "%f %d\n", x, 0) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
+  if (fprintf(fp, "&\n")           < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
+
 
   /* Second data set is the theoretical (expected) histogram
    */

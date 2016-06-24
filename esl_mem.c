@@ -21,6 +21,7 @@
 #include <ctype.h>
 
 #include "easel.h"
+#include "esl_mem.h"
 
 /*****************************************************************
  *# 1. The esl_mem*() API.
@@ -55,7 +56,7 @@
  *            to <p + *opt_nc> to exactly skip past the parsed number.
  * 
  *            If no valid digit is found (including pathological cases
- *            of leader-only, such as "0x" or "-"), then return <eslEINVAL>,
+ *            of leader-only, such as "0x" or "-"), then return <eslEFORMAT>,
  *            and <*opt_nc> and <*opt_val> are both 0.
  *            
  *            This syntax is essentially identical to <strtol()>,
@@ -158,6 +159,135 @@ esl_mem_strtoi32(char *p, esl_pos_t n, int base, int *opt_nc, int32_t *opt_val)
   if (opt_val) { *opt_val = currval; }
   return (ndigits ? eslOK : eslEFORMAT);
 }
+
+/* Function:  esl_mem_strtof()
+ * Synopsis:  Convert a chunk of memory to a float.
+ * Incept:    SRE, Fri Jun  3 10:52:07 2016 [Hamilton]
+ *
+ * Purpose:   Convert the text starting at <p> to a float, converting no
+ *            more than <n> characters, i.e. the valid length of
+ *            non-NUL terminated memory buffer <p>.
+ *            
+ *            The floating point representation is parsed as:
+ *              - leading whitespace is skipped
+ *              - an optional sign for the mantissa, +/-
+ *              - a mantissa: (at least one digit must be present)
+ *                 - an optional string of digits
+ *                 - an optional  '.'
+ *                 - an optional string of digits
+ *              - an optional 'e' or 'E', indicating an exponent:
+ *                 - an optional sign '+' or '-'
+ *                 - a string of digits
+ *                 
+ *            Or, after whitespace and the optional sign, one of the
+ *            following special strings (case-insensitive):
+ *                "inf", "infinity", "nan"
+
+ *            The converted value is optionally returned in
+ *            <*opt_val>, and the number of characters parsed (up to
+ *            <n>) is optionally returned in <*opt_n>. The caller can
+ *            reposition a parser to <p + *opt_nc> to exactly skip a
+ *            parsed number.
+ *            
+ *            Only decimal representations are recognized. Compare to
+ *            POSIX strtof(), which also allows hexadecimal
+ *            representation (when the mantissa leads with 0x or 0X).
+ *
+ * Args:      p         - pointer to text buffer to convert
+ *            n         - max number of chars to convert in <p>: p[0..n-1] are valid
+ *            *opt_nc   - optRETURN: number of valid chars parsed from p
+ *            *opt_val  - optRETURN: parsed value
+ *
+ * Returns:   <eslOK> on success.
+ * 
+ *            <eslEFORMAT> if no mantissa digits are found.
+ *            Now <*opt_val> is set to 0 and <*opt_nc> is set to 0.
+ *
+ * Note:      Think this is stupid? Yeah, I agree. But see note on
+ *            <esl_mem_strtoi32()> for why this seems necessary, and
+ *            why POSIX strtod()/strtol() don't suffice, especially
+ *            if we're going to parse mmap'ed() read-only data.
+ */
+int
+esl_mem_strtof(char *p, esl_pos_t n, int *opt_nc, float *opt_val)
+{
+  float      sign         = 1.;
+  float      val          = 0.;
+  float      frac         = 0.1;
+  float      exp          = 0.;
+  float      expsign      = 1.;
+  int        m            = 0;    // number of digits parsed in mantissa. We check that this is >0.
+  int        e            = 0;
+  esl_pos_t  i            = 0;
+  esl_pos_t  i2;
+
+  while (i < n && isspace(p[i])) i++;     // skip leading whitespace 
+  if (i < n) {
+    if      (p[i] == '-') { sign = -1.0; i++; }
+    else if (p[i] == '+') { sign =  1.0; i++; }
+    else                    sign =  1.0;
+  }
+
+  if      ( esl_memstrpfx_case(p+i, n-i, "infinity") ) { val = eslINFINITY; i += strlen("infinity"); m = 1; }  // check "infinity" first, before "inf"
+  else if ( esl_memstrpfx_case(p+i, n-i, "inf") )      { val = eslINFINITY; i += strlen("inf");      m = 1; }
+  else if ( esl_memstrpfx_case(p+i, n-i, "nan") )      { val = eslNaN;      i += strlen("nan");      m = 1; }
+  else 
+    {
+      while (i < n && isdigit(p[i])) 
+	{
+	  val = 10. * val + (p[i]-'0');
+	  m++;
+	  i++;
+	}
+
+      if (i < n && p[i] == '.')
+	{
+	  i++;
+	  while (i < n && isdigit(p[i]))
+	    {
+	      val += (p[i]-'0') * frac;
+	      frac *= 0.1;  // roundoff error here, sigh.
+	      m++;
+	      i++;
+	    }
+	}
+
+      i2 = i;  // remember where i was as we look at [eE]?[+-]?; we need to see exponent digits before we decide that we're eating these letters
+      if (i < n && (p[i] == 'e' || p[i] == 'E'))
+	{
+	  i++;
+	  if (i < n) {
+	    if      (p[i] == '-') { expsign = -1.; i++; }
+	    else if (p[i] == '+') { expsign =  1.; i++; }
+	    else                  { expsign =  1.;      }
+
+	    while (i < n && isdigit(p[i]))
+	      {
+		exp += 10.*exp + (p[i]-'0');
+		i++;
+		e++;
+	      }
+	  }
+	  if (e == 0) i = i2;  // no exponent digits after that [eE]? then roll i back, it was really an [eE]. (Do not attempt to parse anything after this reset, you're done)
+	}
+    }
+
+  if (m == 0)
+    {
+      if (opt_val) *opt_val = 0.;
+      if (opt_nc)  *opt_nc  = 0;
+      return eslEFORMAT;
+    }
+  else
+    {
+      if (opt_val) *opt_val = sign * val * powf(10.,expsign*exp);
+      if (opt_nc)  *opt_nc  = i;
+      return eslOK;
+    }
+}
+
+
+
 
 /* Function:  esl_memnewline()
  * Synopsis:  Find next newline in memory.
@@ -333,6 +463,9 @@ esl_memstrcmp(const char *p, esl_pos_t n, const char *s)
  *            string <s>. Return TRUE if the prefix of <p> exactly
  *            matches <s> up to its NUL sentinel byte. Else,
  *            return FALSE.
+ *            
+ *            Case-sensitive. For case-insensitive matching, see
+ *            <esl_memstrpfx_case()>.
  */
 int
 esl_memstrpfx(const char *p, esl_pos_t n, const char *s)
@@ -346,6 +479,28 @@ esl_memstrpfx(const char *p, esl_pos_t n, const char *s)
   if (s[pos] != '\0')    return FALSE;
   return TRUE;
 }
+
+
+
+/* Function:  esl_memstrpfx_case()
+ * Synopsis:  Return TRUE if memory line starts with string (case-insensitive)
+ * Incept:    SRE, Fri Jun  3 11:54:47 2016 [Hamilton]
+ *
+ * Purpose:   Same as <esl_memstrpfx()> but case-insensitive.
+ */
+int
+esl_memstrpfx_case(const char *p, esl_pos_t n, const char *s)
+{
+  esl_pos_t pos;
+  if (!p || !s) return FALSE;
+
+  for (pos = 0; pos < n && s[pos] != '\0'; pos++)
+    if (toupper(p[pos]) != toupper(s[pos])) return FALSE;
+  if (s[pos] != '\0')    return FALSE;
+  return TRUE;
+}
+
+
 
 
 /* Function:  esl_memstrcontains()
@@ -648,7 +803,61 @@ utest_mem_strtoi32(void)
   if ( (status = esl_mem_strtoi32("-214748364900", 13,  0, &nc, &val)) != eslERANGE  || nc != 11 || val != INT32_MIN) esl_fatal(msg);
   if ( (status = esl_mem_strtoi32(" 0x1234",        3, 16, &nc, &val)) != eslEFORMAT || nc !=  0 || val !=         0) esl_fatal(msg);
   if ( (status = esl_mem_strtoi32("09999999",       7,  0, &nc, &val)) != eslEFORMAT || nc !=  0 || val !=         0) esl_fatal(msg);
-  return;
+}
+
+
+static void
+utest_mem_strtof(void)
+{
+  char  msg[] = "esl_mem_strtof() unit test failed";
+  float tol   = 1e-6;
+  float val;
+  int   nc;
+  int   status;
+
+  if (( status = esl_mem_strtof("-1.0",          4, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare(val,  -1.0,    tol) != eslOK ) esl_fatal(msg);
+  if (( status = esl_mem_strtof("  -1.0",        6, &nc, &val) ) != eslOK || nc != 6  || esl_FCompare(val,  -1.0,    tol) != eslOK ) esl_fatal(msg);  // leading space
+  if (( status = esl_mem_strtof("+1.0",          4, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare(val,   1.0,    tol) != eslOK ) esl_fatal(msg);  // + is a valid sign
+  if (( status = esl_mem_strtof("1234",          4, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare(val, 1234.,    tol) != eslOK ) esl_fatal(msg);  // no decimal point
+  if (( status = esl_mem_strtof("1234.",         5, &nc, &val) ) != eslOK || nc != 5  || esl_FCompare(val, 1234.,    tol) != eslOK ) esl_fatal(msg);  // decimal point, no fraction
+  if (( status = esl_mem_strtof("1234.567",      8, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare(val, 1234.567, tol) != eslOK ) esl_fatal(msg);  // mantissa doesn't have to be normalized
+  if (( status = esl_mem_strtof("1234.e-1",      8, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare(val, 123.4,    tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.e-01",     9, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare(val, 123.4,    tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.e+01",     9, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare(val, 12340,    tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.E+01",     9, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare(val, 12340,    tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.567E+01", 12, &nc, &val) ) != eslOK || nc != 12 || esl_FCompare(val, 12345.67, tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.567E",     9, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare(val, 1234.567, tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("infinity",      8, &nc, &val) ) != eslOK || nc != 8  ||  !isinf(val))                               esl_fatal(msg);
+  if (( status = esl_mem_strtof("-inf",          4, &nc, &val) ) != eslOK || nc != 4  ||  !isinf(val))                               esl_fatal(msg);
+  if (( status = esl_mem_strtof("NaN",           3, &nc, &val) ) != eslOK || nc != 3  ||  !isnan(val))                               esl_fatal(msg);
+  if (( status = esl_mem_strtof("InFiNitY",      8, &nc, &val) ) != eslOK || nc != 8  ||  !isinf(val))                               esl_fatal(msg);
+  if (( status = esl_mem_strtof("iNf",           3, &nc, &val) ) != eslOK || nc != 3  ||  !isinf(val))                               esl_fatal(msg);
+  if (( status = esl_mem_strtof("nAn",           3, &nc, &val) ) != eslOK || nc != 3  ||  !isnan(val))                               esl_fatal(msg);
+
+  /* same, with trailing text */
+  if (( status = esl_mem_strtof("-1.0XYZ",          7, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare(val,  -1.0,    tol) != eslOK ) esl_fatal(msg);
+  if (( status = esl_mem_strtof("  -1.0XYZ",        9, &nc, &val) ) != eslOK || nc != 6  || esl_FCompare(val,  -1.0,    tol) != eslOK ) esl_fatal(msg);
+  if (( status = esl_mem_strtof("+1.0XYZ",          7, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare(val,   1.0,    tol) != eslOK ) esl_fatal(msg);
+  if (( status = esl_mem_strtof("1234XYZ",          7, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare(val, 1234.,    tol) != eslOK ) esl_fatal(msg);
+  if (( status = esl_mem_strtof("1234.XYZ",         8, &nc, &val) ) != eslOK || nc != 5  || esl_FCompare(val, 1234.,    tol) != eslOK ) esl_fatal(msg);
+  if (( status = esl_mem_strtof("1234.567XYZ",     11, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare(val, 1234.567, tol) != eslOK ) esl_fatal(msg);
+  if (( status = esl_mem_strtof("1234.e-1XYZ",     11, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare(val, 123.4,    tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.e-01XYZ",    12, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare(val, 123.4,    tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.e+01XYZ",    12, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare(val, 12340,    tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.E+01XYZ",    12, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare(val, 12340,    tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.567E+01XYZ", 15, &nc, &val) ) != eslOK || nc != 12 || esl_FCompare(val, 12345.67, tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.567EEEE",    12, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare(val, 1234.567, tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("infinityXYZ",     11, &nc, &val) ) != eslOK || nc != 8  ||  !isinf(val))                               esl_fatal(msg);
+  if (( status = esl_mem_strtof("-infXYZ",          7, &nc, &val) ) != eslOK || nc != 4  ||  !isinf(val))                               esl_fatal(msg);
+  if (( status = esl_mem_strtof("NaNXYZ",           6, &nc, &val) ) != eslOK || nc != 3  ||  !isnan(val))                               esl_fatal(msg);
+  if (( status = esl_mem_strtof("InFiNitYXYZ",     11, &nc, &val) ) != eslOK || nc != 8  ||  !isinf(val))                               esl_fatal(msg);
+  if (( status = esl_mem_strtof("iNfXYZ",           6, &nc, &val) ) != eslOK || nc != 3  ||  !isinf(val))                               esl_fatal(msg);
+  if (( status = esl_mem_strtof("nAnXYZ",           6, &nc, &val) ) != eslOK || nc != 3  ||  !isnan(val))                               esl_fatal(msg);
+
+  if (( status = esl_mem_strtof("XYZXYZ",           6, &nc, &val) ) != eslEFORMAT || nc != 0  || val != 0.0)                            esl_fatal(msg);
+  if (( status = esl_mem_strtof("intinity",         8, &nc, &val) ) != eslEFORMAT || nc != 0  || val != 0.0)                            esl_fatal(msg);
+
+
 }
 
 
@@ -802,6 +1011,7 @@ main(int argc, char **argv)
   ESL_GETOPTS    *go          = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
 
   utest_mem_strtoi32();
+  utest_mem_strtof();
   utest_memtok();
   utest_memspn_memcspn();
   utest_memstrcmp_memstrpfx();
@@ -814,12 +1024,5 @@ main(int argc, char **argv)
 
 
 /*------------------ end, test driver ---------------------------*/
-
-/*****************************************************************
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
 
 
