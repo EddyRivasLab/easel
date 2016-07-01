@@ -125,16 +125,16 @@ esl_sse_hmin_ps(__m128 a, float *ret_min)
   _mm_store_ss(ret_min, a);
 }
 */
-/* Function:  esl_sse_hsum_float()
+/* Function:  esl_neon_hsum_float()
  * Synopsis:  Takes the horizontal sum of elements in a vector.
  *
  * Purpose:   Add the four float elements in vector <a>; return
  *            that sum in <*ret_sum>.
  */
 
-/*
+
 static inline void
-esl_sse_hsum_float(__arm128f a, float *ret_sum)
+esl_neon_hsum_float(__arm128f a, float *ret_sum)
 {
   __arm256f_composite fvec;  
   a.f32x4 = vaddq_f32(a.f32x4, vrev64q_f32(a.f32x4));
@@ -143,7 +143,7 @@ esl_sse_hsum_float(__arm128f a, float *ret_sum)
   a.f32x4 = vaddq_f32(fvec.f32x4x2.val[0], fvec.f32x4x2.val[1]);
   vst1q_lane_f32(ret_sum, a.f32x4, 0);
 }
-*/
+
 
 /* Function:  esl_neon_rightshift_ps()
  * Synopsis:  Shift vector elements to the right.
@@ -216,11 +216,11 @@ static inline int
 esl_neon_any_gt_s16(__arm128i a, __arm128i b)
 {
    __arm128i mask;
-  int l0, l1;
+  int64_t l0, l1;
   mask.u16x8 = vcgtq_s16(a.s16x8,b.s16x8);
   l0 = vgetq_lane_u64(mask.u64x2, 0);
   l1 = vgetq_lane_u64(mask.u64x2, 1);
-  int maskbits = l0 | l1;
+  int64_t maskbits = l0 | l1;
   return maskbits != 0;
 }
 
