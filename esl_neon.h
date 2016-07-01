@@ -136,11 +136,13 @@ esl_sse_hmin_ps(__m128 a, float *ret_min)
 static inline void
 esl_neon_hsum_float(__arm128f a, float *ret_sum)
 {
-  __arm256f_composite fvec;  
+  __arm128f fvec;  
   a.f32x4 = vaddq_f32(a.f32x4, vrev64q_f32(a.f32x4));
   
-  fvec.f32x4x2 = vtrnq_f32(a.f32x4, a.f32x4);
-  a.f32x4 = vaddq_f32(fvec.f32x4x2.val[0], fvec.f32x4x2.val[1]);
+//  fvec.f32x4x2 = vtrnq_f32(a.f32x4, a.f32x4);
+  fvec.f32x4 = vextq_f32(a.f32x4, a.f32x4, 2);
+  a.f32x4 = vaddq_f32(a.f32x4, fvec.f32x4);
+  //a.f32x4 = vaddq_f32(fvec.f32x4x2.val[0], fvec.f32x4x2.val[1]);
   vst1q_lane_f32(ret_sum, a.f32x4, 0);
 }
 
@@ -158,9 +160,17 @@ esl_neon_hsum_float(__arm128f a, float *ret_sum)
 static inline __arm128f 
 esl_neon_rightshift_float(__arm128f a, __arm128f b)
 {
+  union { __arm128f v; float f[4]; }tmp;
+  tmp.v = a;
+//  printf("a: %f %f %f %f\n", tmp.f[0], tmp.f[1], tmp.f[2], tmp.f[3]);
+  tmp.v = b;
+//  printf("b: %f %f %f %f\n", tmp.f[0], tmp.f[1], tmp.f[2], tmp.f[3]);
   register __arm128f v;
-  v.f32x4 = vrev64q_f32(b.f32x4); /* b[3] b[2] b[1] b[0] */
+  v.f32x4 = vrev64q_f32(b.f32x4); /* b[1] b[0] b[3] b[2] */
+  v.f32x4 = vextq_f32(v.f32x4, v.f32x4, 2);  /* b[3] b[2] b[1] b[0] */
   v.f32x4 = vextq_f32(v.f32x4, a.f32x4, 3); /* b[0] a[0] a[1] a[2] */
+  tmp.v = v;
+//  printf("v: %f %f %f %f\n", tmp.f[0], tmp.f[1], tmp.f[2], tmp.f[3]);
   return v; 
 }
 
