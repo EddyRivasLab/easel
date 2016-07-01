@@ -17,10 +17,10 @@
 /*****************************************************************
  * 1. Function declarations (from esl_sse.c)
  *****************************************************************/
-/*extern __armm128f  esl_neon_logf(__arm128f x);
+extern __arm128f  esl_neon_logf(__arm128f x);
 extern __arm128f  esl_neon_expf(__arm128f x);
-extern void    esl_neon_dump_ps(FILE *fp, __arm128i v);
-*/
+extern void    esl_neon_dump_float(FILE *fp, __arm128f v);
+
 
 /*****************************************************************
  * 2. Inline utilities for ps vectors (4 floats in __arm128f)
@@ -159,12 +159,9 @@ static inline __arm128f
 esl_neon_rightshift_float(__arm128f a, __arm128f b)
 {
   register __arm128f v;
-  float floats[5];
-  vst1q_f32(&floats[1], a.f32x4); /* Store a[0] a[1] a[2] a[3] */
-  vst1q_lane_f32(floats, b.f32x4, 0); /* Store b[0] just below a[0] */
-  v.f32x4 = vld1q_f32(floats);
-  return v;
-
+  v.f32x4 = vrev64q_f32(b.f32x4); /* b[3] b[2] b[1] b[0] */
+  v.f32x4 = vextq_f32(v.f32x4, a.f32x4, 3); /* b[0] a[0] a[1] a[2] */
+  return v; 
 }
 
 /* Function:  esl_neon_leftshift_float()
@@ -181,12 +178,7 @@ static inline __arm128f
 esl_neon_leftshift_float(__arm128f a, __arm128f b)
 {
   register __arm128f v;
-  __arm128i ia, ib, iv;
-  ia.u32x4 = vreinterpretq_u32_f32(a.f32x4); /* reinterpret as int for select */
-  ib.u32x4 = vreinterpretq_u32_f32(b.f32x4);
-  iv.u32x4 = vreinterpretq_u32_f32(v.f32x4); 
-  iv.u32x4 = vextq_u32(ia.u32x4, ib.u32x4, 1);/* now a[1] a[2] a[3] b[0] */
-  v.f32x4 = vreinterpretq_f32_u32(iv.u32x4);
+  v.f32x4 = vextq_f32(a.f32x4, b.f32x4, 1);/* now a[1] a[2] a[3] b[0] */
   return v;
 }
 
@@ -233,18 +225,30 @@ esl_neon_any_gt_s16(__arm128i a, __arm128i b)
 }
 
 /* Function:  esl_neon_hmax_u8()
- * Synopsis:  Return the max of the 16 elements in epu8 vector.
+ * Synopsis:  Return the max of the 16 elements in u8 vector.
  *
  * Purpose:   Returns the maximum value of the 16 elements in
- *            an <epu8> vector.
+ *            a <u8> vector.
  */
 static inline uint8_t
 esl_neon_hmax_u8(__arm128i a)
 {
+  register __arm128i tempv;
+  tempv.u8x16 = vreinterpretq_u8_u32(vextq_u32(a.u32x4, a.u32x4, 2));
+  a.u8x16 = vmaxq_u8(a.u8x16, tempv.u8x16);
+  tempv.u8x16 = vreinterpretq_u8_u32(vextq_u32(a.u32x4, a.u32x4, 1));
+  a.u8x16 = vmaxq_u8(a.u8x16, tempv.u8x16);
+  tempv.u8x16 = vreinterpretq_u8_u16(vrev64q_u16(a.u16x8));
+  a.u8x16 = vmaxq_u8(a.u8x16, tempv.u8x16);
+  tempv.u8x16 = vrev64q_u8(a.u8x16);
+  a.u8x16 = vmaxq_u8(a.u8x16, tempv.u8x16);
+
+/* 
   a.u8x16 = vmaxq_u8(a.u8x16, vrev64q_u8(a.u8x16));
   a.u8x16 = vmaxq_u8(a.u8x16, vreinterpretq_u8_u32(vrev64q_u32(a.u32x4)));
   a.u8x16 = vmaxq_u8(a.u8x16, vrev64q_u8(a.u8x16)); 
   a.u8x16 = vmaxq_u8(a.u8x16, vreinterpretq_u8_u32(vrev64q_u32(a.u32x4)));
+*/
   return vgetq_lane_u8(a.u8x16, 15);
 }
 
@@ -259,7 +263,7 @@ esl_neon_hmax_s16(__arm128i a)
 {
   a.s16x8 = vmaxq_s16(a.s16x8, vrev64q_s16(a.s16x8));
   a.s16x8 = vmaxq_s16(a.s16x8, vreinterpretq_s16_s32(vrev64q_s32(a.s32x4)));
-  a.s16x8 = vmaxq_s16(a.s16x8, vrev64q_s16(a.s16x8));
+  a.s16x8 = vmaxq_s16(a.s16x8, vreinterpretq_s16_s32(vextq_s32(a.s32x4, a.s32x4, 2)));
   return vgetq_lane_s16(a.s16x8, 7);
 }
 
