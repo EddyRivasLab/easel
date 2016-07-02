@@ -52,6 +52,14 @@ static int   dsqdata_unpack2(uint32_t *psq, ESL_DSQ *dsq, int *ret_L, int *ret_P
 static int   dsqdata_pack5  (ESL_DSQ *dsq, int L, uint32_t *psq, int *ret_P);
 static int   dsqdata_pack2  (ESL_DSQ *dsq, int L, uint32_t *psq, int *ret_P);
 
+
+/* Embedded magic numbers allow us to validate the correct binary
+ * format, with version (if needed in the future), and to detect
+ * byteswapping.
+ */
+static uint32_t eslDSQDATA_MAGIC_V1     = 0xc4d3d1b1; // "dsq1" + 0x80808080             
+static uint32_t eslDSQDATA_MAGIC_V1SWAP = 0xb1d1d3c4; //  ... as above, but byteswapped. 
+
 /*****************************************************************
  *# 1. <ESL_DSQDATA>: reading dsqdata format
  *****************************************************************/

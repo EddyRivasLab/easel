@@ -117,15 +117,6 @@ typedef struct esl_dsqdata_s {
   
 
 
-
-/* Embedded magic numbers allow us to validate the correct binary
- * format, with version (if needed in the future), and to detect
- * byteswapping.
- */
-static uint32_t eslDSQDATA_MAGIC_V1     = 0xc4d3d1b1; // "dsq1" + 0x80808080             
-static uint32_t eslDSQDATA_MAGIC_V1SWAP = 0xb1d1d3c4; //  ... as above, but byteswapped. 
-
-
 /* Defaults for size of eslDSQDATA_CHUNK 
  */
 #define eslDSQDATA_CHUNK_MAXSEQ       4096      // max number of sequences

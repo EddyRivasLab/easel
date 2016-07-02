@@ -37,7 +37,7 @@ static int phylip_interleaved_Write(FILE *fp, const ESL_MSA *msa, ESL_MSAFILE_FM
 static int phylip_sequential_Read(ESL_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_stated);
 static int phylip_sequential_Write(FILE *fp, const ESL_MSA *msa, ESL_MSAFILE_FMTDATA *opt_fmtd);
 
-static int phylip_check_interleaved       (ESL_BUFFER *bf, int *ret_namewidth);
+static int phylip_check_interleaved       (ESL_BUFFER *bf, int *ret_nblocks, int *ret_namewidth);
 static int phylip_check_sequential_known  (ESL_BUFFER *bf, int namewidth);
 static int phylip_check_sequential_unknown(ESL_BUFFER *bf, int *ret_namewidth);
 static int phylip_parse_header(ESL_BUFFER *bf, int32_t *ret_nseq, int32_t *ret_alen, char **ret_p, esl_pos_t *ret_n);
@@ -349,42 +349,59 @@ esl_msafile_phylip_Write(FILE *fp, const ESL_MSA *msa, int format, ESL_MSAFILE_F
  *            
  *            Strict PHYLIP format has a name/identifier field width
  *            of exactly 10 characters, but variants of the format are
- *            in common use with different name widths. A guess for
- *            the name width is returned in <*ret_namewidth>. 
+ *            in common use with different name widths. The
+ *            name width is determined and returned in <*ret_namewidth>. 
  *            
  *            If the input doesn't appear to be in PHYLIP format,
  *            return <eslFAIL>, with <*ret_format> as
  *            <eslMSAFILE_UNKNOWN> and <*ret_namewidth> as 0.
  *            
- *            The PHYLIP format definition is ambiguous.  It is
+ *            The PHYLIP format definition is ambiguous; it is
  *            possible to construct pathological inputs that could be
- *            validly parsed to yield different data. This includes
- *            inputs that can be read as either interleaved or
- *            sequential files, or inputs which have different
- *            apparently valid name widths. In ambiguous cases, the
- *            guess defaults to interleaved format, and to a namewidth
- *            of 10, on the theory that these are more common.
+ *            validly parsed to yield different data when read as
+ *            interleaved versus sequential. (This requires names that
+ *            use a character set that looks like sequence, among
+ *            other unusual edge conditions.) If the format variant
+ *            cannot be unambiguously determined, we do not attempt to
+ *            make a guess that might result in corrupted input;
+ *            rather, return <eslEAMBIGUOUS>.
  *
  * Args:      bf             - input buffer 
  *            *ret_format    - RETURN: format variant, <eslMSAFILE_PHYLIP>, <_PHYLIPS>, <_UNKNOWN>
  *            *ret_namewidth - RETURN: width of name field, in characters
  * 
- * Returns:   <eslOK> if input is in PHYLIP format.
- *            <eslFAIL> if not.
+ * Returns:   <eslOK> if input is in PHYLIP format; <*ret_format> is set to 
+ *            <eslMSAFILE_PHYLIP> or <eslMSAFILE_PHYLIPS>; <*ret_namewidth>
+ *            is the name width, either the usual 10, or something nonstandard.
+ *            
+ *            <eslEAMBIGUOUS> if the input appears to be in a PHYLIP format but
+ *            we can't tell which one. <*ret_format> is <eslMSAFILE_UNKNOWN>, 
+ *            <*ret_namewidth> is 0.
+ *            
+ *            <eslFAIL> if the input is not in either PHYLIP format; 
+ *            <*ret_format> is <eslMSAFILE_UNKNOWN>, <*ret_namewidth> is 0.
  *
  * Throws:    (no abnormal error conditions)
  */
 int
 esl_msafile_phylip_CheckFileFormat(ESL_BUFFER *bf, int *ret_format, int *ret_namewidth)
 {
-  int status;
+  int maybe_interleaved = FALSE;  // Must worry about pathological files consistent with both formats.
+  int maybe_sequential  = FALSE;
+  int nblocks;                    // number of interleaved blocks. if only 1, interleaved == sequential
+  int w1, w2;                     // name widths if interleaved, sequential
+  
+  if      ( phylip_check_interleaved(bf, &nblocks, &w1) == eslOK)  { maybe_interleaved = TRUE; }
 
-  if      ( (status = phylip_check_interleaved       (bf, ret_namewidth)) == eslOK) { *ret_format = eslMSAFILE_PHYLIP;                       return eslOK; }
-  else if ( (status = phylip_check_sequential_known  (bf, 10))            == eslOK) { *ret_format = eslMSAFILE_PHYLIPS; *ret_namewidth = 10; return eslOK; }
-  else if ( (status = phylip_check_sequential_unknown(bf, ret_namewidth)) == eslOK) { *ret_format = eslMSAFILE_PHYLIPS;                      return eslOK; }
+  if      (maybe_interleaved && nblocks == 1)      { *ret_namewidth = w1; *ret_format = eslMSAFILE_PHYLIP;  return eslOK; }
 
-  *ret_format = eslMSAFILE_UNKNOWN;
-  return eslFAIL;
+  if      ( phylip_check_sequential_known  (bf, 10)     == eslOK) { maybe_sequential  = TRUE; w2 = 10; }
+  else if ( phylip_check_sequential_unknown(bf, &w2)    == eslOK) { maybe_sequential  = TRUE;          }
+
+  if      (maybe_interleaved && maybe_sequential)  { *ret_namewidth = 0;  *ret_format = eslMSAFILE_UNKNOWN; return eslEAMBIGUOUS; }
+  else if (maybe_interleaved)                      { *ret_namewidth = w1; *ret_format = eslMSAFILE_PHYLIP;  return eslOK;         }
+  else if (maybe_sequential)                       { *ret_namewidth = w2; *ret_format = eslMSAFILE_PHYLIPS; return eslOK;         }
+  else                                             { *ret_namewidth = 0;  *ret_format = eslMSAFILE_UNKNOWN; return eslFAIL;       }
 }
 /*-------------- end, API for PHYLIP format i/o -----------------*/
 
@@ -649,13 +666,26 @@ phylip_sequential_Write(FILE *fp, const ESL_MSA *msa, ESL_MSAFILE_FMTDATA *opt_f
  * 4. Autodetection of the format and its variants
  *****************************************************************/
 
-/* return <eslOK> if input is consistent with interleaved format,
- * and set <*ret_namewidth> to the apparent name width.
+/* return <eslOK> if input is consistent with interleaved format;
+ * set <*ret_namewidth> to the apparent name width; 
+ * set <*ret_nblocks> to the number of interleaved blocks seen.
+ *
+ * If <nblocks=1>, it doesn't matter whether we read the file as
+ * interleaved or sequential; it will also appear to be consistent
+ * with sequential format, but we will parse it as interleaved.
+ *
+ * <namewidth> can be uniquely determined because we know <nseq> and
+ * <alen> (from the Phylip header), so we know how many characters
+ * should be accounted for by the alignment; the rest have to be
+ * the names.
+ * 
+ * If the input is not consistent with interleaved Phylip format,
+ * return <eslFAIL>, and <*ret_namewidth> and <*ret_nblocks> are 0.
  * 
  * upon return, restore the <bf> to its original position.
  */
 static int
-phylip_check_interleaved(ESL_BUFFER *bf, int *ret_namewidth)
+phylip_check_interleaved(ESL_BUFFER *bf, int *ret_nblocks, int *ret_namewidth)
 {
   esl_pos_t anchor     = -1;
   char     *p;
@@ -733,6 +763,7 @@ phylip_check_interleaved(ESL_BUFFER *bf, int *ret_namewidth)
   free(colcodes0);
   esl_buffer_SetOffset(bf, anchor);
   esl_buffer_RaiseAnchor(bf, anchor);
+  *ret_nblocks = nblocks;
   return eslOK;
 
  ERROR:
@@ -743,6 +774,7 @@ phylip_check_interleaved(ESL_BUFFER *bf, int *ret_namewidth)
   if (colcodes) free(colcodes);
   if (colcodes0) free(colcodes0);
   *ret_namewidth = 0;
+  *ret_nblocks   = 0;
   return status;
 }
 
@@ -798,91 +830,121 @@ phylip_check_sequential_known(ESL_BUFFER *bf, int namewidth)
   return status;
 }
 
+
+/* phylip_check_sequential_unknown()
+ * Check for sequential format when namewidth may deviate from standard 10.
+ * 
+ * Returns: <eslOK> if file is consistent with sequential Phylip format,
+ *                  and <*ret_namewidth> is the name width.
+ * 
+ *          <eslFAIL> if file is inconsistent with sequential format.
+ *   
+ * Throws:  <eslEMEM> on allocation failure
+ */
 static int
 phylip_check_sequential_unknown(ESL_BUFFER *bf, int *ret_namewidth)
 {
-  esl_pos_t anchor     = -1;
-  int       nlines     = 0;
-  int       nblocks    = 0;
-  char     *p, *p0;
-  esl_pos_t n;
-  esl_pos_t n0         = 0;  // initialization is solely to calm overzealous static analyzers
+  esl_pos_t anchor  = -1;
+  int       nlines  = 0;
+  int       nblocks = 0;
   int32_t   nseq, alen;
-  int       b, c, idx;
-  int       nres2, nres1;
-  int       nwA, nwB, nw_min, nw_max;
+  int      *rth     = NULL;  // rth[i=0..L1-1] = # of legal chars, inclusive, in i..L1-1, or 0
+  int       r;               // total # of legal seq chars on line 1 of a seq
+  int       L1;              // total length of line 1, including all chars & whitespace
+  int       b;               // # of legal seq chars on remainder of lines of a seq
+  int       a;               // # of seq chars we need on line 1: alen - b
+  char     *p;               // pointer to current line in input buffer
+  esl_pos_t n;               // length of current line in input buffer
+  int       i, j, k;
+  int       w;               // name width we determine
+  int       len2;            // alen of subsequent seqs in file
   int       status;
-
+  
+  /* Set an anchor where we are in the input, so we can rewind */
   anchor = esl_buffer_GetOffset(bf);
-  if (esl_buffer_SetStableAnchor(bf, anchor) != eslOK) { status = eslFAIL; goto ERROR; } 
-  /* note, a *stable* anchor: we are going to hold first line of each seq for a while */
+  if ( esl_buffer_SetStableAnchor(bf, anchor) != eslOK) { status = eslFAIL; goto ERROR; }
 
-  /* pass 1. number of data lines in file / nseq = integral number of lines per sequence. */
+  /* Pass 1: number of data lines in file / nseq = integral # of lines per sequence */
   while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK)
     if (esl_memspn(p, n, " \t") != n) nlines++;
-  if (status != eslEOF)   goto ERROR;
+  if (status != eslEOF) { status = eslFAIL; goto ERROR; }
   nlines--;                         /* not counting the <nseq> <alen> header */
   esl_buffer_SetOffset(bf, anchor); /* rewind */
 
-  /* pass 2. */
-  if ((status = phylip_parse_header(bf, &nseq, &alen, &p, &n)) != eslOK) goto ERROR;
+  /* pass 2: first, parse the <nseq> <alen> line */
+  if ((status = phylip_parse_header(bf, &nseq, &alen, &p, &n)) != eslOK) { status = eslFAIL; goto ERROR; }
   if (nlines % nseq != 0) { status = eslFAIL; goto ERROR; } 
   nblocks = nlines / nseq;
 
-  nw_min = nw_max = 0;
-  for (idx = 0; idx < nseq; idx++)
+  /* ... evaluate the first line, already at point in p,n */
+  ESL_ALLOC(rth, sizeof(int) * n);
+  for (i = n-1, r = 0; i >= 0; i--)
+    rth[i] = ( strchr(eslMSAFILE_PHYLIP_LEGALSYMS, p[i]) != NULL ? ++r : 0 );
+  L1 = n;
+
+  /* rth[i] =      0 if line1[i] is not a legal seq char
+   *          else # of legal chars in line1[i..L1-1]
+   *      r = total # of legal chars on line 1 
+   *     L1 = total length of line 1, all chars (including whitespace)
+   * Once we know how many seq residues we need to get on the first line,
+   * we can use rth[] to find the position of the first one.
+   */
+
+  /* Now count b: # of legal chars on subsequent lines for 1st seq */
+  for (k = 1, b = 0; k < nblocks; k++)
     {
-      nres2 = 0;
-      for (b = 0; b < nblocks; b++)
-	{
-	  if (status == eslEOF) goto ERROR;
-
-	  if (b == 0)
-	    { p0 = p; n0 = n; } /* defer evaluation of first line until we've counted the rest */
-	  else 
-	    {
-	      for (c = 0; c < n; c++) 
-		if (strchr(eslMSAFILE_PHYLIP_LEGALSYMS, p[c]) != NULL) 
-		  nres2++;
-	    }
-
-	  status = esl_buffer_GetLine(bf, &p, &n);
-	  if (status != eslOK && status != eslEOF) goto ERROR;
-	}
-
-      nres1 = alen - nres2;
-      if (nres1 <= 0) return eslFAIL;
-      for (c = n0-1; nres1 && c >= 0; c--)
-	if (strchr(eslMSAFILE_PHYLIP_LEGALSYMS, p0[c]) != NULL) 
-	  nres1--;
-      if (nres1) { status = eslFAIL; goto ERROR; }
-      nwB = c+1;
-
-      for (; c >= 0; c--)
-	if (p0[c] != ' ') break;
-      nwA = c+1;
-
-      nw_min = (idx == 0 ? nwA : ESL_MAX(nwA, nw_min)); /* maximin of nwA values for each seq */
-      nw_max = (idx == 0 ? nwB : ESL_MIN(nwB, nw_max)); /* minimax of nwB values for each seq */
-
-      /* tolerate blank spaces after individual sequences */
-      while (status == eslOK && esl_memspn(p, n, "\t") == n)
-	status = esl_buffer_GetLine(bf, &p, &n);
-      if (status != eslOK && status != eslEOF) goto ERROR;
+      while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK  && esl_memspn(p, n, " \t") == n) ;
+      if (status != eslOK) { status = eslFAIL; goto ERROR; }
+      for (i = 0; i < n; i++)
+	if (strchr(eslMSAFILE_PHYLIP_LEGALSYMS, p[i]) != NULL) b++;
     }
 
-  if (nw_min <= 10 && nw_max >= 10) *ret_namewidth = 10;
-  else                              *ret_namewidth = nw_min;
-  
+  /* We need to find (alen - b) = a residues on the first line.  */
+  a = alen - b;
+  if (a > r)  { status = eslFAIL; goto ERROR; }
+  for (w = 0; w < L1; w++)                           // find the leftmost seq residue
+    if (rth[w] == a) break;
+  if (w == L1) { status = eslFAIL; goto ERROR; }
+  for (i = 0; i < w; i++)                            // make sure there's a name of some sort
+    if (! isspace(p[i])) break;
+  if ( i == w) { status = eslFAIL; goto ERROR; }
+  /* Now we "know" the name width is w. */
+
+  /* Check that the rest of the sequences (up to 100 of them) are consistent w/ that. */
+  for (j = 1; j < nseq && j < 100; j++)
+    {
+      while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK  && esl_memspn(p, n, " \t") == n) ;
+      if (status != eslOK) { status = eslFAIL; goto ERROR; }
+      if ( strchr(eslMSAFILE_PHYLIP_LEGALSYMS, p[w])  == NULL)  { status = eslFAIL; goto ERROR; }
+      for (i = 0; i < w; i++) 
+	if (! isspace(p[i])) break;
+      if ( i == w) { status = eslFAIL; goto ERROR; }
+
+      for (i = w, len2 = 0; i < n; i++)
+	if ( strchr(eslMSAFILE_PHYLIP_LEGALSYMS, p[i])  != NULL) len2++;
+
+      for (k = 1; k < nblocks; k++)
+	{
+	  while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK  && esl_memspn(p, n, " \t") == n) ;
+	  if (status != eslOK) { status = eslFAIL; goto ERROR; }
+	  for (i = 0; i < n; i++)
+	    if ( strchr(eslMSAFILE_PHYLIP_LEGALSYMS, p[i])  != NULL) len2++;
+	}
+      if (len2 != alen) { status = eslFAIL; goto ERROR; }
+    }
+
   esl_buffer_SetOffset(bf, anchor);
   esl_buffer_RaiseAnchor(bf, anchor);
+  free(rth);
+  *ret_namewidth = w;
   return eslOK;
 
  ERROR:
   if (anchor != -1) { 
     esl_buffer_SetOffset(bf, anchor);
     esl_buffer_RaiseAnchor(bf, anchor);
-   }
+  }
+  free(rth);
   *ret_namewidth = 0;
   return status;
 }
@@ -1258,6 +1320,9 @@ utest_write_good7(FILE *ofp, int *ret_format, int *ret_alphatype, int *ret_nseq,
   *ret_alen     = 42;
 }
 
+/* if using strict PHYLIP, 10 char namewidth results in reading a M=21 alignment,
+ * which disagrees with alen=20
+ */
 static void
 utest_write_bad1(FILE *ofp, int *ret_alphatype, int *ret_errstatus, int *ret_linenumber, char *errmsg)
 {
@@ -1407,6 +1472,32 @@ utest_write_bad11(FILE *ofp, int *ret_alphatype, int *ret_errstatus, int *ret_li
   strcpy(errmsg,   "alignment length disagrees with header");
 }
 
+/* example of a pathological file where interleaved, sequential 
+ * can't be distinguished. If we read this as interleaved:
+ *  seq1      AAAAAAAAAA CCCCCCCCCC YYYYYYYYY FFFFFFFFFF GGGGGGGGGG 
+ *  YYYYYYYYY DDDDDDDDDD EEEEEEEEEE HHHHHHHHH IIIIIIIIII KKKKKKKKKK
+ * whereas if we read it as sequential:
+ *  seq1      AAAAAAAAAA CCCCCCCCCC YYYYYYYYY DDDDDDDDDD EEEEEEEEEE
+ *  YYYYYYYYY FFFFFFFFFF GGGGGGGGGG HHHHHHHHH IIIIIIIIII KKKKKKKKKK
+ * 
+ * To fall into this, sequence names have to look like a chunk of
+ * aligned sequence, with exactly the right length to give a correct 
+ * <alen> whichever way we read the file.
+ */
+static void
+utest_write_ambig1(FILE *ofp)
+{
+  fputs(" 2 49\n", ofp);
+  fputs("seq1      AAAAAAAAAA CCCCCCCCCC\n", ofp);
+  fputs("YYYYYYYYY DDDDDDDDDD EEEEEEEEEE\n", ofp);
+  fputs("YYYYYYYYY FFFFFFFFFF GGGGGGGGGG\n", ofp);
+  fputs("HHHHHHHHH IIIIIIIIII KKKKKKKKKK\n", ofp);
+};
+
+
+
+
+
 static void
 utest_goodfile(char *filename, int testnumber, int expected_format, int expected_alphatype, int expected_nseq, int expected_alen)
 {
@@ -1469,6 +1560,19 @@ utest_goodfile(char *filename, int testnumber, int expected_format, int expected
   esl_alphabet_Destroy(abc);
 }
 
+/* utest_badfile:
+ * Test the strict PHYLIP parser's ability to detect bad input;
+ * regression test its user-directed error messages.
+ *
+ * note: this test uses strict phylip, with 10 char name width.
+ *       it's not using the format guesser, which could determine a nonstandard name width
+ *       some "bad" utests can be parsed differently by esl_msafile_phylip_example, 
+ *       which does use the format guesser
+ *
+ * TODO: we should also have "bad" tests for sequential PHYLIP, and for
+ *       nonstandard name widths.
+ *       
+ */
 static void
 utest_badfile(char *filename, int testnumber, int expected_alphatype, int expected_status, int expected_linenumber, char *expected_errmsg)
 {
@@ -1476,7 +1580,7 @@ utest_badfile(char *filename, int testnumber, int expected_alphatype, int expect
   ESL_MSAFILE  *afp = NULL;
   ESL_MSA      *msa = NULL;
   int           status;
-  
+
   if ( (status = esl_msafile_Open(&abc, filename, NULL, eslMSAFILE_PHYLIP, NULL, &afp)) != eslOK)  esl_fatal("phylip bad file unit test %d failed: unexpected open failure", testnumber);
   if ( (status = esl_msafile_phylip_Read(afp, &msa)) != expected_status)                           esl_fatal("phylip bad file unit test %d failed: unexpected error code",   testnumber);
   if (strstr(afp->errmsg, expected_errmsg) == NULL)                                                esl_fatal("phylip bad file unit test %d failed: unexpected errmsg",       testnumber);
@@ -1485,6 +1589,21 @@ utest_badfile(char *filename, int testnumber, int expected_alphatype, int expect
   esl_alphabet_Destroy(abc);
   esl_msa_Destroy(msa);
 }
+
+static void
+utest_ambigfile(char *filename, int testnumber)
+{
+  ESL_BUFFER *bf = NULL;
+  int         fmt;
+  int         namewidth;
+
+  if ( esl_buffer_Open(filename, NULL, &bf)                     != eslOK)         esl_fatal("phylip ambig file unit test %d failed: buffer open",         testnumber);
+  if ( esl_msafile_phylip_CheckFileFormat(bf, &fmt, &namewidth) != eslEAMBIGUOUS) esl_fatal("phylip ambig file unit test %d failed: ambiguity detection", testnumber);
+  if ( fmt       != eslMSAFILE_UNKNOWN )                                          esl_fatal("phylip ambig file unit test %d failed: format code",         testnumber);
+  if ( namewidth != 0 )                                                           esl_fatal("phylip ambig file unit test %d failed: namewidth not 0",     testnumber);
+  esl_buffer_Close(bf);
+}
+  
 
 /* PHYLIP's seqboot program can output many MSAs to the same phylip file.
  * For this reason (only), we allow PHYLIP format to have multiple MSAs per file.
@@ -1570,8 +1689,9 @@ main(int argc, char **argv)
   char            msg[]        = "PHYLIP MSA i/o module test driver failed";
   ESL_GETOPTS    *go           = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   FILE           *ofp          = NULL;
-  int             ngoodtests;
-  int             nbadtests;
+  int             ngoodtests   = 7;
+  int             nbadtests    = 11;
+  int             nambigtests  = 1;
   int             testnumber   = 0;
   char            tmpfile[32];
   int             expected_format;
@@ -1583,7 +1703,6 @@ main(int argc, char **argv)
   char            expected_errmsg[eslERRBUFSIZE];
 
   /* Test various correct versions of the format */
-  ngoodtests = 7;
   for (testnumber = 1; testnumber <= ngoodtests; testnumber++)
     {
       strcpy(tmpfile, "esltmpXXXXXX"); 
@@ -1602,8 +1721,7 @@ main(int argc, char **argv)
       remove(tmpfile);
     }
 
-  /* Test for all the possible EFORMAT errors */
-  nbadtests = 11;
+  /* Test for all the possible EFORMAT errors (using strict Phylip interleaved parser) */
   for (testnumber = 1; testnumber <= nbadtests; testnumber++)
     {
       strcpy(tmpfile, "esltmpXXXXXX"); 
@@ -1627,6 +1745,22 @@ main(int argc, char **argv)
       utest_badfile(tmpfile, testnumber, expected_alphatype, expected_errstatus, expected_linenumber, expected_errmsg);
       remove(tmpfile);
     }
+
+  /* Test that we correctly detect pathological files that look both interleaved and sequential */
+  for (testnumber = 1; testnumber <= nambigtests; testnumber++)
+    {
+      strcpy(tmpfile, "esltmpXXXXXX"); 
+      if (esl_tmpfile_named(tmpfile, &ofp) != eslOK) esl_fatal(msg);
+
+      switch (testnumber) {
+      case  1:  utest_write_ambig1 (ofp);
+      }
+      fclose(ofp);
+
+      utest_ambigfile(tmpfile, testnumber);
+      remove(tmpfile);
+    }
+
 
   /* Other tests */
   utest_seqboot();
@@ -1771,8 +1905,7 @@ main(int argc, char **argv)
 }
 /*::cexcerpt::msafile_phylip_example::end::*/
 #endif /*eslMSAFILE_PHYLIP_EXAMPLE*/
-
-/*--------------------- end of example --------------------------*/
+/*--------------------- end of examples -------------------------*/
 
 
 

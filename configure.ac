@@ -45,7 +45,7 @@ AC_PREREQ(2.63)
 ################################################################
 # 2. AC_INIT
 ################################################################
-AC_INIT(Easel, 0.42, sean@eddylab.org, easel)
+AC_INIT(Easel, 0.43, sean@eddylab.org, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
 # remember if the user is overriding CFLAGS
@@ -62,13 +62,13 @@ fi
 # The four AC_INIT args above set the following output variables and preprocessor 
 # symbols:
 #     PACKAGE_NAME      <package>     e.g. "Easel"                      
-#     PACKAGE_VERSION   <version>     e.g. "0.42"
+#     PACKAGE_VERSION   <version>     e.g. "0.43"
 #     PACKAGE_BUGREPORT <bug-report>  e.g. "sean@eddylab.org"
 #     PACKAGE_TARNAME   <tarname>     e.g. "easel"
 # From them, AC_INIT automatically derives one more:
-#     PACKAGE_STRING    <package> <version>, e.g. "Easel 0.42"
+#     PACKAGE_STRING    <package> <version>, e.g. "Easel 0.43"
 # Then we define some of our own:
-#     EASEL_DATE        release date: e.g. "May 2016"
+#     EASEL_DATE        release date: e.g. "July 2016"
 #     EASEL_COPYRIGHT   one-line copyright string
 #     EASEL_LICENSE     one-line license string
 #     EASEL_LICENSETAG  which license to bundle from Licenses/ subdirectory.
@@ -84,7 +84,7 @@ fi
 #     EASEL_VERSION    e.g. "1.9a"
 #
 
-EASEL_DATE="May 2016"
+EASEL_DATE="July 2016"
 EASEL_COPYRIGHT="Copyright (C) 2016 Howard Hughes Medical Institute"
 EASEL_LICENSE="Freely distributed under the BSD open source license."
 EASEL_VERSION=$PACKAGE_VERSION

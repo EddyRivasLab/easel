@@ -811,7 +811,7 @@ sqascii_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
   /* Main case: read next seq from sqfp's stream */
   if (ascii->nc == 0) return eslEOF;
-  if ((status = ascii->parse_header(sqfp, sq)) != eslOK) return status; /* EOF, EFORMAT */
+  if ((status = ascii->parse_header(sqfp, sq)) != eslOK) return status; /* EMEM, EOF, EFORMAT */
 
   do {
     if ((status = seebuf(sqfp, -1, &n, &epos)) == eslEFORMAT) return status;
@@ -1479,9 +1479,6 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
   if (max_sequences < 1 || max_sequences > sqBlock->listSize)
     max_sequences = sqBlock->listSize;
 
-  if (max_residues < 1)
-    max_residues = MAX_RESIDUE_COUNT;
-
 
   if ( !long_target  )
   {  /* in these cases, an individual sequence won't ever be really long,
@@ -1498,6 +1495,10 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
   }
   else
   { /* DNA, not an alignment.  Might be really long sequences */
+
+    if (max_residues < 1)
+      max_residues = MAX_RESIDUE_COUNT;
+
     tmpsq = esl_sq_Create();
 
     //if complete flag is set to FALSE, then the prior block must have ended with a window that was a possibly
@@ -1548,17 +1549,26 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
        }
     } // otherwise, just start at the beginning
 
+
     for (  ; i < max_sequences && size < max_residues; ++i) {
+      /* restricted request_size is used to ensure that all blocks are pretty close to the
+       * same size. Without it, we may either naively keep asking for max_residue windows,
+       * which can result in a window with ~2*max_residues ... or we can end up with absurdly
+       * short fragments at the end of blocks
+       */
+      int request_size = ESL_MAX(max_residues-size, max_residues * .05);
+
       esl_sq_Reuse(tmpsq);
       esl_sq_Reuse(sqBlock->list + i);
-      status = sqascii_ReadWindow(sqfp, 0, max_residues , sqBlock->list + i);
+
+      status = sqascii_ReadWindow(sqfp, 0, request_size , sqBlock->list + i);
       if (status != eslOK && status != eslEOD) break; /* end of sequences (eslEOF), or we read an empty seq (eslEOD) or error (other)  */
       size += sqBlock->list[i].n - sqBlock->list[i].C;
       sqBlock->list[i].L = sqfp->data.ascii.L;
       ++(sqBlock->count);
+
       if (size >= max_residues) {
         // a full window worth of sequence has been read; did we reach the end of the final sequence in the block?
-
         sqBlock->complete = FALSE; // default value, unless overridden below
 
         status = skip_whitespace(sqfp);
@@ -1589,6 +1599,7 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
         tmpsq->start =  sqBlock->list[i].start ;
         tmpsq->C = 0;
         status = sqascii_ReadWindow(sqfp, 0, max_residues, tmpsq);
+
         if (status != eslEOD) {
           if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
           return status; //surprising
@@ -3055,8 +3066,9 @@ header_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq)
   sq->hoff = ascii->boff + ascii->bpos;
   
   while (status == eslOK && (c == '\n' || c == '\r')) status = nextchar(sqfp, &c); /* skip past eol (DOS \r\n, MAC \r, UNIX \n */
+  if (status != eslOK && status != eslEOF) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Unexpected failure in parsing FASTA name/description line");
+  /* Edge case: if the last sequence in the file is L=0, no residues, we are EOF now, not OK; but we'll return OK because we parsed the header line */
 
-  if (status != eslOK) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Premature EOF in parsing FASTA name/description line");
   sq->doff = ascii->boff + ascii->bpos;
   ascii->prvrpl = ascii->prvbpl = -1;
   ascii->currpl = ascii->curbpl = 0;
