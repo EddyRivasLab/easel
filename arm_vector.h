@@ -22,6 +22,9 @@
  * 
  */ 
 
+#ifndef ARM_VECTOR
+#define ARM_VECTOR
+
 #include <arm_neon.h>
 
 /* Union type for vectorized integers. 
@@ -38,7 +41,7 @@
  * views the 128-bit register as 2 lanes of 64-bit integers. 
  * 
  */
-typedef union
+typedef union arm128i
 {
 	int8x16_t s8x16;
 	int16x8_t s16x8;
@@ -52,7 +55,7 @@ typedef union
 	uint8x8x2_t u8x8x2;
 } __arm128i;
 
-typedef union
+typedef union arm64i
 {
 	int8x8_t s8x8;
 	uint8x8_t u8x8;
@@ -62,25 +65,25 @@ typedef union
 /* Union type for vectorized floating point values. Note: AArch32 does not 
  * allow double-precision floating-point vector operations; this was newly 
  * introduced in AArch64. */
-typedef union
+typedef union arm64f
 {
 	float16x4_t f16x4;
 	float32x2_t f32x2;
 } __arm64f;
 
-typedef union
+typedef union arm128f
 {
 	float32x4_t f32x4;
 } __arm128f;
 /* Union type for polynomial values. */
-typedef union
+typedef union arm128p
 {
 	poly8x16_t p8x16;
 	poly16x8_t p16x8;
 } __arm128p;
 
 /* Composite types */
-typedef union
+typedef union arm128i_composite
 {
 	int8x8x2_t s8x8x2;
 	int16x4x2_t s16x4x2;
@@ -91,7 +94,7 @@ typedef union
 	uint64x1_t u64x1; /* useful for loading constants */
 } __arm128i_composite;
 
-typedef union
+typedef union arm256i_composite
 {
 	int8x16x2_t s8x16x2;
 	int16x8x2_t s16x8x2;
@@ -101,12 +104,14 @@ typedef union
 	uint32x4x2_t u32x4x2;
 } __arm256i_composite;
 
-typedef union
+typedef union arm128f_composite
 {
 	float32x2x2_t f32x2x2;
 } __arm128f_composite;
 
-typedef union
+typedef union arm256f_composite
 {
 	float32x4x2_t f32x4x2;
 } __arm256f_composite;
+
+#endif
