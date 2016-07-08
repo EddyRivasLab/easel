@@ -300,23 +300,23 @@ if test "$enable_targeting" = "yes"; then
   CFLAGS="$CFLAGS $cortex_a5"
   CPPFLAGS="$CPPFLAGS $cortex_a5"     
   AC_RUN_IFELSE([AC_LANG_PROGRAM( [[]],[[int a = 32;]])],
-                    [vector_flags="-mfpu=neon-fp16"], [])
+                    [vector_flags="-mcpu=cortex-a5 -mfpu=neon-fp16"], [])
   CFLAGS="$sre_save_CFLAGS $cortex_a7"  
   CPPFLAGS="$sre_save_CPPFLAGS $cortex_a7"
   AC_RUN_IFELSE([AC_LANG_PROGRAM( [[]],[[int a = 32;]])],
-                    [vector_flags="-mfpu=neon-vfpv4"], [])
+                    [vector_flags="-mcpu=cortex-a7 -mfpu=neon-vfpv4"], [])
   CFLAGS="$sre_save_CFLAGS $cortex_a8"  
   CPPFLAGS="$sre_save_CPPFLAGS $cortex_a8"
   AC_RUN_IFELSE([AC_LANG_PROGRAM( [[]],[[int a = 32;]])],
-                    [vector_flags="-mfpu=neon"], [])
+                    [vector_flags="-mcpu=cortex-a8 -mfpu=neon"], [])
   CFLAGS="$sre_save_CFLAGS $cortex_a9"  
   CPPFLAGS="$sre_save_CPPFLAGS $cortex_a9"
   AC_RUN_IFELSE([AC_LANG_PROGRAM( [[]],[[int a = 32;]])],
-                    [vector_flags="-mfpu=neon-fp16"], [])
+                    [vector_flags="-mcpu=cortex-a9 -mfpu=neon-fp16"], [])
   CFLAGS="$sre_save_CFLAGS $cortex_a15"  
   CPPFLAGS="$sre_save_CPPFLAGS $cortex_a15"
   AC_RUN_IFELSE([AC_LANG_PROGRAM( [[]],[[int a = 32;]])],
-                    [vector_flags="-mfpu=neon-vfpv4"], [])
+                    [vector_flags="-mcpu=cortex-a15 -mfpu=neon-vfpv4"], [])
   
   CFLAGS="$sre_save_CFLAGS"
   CPPFLAGS="$sre_save_CPPFLAGS"
