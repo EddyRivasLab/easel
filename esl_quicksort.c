@@ -137,7 +137,7 @@ utest_floatsort(ESL_RANDOMNESS *rng, int N, int K)
 {
   char   msg[]     = "esl_quicksort: float sort test failed";
   float *x         = malloc(sizeof(float) * N);
-  int   *sorted_at = malloc(sizeof(int)   * K);
+  int   *sorted_at = malloc(sizeof(int)   * N);
   int    i,r;
 
   for (i = 0; i < N; i++)
