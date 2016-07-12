@@ -83,48 +83,6 @@ esl_neon_any_gt_float(__arm128f a, __arm128f b)
 }
 
 
-/* Function:  esl_neon_hmax_float()
- * Synopsis:  Find the maximum of elements in a vector.
- *
- * Purpose:   Find the maximum valued element in the four float elements
- *            in <a>, and return that maximum value in <*ret_max>.
- *            
- * Xref:      J3/90 for benchmarking of some alternative implementations.
- */
-
-/* Appears not to be used in SSE implementation of HMMER; skipped for now */
-
-/*
-static inline void
-esl_neon_hmax_ps(__arm128f a, float *ret_max)
-{
-  float l0, l1, l2, l3;
-  l0 = vgetq_lane_f32(a.f32x4, 0);
-  l1 = vgetq_lane_f32(a.f32x4, 0);
-  l2 = vgetq_lane_f32(a.f32x4, 0);
-  l3 = vgetq_lane_f32(a.f32x4, 0);
-  l0 = (l0 > l1) ? l0 : l1;
-  l0 = (l0 > l2) ? l0 : l2;
-  l0 = (l0 > l3) ? l0 : l3;
-  _mm_store_ss(ret_max, a);
-}
-*/
-
-/* Function:  esl_sse_hmin_ps()
- * Synopsis:  Find the minimum of elements in a vector.
- *
- * Purpose:   Find the minimum valued element in the four float elements
- *            in <a> and return that minimum value in <*ret_min>.
- */
-/*
-static inline void
-esl_sse_hmin_ps(__m128 a, float *ret_min)
-{
-  a = _mm_min_ps(a, _mm_shuffle_ps(a, a, _MM_SHUFFLE(0, 3, 2, 1)));
-  a = _mm_min_ps(a, _mm_shuffle_ps(a, a, _MM_SHUFFLE(1, 0, 3, 2)));
-  _mm_store_ss(ret_min, a);
-}
-*/
 /* Function:  esl_neon_hsum_float()
  * Synopsis:  Takes the horizontal sum of elements in a vector.
  *
@@ -138,11 +96,8 @@ esl_neon_hsum_float(__arm128f a, float *ret_sum)
 {
   __arm128f fvec;  
   a.f32x4 = vaddq_f32(a.f32x4, vrev64q_f32(a.f32x4));
-  
-//  fvec.f32x4x2 = vtrnq_f32(a.f32x4, a.f32x4);
   fvec.f32x4 = vextq_f32(a.f32x4, a.f32x4, 2);
   a.f32x4 = vaddq_f32(a.f32x4, fvec.f32x4);
-  //a.f32x4 = vaddq_f32(fvec.f32x4x2.val[0], fvec.f32x4x2.val[1]);
   vst1q_lane_f32(ret_sum, a.f32x4, 0);
 }
 
@@ -162,15 +117,12 @@ esl_neon_rightshift_float(__arm128f a, __arm128f b)
 {
   union { __arm128f v; float f[4]; }tmp;
   tmp.v = a;
-//  printf("a: %f %f %f %f\n", tmp.f[0], tmp.f[1], tmp.f[2], tmp.f[3]);
   tmp.v = b;
-//  printf("b: %f %f %f %f\n", tmp.f[0], tmp.f[1], tmp.f[2], tmp.f[3]);
   register __arm128f v;
   v.f32x4 = vrev64q_f32(b.f32x4); /* b[1] b[0] b[3] b[2] */
   v.f32x4 = vextq_f32(v.f32x4, v.f32x4, 2);  /* b[3] b[2] b[1] b[0] */
   v.f32x4 = vextq_f32(v.f32x4, a.f32x4, 3); /* b[0] a[0] a[1] a[2] */
   tmp.v = v;
-//  printf("v: %f %f %f %f\n", tmp.f[0], tmp.f[1], tmp.f[2], tmp.f[3]);
   return v; 
 }
 
@@ -198,29 +150,13 @@ esl_neon_leftshift_float(__arm128f a, __arm128f b)
  * 3. Inlined utilities for epu8 vectors (16 uchars in __m128i)
  *****************************************************************/ 
 
-/* Function:  esl_sse_any_gt_epu8()
+/* Function:  esl_neon_any_gt_s16()
  * Synopsis:  Returns TRUE if any a[z] > b[z].
  *
  * Purpose:   Return TRUE if any <a[z] > b[z]> for <z=0..15>
- *            in two <epu8> vectors of unsigned chars.
+ *            in two <s16> vectors.
  *            
- *            We need this incantation because SSE provides
- *            no <cmpgt_epu8> instruction.
- *            
- *            For equality tests, note that <cmpeq_epi8> works fine
- *            for unsigned ints though there is no <cmpeq_epu8>
- *            instruction either).
- * 
- *            See vec_any_gt
  */
-
-//static inline int 
-//esl_sse_any_gt_epu8(__m128i a, __m128i b)
-//{
-//  __m128i mask    = _mm_cmpeq_epi8(_mm_max_epu8(a,b), b); /* anywhere a>b, mask[z] = 0x0; elsewhere 0xff */
-//  int   maskbits  = _mm_movemask_epi8(_mm_xor_si128(mask,  _mm_cmpeq_epi8(mask, mask))); /* the xor incantation is a bitwise inversion */
-//  return maskbits != 0;
-//}
 
 static inline int 
 esl_neon_any_gt_s16(__arm128i a, __arm128i b)
@@ -253,12 +189,6 @@ esl_neon_hmax_u8(__arm128i a)
   tempv.u8x16 = vrev64q_u8(a.u8x16);
   a.u8x16 = vmaxq_u8(a.u8x16, tempv.u8x16);
 
-/* 
-  a.u8x16 = vmaxq_u8(a.u8x16, vrev64q_u8(a.u8x16));
-  a.u8x16 = vmaxq_u8(a.u8x16, vreinterpretq_u8_u32(vrev64q_u32(a.u32x4)));
-  a.u8x16 = vmaxq_u8(a.u8x16, vrev64q_u8(a.u8x16)); 
-  a.u8x16 = vmaxq_u8(a.u8x16, vreinterpretq_u8_u32(vrev64q_u32(a.u32x4)));
-*/
   return vgetq_lane_u8(a.u8x16, 15);
 }
 
