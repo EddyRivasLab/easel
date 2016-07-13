@@ -70,7 +70,7 @@
 #undef HAVE_VMX
 #undef HAVE_MPI
 #undef HAVE_PTHREAD
-
+#undef HAVE_NEON
 #undef HAVE_SSE2_CAST
 
 /* Programs */

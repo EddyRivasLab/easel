@@ -167,10 +167,15 @@ extern int     esl_sq_SetName        (ESL_SQ *sq, const char *name);
 extern int     esl_sq_SetAccession   (ESL_SQ *sq, const char *acc);
 extern int     esl_sq_SetDesc        (ESL_SQ *sq, const char *desc);
 extern int     esl_sq_SetSource      (ESL_SQ *sq, const char *source);
-extern int     esl_sq_FormatName     (ESL_SQ *sq, const char *name,   ...);
-extern int     esl_sq_FormatAccession(ESL_SQ *sq, const char *acc,    ...);
-extern int     esl_sq_FormatDesc     (ESL_SQ *sq, const char *desc,   ...);
-extern int     esl_sq_FormatSource   (ESL_SQ *sq, const char *source, ...);
+extern int     esl_sq_FormatName     (ESL_SQ *sq, const char *name,   ...)
+								__attribute__ ((format (printf, 2, 3)));
+
+extern int     esl_sq_FormatAccession(ESL_SQ *sq, const char *acc,    ...)
+								__attribute__ ((format (printf, 2, 3)));
+extern int     esl_sq_FormatDesc     (ESL_SQ *sq, const char *desc,   ...)
+								__attribute__ ((format (printf, 2, 3)));
+extern int     esl_sq_FormatSource   (ESL_SQ *sq, const char *source, ...)
+								__attribute__ ((format (printf, 2, 3)));
 extern int     esl_sq_AppendDesc     (ESL_SQ *sq, const char *desc);
 extern int     esl_sq_SetCoordComplete(ESL_SQ *sq, int64_t L);
 extern int     esl_sq_CAddResidue (ESL_SQ *sq, char c);

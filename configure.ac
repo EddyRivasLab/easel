@@ -207,6 +207,7 @@ AS_IF([test "x$check_threads" != xno],
 AC_ARG_ENABLE(gcov,[AS_HELP_STRING([--enable-gcov],[compile for code coverage testing])], enable_gcov=$enableval,  enable_gcov=no)
 AC_ARG_ENABLE(gprof,[AS_HELP_STRING([--enable-gprof],[compile for gcc code profiling])],  enable_gprof=$enableval, enable_gprof=no)
 AC_ARG_ENABLE(sse,[AS_HELP_STRING([--enable-sse],[enable SSE optimizations])] ,           enable_sse=$enableval,   enable_sse=check)
+AC_ARG_ENABLE(neon,[AS_HELP_STRING([--enable-neon],[enable NEON instructions])] ,          enable_neon=$enableval,   enable_neon=check)
 AC_ARG_ENABLE(vmx,[AS_HELP_STRING([--enable-vmx],[enable Altivec/VMX optimizations])],    enable_vmx=$enableval,   enable_vmx=check)
 AC_ARG_WITH(gsl,[AS_HELP_STRING([--with-gsl],[use the GSL, GNU Scientific Library])],     with_gsl=$withval,       with_gsl=no)
 AC_ARG_ENABLE(mpi,[AS_HELP_STRING([--enable-mpi],[enable MPI parallelization])],          enable_mpi=$enableval,   enable_mpi=no)
@@ -318,9 +319,95 @@ if test "$enable_sse" = "yes"; then
    AC_DEFINE(HAVE_SSE2,1,[Support SSE2 (Streaming SIMD Extensions 2) instructions])
 fi
 
+# ARM and NEON SIMD flags
+if test "$enable_neon" = "yes" || test "$enable_neon" = "check"; then
+   if test "x$SIMD_CFLAGS" = x; then
+     case $ax_cv_c_compiler_vendor in
+       gnu)   AX_CHECK_COMPILER_FLAGS(-mfpu=neon,[SIMD_CFLAGS="-mfpu=neon"],[]);;
+       *)     ;;
+     esac   
+   fi
+fi
+if test "$enable_neon" = "check"; then
+   sre_save_CFLAGS="$CFLAGS"
+   sre_save_CPPFLAGS="$CPPFLAGS"
+   CFLAGS="$CFLAGS $SIMD_CFLAGS"
+   CPPFLAGS="$CPPFLAGS $SIMD_CFLAGS"
+   AC_CHECK_HEADER([arm_neon.h],[
+     AC_MSG_CHECKING([if platform can run NEON instructions])
+     AC_RUN_IFELSE([AC_LANG_PROGRAM( [[#include <arm_neon.h>]],
+		                      [[ int32x4_t x = vdupq_n_s32(0);]])],
+                   [AC_MSG_RESULT([yes])
+                     enable_neon=yes],
+                   [AC_MSG_RESULT([no])])])
+   CFLAGS="$sre_save_CFLAGS"
+   CPPFLAGS="$sre_save_CPPFLAGS"
+fi
+if test "$enable_neon" = "yes"; then
+   AC_DEFINE(HAVE_NEON,1,[Support NEON instructions])
+fi
+
+
+
+
+# NEON: Check for NEON compiler flag
+# todo: we can always check for other ARM floating point flags later
+#if test "$enable_neon" = "yes" || test "$enable_neon" = "check"; then
+# Determine target if targeting is specified.
+# Do this by attempting to execute code with different 
+# cominations of NEON/VFP compiler options. This allows 
+# us to determine the best compile options for each 
+# ARM architecture. 
+if test "$enable_neon" = "yes"; then
+  cortex_a5="-mfpu=neon-fp16"
+  cortex_a7="-mfpu=neon-vfpv4"
+  cortex_a8="-mfpu=neon"
+  cortex_a9="-mfpu=neon-fp16"
+  cortex_a15="-mfpu=neon-vfpv4"
+  sre_save_CFLAGS="$CFLAGS"
+  sre_save_CPPFLAGS="$CPPFLAGS"
+  CFLAGS="$CFLAGS $cortex_a5"
+  CPPFLAGS="$CPPFLAGS $cortex_a5"
+  AC_RUN_IFELSE([AC_LANG_PROGRAM( [[]],[[int a = 32;]])],
+                    [vector_flags="-mcpu=cortex-a5 -mfpu=neon-fp16"], [])
+  CFLAGS="$sre_save_CFLAGS $cortex_a7"
+  CPPFLAGS="$sre_save_CPPFLAGS $cortex_a7"
+  AC_RUN_IFELSE([AC_LANG_PROGRAM( [[]],[[int a = 32;]])],
+                    [vector_flags="-mcpu=cortex-a7 -mfpu=neon-vfpv4"], [])
+  CFLAGS="$sre_save_CFLAGS $cortex_a8"
+  CPPFLAGS="$sre_save_CPPFLAGS $cortex_a8"
+  AC_RUN_IFELSE([AC_LANG_PROGRAM( [[]],[[int a = 32;]])],
+                    [vector_flags="-mcpu=cortex-a8 -mfpu=neon"], [])
+  CFLAGS="$sre_save_CFLAGS $cortex_a9"
+  CPPFLAGS="$sre_save_CPPFLAGS $cortex_a9"
+  AC_RUN_IFELSE([AC_LANG_PROGRAM( [[]],[[int a = 32;]])],
+                    [vector_flags="-mcpu=cortex-a9 -mfpu=neon-fp16"], [])
+  CFLAGS="$sre_save_CFLAGS $cortex_a15"
+  CPPFLAGS="$sre_save_CPPFLAGS $cortex_a15"
+  AC_RUN_IFELSE([AC_LANG_PROGRAM( [[]],[[int a = 32;]])],
+                    [vector_flags="-mcpu=cortex-a15 -mfpu=neon-vfpv4"], [])
+
+  CFLAGS="$sre_save_CFLAGS"
+  CPPFLAGS="$sre_save_CPPFLAGS"
+
+else
+   if test "x$SIMD_CFLAGS" = x; then
+     case $ax_cv_c_compiler_vendor in
+       gnu)   AX_CHECK_COMPILER_FLAGS(-mfpu=neon,[SIMD_CFLAGS="-mfpu=neon"],
+               [AC_MSG_ERROR([no NEON hardware detected])]);;
+       *)     ;;
+       esac
+   fi
+fi
+
+if test "y$vector_flags" != "y"; then
+  SIMD_CFLAGS="$vector_flags"
+fi
+
+
 
 # VMX/Altivec (not autodetected yet; must use --enable-vmx to enable)
-if test "$enable_sse" != "yes"; then
+if test "$enable_sse" != "yes" && test "$enable_neon" != "yes"; then
   if test "x$SIMD_CFLAGS" = x; then
     VMX_SIMD_CFLAGS=""
     if test "$GCC" = "yes"; then
@@ -441,7 +528,8 @@ AC_CHECK_HEADERS([sys/sysctl.h], [], [],
 AC_CHECK_HEADERS([\
   emmintrin.h\
   pmmintrin.h\
-  xmmintrin.h
+  xmmintrin.h\
+  arm_neon.h
 ])
 
 # altivec.h requires the simd cflags
