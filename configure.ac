@@ -388,7 +388,7 @@ if test "$enable_neon" = "yes" || test "$enable_neon" = "check"; then
      esac   
    fi
 fi
-if test "$enable_neon" = "check" && test "$enable_sse" != "yes" && test "$enable_vmx" != "yes"; then
+if test "$enable_neon" = "check"; then
    sre_save_CFLAGS="$CFLAGS"
    sre_save_CPPFLAGS="$CPPFLAGS"
    CFLAGS="$CFLAGS $SIMD_CFLAGS"

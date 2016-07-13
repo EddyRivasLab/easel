@@ -22,6 +22,7 @@
  * information is appended at the end of the file.
  */
 #include "esl_config.h"
+#ifdef HAVE_NEON
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -30,7 +31,9 @@
 
 #include "easel.h"
 #include "esl_neon.h"
-
+#ifndef ARM_VECTOR
+#include "arm_vector.h"
+#endif 
 /* Definitions for log/exp */
 #define c_inv_mant_mask ~0x7f800000u
 #define c_cephes_SQRTHF 0.707106781186547524
@@ -635,7 +638,23 @@ main(int argc, char **argv)
   return 0;
 }
 /*::cexcerpt::neon_example::end::*/
+#endif /* eslNEON_EXAMPLE */
+
+#else /* ! HAVE_NEON */
+
+/* If we don't have NEON compiled in, provide some nothingness to:
+ *   a. prevent Mac OS/X ranlib from bitching about .o file that "has no symbols" 
+ *   b. prevent compiler from bitching about "empty compilation unit"
+ *   c. automatically pass the automated tests.
+ */
+#include "easel.h"
+
+void esl_sse_DoAbsolutelyNothing(void) { return; }
+#if defined eslNEON_TESTDRIVE || eslNEON_EXAMPLE || eslNEON_BENCHMARK
+int main(void) { return 0; }
 #endif
+
+#endif /* HAVE_NEON or not*/
 
 
 /*****************************************************************

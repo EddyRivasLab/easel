@@ -9,10 +9,18 @@
  *    2. Inlined utilities for ps vectors (4 floats in __arm128f)
  *    3. Inlined utilities for epu8 vectors (16 uchars in __arm128i)
  */
+
+#ifdef HAVE_NEON
+#ifndef eslNEON_INCLUDED
+#define eslNEON_INCLUDED
+
 #include "easel.h"
 
 #include <stdio.h>
 #include "arm_vector.h"
+
+
+
 
 /*****************************************************************
  * 1. Function declarations (from esl_sse.c)
@@ -207,7 +215,8 @@ esl_neon_hmax_s16(__arm128i a)
   return vgetq_lane_s16(a.s16x8, 7);
 }
 
-
+#endif /* eslNEON_INCLUDED */
+#endif /* HAVE_NEON */
 /*****************************************************************
  * @LICENSE@
  *
