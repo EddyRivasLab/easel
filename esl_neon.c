@@ -29,11 +29,11 @@
 #include <math.h>
 #include <float.h>
 
+#include <arm_vector.h>
+
 #include "easel.h"
 #include "esl_neon.h"
-#ifndef ARM_VECTOR
 #include "arm_vector.h"
-#endif 
 /* Definitions for log/exp */
 #define c_inv_mant_mask ~0x7f800000u
 #define c_cephes_SQRTHF 0.707106781186547524

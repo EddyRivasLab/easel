@@ -528,7 +528,8 @@ AC_CHECK_HEADERS([sys/sysctl.h], [], [],
 AC_CHECK_HEADERS([\
   emmintrin.h\
   pmmintrin.h\
-  xmmintrin.h
+  xmmintrin.h\
+  arm_neon.h
 ])
 
 # altivec.h requires the simd cflags
