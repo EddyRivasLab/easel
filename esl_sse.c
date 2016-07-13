@@ -29,16 +29,12 @@
 #include <math.h>
 #include <float.h>
 
-#ifdef HAVE_SSE
 #include <xmmintrin.h>		/* SSE  */
-#endif
-#ifdef HAVE_SSE2
 #include <emmintrin.h>		/* SSE2 */
-#endif
 
 #include "easel.h"
 #include "esl_sse.h"
-#endif
+
 
 /*****************************************************************
  * 1. SSE SIMD logf(), expf()

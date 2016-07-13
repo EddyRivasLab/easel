@@ -17,12 +17,8 @@
 #include "easel.h"
 
 #include <stdio.h>
-#ifdef HAVE_SEE
 #include <xmmintrin.h>		/* SSE  */
-#endif
-#ifdef HAVE_SSE2
 #include <emmintrin.h>		/* SSE2 */
-#endif
 
 /* Some compilers (gcc 3.4) did not implement SSE2 cast functions 
  * on the theory that they're unnecessary no-ops -- but then
