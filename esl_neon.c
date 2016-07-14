@@ -2,13 +2,12 @@
  * 
  * Table of contents           
  *     1. SIMD logf(), expf()
- *     2. Utilities for ps vectors (4 floats in a __m128)
- *     3. Utilities for epu8 vectors (16 uchars in a __m128i)
+ *     2. Utilities for float vectors (4 floats in an esl_neon_128f_t)
  *     3. Benchmark
  *     4. Unit tests
  *     5. Test driver
  *     6. Example
- *     7. Copyright and license
+ *     7. Copyrights and licensing
  *     
  *****************************************************************
  * Credits:
@@ -29,36 +28,34 @@
 #include <math.h>
 #include <float.h>
 
-#include <arm_vector.h>
-
 #include "easel.h"
 #include "esl_neon.h"
-#include "arm_vector.h"
+
 /* Definitions for log/exp */
 #define c_inv_mant_mask ~0x7f800000u
-#define c_cephes_SQRTHF 0.707106781186547524
-#define c_cephes_log_p0 7.0376836292E-2
-#define c_cephes_log_p1 - 1.1514610310E-1
-#define c_cephes_log_p2 1.1676998740E-1
-#define c_cephes_log_p3 - 1.2420140846E-1
-#define c_cephes_log_p4 + 1.4249322787E-1
-#define c_cephes_log_p5 - 1.6668057665E-1
-#define c_cephes_log_p6 + 2.0000714765E-1
-#define c_cephes_log_p7 - 2.4999993993E-1
-#define c_cephes_log_p8 + 3.3333331174E-1
+#define c_cephes_SQRTHF  0.707106781186547524
+#define c_cephes_log_p0  7.0376836292E-2
+#define c_cephes_log_p1 -1.1514610310E-1
+#define c_cephes_log_p2  1.1676998740E-1
+#define c_cephes_log_p3 -1.2420140846E-1
+#define c_cephes_log_p4 +1.4249322787E-1
+#define c_cephes_log_p5 -1.6668057665E-1
+#define c_cephes_log_p6 +2.0000714765E-1
+#define c_cephes_log_p7 -2.4999993993E-1
+#define c_cephes_log_p8 +3.3333331174E-1
 #define c_cephes_log_q1 -2.12194440e-4
-#define c_cephes_log_q2 0.693359375
-#define c_exp_hi 88.3762626647949f
-#define c_exp_lo -88.3762626647949f
-#define c_cephes_LOG2EF 1.44269504088896341
-#define c_cephes_exp_C1 0.693359375
+#define c_cephes_log_q2  0.693359375
+#define c_exp_hi         88.3762626647949f
+#define c_exp_lo        -88.3762626647949f
+#define c_cephes_LOG2EF  1.44269504088896341
+#define c_cephes_exp_C1  0.693359375
 #define c_cephes_exp_C2 -2.12194440e-4
-#define c_cephes_exp_p0 1.9875691500E-4
-#define c_cephes_exp_p1 1.3981999507E-3
-#define c_cephes_exp_p2 8.3334519073E-3
-#define c_cephes_exp_p3 4.1665795894E-2
-#define c_cephes_exp_p4 1.6666665459E-1
-#define c_cephes_exp_p5 5.0000001201E-1
+#define c_cephes_exp_p0  1.9875691500E-4
+#define c_cephes_exp_p1  1.3981999507E-3
+#define c_cephes_exp_p2  8.3334519073E-3
+#define c_cephes_exp_p3  4.1665795894E-2
+#define c_cephes_exp_p4  1.6666665459E-1
+#define c_cephes_exp_p5  5.0000001201E-1
 
 /*****************************************************************
  * 1. NEON SIMD logf(), expf()
@@ -66,7 +63,7 @@
 
 /* Function:  esl_neon_logf()
  * Synopsis:  <r[z] = log x[z]>
- * Incept:    SRE, Fri Dec 14 11:32:54 2007 [Janelia]
+ * Incept:    Tyler Camp, summer 2016
  *
  * Purpose:   Given a vector <x> containing four floats, returns a
  *            vector <r> in which each element <r[z] = logf(x[z])>.
@@ -79,19 +76,17 @@
  *            returns <inf>. For <x = NaN>, returns <NaN>. For 
  *            subnormal <x>, returns <-inf>.
  *
- * Xref:      J2/71.
- * 
  * Note:      Derived from an ARM implementation by Julian
  *            Pommier. Added handling of IEEE754 specials.
  */
-__arm128f esl_neon_logf(__arm128f x) {
+esl_neon_128f_t esl_neon_logf(esl_neon_128f_t x) {
 
-  __arm128f one, e, tmp, z, y, inf_vector, neginf_vector;
-  __arm128i nan_mask, emm0, ux, mask;
-  __arm128i poszero_mask, inf_mask; /* Special IEEE754 inputs */
-  uint32_t negzero = (1 << 31);
+  esl_neon_128f_t one, e, tmp, z, y, inf_vector, neginf_vector;
+  esl_neon_128i_t nan_mask, emm0, ux, mask;
+  esl_neon_128i_t poszero_mask, inf_mask; /* Special IEEE754 inputs */
+  uint32_t        negzero = (1 << 31);
+  esl_neon_128f_t zero_vector;
 
-  __arm128f zero_vector;
   zero_vector.f32x4 = vdupq_n_f32(0.0f); 
   inf_vector.f32x4 = vdupq_n_f32(eslINFINITY); /* All floats with exponent bits high */
   neginf_vector.f32x4 = vdupq_n_f32(-eslINFINITY); /* -inf */
@@ -102,7 +97,7 @@ __arm128f esl_neon_logf(__arm128f x) {
 								 vdupq_n_u32(negzero)), 
 								nan_mask.u32x4); /* log(-0) = NaN */
   /* Mask all other NaNs */
-  __arm128i exp_hi_mask, mantissa_mask, mantissa_vector;
+  esl_neon_128i_t exp_hi_mask, mantissa_mask, mantissa_vector;
   mantissa_vector.u32x4 = vdupq_n_u32(0x007FFFFF);
   exp_hi_mask.u32x4 = vandq_u32(vreinterpretq_u32_f32(x.f32x4), 
 								vreinterpretq_u32_f32(inf_vector.f32x4));
@@ -181,7 +176,7 @@ __arm128f esl_neon_logf(__arm128f x) {
   x.f32x4 = vaddq_f32(x.f32x4, tmp.f32x4);
   
   /* IEEE754 cleanup */
-  __arm128f inf_mask_view, poszero_mask_view;
+  esl_neon_128f_t inf_mask_view, poszero_mask_view;
   neginf_vector.f32x4 = vdupq_n_f32(-eslINFINITY); /* -inf */
   inf_mask_view.f32x4 = vreinterpretq_f32_s32(inf_mask.s32x4);
   poszero_mask_view.f32x4 = vreinterpretq_f32_s32(poszero_mask.s32x4);
@@ -194,51 +189,19 @@ __arm128f esl_neon_logf(__arm128f x) {
 
 /* Function:  esl_neon_expf()
  * Synopsis:  <r[z] = exp x[z]>
- * Incept:    SRE, Fri Dec 14 14:46:27 2007 [Janelia]
+ * Incept:    Tyler Camp, summer 2016
  *
  * Purpose:   Given a vector <x> containing four floats, returns a
  *            vector <r> in which each element <r[z] = expf(x[z])>.
- *            
  *            Valid for all IEEE754 floats $x_z$.
  *            
- * Xref:      J2/71
- *            J10/62: bugfix, minlogf/maxlogf range was too wide; 
- *                    (k+127) must be >=0 and <=255, so (k+127)<<23
- *                    is a valid IEEE754 float, without touching 
- *                    the sign bit. Pommier had this right in the
- *                    first place, and I didn't understand.
- * 
- * Note:      Derived from a NEON implementation by Julian
- *            Pommier.
- *            
- *            Note on maxlogf/minlogf, which are close to but not
- *            exactly 127.5/log2 [J10/63]. We need -127<=k<=128, so
- *            k+127 is 0..255, a valid IEEE754 8-bit exponent
- *            (0..255), so the bit pattern (k+127)<<23 is IEEE754
- *            single-precision for 2^k.  If k=-127, we get IEEE754 0.
- *            If k=128, we get IEEE754 +inf.  If k<-127, k+127 is
- *            negative and we get screwed up.  If k>128, k+127
- *            overflows the 8-bit exponent and sets the sign bit.  So
- *            for x' (base 2) < -127.5 we must definitely return e^x ~
- *            0; for x' < 126.5 we're going to calculate 0 anyway
- *            (because k=floor(-126.5-epsilon+0.5) = -127).  So any
- *            minlogf between -126.5 log2 ... -127.5 log2 will suffice
- *            as the cutoff. Ditto for 126.5 log2 .. 127.5log2.
- *            That's 87.68312 .. 88.3762655.  I think Pommier's
- *            thinking is, you don't want to get to close to the
- *            edges, lest fp roundoff error screw you (he may have
- *            consider 1 ulp carefully, I can't tell), but otherwise
- *            you may as well put your bounds close to the outer edge;
- *            so 
- *              maxlogf =  127.5 log(2) - epsilon 
- *              minlogf = -127.5 log(2) + epsilon 
- *            for an epsilon that happen to be ~ 3e-6.
+ * Note:      Derived from a NEON implementation by Julian Pommier.
  */
-__arm128f 
-esl_neon_expf(__arm128f x) 
+esl_neon_128f_t 
+esl_neon_expf(esl_neon_128f_t x) 
 {
-  __arm128f tmp, fx, one, z;
-  __arm128i mask, maxmask, minmask;
+  esl_neon_128f_t tmp, fx, one, z;
+  esl_neon_128i_t mask, maxmask, minmask;
 
   /* handle out of range and special conditions */   
   maxmask.u32x4 = vcgtq_f32(x.f32x4, vdupq_n_f32(c_exp_hi));
@@ -267,7 +230,7 @@ esl_neon_expf(__arm128f x)
   x.f32x4 = vsubq_f32(x.f32x4, z.f32x4);
 
   static const float cephes_exp_p[6] = { c_cephes_exp_p0, c_cephes_exp_p1, c_cephes_exp_p2, c_cephes_exp_p3, c_cephes_exp_p4, c_cephes_exp_p5 };
-  __arm128f y, c1, c2, c3, c4, c5, pow2n;
+  esl_neon_128f_t y, c1, c2, c3, c4, c5, pow2n;
   y.f32x4 = vld1q_dup_f32(cephes_exp_p+0);
   c1.f32x4 = vld1q_dup_f32(cephes_exp_p+1); 
   c2.f32x4 = vld1q_dup_f32(cephes_exp_p+2); 
@@ -292,7 +255,7 @@ esl_neon_expf(__arm128f x)
   y.f32x4 = vaddq_f32(y.f32x4, one.f32x4);
 
   /* build 2^n */
-  __arm128i mm;
+  esl_neon_128i_t mm;
   mm.s32x4 = vcvtq_s32_f32(fx.f32x4);
   mm.s32x4 = vaddq_s32(mm.s32x4, vdupq_n_s32(0x7f));
   mm.s32x4 = vshlq_n_s32(mm.s32x4, 23);
@@ -301,7 +264,7 @@ esl_neon_expf(__arm128f x)
   y.f32x4 = vmulq_f32(y.f32x4, pow2n.f32x4);
   
   /* special/range cleanup */
-  __arm128f maxmask_view, minmask_view, zero_vec, inf_vec;
+  esl_neon_128f_t maxmask_view, minmask_view, zero_vec, inf_vec;
   zero_vec.f32x4 = vdupq_n_f32(0.0f);
   inf_vec.f32x4 = vdupq_n_f32(-eslINFINITY);
   maxmask_view.f32x4 = vreinterpretq_f32_s32(maxmask.s32x4);
@@ -313,11 +276,11 @@ esl_neon_expf(__arm128f x)
 
 
 /*****************************************************************
- * 2. Utilities for fq vectors (4 floats in an __arm128f)
+ * 2. Utilities for fq vectors (4 floats in an esl_neon_128f_t)
  *****************************************************************/ 
 
 void
-esl_neon_dump_float(FILE *fp, __arm128f v)
+esl_neon_dump_float(FILE *fp, esl_neon_128f_t v)
 {
   float *p = (float *)&v;
   fprintf(fp, "[%13.8g, %13.8g, %13.8g, %13.8g]", p[0], p[1], p[2], p[3]);
@@ -359,7 +322,7 @@ main(int argc, char **argv)
   int             N       = esl_opt_GetInteger(go, "-N");
   float           origx   = 2.0;
   float           x       = origx;
-  __arm128f       xv      = vdupq_n_f32(x);
+  esl_neon_128f_t       xv      = vdupq_n_f32(x);
   int             i;
 
   /* First, serial time. */
@@ -399,8 +362,8 @@ main(int argc, char **argv)
 static void
 utest_logf(ESL_GETOPTS *go)
 {
-  __arm128f x;			       /* test input  */
-  union { __arm128f v; float x[4]; } r;   /* test output */
+  esl_neon_128f_t x;			          /* test input  */
+  union { esl_neon_128f_t v; float x[4]; } r;   /* test output */
   
   /* Test IEEE754 specials: 
    *    log(-inf) = NaN     log(x<0)  = NaN  log(-0)   = NaN
@@ -437,8 +400,8 @@ utest_logf(ESL_GETOPTS *go)
 static void
 utest_expf(ESL_GETOPTS *go)
 {
-  __arm128f x;			       /* test input  */
-  union { __arm128f v; float x[4]; } r;   /* test output */
+  esl_neon_128f_t x;			       /* test input  */
+  union { esl_neon_128f_t v; float x[4]; } r;   /* test output */
   
   /* exp(-inf) = 0    exp(-0)  = 1   exp(0) = 1  exp(inf) = inf   exp(NaN)  = NaN */
   float test1[4] = {-eslINFINITY, -0.0, 0.0, eslINFINITY};
@@ -507,8 +470,8 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
   int    very_verbose = esl_opt_GetBoolean(go, "--vv");
   int    i;
   float  p1, p2, odds;
-  union { __arm128f v; float x[4]; } r1;   
-  union { __arm128f v; float x[4]; } r2;   
+  union { esl_neon_128f_t v; float x[4]; } r1;   
+  union { esl_neon_128f_t v; float x[4]; } r2;   
   float  scalar_r1, scalar_r2;
   double  err1, maxerr1 = 0.0, avgerr1 = 0.0; /* errors on logf() */
   double  err2, maxerr2 = 0.0, avgerr2 = 0.0; /* errors on expf() */
@@ -520,7 +483,7 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
       odds  = p1 / p2;
 
       if (odds == 0.0) esl_fatal("whoa, odds ratio can't be 0!\n");
-	  __arm128f tmp;
+	  esl_neon_128f_t tmp;
       tmp.f32x4 = vdupq_n_f32(odds);
       r1.v      = esl_neon_logf(tmp);  /* r1.x[z] = log(p1/p2) */
       scalar_r1 = log(odds);
@@ -624,8 +587,8 @@ int
 main(int argc, char **argv)
 {
   float    x;                           /* scalar input */
-  __arm128f   xv;                          /* input vector */
-  union { __arm128f v; float x[4]; } rv;   /* result vector*/
+  esl_neon_128f_t   xv;                          /* input vector */
+  union { esl_neon_128f_t v; float x[4]; } rv;   /* result vector*/
 
   x    = 2.0;
   xv.f32x4   = vdupq_n_f32(x);
@@ -649,7 +612,7 @@ main(int argc, char **argv)
  */
 #include "easel.h"
 
-void esl_sse_DoAbsolutelyNothing(void) { return; }
+void esl_neon_DoAbsolutelyNothing(void) { return; }
 #if defined eslNEON_TESTDRIVE || eslNEON_EXAMPLE || eslNEON_BENCHMARK
 int main(void) { return 0; }
 #endif
@@ -657,18 +620,11 @@ int main(void) { return 0; }
 #endif /* HAVE_NEON or not*/
 
 
-/*****************************************************************
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
-
-/* Additionally, esl_neon_logf() and esl_neon_expf() are 
+/* esl_neon_logf() and esl_neon_expf() are additionally:
  *  Copyright (C) 2007 Julien Pommier
  *  Copyright (C) 1992 Stephen Moshier 
  *
- * These functions derived from zlib-licensed routines by
+ * Because these functions derived from zlib-licensed routines by
  * Julien Pommier, http://gruntthepeon.free.fr/ssemath/. The
  * zlib license:
  */
@@ -703,10 +659,4 @@ int main(void) { return 0; }
  * to credit his original contribution. Thanks to both Pommier and
  * Moshier for their clear code.
  */
-
-/* NEON implementation of exp and log
-
-   Inspired by Intel Approximate Math library, and based on the
-   corresponding algorithms of the cephes math library
-*/
 
