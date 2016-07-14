@@ -479,6 +479,10 @@ extern int  esl_strcasecmp(const char *s1, const char *s2);
 #define strcasecmp esl_strcasecmp
 #endif
 #endif
+#ifndef HAVE_STRSEP
+extern char *esl_strsep(char **stringp, const char *delim);
+#define strsep     esl_strsep
+#endif
 
 /* 6. Additional string functions, esl_str*() */
 extern int     esl_strchop(char *s, int64_t n);

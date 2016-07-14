@@ -77,20 +77,21 @@
 #undef HAVE_GZIP
 
 /* Functions */
-#undef HAVE_CHMOD
-#undef HAVE_FSEEKO
-#undef HAVE_FSTAT
-#undef HAVE_GETCWD
-#undef HAVE_GETPID
 #undef HAVE_MKSTEMP
 #undef HAVE_POPEN
 #undef HAVE_PUTENV
-#undef HAVE_STAT
 #undef HAVE_STRCASECMP
-#undef HAVE_SYSCONF
-#undef HAVE_SYSCTL
+#undef HAVE_STRSEP
 #undef HAVE_TIMES
+#undef HAVE_GETPID
+#undef HAVE_SYSCTL
+#undef HAVE_SYSCONF
+#undef HAVE_GETCWD
+#undef HAVE_CHMOD
+#undef HAVE_STAT
+#undef HAVE_FSTAT
 #undef HAVE_ERFC
+#undef HAVE_FSEEKO
 
 #undef HAVE_FUNC_ATTRIBUTE_NORETURN // Compiler supports __attribute__((__noreturn__)), helps w/ clang static analysis.
 #undef HAVE_FUNC_ATTRIBUTE_FORMAT   // Compiler supports __attribute__((format(a,b,c))), typechecking printf-like functions
