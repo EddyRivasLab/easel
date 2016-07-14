@@ -260,7 +260,7 @@ main(int argc, char **argv)
 	{
 	  printf("%-6d %-20s %10s %7d %7" PRId64 " %12" PRId64, 
 		 nali, 
-		 msa->name,
+		 msa->name != NULL ? msa->name : "(null)",
 		 esl_msafile_DecodeFormat(fmt),
 		 nseq,
 		 alen,
