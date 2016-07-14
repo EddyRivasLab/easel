@@ -70,7 +70,7 @@
 #undef HAVE_VMX
 #undef HAVE_MPI
 #undef HAVE_PTHREAD
-
+#undef HAVE_NEON
 #undef HAVE_SSE2_CAST
 
 /* Programs */
@@ -92,8 +92,9 @@
 #undef HAVE_TIMES
 #undef HAVE_ERFC
 
-#undef HAVE_FUNC_ATTRIBUTE_NORETURN // Compiler supports __attribute__ tag, which we use to help w/ clang static analysis.
-
+#undef HAVE_FUNC_ATTRIBUTE_NORETURN // Compiler supports __attribute__((__noreturn__)), helps w/ clang static analysis.
+#undef HAVE_FUNC_ATTRIBUTE_FORMAT   // Compiler supports __attribute__((format(a,b,c))), typechecking printf-like functions
+ 
 /* Function behavior */
 #define eslSTOPWATCH_HIGHRES
 
