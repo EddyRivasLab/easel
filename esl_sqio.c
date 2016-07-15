@@ -2341,7 +2341,7 @@ main(int argc, char **argv)
 
   while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
   {     /* use each sequence for whatever you want */
-    printf("%-40s length: %8ld   desclen: %lu\n", sq->name, (long) sq->L, strlen(sq->desc));
+    printf("%-40s length: %8ld   desclen: %lu\n", sq->name, (long) sq->L, (unsigned long) strlen(sq->desc));
     esl_sq_Reuse(sq);
   }
   if      (status == eslEFORMAT) esl_fatal("Parse failed\n  %s", esl_sqfile_GetErrorBuf(sqfp));

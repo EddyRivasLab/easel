@@ -9,7 +9,6 @@
  *    2. Unit tests
  *    3. Test driver
  *    4. Example
- *    5. Copyright and license information.
  */
 #include "esl_config.h"
 
@@ -202,7 +201,7 @@ main(int argc, char **argv)
 #include "esl_quicksort.h"
 
 int 
-sort_floats_descending(void *data, int o1, int o2)
+sort_floats_descending(const void *data, int o1, int o2)
 {
   float *x = (float *) data;
   if (x[o1] > x[o2]) return -1;
@@ -232,13 +231,5 @@ main(int argc, char **argv)
 }
 
 #endif /*eslQUICKSORT_EXAMPLE*/
-
-
-
-
-
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
 
 
