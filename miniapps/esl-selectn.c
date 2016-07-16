@@ -3,8 +3,6 @@
  * Uses a reservoir sample - O(m) in space, single pass on the input,
  * never reads the entire input into memory.
  *
- * SRE, Fri Jun 13 08:17:53 2008 [Janelia]
- * SVN $Id$
  */
 #include "esl_config.h"
 
@@ -101,6 +99,9 @@ main(int argc, char **argv)
        }
      }
 
+   if (n < m) 
+     esl_fatal("Input only has %d lines; not enough to select a subset of %d of them.\n", n, m);
+
    for (i = 0; i < m; i++) printf("%s", larr[i]);
 
    if (fp != stdin) fclose(fp);
@@ -112,6 +113,3 @@ main(int argc, char **argv)
    return 0;
 }
 
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/ 
