@@ -116,6 +116,24 @@ AC_DEFINE_UNQUOTED(EASEL_VERSION,   "$EASEL_VERSION")
 #       host_os         example: linux-gnu
 AC_CANONICAL_HOST
 
+# Parse $host_cpu to set the base architecture of the machine
+architecture=unknown
+# Figure out our machine's base architecture
+if test "$host_cpu" = "x86_64"; then
+  architecture=x86
+  AC_DEFINE(p7_CPU_ARCH, x86)
+fi
+if test "$host_cpu" = "i686"; then
+  architecture=x86
+  AC_DEFINE(p7_CPU_ARCH, x86)
+fi
+## add  checks here for ARM, POWER
+if test "$architecture" = "unknown"; then
+  AC_MSG_ERROR([Unable to determine base architecture of this machine!  host_cpu is $host_cpu])
+else
+  AC_MSG_NOTICE(Compiling for $architecture)
+fi
+
 
 ################################################################
 # 4. Process ./configure command line options
@@ -207,6 +225,8 @@ AS_IF([test "x$check_threads" != xno],
 AC_ARG_ENABLE(gcov,[AS_HELP_STRING([--enable-gcov],[compile for code coverage testing])], enable_gcov=$enableval,  enable_gcov=no)
 AC_ARG_ENABLE(gprof,[AS_HELP_STRING([--enable-gprof],[compile for gcc code profiling])],  enable_gprof=$enableval, enable_gprof=no)
 AC_ARG_ENABLE(sse,[AS_HELP_STRING([--enable-sse],[enable SSE optimizations])] ,           enable_sse=$enableval,   enable_sse=check)
+AC_ARG_ENABLE(avx2,[AS_HELP_STRING([--enable-avx2],[force use of the AVX2 (Haswell) vector instructions])], enable_avx2=$enableval, enable_avx2=check)
+AC_ARG_ENABLE(avx512,[AS_HELP_STRING([--enable-AVX-512],[force use of the AVX-512 vector instructions])], enable_avx512=$enableval, enable_avx512=check)
 AC_ARG_ENABLE(neon,[AS_HELP_STRING([--enable-neon],[enable NEON instructions])] ,          enable_neon=$enableval,   enable_neon=check)
 AC_ARG_ENABLE(vmx,[AS_HELP_STRING([--enable-vmx],[enable Altivec/VMX optimizations])],    enable_vmx=$enableval,   enable_vmx=check)
 AC_ARG_WITH(gsl,[AS_HELP_STRING([--with-gsl],[use the GSL, GNU Scientific Library])],     with_gsl=$withval,       with_gsl=no)
@@ -282,7 +302,9 @@ fi
 ESL_PIC_FLAGS
 
 
-# SSE: figure out our @SIMD_CFLAGS@, define HAVE_SSE2
+# Figure out what SIMD we support. 
+# Start with x86 variants
+
 # The AC_RUN_IFELSE() is there because it's possible to have 
 # hardware that doesn't support SSE2 instructions, yet the
 # compiler can generate them: example AMD Athlons with gcc.
@@ -293,9 +315,9 @@ ESL_PIC_FLAGS
 # must have the -msse2 cflag on in order to detect a working
 # emmintrin.h, so we set SIMD_CFLAGS before running the test.
 if test "$enable_sse" = "yes" || test "$enable_sse" = "check"; then
-   if test "x$SIMD_CFLAGS" = x; then
+   if test "x$SSE_CFLAGS" = x; then
      case $ax_cv_c_compiler_vendor in
-       gnu)   AX_CHECK_COMPILER_FLAGS(-msse2,[SIMD_CFLAGS="-msse2"],[]);;
+       gnu)   AX_CHECK_COMPILER_FLAGS(-msse2,[SSE_CFLAGS="-msse2"],[]);;
        *)     ;;
      esac   
    fi
@@ -303,8 +325,8 @@ fi
 if test "$enable_sse" = "check" && test "$enable_vmx" != "yes"; then
    sre_save_CFLAGS="$CFLAGS"
    sre_save_CPPFLAGS="$CPPFLAGS"
-   CFLAGS="$CFLAGS $SIMD_CFLAGS"
-   CPPFLAGS="$CPPFLAGS $SIMD_CFLAGS"
+   CFLAGS="$CFLAGS $SSE_CFLAGS"
+   CPPFLAGS="$CPPFLAGS $SSE_CFLAGS"
    AC_CHECK_HEADER([emmintrin.h],[
      AC_MSG_CHECKING([if platform can run SSE/SSE2 instructions])
      AC_RUN_IFELSE([AC_LANG_PROGRAM( [[#include <emmintrin.h>]],
@@ -318,6 +340,62 @@ fi
 if test "$enable_sse" = "yes"; then
    AC_DEFINE(HAVE_SSE2,1,[Support SSE2 (Streaming SIMD Extensions 2) instructions])
 fi
+
+if test "$enable_avx2" = "yes" || test "$enable_avx2" = "check"; then
+   if test "x$SIMD_CFLAGS" = x; then
+     case $ax_cv_c_compiler_vendor in
+      gnu)   AX_CHECK_COMPILER_FLAGS([-mavx -mavx2], [ AVX_CFLAGS="-mavx -mavx2" ],[]);;
+       *)     ;;
+     esac   
+   fi
+fi
+if test "$enable_avx2" = "check" && test "$enable_vmx" != "yes"; then
+AC_MSG_CHECKING([whether AVX2 is supported])
+  sre_save_cflags="$CFLAGS"
+  haveavx=no
+  CFLAGS="$CFLAGS $SSE_CFLAGS $AVX_CFLAGS"
+  AC_COMPILE_IFELSE(  [AC_LANG_PROGRAM([[#include <immintrin.h>]],
+        [[__m256i test1;
+         __m256i test2;
+         test1 = _mm256_set1_epi8(37);
+         test2 = _mm256_set1_epi8(111);
+         test2 = _mm256_adds_epi8(test1, test2);
+      ]])],
+  [AC_DEFINE([HAVE_AVX2])
+  haveavx=yes])
+  AC_MSG_RESULT([$haveavx])
+  CFLAGS="$sre_save_cflags"
+fi
+
+if test "$enable_avx512" = "yes" || test "$enable_avx512" = "check"; then
+   if test "x$SIMD_CFLAGS" = x; then
+     case $ax_cv_c_compiler_vendor in
+      gnu)   AX_CHECK_COMPILER_FLAGS([-mavx512bw -mavx512dq], [ AVX512_CFLAGS="-mavx512bw -mavx512dq" ],[]);;
+       *)     ;;
+     esac   
+   fi
+fi
+if test "$enable_avx512" = "check" && test "$enable_vmx" != "yes"; then
+AC_MSG_CHECKING([whether AVX-512 is supported])
+  sre_save_cflags="$CFLAGS"
+  haveavx512=no
+  CFLAGS="$CFLAGS $AVX512_CFLAGS"
+  AC_COMPILE_IFELSE(  [AC_LANG_PROGRAM([[#include <immintrin.h>]],
+        [[__m512i test1;
+         __m512i test2;
+         test1 = _mm512_set1_epi8(37);
+         test2 = _mm512_set1_epi8(111);
+         test2 = _mm512_adds_epi8(test1, test2);
+      ]])],
+  [AC_DEFINE([HAVE_AVX512])
+  haveavx512=yes])
+  AC_MSG_RESULT([$haveavx512])
+  CFLAGS="$sre_save_cflags"
+fi
+
+  AC_SUBST(SSE_CFLAGS)
+  AC_SUBST(AVX_CFLAGS)
+  AC_SUBST(AVX512_CFLAGS)
 
 # ARM and NEON SIMD flags
 if test "$enable_neon" = "yes" || test "$enable_neon" = "check"; then
@@ -394,7 +472,7 @@ else
    if test "x$SIMD_CFLAGS" = x; then
      case $ax_cv_c_compiler_vendor in
        gnu)   AX_CHECK_COMPILER_FLAGS(-mfpu=neon,[SIMD_CFLAGS="-mfpu=neon"],
-               [AC_MSG_ERROR([no NEON hardware detected])]);;
+               [AC_MSG_WARN([no NEON hardware detected])]);;
        *)     ;;
        esac
    fi
