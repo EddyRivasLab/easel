@@ -116,23 +116,6 @@ AC_DEFINE_UNQUOTED(EASEL_VERSION,   "$EASEL_VERSION")
 #       host_os         example: linux-gnu
 AC_CANONICAL_HOST
 
-# Parse $host_cpu to set the base architecture of the machine
-architecture=unknown
-# Figure out our machine's base architecture
-if test "$host_cpu" = "x86_64"; then
-  architecture=x86
-  AC_DEFINE(p7_CPU_ARCH, x86)
-fi
-if test "$host_cpu" = "i686"; then
-  architecture=x86
-  AC_DEFINE(p7_CPU_ARCH, x86)
-fi
-## add  checks here for ARM, POWER
-if test "$architecture" = "unknown"; then
-  AC_MSG_ERROR([Unable to determine base architecture of this machine!  host_cpu is $host_cpu])
-else
-  AC_MSG_NOTICE(Compiling for $architecture)
-fi
 
 
 ################################################################
