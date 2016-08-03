@@ -71,6 +71,7 @@
 #undef HAVE_MPI
 #undef HAVE_PTHREAD
 #undef HAVE_NEON
+#undef HAVE_ARM64
 #undef HAVE_SSE2_CAST
 
 /* Programs */

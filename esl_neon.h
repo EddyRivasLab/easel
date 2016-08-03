@@ -87,7 +87,9 @@ typedef union
  * introduced in AArch64. */
 typedef union
 {
+#if defined (__ARM_FP16_FORMAT_IEEE) || defined (__ARM_FP16_FORMAT_ALTERNATIVE)
   float16x4_t f16x4;
+#endif
   float32x2_t f32x2;
 } esl_neon_64f_t;
 
