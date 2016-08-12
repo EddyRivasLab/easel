@@ -6,7 +6,7 @@ import sys
 
 
 if len(sys.argv) != 3:
-	print"Usage: parse_test_results.py <infile> <outfile>"
+	print"Usage: parse_test_results.py <infile_name> <outfile_name>"
 	quit()
 
 infile_name = sys.argv[1]
