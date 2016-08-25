@@ -54,7 +54,8 @@ CFLAGS   = @CFLAGS@ @PTHREAD_CFLAGS@ @PIC_FLAGS@
 SSEFLAGS    =  @SSE_CFLAGS@
 AVXFLAGS = @AVX_CFLAGS@
 AVX512FLAGS = @AVX512_CFLAGS@
-ARMFLAGS = @NEON_CFLAGS@
+NEONFLAGS = @NEON_CFLAGS@
+NEON64FLAGS = @NEON64_CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS  = @LDFLAGS@
 LIBGSL   = @LIBGSL@
@@ -125,6 +126,7 @@ HDRS = 	easel.h\
 	esl_msashuffle.h\
 	esl_msaweight.h\
 	esl_neon.h\
+	esl_neon64.h\
 	esl_normal.h\
 	esl_quicksort.h\
 	esl_paml.h\
@@ -223,7 +225,7 @@ OBJS =	easel.o\
 SSE_OBJS=	esl_sse.o
 AVX_OBJS = esl_avx.o
 AVX512_OBJS = esl_avx_512.o
-ARM_OBJS = esl_neon.o
+ARM_OBJS = esl_neon.o esl_neon64.o
 
 BENCHMARKS =\
 	esl_buffer_benchmark\
