@@ -463,10 +463,13 @@ fi
 
 if test "y$vector_flags" != "y"; then
   ARM_CFLAGS="$vector_flags"
+  NEON_CFLAGS="$vector_flags"
+  NEON64_CFLAGS="$vector_flags"
 fi
 
 AC_SUBST(ARM_CFLAGS)
- 
+AC_SUBST(NEON_CFLAGS)
+AC_SUBST(NEON64_CFLAGS) 
 
 # VMX/Altivec (not autodetected yet; must use --enable-vmx to enable)
 if test "$enable_sse" != "yes" && test "$enable_neon" != "yes"; then
