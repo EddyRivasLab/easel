@@ -419,7 +419,7 @@ fi
 # cominations of NEON/VFP compiler options. This allows 
 # us to determine the best compile options for each 
 # ARM architecture. 
-if test "$enable_neon" = "yes"; then
+if test "$enable_neon" = "yes" || "$enable_neon" = "check" ; then
   cortex_a5="-mfpu=neon-fp16"
   cortex_a7="-mfpu=neon-vfpv4"
   cortex_a8="-mfpu=neon"
