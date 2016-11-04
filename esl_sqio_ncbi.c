@@ -140,7 +140,7 @@ esl_sqncbi_Open(char *filename, int format, ESL_SQFILE *sqfp)
   ncbi->title        = NULL;
   ncbi->timestamp    = NULL;
 
-  ncbi->index        = -1;
+  ncbi->index        = 0;
 
   ncbi->hdr_off      = -1;
   ncbi->seq_off      = -1;
@@ -221,7 +221,7 @@ sqncbi_ParseIndexFile(ESL_SQNCBI_DATA *ncbi, int dbtype)
   if (status != eslOK) goto ERROR;
   ncbi->version = htobe32(info[0]);
   ncbi->alphatype = (dbtype == NCBI_DNA_DB) ? eslDNA : eslAMINO;
-  ncbi->index = -1;
+  ncbi->index = 0;
 
   /* read the database title */
   len = htobe32(info[2]);
@@ -624,7 +624,7 @@ sqncbi_Close(ESL_SQFILE *sqfp)
   ncbi->title        = NULL;
   ncbi->timestamp    = NULL;
 
-  ncbi->index        = -1;
+  ncbi->index        = 0;
 
   ncbi->hdr_off      = -1;
   ncbi->seq_off      = -1;
@@ -753,15 +753,15 @@ sqncbi_GetError(const ESL_SQFILE *sqfp)
 static int
 sqncbi_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
-  int  index;
+  //int  index;
   int  status;
 
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
 
-  index = ncbi->index + 1;
-  if (index >= ncbi->num_seq) return eslEOF;
+  //index = ncbi->index + 1;
+  if (ncbi->index >= ncbi->num_seq) return eslEOF;
 
-  if ((status = pos_sequence(ncbi, index)) != eslOK) return status;
+  if ((status = pos_sequence(ncbi, ncbi->index)) != eslOK) return status;
 
   /* Disk offset bookkeeping */
   sq->idx  = ncbi->index;
@@ -778,6 +778,8 @@ sqncbi_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
   /* read and parse the ncbi header */
   if ((status = parse_header(ncbi, sq)) != eslOK) return status;
+
+  (ncbi->index)++;
 
   return eslOK;
 }
@@ -802,15 +804,15 @@ sqncbi_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
 static int
 sqncbi_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
-  int   index;
+  //int   index;
   int   status;
 
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
 
-  index = ncbi->index + 1;
-  if (index >= ncbi->num_seq) return eslEOF;
+  //index = ncbi->index + 1;
+  if (ncbi->index >= ncbi->num_seq) return eslEOF;
 
-  if ((status = pos_sequence(ncbi, index)) != eslOK) return status;
+  if ((status = pos_sequence(ncbi, ncbi->index)) != eslOK) return status;
 
   /* Disk offset bookkeeping */
   sq->idx  = ncbi->index;
@@ -824,6 +826,8 @@ sqncbi_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
   /* read and parse the ncbi header */
   if ((status = parse_header(ncbi, sq)) != eslOK) return status;
+
+  (ncbi->index)++;
 
   return eslOK;
 }
@@ -851,15 +855,15 @@ sqncbi_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
 static int
 sqncbi_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
-  int    index;
+  //int    index;
   int    status;
 
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
 
-  index = ncbi->index + 1;
-  if (index >= ncbi->num_seq) return eslEOF;
+  //index = ncbi->index + 1;
+  if (ncbi->index >= ncbi->num_seq) return eslEOF;
 
-  if ((status = pos_sequence(ncbi, index)) != eslOK) return status;
+  if ((status = pos_sequence(ncbi, ncbi->index)) != eslOK) return status;
 
   /* Disk offset bookkeeping */
   sq->idx  = ncbi->index;
@@ -876,6 +880,7 @@ sqncbi_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
     status = read_dna(sqfp, sq);
   if (status != eslOK) return status;
 
+  (ncbi->index)++;
   return eslOK;
 }
 
@@ -980,7 +985,7 @@ sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 {
   uint64_t  nres;
 
-  int       index;
+  //int       index;
   int       status;
 
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
@@ -1057,11 +1062,11 @@ sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
        */
     if (sq->start == 0)
     {
-      index = ncbi->index + 1;
-      if (index >= ncbi->num_seq) return eslEOF;
+      //index = ncbi->index + 1;
+      if (ncbi->index >= ncbi->num_seq) return eslEOF;
 
       /* get the sequence and header offsets */
-      if ((status = pos_sequence(ncbi, index)) != eslOK) return status;
+      if ((status = pos_sequence(ncbi, ncbi->index)) != eslOK) return status;
 
       /* Disk offset bookkeeping */
       sq->idx  = ncbi->index;
@@ -1081,6 +1086,8 @@ sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
       sq->L        = -1;	/* won't be known 'til EOD.                     */
       ncbi->seq_L  = -1;	/* init to 0, so we can count residues as we go */
       esl_sq_SetSource(sq, sq->name);
+
+      (ncbi->index)++;
     }
     else
     { /* else we're reading a window other than first; slide context over. */
