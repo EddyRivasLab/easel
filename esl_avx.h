@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include <xmmintrin.h>		/* SSE  */
 #include <emmintrin.h>		/* SSE2 */
-
+#include <immintrin.h>
 
 /* Function:  esl_avx_hmax_epu8()
  * Synopsis:  Return the unsigned max of the 32 elements in epu8 vector.

@@ -54,7 +54,8 @@ CFLAGS   = @CFLAGS@ @PTHREAD_CFLAGS@ @PIC_FLAGS@
 SSEFLAGS    =  @SSE_CFLAGS@
 AVXFLAGS = @AVX_CFLAGS@
 AVX512FLAGS = @AVX512_CFLAGS@
-ARMFLAGS = @ARM_CFLAGS@
+NEONFLAGS = @NEON_CFLAGS@
+NEON64FLAGS = @NEON64_CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS  = @LDFLAGS@
 LIBGSL   = @LIBGSL@
@@ -125,6 +126,7 @@ HDRS = 	easel.h\
 	esl_msashuffle.h\
 	esl_msaweight.h\
 	esl_neon.h\
+	esl_neon64.h\
 	esl_normal.h\
 	esl_quicksort.h\
 	esl_paml.h\
@@ -224,6 +226,7 @@ SSE_OBJS=	esl_sse.o
 AVX_OBJS = esl_avx.o
 AVX512_OBJS = esl_avx_512.o
 ARM_OBJS = esl_neon.o
+ARM64_OBJS = esl_neon64.o
 
 BENCHMARKS =\
 	esl_buffer_benchmark\
@@ -418,10 +421,13 @@ ${SSE_OBJS}: ${HDRS} esl_config.h
 ${AVX_OBJS}: ${HDRS} esl_config.h
 ${AVX512_OBJS}: ${HDRS} esl_config.h
 ${ARM_OBJS}: ${HDRS} esl_config.h
+${ARM64_OBJS}: ${HDRS} esl_config.h
 ${SSE_OBJS}:  SIMDFLAGS:= $(SSEFLAGS)
 ${AVX_OBJS}:  SIMDFLAGS:= $(AVXFLAGS)
 ${AVX512_OBJS}:  SIMDFLAGS:= $(AVX512FLAGS)
-${ARM_OBJS}: SIMDFLAGS := ${ARMFLAGS}
+${ARM_OBJS}: SIMDFLAGS := $(NEONFLAGS)
+${ARM64_OBJS}: SIMDFLAGS := $(NEON64FLAGS)
+
 .c.o:
 	${QUIET_CC}${CC} -I. -I${srcdir} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -o $@ -c $<
 
@@ -465,7 +471,7 @@ ${NEON_UTESTS}:  libeasel.a
 	   then echo "${CC} ${CFLAGS} ${ARMFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${ARMFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
+	${CC} ${CFLAGS} ${NEONFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
 
 

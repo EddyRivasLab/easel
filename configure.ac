@@ -419,7 +419,7 @@ fi
 # cominations of NEON/VFP compiler options. This allows 
 # us to determine the best compile options for each 
 # ARM architecture. 
-if test "$enable_neon" = "yes"; then
+if test "$enable_neon" = "yes" || "$enable_neon" = "check" ; then
   cortex_a5="-mfpu=neon-fp16"
   cortex_a7="-mfpu=neon-vfpv4"
   cortex_a8="-mfpu=neon"
@@ -463,10 +463,13 @@ fi
 
 if test "y$vector_flags" != "y"; then
   ARM_CFLAGS="$vector_flags"
+  NEON_CFLAGS="$vector_flags"
+  NEON64_CFLAGS="$vector_flags"
 fi
 
 AC_SUBST(ARM_CFLAGS)
- 
+AC_SUBST(NEON_CFLAGS)
+AC_SUBST(NEON64_CFLAGS) 
 
 # VMX/Altivec (not autodetected yet; must use --enable-vmx to enable)
 if test "$enable_sse" != "yes" && test "$enable_neon" != "yes"; then
