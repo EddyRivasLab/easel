@@ -46,8 +46,11 @@ static void huffman_unpack(const ESL_HUFFMAN *hc, uint32_t *vp, const uint32_t *
  * Synopsis:  Build a new Huffman code.
  * Incept:    SRE, Thu Nov 12 11:08:09 2015
  *
- * Purpose:   Build a canonical Huffman code for observed symbol 
+ * Purpose:   Build a canonical Huffman code for observed symbol
  *            frequencies <fq[0..K]> for <K> possible symbols.
+ *            Frequencies can be counts, or normalized probabilities;
+ *            all that matters is their relative magnitude (and that
+ *            they're $\geq 0$).
  *            
  *            If you're encoding an Easel digital alphabet, you want
  *            <K = abc->Kp>, inclusive of ambiguity codes, gaps,
@@ -758,15 +761,47 @@ utest_kryptos(ESL_RANDOMNESS *rng)
 
   if (n2 != n)            esl_fatal(msg);
   if (strcmp(T, T2) != 0) esl_fatal(msg);
-  
-
 
   free(X);
   free(T2);
   esl_huffman_Destroy(hc);
 }
   
+/* utest_uniletter()
+ * Tests an edge case of a text consisting of a single letter, Ku=1.
+ * (Ku=1 cases get tested occasionally by utest_backandforth() too.)
+ */
+static void
+utest_uniletter(void)
+{
+  char   msg[]    = "uniletter utest failed";
+  char   T[]      = "AAAAAAAAAA";
+  int    n        = strlen(T);
+  int    K        = 128;
+  float  fq[128];
+  ESL_HUFFMAN *hc = NULL;
+  uint32_t    *X  = NULL;
+  int          nb;
+  char        *T2 = NULL;
+  int          n2;
+  int          i;
+  int          status;
+
+  for (i = 0; i < 128; i++) fq[i] = 0.;
+  fq['A'] = (float) n;
+
+  if (( status = esl_huffman_Build (fq, K, &hc) )         != eslOK) esl_fatal(msg);
+  if (( status = esl_huffman_Encode(hc, T, n, &X, &nb))   != eslOK) esl_fatal(msg);
+  if (( status = esl_huffman_Decode(hc, X, nb, &T2, &n2)) != eslOK) esl_fatal(msg);
   
+  if (n2 != n)            esl_fatal(msg);
+  if (strcmp(T, T2) != 0) esl_fatal(msg);
+
+  free(X);
+  free(T2);
+  esl_huffman_Destroy(hc);
+}
+
 
 /* utest_backandforth()
  * Encode and decode a random text string, and test 
@@ -798,7 +833,7 @@ utest_backandforth(ESL_RANDOMNESS *rng)
   esl_rnd_Dirichlet(rng, NULL, K, fq0);             // Sample a uniform random probability vector
   for (i = 0; i < K; i++)                           // Pepper it with exact 0's while converting to float
     fq[i] =  ( esl_rnd_Roll(rng, 4) == 0 ? 0. : (float) fq0[i] );
-  esl_vec_FNorm(fq, K);                             // and renormalize.
+  esl_vec_FNorm(fq, K);                             // and renormalize. (edge case: if fq was all 0, now it's uniform.)
 
   /* Sample a random plaintext array <T>, of randomly selected length <n>.
    * We're using codes 0..K-1 -- T is not a string, it's an array -- don't \0 it.
@@ -823,6 +858,10 @@ utest_backandforth(ESL_RANDOMNESS *rng)
   free(T);
   esl_huffman_Destroy(hc);
 }
+
+
+
+
 #endif /*eslHUFFMAN_TESTDRIVE*/
 
 
@@ -860,6 +899,7 @@ main(int argc, char **argv)
   fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
 
   utest_kryptos     (rng);
+  utest_uniletter   (   );
   utest_backandforth(rng);
   
   fprintf(stderr, "#  status = ok\n");
