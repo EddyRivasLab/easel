@@ -151,7 +151,13 @@ esl_dsqdata_Open(ESL_ALPHABET **byp_abc, char *basename, int nconsumers, ESL_DSQ
   dd->ifp             = NULL;
   dd->sfp             = NULL;
   dd->mfp             = NULL;
-  dd->abc_r           = *byp_abc;        // This may be NULL; if so, we create it later.
+  if(byp_abc != NULL){
+    dd->abc_r           = *byp_abc;        // This may be NULL; if so, we create it later.
+  }
+  else{
+    dd->abc_r = NULL;
+  }
+
   dd->magic           = 0;
   dd->uniquetag       = 0;
   dd->flags           = 0;
@@ -262,6 +268,7 @@ esl_dsqdata_Open(ESL_ALPHABET **byp_abc, char *basename, int nconsumers, ESL_DSQ
 
   /* Create the loader and unpacker threads.
    */
+
   if ( pthread_mutex_init(&dd->loader_outbox_mutex,      NULL) != 0) ESL_XEXCEPTION(eslESYS, "pthread_mutex_init() failed");    dd->lom_c = TRUE;
   if ( pthread_mutex_init(&dd->unpacker_outbox_mutex,    NULL) != 0) ESL_XEXCEPTION(eslESYS, "pthread_mutex_init() failed");    dd->uom_c = TRUE;
   if ( pthread_mutex_init(&dd->recycling_mutex,          NULL) != 0) ESL_XEXCEPTION(eslESYS, "pthread_mutex_init() failed");    dd->rm_c  = TRUE;
@@ -274,9 +281,13 @@ esl_dsqdata_Open(ESL_ALPHABET **byp_abc, char *basename, int nconsumers, ESL_DSQ
   
   if ( pthread_create(&dd->unpacker_t, NULL, dsqdata_unpacker_thread, dd) != 0) ESL_XEXCEPTION(eslESYS, "pthread_create() failed");  dd->ut_c = TRUE;
   if ( pthread_create(&dd->loader_t,   NULL, dsqdata_loader_thread,   dd) != 0) ESL_XEXCEPTION(eslESYS, "pthread_create() failed");  dd->lt_c = TRUE;
-
+ 
   *ret_dd  = dd;
-  *byp_abc = dd->abc_r;     // If caller provided <*byp_abc> this is a no-op, because we set abc_r = *byp_abc.
+
+  if(byp_abc != NULL){  // need to check this because otherwise dereferencing byp_abc causes a segfault
+    *byp_abc = dd->abc_r;    
+    // If caller provided <*byp_abc> this is a no-op, because we set abc_r = *byp_abc.
+   }
   return eslOK;             //  .. otherwise we're passing the created <abc> back to caller, caller's
                             //     responsibility, we just keep the reference to it.
  ERROR:
