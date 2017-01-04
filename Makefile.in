@@ -48,18 +48,17 @@ man1ext     = .1
 
 # Compiler configuration
 #
-CC       = @CC@
-CFLAGS   = @CFLAGS@ @PTHREAD_CFLAGS@ @PIC_FLAGS@
-#SIMDFLAGS= @SIMD_CFLAGS@
-SSEFLAGS    =  @SSE_CFLAGS@
-AVXFLAGS = @AVX_CFLAGS@
+CC          = @CC@
+CFLAGS      = @CFLAGS@ @PTHREAD_CFLAGS@ @PIC_FLAGS@
+SSEFLAGS    = @SSE_CFLAGS@
+AVXFLAGS    = @AVX_CFLAGS@
 AVX512FLAGS = @AVX512_CFLAGS@
-NEONFLAGS = @NEON_CFLAGS@
+NEONFLAGS   = @NEON_CFLAGS@
 NEON64FLAGS = @NEON64_CFLAGS@
-CPPFLAGS = @CPPFLAGS@
-LDFLAGS  = @LDFLAGS@
-LIBGSL   = @LIBGSL@
-LIBS     = @LIBS@ @PTHREAD_LIBS@
+CPPFLAGS    = @CPPFLAGS@
+LDFLAGS     = @LDFLAGS@
+LIBGSL      = @LIBGSL@
+LIBS        = @LIBS@ @PTHREAD_LIBS@
 
 # Other tools
 #
@@ -335,6 +334,7 @@ EXAMPLES = \
         esl_histogram_example4\
         esl_histogram_example5\
         esl_hmm_example\
+	esl_huffman_example\
         esl_hyperexp_example\
         esl_keyhash_example\
         esl_minimizer_example\

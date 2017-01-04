@@ -46,8 +46,11 @@ static void huffman_unpack(const ESL_HUFFMAN *hc, uint32_t *vp, const uint32_t *
  * Synopsis:  Build a new Huffman code.
  * Incept:    SRE, Thu Nov 12 11:08:09 2015
  *
- * Purpose:   Build a canonical Huffman code for observed symbol 
+ * Purpose:   Build a canonical Huffman code for observed symbol
  *            frequencies <fq[0..K]> for <K> possible symbols.
+ *            Frequencies can be counts, or normalized probabilities;
+ *            all that matters is their relative magnitude (and that
+ *            they're $\geq 0$).
  *            
  *            If you're encoding an Easel digital alphabet, you want
  *            <K = abc->Kp>, inclusive of ambiguity codes, gaps,
@@ -61,12 +64,7 @@ static void huffman_unpack(const ESL_HUFFMAN *hc, uint32_t *vp, const uint32_t *
  *            the move-to-front encoding.
  *
  *            If you're encoding an arbitrary symbol table -- a table
- *            of gap lengths, perhaps? -- <K> can be
- *            anything. However, although you can build a Huffman code
- *            for arbitrary symbol frequency tables,
- *            <esl_huffman_Encode()> and <esl_huffman_Decode()> do
- *            assume that the plaintext consists of ASCII characters
- *            0..127.
+ *            of gap lengths, perhaps? -- <K> can be anything.
  *
  *            Unobserved symbols (with <fq[] = 0>) will not be encoded;
  *            they get a code length of 0, and a code of 0.
@@ -123,9 +121,9 @@ esl_huffman_Build(const float *fq, int K, ESL_HUFFMAN **ret_hc)
     if (fq[hc->sorted_at[r]] > 0.) break;
   hc->Ku = r+1;
 
-  ESL_ALLOC(htree,         sizeof(struct hufftree_s) * (hc->Ku-1));
+  ESL_ALLOC(htree,         sizeof(struct hufftree_s) * (ESL_MAX(1, hc->Ku-1)));  // Ku=1 is ok; avoid zero malloc.      
   if ( (status = huffman_tree       (hc, htree, fq)) != eslOK) goto ERROR;
-  if ( (status = huffman_codelengths(hc, htree, fq)) != eslOK) goto ERROR; // can fail eslERANGE on maxlen > 32
+  if ( (status = huffman_codelengths(hc, htree, fq)) != eslOK) goto ERROR;       // can fail eslERANGE on maxlen > 32
   if ( (status = huffman_canonize   (hc))            != eslOK) goto ERROR;
 
 
@@ -330,6 +328,8 @@ esl_huffman_Dump(FILE *fp, ESL_HUFFMAN *hc)
   int r,x;
   int d,L;
 
+  /* Encoding table: <letter index> <code length> <binary encoding> */
+  fprintf(fp, "Encoding table:\n");
   for (r = 0; r < hc->Ku; r++)
     {
       x = hc->sorted_at[r];
@@ -340,7 +340,9 @@ esl_huffman_Dump(FILE *fp, ESL_HUFFMAN *hc)
   fputc('\n', fp);
 
 
+  /* Decoding table (if set) */
   if (hc->dt_len)
+    fprintf(fp, "Decoding table:\n");
     for (d = 0; d < hc->D; d++)
       {
 	L = hc->dt_len[d];
@@ -397,6 +399,8 @@ sort_canonical(const void *data, int e1, int e2)
  * that the internal node values also come out sorted... i.e. we don't
  * have to re-sort, we can always find the smallest leaves/nodes by 
  * looking at the last ones.
+ *
+ * For the Ku=1 edge case, there's no tree, and this no-ops. 
  * 
  * Input: 
  *   hc->sorted_at[] lists symbol indices from largest to smallest freq.
@@ -461,6 +465,9 @@ huffman_tree(ESL_HUFFMAN *hc, struct hufftree_s *htree, const float *fq)
  * depth 0 for root 0. We don't need a stack for this traversal,
  * tree is already indexed in traversal order.
  * 
+ * For the Ku=1 edge case, there's no tree; for a single encoded
+ * symbol we set hc->len[0] = 1, hc->Lmax = 1
+ * 
  * Input:
  *   hc->Ku          is the number of syms w/ nonzero freqs; tree has Ku-1 nodes.
  *   htree[0..Ku-2]  is the constructed Huffman tree, with right/left/val set.
@@ -479,6 +486,13 @@ static int
 huffman_codelengths(ESL_HUFFMAN *hc, struct hufftree_s *htree, const float *fq)
 {
   int i;
+
+  if (hc->Ku == 1)
+    {
+      hc->len[ hc->sorted_at[0] ] = 1;
+      hc->Lmax   = 1;
+      return eslOK;
+    }
 
   htree[0].depth = 0;
   for (i = 0; i < hc->Ku-1; i++)
@@ -528,7 +542,6 @@ huffman_canonize(ESL_HUFFMAN *hc)
   for (r = 1; r < hc->Ku; r++)
     hc->code[hc->sorted_at[r]] =
       (hc->code[hc->sorted_at[r-1]] + 1) << (hc->len[hc->sorted_at[r]] - hc->len[hc->sorted_at[r-1]]);
-
 
   /* Set D, the number of different code lengths */
   hc->D = 1;
@@ -748,15 +761,47 @@ utest_kryptos(ESL_RANDOMNESS *rng)
 
   if (n2 != n)            esl_fatal(msg);
   if (strcmp(T, T2) != 0) esl_fatal(msg);
-  
-
 
   free(X);
   free(T2);
   esl_huffman_Destroy(hc);
 }
   
+/* utest_uniletter()
+ * Tests an edge case of a text consisting of a single letter, Ku=1.
+ * (Ku=1 cases get tested occasionally by utest_backandforth() too.)
+ */
+static void
+utest_uniletter(void)
+{
+  char   msg[]    = "uniletter utest failed";
+  char   T[]      = "AAAAAAAAAA";
+  int    n        = strlen(T);
+  int    K        = 128;
+  float  fq[128];
+  ESL_HUFFMAN *hc = NULL;
+  uint32_t    *X  = NULL;
+  int          nb;
+  char        *T2 = NULL;
+  int          n2;
+  int          i;
+  int          status;
+
+  for (i = 0; i < 128; i++) fq[i] = 0.;
+  fq['A'] = (float) n;
+
+  if (( status = esl_huffman_Build (fq, K, &hc) )         != eslOK) esl_fatal(msg);
+  if (( status = esl_huffman_Encode(hc, T, n, &X, &nb))   != eslOK) esl_fatal(msg);
+  if (( status = esl_huffman_Decode(hc, X, nb, &T2, &n2)) != eslOK) esl_fatal(msg);
   
+  if (n2 != n)            esl_fatal(msg);
+  if (strcmp(T, T2) != 0) esl_fatal(msg);
+
+  free(X);
+  free(T2);
+  esl_huffman_Destroy(hc);
+}
+
 
 /* utest_backandforth()
  * Encode and decode a random text string, and test 
@@ -788,7 +833,7 @@ utest_backandforth(ESL_RANDOMNESS *rng)
   esl_rnd_Dirichlet(rng, NULL, K, fq0);             // Sample a uniform random probability vector
   for (i = 0; i < K; i++)                           // Pepper it with exact 0's while converting to float
     fq[i] =  ( esl_rnd_Roll(rng, 4) == 0 ? 0. : (float) fq0[i] );
-  esl_vec_FNorm(fq, K);                             // and renormalize.
+  esl_vec_FNorm(fq, K);                             // and renormalize. (edge case: if fq was all 0, now it's uniform.)
 
   /* Sample a random plaintext array <T>, of randomly selected length <n>.
    * We're using codes 0..K-1 -- T is not a string, it's an array -- don't \0 it.
@@ -813,6 +858,10 @@ utest_backandforth(ESL_RANDOMNESS *rng)
   free(T);
   esl_huffman_Destroy(hc);
 }
+
+
+
+
 #endif /*eslHUFFMAN_TESTDRIVE*/
 
 
@@ -850,6 +899,7 @@ main(int argc, char **argv)
   fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
 
   utest_kryptos     (rng);
+  utest_uniletter   (   );
   utest_backandforth(rng);
   
   fprintf(stderr, "#  status = ok\n");
@@ -993,24 +1043,38 @@ main(int argc, char **argv)
   char        *newT = NULL;
   int          nT;
 
-  for (c = 0; c < 128; c++) fq[c]          = 0.;
+  /* You provide a frequency table for your digital alphabet 0..K-1.
+   * It's fine for there to be 0-frequency characters, even many of them;
+   * they will not be encoded, and cost nothing. 
+   * Here, our digital alphabet is 7-bit ASCII text, 0..127, K=128.
+   */
+  for (c = 0; c < 128; c++) fq[c]           = 0.;
   for (i = 0; i < n;   i++) fq[(int) T[i]] += 1.;
+
+  /* There does have to be at least one character to encode, of course. */
+  ESL_DASSERT1(( n > 0 ));
   
-  esl_huffman_Build(fq, 128, &hc);
+  esl_huffman_Build(fq, 128, &hc);  
+
   esl_huffman_Dump(stdout, hc);
 
   esl_huffman_Encode(hc, T, n, &X, &nb);
 
-  printf("Original:   %d bytes\n", n);
+  printf("\nOriginal:   %d bytes\n", n);
   printf("Compressed: %d bytes (%d bits)\n", 4*(nb+31)/32, nb);
 
-  for (i = 0; i < 30; i++) {
+  /* Dump the compresstext, up to 30 words of it */
+  printf("\nCompressed text:\n");
+  for (i = 0; i < ESL_MIN(30, (nb+31)/32); i++) {
     dump_uint32(stdout, X[i], 32);
     fputc('\n', stdout);
   }
 
   esl_huffman_Decode(hc, X, nb, &newT, &nT);
-  for (i = 0; i < 100; i++)
+
+  /* Show the decoded plaintext, up to 100 chars of it */
+  printf("\nDecoded text:\n");
+  for (i = 0; i < ESL_MIN(100, nT); i++)
     fputc(newT[i], stdout);
   fputc('\n', stdout);
 

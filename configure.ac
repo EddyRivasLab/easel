@@ -45,7 +45,7 @@ AC_PREREQ(2.63)
 ################################################################
 # 2. AC_INIT
 ################################################################
-AC_INIT(Easel, 0.43, sean@eddylab.org, easel)
+AC_INIT(Easel, 0.44, sean@eddylab.org, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
 # remember if the user is overriding CFLAGS
@@ -84,8 +84,8 @@ fi
 #     EASEL_VERSION    e.g. "1.9a"
 #
 
-EASEL_DATE="July 2016"
-EASEL_COPYRIGHT="Copyright (C) 2016 Howard Hughes Medical Institute"
+EASEL_DATE="January 2017"
+EASEL_COPYRIGHT="Copyright (C) 2017 Howard Hughes Medical Institute"
 EASEL_LICENSE="Freely distributed under the BSD open source license."
 EASEL_VERSION=$PACKAGE_VERSION
 EASEL_URL="http://bioeasel.org/"
@@ -296,7 +296,7 @@ ESL_PIC_FLAGS
 # here is sufficient [xref J3/127].
 # Note: some platforms (Ubuntu 32-bit for example) absolutely
 # must have the -msse2 cflag on in order to detect a working
-# emmintrin.h, so we set SIMD_CFLAGS before running the test.
+# emmintrin.h, so we set SSE_CFLAGS before running the test.
 if test "$enable_sse" = "yes" || test "$enable_sse" = "check"; then
    if test "x$SSE_CFLAGS" = x; then
      case $ax_cv_c_compiler_vendor in
@@ -325,7 +325,7 @@ if test "$enable_sse" = "yes"; then
 fi
 
 if test "$enable_avx2" = "yes" || test "$enable_avx2" = "check"; then
-   if test "x$SIMD_CFLAGS" = x; then
+   if test "x$AVX_CFLAGS" = x; then
      case $ax_cv_c_compiler_vendor in
       gnu)   AX_CHECK_COMPILER_FLAGS([-mavx -mavx2], [ AVX_CFLAGS="-mavx -mavx2" ],[]);;
        *)     ;;
@@ -351,7 +351,7 @@ AC_MSG_CHECKING([whether AVX2 is supported])
 fi
 
 if test "$enable_avx512" = "yes" || test "$enable_avx512" = "check"; then
-   if test "x$SIMD_CFLAGS" = x; then
+   if test "x$AVX512_CFLAGS" = x; then
      case $ax_cv_c_compiler_vendor in
       gnu)   AX_CHECK_COMPILER_FLAGS([-mavx512bw -mavx512dq], [ AVX512_CFLAGS="-mavx512bw -mavx512dq" ],[]);;
        *)     ;;
@@ -382,7 +382,7 @@ fi
 
 # ARM and NEON SIMD flags
 if test "$enable_neon" = "yes" || test "$enable_neon" = "check"; then
-   if test "x$SIMD_CFLAGS" = x; then
+   if test "x$ARM_CFLAGS" = x; then
      case $ax_cv_c_compiler_vendor in
        gnu)   AX_CHECK_COMPILER_FLAGS(-mfpu=neon,[ARM_CFLAGS="-mfpu=neon"],[]);;
        *)     ;;
@@ -413,13 +413,12 @@ fi
 
 # NEON: Check for NEON compiler flag
 # todo: we can always check for other ARM floating point flags later
-#if test "$enable_neon" = "yes" || test "$enable_neon" = "check"; then
 # Determine target if targeting is specified.
 # Do this by attempting to execute code with different 
-# cominations of NEON/VFP compiler options. This allows 
+# combinations of NEON/VFP compiler options. This allows 
 # us to determine the best compile options for each 
 # ARM architecture. 
-if test "$enable_neon" = "yes" || "$enable_neon" = "check" ; then
+if test "$enable_neon" = "yes" || test "$enable_neon" = "check" ; then
   cortex_a5="-mfpu=neon-fp16"
   cortex_a7="-mfpu=neon-vfpv4"
   cortex_a8="-mfpu=neon"
@@ -452,9 +451,9 @@ if test "$enable_neon" = "yes" || "$enable_neon" = "check" ; then
   CPPFLAGS="$sre_save_CPPFLAGS"
 
 else
-   if test "x$SIMD_CFLAGS" = x; then
+   if test "x$ARM_CFLAGS" = x; then
      case $ax_cv_c_compiler_vendor in
-       gnu)   AX_CHECK_COMPILER_FLAGS(-mfpu=neon,[SIMD_CFLAGS="-mfpu=neon"],
+       gnu)   AX_CHECK_COMPILER_FLAGS(-mfpu=neon,[ARM_CFLAGS="-mfpu=neon"],
                [AC_MSG_WARN([no NEON hardware detected])]);;
        *)     ;;
        esac
@@ -473,7 +472,7 @@ AC_SUBST(NEON64_CFLAGS)
 
 # VMX/Altivec (not autodetected yet; must use --enable-vmx to enable)
 if test "$enable_sse" != "yes" && test "$enable_neon" != "yes"; then
-  if test "x$SIMD_CFLAGS" = x; then
+  if test "x$VMX_SIMD_CFLAGS" = x; then
     VMX_SIMD_CFLAGS=""
     if test "$GCC" = "yes"; then
        AX_CHECK_COMPILER_FLAGS(-faltivec, [VMX_SIMD_CFLAGS="-faltivec"],
@@ -487,8 +486,6 @@ if test "$enable_sse" != "yes" && test "$enable_neon" != "yes"; then
     else
        AX_CHECK_COMPILER_FLAGS(-faltivec, [VMX_SIMD_CFLAGS="-faltivec"],[])
     fi
-  else
-    VMX_SIMD_CFLAGS="$SIMD_CFLAGS"
   fi
   if test "$enable_vmx" = "check"; then
      sre_save_cflags="$CFLAGS"
@@ -521,12 +518,9 @@ if test "$enable_sse" != "yes" && test "$enable_neon" != "yes"; then
      CFLAGS="$sre_save_cflags"
   fi
   if test "$enable_vmx" = "yes"; then
-    SIMD_CFLAGS="$VMX_SIMD_CFLAGS"
     AC_DEFINE(HAVE_VMX,1,[Support Altivec/VMX vector instructions])
   fi
 fi
-
-AC_SUBST(SIMD_CFLAGS)
 
 # Define HAVE_GZIP if gzip is in $PATH (or if HAVE_GZIP is already set)
 AC_PATH_PROG(HAVE_GZIP, "gzip", "no")
@@ -602,8 +596,8 @@ AC_CHECK_HEADERS([\
 if test "$enable_vmx" = "yes"; then
    sre_save_CFLAGS="$CFLAGS"
    sre_save_CPPFLAGS="$CPPFLAGS"
-   CFLAGS="$CFLAGS $SIMD_CFLAGS"
-   CPPFLAGS="$CPPFLAGS $SIMD_CFLAGS"
+   CFLAGS="$CFLAGS $VMX_SIMD_CFLAGS"
+   CPPFLAGS="$CPPFLAGS $VMX_SIMD_CFLAGS"
    AC_CHECK_HEADERS([altivec.h])
    CFLAGS="$sre_save_CFLAGS"
    CPPFLAGS="$sre_save_CPPFLAGS"
@@ -722,15 +716,8 @@ echo "
 
 Easel configuration:
 
-     compiler:    ${CC} ${CFLAGS} ${SIMD_CFLAGS} ${PTHREAD_CFLAGS} ${PIC_FLAGS}
+     compiler:    ${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_FLAGS}
      host:        $host
      libraries:   ${LIBS} ${LIBGSL} ${PTHREAD_LIBS}
 "
 
-
-#################################################################
-# @LICENSE@
-# 
-# SVN $Id$
-# SVN $URL$
-#################################################################

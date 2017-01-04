@@ -871,7 +871,7 @@ esl_dst_CAverageId(char **as, int N, int max_comparisons, double *ret_id)
   /* If nseq is large, calculate average over a stochastic sample. */
   else				
     {
-      ESL_RANDOMNESS *r = esl_randomness_Create(0);
+      ESL_RANDOMNESS *r = esl_randomness_Create(42);  /* fixed seed, suppress stochastic variation */
       for (n = 0; n < max_comparisons; n++)
 	{
 	  do { i = esl_rnd_Roll(r, N); j = esl_rnd_Roll(r, N); } while (j == i); /* make sure j != i */
@@ -938,7 +938,7 @@ esl_dst_CAverageMatch(char **as, int N, int max_comparisons, double *ret_match)
   /* If nseq is large, calculate average over a stochastic sample. */
   else				
     {
-      ESL_RANDOMNESS *r = esl_randomness_Create(0);
+      ESL_RANDOMNESS *r = esl_randomness_Create(42); /* fixed seed, suppress stochastic variation */
       for (n = 0; n < max_comparisons; n++)
 	{
 	  do { i = esl_rnd_Roll(r, N); j = esl_rnd_Roll(r, N); } while (j == i); /* make sure j != i */
@@ -1012,7 +1012,7 @@ esl_dst_XAverageId(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_compari
   /* If nseq is large, calculate average over a stochastic sample. */
   else				
     {
-      ESL_RANDOMNESS *r = esl_randomness_Create(0);
+      ESL_RANDOMNESS *r = esl_randomness_Create(42);  /* fixed seed, suppress stochastic variation */
       for (n = 0; n < max_comparisons; n++)
 	{
 	  do { i = esl_rnd_Roll(r, N); j = esl_rnd_Roll(r, N); } while (j == i); /* make sure j != i */
@@ -1083,7 +1083,7 @@ esl_dst_XAverageMatch(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_comp
   /* If nseq is large, calculate average over a stochastic sample. */
   else				
     {
-      ESL_RANDOMNESS *r = esl_randomness_Create(0);
+      ESL_RANDOMNESS *r = esl_randomness_Create(42);  /* fixed seed, suppress stochastic variation */
       for (n = 0; n < max_comparisons; n++)
 	{
 	  do { i = esl_rnd_Roll(r, N); j = esl_rnd_Roll(r, N); } while (j == i); /* make sure j != i */

@@ -2866,7 +2866,7 @@ header_genbank(ESL_SQFILE *sqfp, ESL_SQ *sq)
     if (strncmp(ascii->buf, "VERSION   ", 10) == 0)
     {
       s = ascii->buf+12;
-      if ((status = esl_strtok(&s, " ", &tok)) != eslOK)
+      if ((status = esl_strtok(&s, " \t\n", &tok)) != eslOK)
         ESL_FAIL(eslEFORMAT, ascii->errbuf, "Line %" PRId64 ": failed to parse VERSION line", ascii->linenumber);
       if ((status = esl_sq_SetAccession(sq, tok)) != eslOK) return status;
     }
