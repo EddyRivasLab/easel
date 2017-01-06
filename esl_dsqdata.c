@@ -80,32 +80,34 @@ static uint32_t eslDSQDATA_MAGIC_V1SWAP = 0xb1d1d3c4; //  ... as above, but byte
  *            <basename>.dsqi, the metadata file <basename>.dsqm, and
  *            the sequence file <basename>.dsqs.
  *            
- *            <byp_abc> provides a way to either tell <dsqdata> to
- *            expect a specific alphabet in the <basename> database
- *            (and return a normal failure on a mismatch), or, when
- *            the alphabet remains unknown, to figure out the alphabet
- *            in <basename> is and allocate and return a new alphabet.
- *            <byp_abc> uses a partial Easel "bypass" idiom for this:
- *            if <*byp_abc> is NULL, we allocate and return a new
- *            alphabet; if <*byp_abc> is a ptr to an existing
- *            alphabet, we use it for validation. That is,
+ *            Reading digital sequence data requires a digital
+ *            alphabet.  You can either provide one (in which case we
+ *            validate that it matches the alphabet used by the
+ *            dsqdata) or, as a convenience, <esl_dsqdata_Open()> can
+ *            create one for you. Either way, you pass a pointer to an
+ *            <ESL_ALPHABET> structure <abc>, in <byp_abc>.  <byp_abc>
+ *            uses a partial Easel "bypass" idiom: if <*byp_abc> is
+ *            NULL, we allocate and return a new alphabet; if
+ *            <*byp_abc> is a ptr to an existing alphabet, we use it
+ *            for validation. That is, you have two choices:
  *                
  *            \begin{cchunk}
- *                abc = NULL;
+ *                ESL_ALPHABET *abc = NULL;
  *                esl_dsqdata_Open(&abc, basename...)
  *                // <abc> is now the alphabet of <basename>; 
- *                // you're responsible for Destroy'ing it
+ *                // now you're responsible for Destroy'ing it
  *            \end{cchunk}
  *                
  *            or:
+ *
  *            \begin{cchunk}
- *                abc = esl_alphabet_Create(eslAMINO);
+ *                ESL_ALPHABET *abc = esl_alphabet_Create(eslAMINO);
  *                status = esl_dsqdata_Open(&abc, basename);
  *                // if status == eslEINCOMPAT, alphabet in basename 
  *                // doesn't match caller's expectation
  *            \end{cchunk}
  *
- * Args:      byp_abc    : optional alphabet hint; pass &abc or NULL.
+ * Args:      byp_abc    : expected or created alphabet; pass &abc, abc=NULL or abc=expected alphabet
  *            basename   : data are in files <basename> and <basename.dsq[ism]>
  *            nconsumers : number of consumer threads caller is going to Read() with
  *            ret_dd     : RETURN : the new ESL_DSQDATA object.
@@ -124,6 +126,8 @@ static uint32_t eslDSQDATA_MAGIC_V1SWAP = 0xb1d1d3c4; //  ... as above, but byte
  *            an error state, and <dd->errbuf> is a user-directed
  *            error message that the caller can relay to the user. Other
  *            than the <errbuf>, the rest of the contents are undefined.
+ *            
+ *            Caller is responsible for destroying <*byp_abc>.
  *
  * Throws:    <eslEMEM> on allocation error.
  *            <eslESYS> on system call failure.
@@ -144,19 +148,15 @@ esl_dsqdata_Open(ESL_ALPHABET **byp_abc, char *basename, int nconsumers, ESL_DSQ
   char         buf[4096];
   int          status;
   
-  ESL_DASSERT1(( nconsumers > 0 ));
+  ESL_DASSERT1(( nconsumers > 0   ));
+  ESL_DASSERT1(( byp_abc  != NULL ));  // either *byp_abc == NULL or *byp_abc = the caller's expected alphabet.
   
   ESL_ALLOC(dd, sizeof(ESL_DSQDATA));
   dd->stubfp          = NULL;
   dd->ifp             = NULL;
   dd->sfp             = NULL;
   dd->mfp             = NULL;
-  if(byp_abc != NULL){
-    dd->abc_r           = *byp_abc;        // This may be NULL; if so, we create it later.
-  }
-  else{
-    dd->abc_r = NULL;
-  }
+  dd->abc_r           = *byp_abc;        // This may be NULL; if so, we create it later.
 
   dd->magic           = 0;
   dd->uniquetag       = 0;
@@ -283,11 +283,7 @@ esl_dsqdata_Open(ESL_ALPHABET **byp_abc, char *basename, int nconsumers, ESL_DSQ
   if ( pthread_create(&dd->loader_t,   NULL, dsqdata_loader_thread,   dd) != 0) ESL_XEXCEPTION(eslESYS, "pthread_create() failed");  dd->lt_c = TRUE;
  
   *ret_dd  = dd;
-
-  if(byp_abc != NULL){  // need to check this because otherwise dereferencing byp_abc causes a segfault
-    *byp_abc = dd->abc_r;    
-    // If caller provided <*byp_abc> this is a no-op, because we set abc_r = *byp_abc.
-   }
+  *byp_abc = dd->abc_r;     // If caller provided <*byp_abc> this is a no-op, because we set abc_r = *byp_abc.
   return eslOK;             //  .. otherwise we're passing the created <abc> back to caller, caller's
                             //     responsibility, we just keep the reference to it.
  ERROR:
@@ -305,6 +301,7 @@ esl_dsqdata_Open(ESL_ALPHABET **byp_abc, char *basename, int nconsumers, ESL_DSQ
       return status;
     }
 }
+
 
 
 /* Function:  esl_dsqdata_Read()
