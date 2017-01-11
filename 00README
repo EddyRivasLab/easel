@@ -15,12 +15,7 @@ well-tested functions.
 Other files to read in the top-level source directory:
 
     INSTALL          Brief installation instructions.
-    Userguide.pdf    The Easel User's Guide.
-    RELEASE-NOTES    Notes for this release.
     LICENSE          Copyright, contributors, and license information
-
-To get started after installation, see the Easel User's Guide
-(Userguide.pdf).
 
 ------------------------------------------------------------------
 Sean Eddy | HHMI | Harvard University | http://eddylab.org
