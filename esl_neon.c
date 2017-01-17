@@ -547,9 +547,19 @@ main(int argc, char **argv)
   ESL_GETOPTS    *go = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   ESL_RANDOMNESS *r  = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));;
 
+  fprintf(stderr, "## %s\n", argv[0]);
+  fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(r));
+#ifdef eslHAVE_NEON_AARCH64
+  fprintf(stderr, "#  flavor   = aarch64\n");
+#else
+  fprintf(stderr, "#  flavor   = armv7\n");
+#endif
+
   utest_logf(go);
   utest_expf(go);
   utest_odds(go, r);
+
+  fprintf(stderr, "#  status   = ok\n");
 
   esl_randomness_Destroy(r);
   esl_getopts_Destroy(go);
