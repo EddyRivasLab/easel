@@ -136,7 +136,6 @@ HDRS = 	easel.h\
 	esl_msashuffle.h\
 	esl_msaweight.h\
 	esl_neon.h\
-	esl_neon64.h\
 	esl_normal.h\
 	esl_quicksort.h\
 	esl_paml.h\
@@ -237,7 +236,6 @@ SSE_OBJS     = esl_sse.o
 AVX_OBJS     = esl_avx.o
 AVX512_OBJS  = esl_avx512.o
 NEON_OBJS    = esl_neon.o
-# esl_neon64.o TODO
 ALTIVEC_OBJS = esl_altivec.o
 ALL_OBJS     = ${OBJS} ${SSE_OBJS} ${AVX_OBJS} ${AVX512_OBJS} ${NEON_OBJS} ${ALTIVEC_OBJS}
 

@@ -1,15 +1,14 @@
-
 /* Vectorized routines for Intel/AMD, using Streaming SIMD Extensions (SSE).
  *
  * This header file, unusually, provides many complete function
- * implementations; this is so that they can be inlined by the
- * compiler, for maximum efficiency.
+ * implementations so they can be inlined by the compiler.
  * 
  * Contents:
  *    1. Function declarations (from esl_sse.c)
  *    2. Inlined utilities for ps vectors (4 floats in __m128)
  *    3. Inlined utilities for epu8 vectors (16 uchars in __m128i)
  */
+#include "esl_config.h"
 #ifdef  eslENABLE_SSE
 #ifndef eslSSE_INCLUDED
 #define eslSSE_INCLUDED

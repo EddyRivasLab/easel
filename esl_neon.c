@@ -150,39 +150,26 @@ esl_neon_logf(esl_neon_128f_t x)
   x.f32x4 = vaddq_f32(x.f32x4, tmp.f32x4);
 
   z.f32x4 = vmulq_f32(x.f32x4, x.f32x4);
-
   y.f32x4 = vdupq_n_f32(c_cephes_log_p0);
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, vdupq_n_f32(c_cephes_log_p1));
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, vdupq_n_f32(c_cephes_log_p2));
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, vdupq_n_f32(c_cephes_log_p3));
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, vdupq_n_f32(c_cephes_log_p4));
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, vdupq_n_f32(c_cephes_log_p5));
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, vdupq_n_f32(c_cephes_log_p6));
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, vdupq_n_f32(c_cephes_log_p7));
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, vdupq_n_f32(c_cephes_log_p8));
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
 
-  y.f32x4 = vmulq_f32(y.f32x4, z.f32x4);
-  
+  y.f32x4 = vmlaq_f32(vdupq_n_f32(c_cephes_log_p1), y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(vdupq_n_f32(c_cephes_log_p2), y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(vdupq_n_f32(c_cephes_log_p3), y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(vdupq_n_f32(c_cephes_log_p4), y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(vdupq_n_f32(c_cephes_log_p5), y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(vdupq_n_f32(c_cephes_log_p6), y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(vdupq_n_f32(c_cephes_log_p7), y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(vdupq_n_f32(c_cephes_log_p8), y.f32x4, x.f32x4);
 
+  y.f32x4   = vmulq_f32(y.f32x4, x.f32x4);
+  y.f32x4   = vmulq_f32(y.f32x4, z.f32x4);
   tmp.f32x4 = vmulq_f32(e.f32x4, vdupq_n_f32(c_cephes_log_q1));
-  y.f32x4 = vaddq_f32(y.f32x4, tmp.f32x4);
-
-
+  y.f32x4   = vaddq_f32(y.f32x4, tmp.f32x4);
   tmp.f32x4 = vmulq_f32(z.f32x4, vdupq_n_f32(0.5f));
-  y.f32x4 = vsubq_f32(y.f32x4, tmp.f32x4);
-
+  y.f32x4   = vsubq_f32(y.f32x4, tmp.f32x4);
   tmp.f32x4 = vmulq_f32(e.f32x4, vdupq_n_f32(c_cephes_log_q2));
-  x.f32x4 = vaddq_f32(x.f32x4, y.f32x4);
-  x.f32x4 = vaddq_f32(x.f32x4, tmp.f32x4);
+  x.f32x4   = vaddq_f32(x.f32x4, y.f32x4);
+  x.f32x4   = vaddq_f32(x.f32x4, tmp.f32x4);
   
   /* IEEE754 cleanup */
   esl_neon_128f_t inf_mask_view, poszero_mask_view;
@@ -250,17 +237,13 @@ esl_neon_expf(esl_neon_128f_t x)
   y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
   z.f32x4 = vmulq_f32(x.f32x4,x.f32x4);
   y.f32x4 = vaddq_f32(y.f32x4, c1.f32x4);
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, c2.f32x4);
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, c3.f32x4);
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, c4.f32x4);
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, c5.f32x4);
-  
-  y.f32x4 = vmulq_f32(y.f32x4, z.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, x.f32x4);
+
+  y.f32x4 = vmlaq_f32(c2.f32x4, y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(c3.f32x4, y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(c4.f32x4, y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(c5.f32x4, y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(x.f32x4, y.f32x4, z.f32x4);
+
   y.f32x4 = vaddq_f32(y.f32x4, one.f32x4);
 
   /* build 2^n */
