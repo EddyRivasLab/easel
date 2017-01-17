@@ -5,6 +5,7 @@
 ################################################################
 
 1 exercise alphabet-utest     @esl_alphabet_utest@
+1 exercise altivec-utest      @esl_altivec_utest@
 1 exercise buffer-utest       @esl_buffer_utest@
 1 exercise cluster-utest      @esl_cluster_utest@
 1 exercise dirichlet-utest    @esl_dirichlet_utest@
@@ -36,7 +37,7 @@
 1 exercise msafile-selex      @esl_msafile_selex_utest@
 1 exercise msafile-stockholm  @esl_msafile_stockholm_utest@
 1 exercise msaweight-utest    @esl_msaweight_utest@
-1 exercise neon-utest		  @esl_neon_utest@
+1 exercise neon-utest	      @esl_neon_utest@
 1 exercise normal-utest       @esl_normal_utest@
 1 exercise quicksort-utest    @esl_quicksort_utest@
 1 exercise random-utest       @esl_random_utest@
@@ -48,6 +49,7 @@
 1 exercise scorematrix-utest  @esl_scorematrix_utest@
 1 exercise sq-utest           @esl_sq_utest@
 1 exercise sqio-utest         @esl_sqio_utest@
+1 exercise sse-utest          @esl_sse_utest@
 1 exercise ssi-utest          @esl_ssi_utest@
 1 exercise stack-utest        @esl_stack_utest@
 1 exercise stats-utest        @esl_stats_utest@

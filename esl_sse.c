@@ -1,4 +1,4 @@
-/* Vectorized routines for Intel/AMD, using Streaming SIMD Extensions (SSE).
+/* Vectorized routines for Intel/AMD processors, using Streaming SIMD Extensions (SSE).
  * 
  * Table of contents           
  *     1. SIMD logf(), expf()
@@ -8,8 +8,16 @@
  *     4. Unit tests
  *     5. Test driver
  *     6. Example
- *     7. Copyright and license
  *     
+ *****************************************************************
+ *
+ * This code is conditionally compiled, only when <eslENABLE_SSE> was
+ * set in <esl_config.h> by the configure script, and that will only
+ * happen on ARM platforms. When <eslENABLE_SSE> is not set, we
+ * include some dummy code to silence compiler and ranlib warnings
+ * about empty translation units and no symbols, and dummy drivers
+ * that do nothing but declare success.
+ *
  *****************************************************************
  * Credits:
  *
@@ -22,7 +30,7 @@
  * information is appended at the end of the file.
  */
 #include "esl_config.h"
-#ifdef HAVE_SSE2
+#ifdef eslENABLE_SSE
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -39,13 +47,6 @@
 /*****************************************************************
  * 1. SSE SIMD logf(), expf()
  *****************************************************************/ 
-
-/* As of Dec 2007, I am unaware of any plans for Intel/AMD to release
- * SSE intrinsics for logf(), expf(), or other special functions.
- *
- * I need them, and the code below should suffice. If you know of
- * better ways to compute these functions, please let me know.
- */
 
 /* Function:  esl_sse_logf()
  * Synopsis:  <r[z] = log x[z]>
@@ -255,8 +256,6 @@ esl_sse_dump_ps(FILE *fp, __m128 v)
  *****************************************************************/
 #ifdef eslSSE_BENCHMARK
 
-/* gcc -msse2 -O3 -o benchmark-sse -I ~/src/hmmer/easel -L ~/src/hmmer/easel -DeslSSE_BENCHMARK -DHAVE_SSE2 esl_sse.c -leasel -lm
- */
 #include "esl_config.h"
 
 #include <stdio.h>
@@ -477,8 +476,7 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
  *****************************************************************/
 
 #ifdef eslSSE_TESTDRIVE
-/* gcc -msse2 -g -Wall -o test -I. -L. -DeslSSE_TESTDRIVE esl_sse.c -leasel -lm
- */
+
 #include "esl_config.h"
 
 #include <stdio.h>
@@ -526,8 +524,6 @@ main(int argc, char **argv)
 
 #ifdef eslSSE_EXAMPLE
 /*::cexcerpt::sse_example::begin::*/
-/* gcc -msse2 -g -Wall -o example -I. -L. -DeslSSE_EXAMPLE esl_sse.c -leasel -lm
- */
 #include "esl_config.h"
 
 #include <stdio.h>
@@ -557,59 +553,59 @@ main(int argc, char **argv)
 #endif /*eslSSE_EXAMPLE*/
 
 
-#else /* ! HAVE_SSE2*/
 
-/* If we don't have SSE2 compiled in, provide some nothingness to:
+
+
+#else // ! eslENABLE_SSE
+
+/* If we don't have SSE compiled in, provide some nothingness to:
  *   a. prevent Mac OS/X ranlib from bitching about .o file that "has no symbols" 
  *   b. prevent compiler from bitching about "empty compilation unit"
- *   c. automatically pass the automated tests.
+ *   c. compile blank drivers and automatically pass the automated tests.
  */
-#include "easel.h"
-
-void esl_sse_DoAbsolutelyNothing(void) { return; }
+void esl_sse_silence_hack(void) { return; }
 #if defined eslSSE_TESTDRIVE || eslSSE_EXAMPLE || eslSSE_BENCHMARK
 int main(void) { return 0; }
 #endif
+#endif // eslENABLE_SSE or not
 
-#endif /* HAVE_SSE2 or not*/
+
+
 
 
 /*****************************************************************
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
-
-/* Additionally, esl_sse_logf() and esl_sse_expf() are 
+ * additional copyright and license information for this file    
+ *****************************************************************
+ * In addition to our own copyrights, esl_sse_logf() and esl_sse_expf() are also:
  *  Copyright (C) 2007 Julien Pommier
  *  Copyright (C) 1992 Stephen Moshier 
  *
  * These functions derived from zlib-licensed routines by
  * Julien Pommier, http://gruntthepeon.free.fr/ssemath/. The
  * zlib license:
- */
-
-/* Copyright (C) 2007  Julien Pommier
-
-  This software is provided 'as-is', without any express or implied
-  warranty.  In no event will the authors be held liable for any damages
-  arising from the use of this software.
-
-  Permission is granted to anyone to use this software for any purpose,
-  including commercial applications, and to alter it and redistribute it
-  freely, subject to the following restrictions:
-
-  1. The origin of this software must not be misrepresented; you must not
-     claim that you wrote the original software. If you use this software
-     in a product, an acknowledgment in the product documentation would be
-     appreciated but is not required.
-  2. Altered source versions must be plainly marked as such, and must not be
-     misrepresented as being the original software.
-  3. This notice may not be removed or altered from any source distribution.
-*/
-
-/* In turn, Pommier had derived the logf() and expf() functions from
+ *
+ *-------------------------------------------------------------------------
+ * Copyright (C) 2007  Julien Pommier
+ *
+ *  This software is provided 'as-is', without any express or implied
+ *  warranty.  In no event will the authors be held liable for any damages
+ *  arising from the use of this software.
+ *
+ *  Permission is granted to anyone to use this software for any purpose,
+ *  including commercial applications, and to alter it and redistribute it
+ *  freely, subject to the following restrictions:
+ *
+ *  1. The origin of this software must not be misrepresented; you must not
+ *     claim that you wrote the original software. If you use this software
+ *     in a product, an acknowledgment in the product documentation would be
+ *     appreciated but is not required.
+ *  2. Altered source versions must be plainly marked as such, and must not be
+ *     misrepresented as being the original software.
+ *  3. This notice may not be removed or altered from any source distribution.
+ *
+ *-------------------------------------------------------------------------
+ *
+ * In turn, Pommier had derived the logf() and expf() functions from
  * serial versions in the Cephes math library. According to its
  * readme, Cephes is "copyrighted by the author" and "may be used
  * freely but it comes with no support or guarantee."  Cephes is

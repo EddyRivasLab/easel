@@ -41,12 +41,6 @@
 #undef HAVE_SYS_PARAM_H
 #undef HAVE_SYS_SYSCTL_H
 
-#undef HAVE_EMMINTRIN_H
-#undef HAVE_PMMINTRIN_H
-#undef HAVE_XMMINTRIN_H
-
-#undef HAVE_ALTIVEC_H
-
 /* Types
  */
 #undef WORDS_BIGENDIAN
@@ -66,13 +60,16 @@
 
 /* Optional parallel implementation support
  */
-#undef HAVE_SSE2
-#undef HAVE_VMX
+#undef eslENABLE_SSE
+#undef eslENABLE_AVX
+#undef eslENABLE_AVX512
+#undef eslENABLE_NEON
+#undef eslENABLE_ALTIVEC
+
+#undef eslHAVE_NEON_AARCH64
+
 #undef HAVE_MPI
 #undef HAVE_PTHREAD
-#undef HAVE_NEON
-#undef HAVE_ARM64
-#undef HAVE_SSE2_CAST
 
 /* Programs */
 #undef HAVE_GZIP

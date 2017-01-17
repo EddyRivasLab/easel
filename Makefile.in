@@ -10,7 +10,11 @@
 #     % make install
 #
 # For more information, see the Installation chapter of the Easel Guide.
-#
+
+# You can define V=1 either here, or by doing `make V=1`, to get verbose output from the build.
+#define V = 1
+
+
 # VPATH and shell configuration
 #
 top_srcdir = @top_srcdir@
@@ -18,9 +22,9 @@ srcdir     = @srcdir@
 VPATH      = @srcdir@
 SHELL      = /bin/sh
 
-#define V = 1
 
-# Package information
+
+# Versioning information
 #
 PACKAGE         = @PACKAGE_NAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
@@ -30,6 +34,8 @@ RELEASE         = @EASEL_VERSION@
 RELEASEDATE     = "@EASEL_DATE@"
 COPYRIGHT       = "@EASEL_COPYRIGHT@"
 LICENSELINE     = "@EASEL_LICENSE@"
+
+
 
 # Installation targets
 #
@@ -46,19 +52,21 @@ mandir      = @mandir@
 man1dir     = ${mandir}/man1
 man1ext     = .1
 
+
 # Compiler configuration
 #
-CC          = @CC@
-CFLAGS      = @CFLAGS@ @PTHREAD_CFLAGS@ @PIC_FLAGS@
-SSEFLAGS    = @SSE_CFLAGS@
-AVXFLAGS    = @AVX_CFLAGS@
-AVX512FLAGS = @AVX512_CFLAGS@
-NEONFLAGS   = @NEON_CFLAGS@
-NEON64FLAGS = @NEON64_CFLAGS@
-CPPFLAGS    = @CPPFLAGS@
-LDFLAGS     = @LDFLAGS@
-LIBGSL      = @LIBGSL@
-LIBS        = @LIBS@ @PTHREAD_LIBS@
+CC             = @CC@
+CFLAGS         = @CFLAGS@ @PTHREAD_CFLAGS@ 
+SSE_CFLAGS     = @SSE_CFLAGS@
+AVX_CFLAGS     = @AVX_CFLAGS@
+AVX512_CFLAGS  = @AVX512_CFLAGS@
+NEON_CFLAGS    = @NEON_CFLAGS@
+ALTIVEC_CFLAGS = @ALTIVEC_CFLAGS@
+CPPFLAGS       = @CPPFLAGS@
+LDFLAGS        = @LDFLAGS@
+LIBGSL         = @LIBGSL@
+LIBS           = @LIBS@ @PTHREAD_LIBS@
+
 
 # Other tools
 #
@@ -67,7 +75,9 @@ AR       = @AR@
 RANLIB   = @RANLIB@
 INSTALL  = @INSTALL@
 
-# beautification magic stolen from git
+
+
+# beautification magic, stolen from git
 #
 QUIET_SUBDIR0 = +${MAKE} -C #space separator after -c
 QUIET_SUBDIR1 =
@@ -85,8 +95,9 @@ endif
 #
 HDRS = 	easel.h\
 	esl_alphabet.h\
+	esl_altivec.h\
 	esl_avx.h\
-	esl_avx_512.h\
+	esl_avx512.h\
 	esl_buffer.h\
 	esl_cluster.h\
 	esl_composition.h\
@@ -149,7 +160,6 @@ HDRS = 	easel.h\
 	esl_threads.h\
 	esl_tree.h\
 	esl_vectorops.h\
-	esl_vmx.h\
 	esl_weibull.h\
 	esl_workqueue.h\
 	esl_wuss.h
@@ -215,27 +225,30 @@ OBJS =	easel.o\
 	esl_threads.o\
 	esl_tree.o\
 	esl_vectorops.o\
-	esl_vmx.o\
 	esl_weibull.o\
 	esl_workqueue.o\
 	esl_wuss.o
 #	esl_swat.o
 
-SSE_OBJS=	esl_sse.o
-AVX_OBJS = esl_avx.o
-AVX512_OBJS = esl_avx_512.o
-ARM_OBJS = esl_neon.o
-ARM64_OBJS = esl_neon64.o
 
-BENCHMARKS =\
-	esl_buffer_benchmark\
-	esl_keyhash_benchmark\
-	esl_mem_benchmark\
-	esl_sse_benchmark\
-	esl_random_benchmark
+# Seperate lists of objects that may require special compiler flags 
+# for SIMD vector code compilation:
+SSE_OBJS     = esl_sse.o
+AVX_OBJS     = esl_avx.o
+AVX512_OBJS  = esl_avx512.o
+NEON_OBJS    = esl_neon.o
+# esl_neon64.o TODO
+ALTIVEC_OBJS = esl_altivec.o
+ALL_OBJS     = ${OBJS} ${SSE_OBJS} ${AVX_OBJS} ${AVX512_OBJS} ${NEON_OBJS} ${ALTIVEC_OBJS}
 
-EXPERIMENTS = \
-	esl_scorematrix_experiment
+# ... and add those flags, using gnu make's target-specific variable setting:
+${SSE_OBJS}:     SIMD_CFLAGS = ${SSE_CFLAGS}
+${AVX_OBJS}:     SIMD_CFLAGS = ${AVX_CFLAGS}
+${AVX512_OBJS}:  SIMD_CFLAGS = ${AVX512_CFLAGS}
+${NEON_OBJS}:    SIMD_CFLAGS = ${NEON_CFLAGS}
+${ALTIVEC_OBJS}: SIMD_CFLAGS = ${ALTIVEC_CFLAGS}
+
+
 
 UTESTS =\
 	easel_utest\
@@ -282,7 +295,6 @@ UTESTS =\
 	esl_scorematrix_utest\
 	esl_sq_utest\
 	esl_sqio_utest\
-	esl_sse_utest\
 	esl_ssi_utest\
 	esl_stack_utest\
 	esl_stats_utest\
@@ -299,8 +311,66 @@ UTESTS =\
 #	stopwatch_utest\
 #	swat_utest\
 
-NEON_UTESTS = \
-	esl_neon_utest
+SSE_UTESTS     = esl_sse_utest
+AVX_UTESTS     =
+AVX512_UTESTS  = 
+NEON_UTESTS    = esl_neon_utest
+ALTIVEC_UTESTS = esl_altivec_utest
+ALL_UTESTS     = ${UTESTS} ${SSE_UTESTS} ${AVX_UTESTS} ${NEON_UTESTS} ${ALTIVEC_UTESTS}
+
+${SSE_UTESTS}:     SIMD_CFLAGS= ${SSE_CFLAGS}
+${AVX_UTESTS}:     SIMD_CFLAGS= ${AVX_CFLAGS}
+${AVX512_UTESTS}:  SIMD_CFLAGS= ${AVX512_CFLAGS}
+${NEON_UTESTS}:    SIMD_CFLAGS= ${NEON_CFLAGS}
+${ALTIVEC_UTESTS}: SIMD_CFLAGS= ${ALTIVEC_CFLAGS}
+
+
+
+
+
+
+EXPERIMENTS = \
+	esl_scorematrix_experiment
+
+SSE_EXPERIMENTS     = 
+AVX_EXPERIMENTS     = 
+AVX512_EXPERIMENTS  = 
+NEON_EXPERIMENTS    =
+ALTIVEC_EXPERIMENTS =
+ALL_EXPERIMENTS     = ${EXPERIMENTS} ${SSE_EXPERIMENTS} ${AVX_EXPERIMENTS} ${AVX512_EXPERIMENTS} ${NEON_EXPERIMENTS} ${ALTIVEC_EXPERIMENTS}
+
+${SSE_EXPERIMENTS}:     SIMD_CFLAGS= ${SSE_CFLAGS}
+${AVX_EXPERIMENTS}:     SIMD_CFLAGS= ${AVX_CFLAGS}
+${AVX512_EXPERIMENTS}:  SIMD_CFLAGS= ${AVX512_CFLAGS}
+${NEON_EXPERIMENTS}:    SIMD_CFLAGS= ${NEON_CFLAGS}
+${ALTIVEC_EXPERIMENTS}: SIMD_CFLAGS= ${ALTIVEC_CFLAGS}
+
+
+
+
+
+BENCHMARKS =\
+	esl_buffer_benchmark\
+	esl_keyhash_benchmark\
+	esl_mem_benchmark\
+	esl_random_benchmark
+
+SSE_BENCHMARKS     = esl_sse_benchmark
+AVX_BENCHMARKS     =
+AVX512_BENCHMARKS  =
+NEON_BENCHMARKS    = esl_neon_benchmark
+ALTIVEC_BENCHMARKS =
+ALL_BENCHMARKS     = ${BENCHMARKS} ${SSE_BENCHMARKS} ${AVX_BENCHMARKS} ${AVX512_BENCHMARKS} ${NEON_BENCHMARKS} ${ALTIVEC_BENCHMARKS}
+
+${SSE_BENCHMARKS}:     SIMD_CFLAGS= ${SSE_CFLAGS}
+${AVX_BENCHMARKS}:     SIMD_CFLAGS= ${AVX_CFLAGS}
+${AVX512_BENCHMARKS}:  SIMD_CFLAGS= ${AVX512_CFLAGS}
+${NEON_BENCHMARKS}:    SIMD_CFLAGS= ${NEON_CFLAGS}
+${ALTIVEC_BENCHMARKS}: SIMD_CFLAGS= ${ALTIVEC_CFLAGS}
+
+
+
+
 
 EXAMPLES = \
         easel_example\
@@ -370,7 +440,6 @@ EXAMPLES = \
         esl_sqio_example\
         esl_sqio_example2\
         esl_sqio_example3\
-        esl_sse_example\
         esl_ssi_example\
         esl_ssi_example2\
         esl_stack_example\
@@ -383,7 +452,6 @@ EXAMPLES = \
         esl_tree_example\
         esl_tree_example2\
         esl_vectorops_example\
-        esl_vmx_example\
         esl_weibull_example\
         esl_workqueue_example
 #       esl_distance_example\
@@ -392,57 +460,62 @@ EXAMPLES = \
 #       esl_randomseq_example\
 #       esl_msa_example2\
 
+SSE_EXAMPLES     = esl_sse_example
+AVX_EXAMPLES     =
+AVX512_EXAMPLES  = 
+NEON_EXAMPLES    = esl_neon_example
+ALTIVEC_EXAMPLES = esl_altivec_example
+ALL_EXAMPLES     = ${EXAMPLES} ${SSE_EXAMPLES} ${AVX_EXAMPLES} ${AVX512_EXAMPLES} ${NEON_EXAMPLES} ${ALTIVEC_EXAMPLES} 
+
+${SSE_EXAMPLES}:     SIMD_CFLAGS= ${SSE_CFLAGS}
+${AVX_EXAMPLES}:     SIMD_CFLAGS= ${AVX_CFLAGS}
+${AVX512_EXAMPLES}:  SIMD_CFLAGS= ${AVX512_CFLAGS}
+${NEON_EXAMPLES}:    SIMD_CFLAGS= ${NEON_CFLAGS}
+${ALTIVEC_EXAMPLES}: SIMD_CFLAGS= ${ALTIVEC_CFLAGS}
+
+
+
+
 .PHONY: all dev tests check pdf install uninstall clean distclean dist implode TAGS
+.FORCE:
 
 all:    libeasel.a .FORCE
 	${QUIET_SUBDIR0}miniapps  ${QUIET_SUBDIR1} all
 
-dev:    libeasel.a ${NEON_UTESTS} ${UTESTS} ${BENCHMARKS} ${EXPERIMENTS} ${EXAMPLES} .FORCE
+dev:    libeasel.a ${ALL_UTESTS} ${BENCHMARKS} ${EXPERIMENTS} ${EXAMPLES} .FORCE
 	${QUIET_SUBDIR0}miniapps  ${QUIET_SUBDIR1} dev
 
-tests:  ${UTESTS} ${NEON_UTESTS}
+tests:  ${ALL_UTESTS} 
 	${QUIET_SUBDIR0}miniapps ${QUIET_SUBDIR1} tests
 
-check:  ${UTESTS} ${NEON_UTESTS} .FORCE
+check:  ${ALL_UTESTS} .FORCE
 	${QUIET_SUBDIR0}miniapps  ${QUIET_SUBDIR1} check
 	${QUIET_SUBDIR0}testsuite ${QUIET_SUBDIR1} check
 
 pdf:
 	${QUIET_SUBDIR0}documentation ${QUIET_SUBDIR1} pdf
 
-libeasel.a:  ${OBJS} ${SSE_OBJS} ${AVX_OBJS} ${AVX512_OBJS} ${ARM_OBJS}
-	${QUIET_AR}${AR} -r libeasel.a $(OBJS) $(SSE_OBJS) $(AVX_OBJS) $(AVX512_OBJS) $(ARM_OBJS) > /dev/null 2>&1
+libeasel.a:  ${ALL_OBJS} 
+	${QUIET_AR}${AR} -r libeasel.a $(OBJS) $(SSE_OBJS) $(AVX_OBJS) $(AVX512_OBJS) $(NEON_OBJS) ${ALTIVEC_OBJS} > /dev/null 2>&1
 	@${RANLIB} libeasel.a
 
-.FORCE:
+${ALL_OBJS}: %.o : %.c ${HDRS} esl_config.h
+	${QUIET_CC}${CC} -I. -I${srcdir} ${CFLAGS} ${SIMD_CFLAGS} ${DEFS} -c $<
 
-${OBJS}: ${HDRS} esl_config.h
-${SSE_OBJS}: ${HDRS} esl_config.h
-${AVX_OBJS}: ${HDRS} esl_config.h
-${AVX512_OBJS}: ${HDRS} esl_config.h
-${ARM_OBJS}: ${HDRS} esl_config.h
-${ARM64_OBJS}: ${HDRS} esl_config.h
-${SSE_OBJS}:  SIMDFLAGS:= $(SSEFLAGS)
-${AVX_OBJS}:  SIMDFLAGS:= $(AVXFLAGS)
-${AVX512_OBJS}:  SIMDFLAGS:= $(AVX512FLAGS)
-${ARM_OBJS}: SIMDFLAGS := $(NEONFLAGS)
-${ARM64_OBJS}: SIMDFLAGS := $(NEON64FLAGS)
 
-.c.o:
-	${QUIET_CC}${CC} -I. -I${srcdir} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -o $@ -c $<
-
-# Unit test compilation:
+# Driver compilation:
 #
-# To compile unit tests, we need to construct a command line
-# from module basename, module's testdriver flag, and module's
-# C file. This is accomplished via a complex-looking shell scripture;
-# xref J1/81.
+# To compile built-in drivers, such as unit tests, we need to
+# construct a command line from module basename, module's testdriver
+# flag, and module's C file. This is accomplished via a
+# complex-looking shell scripture.
+#
 #   $@           =  driver name            esl_msa_utest     easel_utest
 #   $${BASENAME} =  base module name       msa               easel
 #   $${DFLAG}    =  driver flag            eslMSA_TESTDRIVE  eslEASEL_TESTDRIVE
 #   $${DFILE}    =  driver's C file        esl_msa.c         easel.c
 #
-${UTESTS}:  libeasel.a
+${ALL_UTESTS}:  libeasel.a
 	@BASENAME=`echo $@ | sed -e 's/_utest//'| sed -e 's/^esl_//'` ;\
 	DFLAG=`echo $${BASENAME} | sed -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`;\
 	DFLAG=esl$${DFLAG}_TESTDRIVE ;\
@@ -451,38 +524,12 @@ ${UTESTS}:  libeasel.a
 	   else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi;\
 	if test ${V} ;\
-	   then echo "${CC} ${CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
+	   then echo "${CC} ${CFLAGS} ${UTEST_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${ARMFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
+	${CC} ${CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
-
-
-
-${NEON_UTESTS}:  libeasel.a
-	@BASENAME=`echo $@ | sed -e 's/_utest//'| sed -e 's/^esl_//'` ;\
-	DFLAG=`echo $${BASENAME} | sed -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`;\
-	DFLAG=esl$${DFLAG}_TESTDRIVE ;\
-	if test $@ = "easel_utest" ;\
-           then DFILE=${srcdir}/easel.c ;\
-	   else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
-        fi;\
-	if test ${V} ;\
-	   then echo "${CC} ${CFLAGS} ${ARMFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
-	   else echo '    ' GEN $@ ;\
-	fi ;\
-	${CC} ${CFLAGS} ${NEONFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
-
-
-
-# Benchmark compilation:
-# Name construction much like unit tests.
-#   $@           =  driver name            esl_msa_benchmark easel_benchmark
-#   $${BASENAME} =  base module name       msa               easel
-#   $${DFLAG}    =  driver flag            eslMSA_BENCHMARK  eslEASEL_BENCHMARK
-#   $${DFILE}    =  driver's C file        esl_msa.c         easel.c
-#
-${BENCHMARKS}: libeasel.a
+${ALL_BENCHMARKS}: libeasel.a
 	@BASENAME=`echo $@ | sed -e 's/_benchmark//'| sed -e 's/^esl_//'` ;\
 	DFLAG=`echo $${BASENAME} | sed -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`;\
 	DFLAG=esl$${DFLAG}_BENCHMARK ;\
@@ -494,9 +541,9 @@ ${BENCHMARKS}: libeasel.a
 	   then echo "${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
+	${CC} ${CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
-${EXPERIMENTS}: libeasel.a
+${ALL_EXPERIMENTS}: libeasel.a
 	@BASENAME=`echo $@ | sed -e 's/_experiment//'| sed -e 's/^esl_//'` ;\
 	DFLAG=`echo $${BASENAME} | sed -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`;\
 	DFLAG=esl$${DFLAG}_EXPERIMENT ;\
@@ -508,10 +555,9 @@ ${EXPERIMENTS}: libeasel.a
 	   then echo "${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
+	${CC} ${CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
-
-${EXAMPLES}: libeasel.a
+${ALL_EXAMPLES}: libeasel.a
 	@BASENAME=`echo $@ | sed -e 's/_example[0-9]*//'| sed -e 's/^esl_//'` ;\
 	DFLAG=esl`echo $@ | sed -e 's/^esl_//' | sed -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`;\
 	if test $@ = "easel_example"; \
@@ -522,7 +568,9 @@ ${EXAMPLES}: libeasel.a
 	   then echo "${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
+	${CC} ${CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
+
+
 
 # install:   installs libeasel.a in ${libdir}/
 #            installs Easel headers in ${includedir}/
@@ -559,15 +607,15 @@ ifneq (,$(wildcard ./documentation/.))
 endif
 	${QUIET_SUBDIR0}testsuite     ${QUIET_SUBDIR1} clean
 	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} clean
-	-rm -f ${OBJS} ${SSE_OBJS} ${AVX_OBJS} ${AVX512_OBJS} ${ARM_OBJS} libeasel.a
-	-rm -f ${UTESTS} ${NEON_UTESTS} ${BENCHMARKS} ${EXAMPLES} ${EXPERIMENTS}
+	-rm -f ${ALL_OBJS} libeasel.a
+	-rm -f ${ALL_UTESTS} ${ALL_BENCHMARKS} ${ALL_EXAMPLES} ${ALL_EXPERIMENTS}
 	-rm -f *~ TAGS
 	-rm -f *.gcno *.gcda *.gcov
 	-rm -f cscope.out
 	-rm -f core.[0-9]*
 	-rm -f esltmp??????
 	-rm -f config.log config.status
-	for prog in ${UTESTS} ${NEON_UTESTS} ${BENCHMARKS} ${EXAMPLES} ${EXPERIMENTS}; do\
+	for prog in ${ALL_UTESTS} ${ALL_BENCHMARKS} ${ALL_EXAMPLES} ${ALL_EXPERIMENTS}; do\
 	   if test -d $$prog.dSYM; then rm -rf $$prog.dSYM; fi;\
 	done
 

@@ -1,13 +1,21 @@
-#ifdef HAVE_AVX2
+#include "esl_config.h"
+#ifdef eslENABLE_AVX
+
 #include <stdio.h>
-#include <immintrin.h>		/* AVX2 */
+#include <immintrin.h>	
 
 #include "esl_avx.h"
 #include "easel.h"
 
- void esl_print_256(__m256i var){
-  uint64_t *val = (uint64_t*) &var;
-    printf("%016lx %016lx %016lx %016lx\n",   val[3], val[2], val[1], val[0]);
+void 
+esl_avx_dump_256i_hex4(__m256i v)
+{
+  uint64_t *val = (uint64_t *) &v;
+  printf("%016" PRIx64 " %016" PRIx64 " %016" PRIx64 " %016" PRIx64 "\n", 
+	 val[3], val[2], val[1], val[0]);
 }
-#endif
+
+#else  // !eslENABLE_AVX 
+void esl_avx_silence_hack(void) { return; }
+#endif // eslENABLE_AVX
 

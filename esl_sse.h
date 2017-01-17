@@ -10,7 +10,7 @@
  *    2. Inlined utilities for ps vectors (4 floats in __m128)
  *    3. Inlined utilities for epu8 vectors (16 uchars in __m128i)
  */
-#ifdef HAVE_SSE2
+#ifdef  eslENABLE_SSE
 #ifndef eslSSE_INCLUDED
 #define eslSSE_INCLUDED
 
@@ -19,17 +19,6 @@
 #include <stdio.h>
 #include <xmmintrin.h>		/* SSE  */
 #include <emmintrin.h>		/* SSE2 */
-
-/* Some compilers (gcc 3.4) did not implement SSE2 cast functions 
- * on the theory that they're unnecessary no-ops -- but then
- * code that has proper SSE cast calls doesn't compile. Provide 
- * the no-ops.
- */
-#ifndef HAVE_SSE2_CAST
-#define _mm_castps_si128(x) (__m128i)(x)
-#define _mm_castsi128_ps(x) (__m128)(x)
-#endif
-
 
 
 /*****************************************************************
@@ -232,10 +221,4 @@ esl_sse_hmax_epi16(__m128i a)
 
 
 #endif /*eslSSE_INCLUDED*/
-#endif /*HAVE_SSE2*/
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
+#endif /*eslENABLE_SSE*/

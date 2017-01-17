@@ -4,10 +4,9 @@ VPATH      = @srcdir@ @top_srcdir@
 SHELL      = /bin/sh
 
 CC         = @CC@
-CFLAGS     = @CFLAGS@ @PTHREAD_CFLAGS@ @PIC_FLAGS@
+CFLAGS     = @CFLAGS@ @PTHREAD_CFLAGS@ 
 CPPFLAGS   = @CPPFLAGS@
 LDFLAGS    = @LDFLAGS@
-SIMDFLAGS  = @SIMD_CFLAGS@
 DEFS       = @DEFS@
 LIBS       = @LIBGSL@ @LIBS@ -lm
 MPILIBS    = @MPILIBS@
@@ -65,6 +64,3 @@ distclean: clean
 	-rm -f coverage.report valgrind.report utest.report
 	rm Makefile
 
-################################################################
-# @LICENSE@
-################################################################
