@@ -547,7 +547,7 @@ static char *regpiece(struct comp *cp, int *flagp);
 static char *regatom(struct comp *cp, int *flagp);
 static char *regnode(register struct comp *cp, char op);
 static char *regnext(char *node);
-static void regc(struct comp *cp, char c);
+static void regc(struct comp *cp, unsigned char c);
 static void reginsert(struct comp *cp, char op, char *opnd);
 static void regtail(struct comp *cp, char *p, char *val);
 static void regoptail(struct comp *cp, char *p, char *val);
@@ -1010,7 +1010,7 @@ regnode(register struct comp *cp, char op)
  - regc - emit (if appropriate) a byte of code
  */
 static void
-regc(register struct comp *cp, char b)
+regc(register struct comp *cp, unsigned char b)
 {
   if (EMITTING(cp))
     *cp->regcode++ = b;

@@ -28,7 +28,7 @@ typedef struct esl_dsqdata_chunk_s {
   int64_t  *L;            // Sequence lengths, in residues. The unpacker figures these out.
 
   /* Memory management */
-  char     *smem;         // Unpacked (dsq[]) and packed (psq) data ptrs share this allocation.
+  unsigned char *smem;    // Unpacked (dsq[]) and packed (psq) data ptrs share this allocation. [can't be void; we do arithmetic on it]
   uint32_t *psq;          // Pointer into smem; packed data fread()'s go here.
   int       pn;           // how many uint32's are loaded in <psq>
   char     *metadata;     // Raw fread() buffer of all name/acc/desc/taxid data.

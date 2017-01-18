@@ -1492,7 +1492,7 @@ utest_write_ambig1(FILE *ofp)
   fputs("YYYYYYYYY DDDDDDDDDD EEEEEEEEEE\n", ofp);
   fputs("YYYYYYYYY FFFFFFFFFF GGGGGGGGGG\n", ofp);
   fputs("HHHHHHHHH IIIIIIIIII KKKKKKKKKK\n", ofp);
-};
+}
 
 
 

@@ -2387,7 +2387,7 @@ int main(void)
   esl_tmpfile(tmpfile1, &fp);
   fprintf(fp, "Hello world!\n");
   rewind(fp);
-  fgets(buf, 256, fp);
+  if (fgets(buf, 256, fp) == NULL) esl_fatal("bad fread()");
   printf("first temp file says: %s\n", buf);
   fclose(fp);
 
@@ -2398,7 +2398,7 @@ int main(void)
   fclose(fp);		/* tmpfile2 now exists on disk and can be closed/reopened */
 
   fp = fopen(tmpfile2, "r");
-  fgets(buf, 256, fp);
+  if (fgets(buf, 256, fp) == NULL) esl_fatal("bad fread()");
   printf("second temp file says: %s\n", buf);
   fclose(fp);
   remove(tmpfile2);	/* disk file cleanup necessary with this version. */
@@ -2409,9 +2409,3 @@ int main(void)
 #endif /*eslEASEL_EXAMPLE*/
 
 
-/*****************************************************************
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/  

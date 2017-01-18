@@ -1079,7 +1079,7 @@ dsqdata_unpack_chunk(ESL_DSQDATA_CHUNK *chu, int do_pack5)
   i            = 0;
   r            = 0;
   pos          = 0;
-  chu->smem[0] = eslDSQ_SENTINEL;
+  chu->smem[0] = eslDSQ_SENTINEL;  // This initialization is why <smem> needs to be unsigned.
   while (pos < chu->pn)
     {
       chu->dsq[i] = (ESL_DSQ *) chu->smem + r;
@@ -1091,6 +1091,7 @@ dsqdata_unpack_chunk(ESL_DSQDATA_CHUNK *chu, int do_pack5)
       chu->L[i] = L;
       i++;
     }
+
   ESL_DASSERT1(( pos == chu->pn ));  // we should've unpacked exactly pn packets,
   ESL_DASSERT1((   i == chu->N ));   //  .. and exactly N sequences.
   return eslOK;

@@ -2025,10 +2025,11 @@ benchmark_one_read(char *filename, esl_pos_t filesize, esl_pos_t *counts)
 {
   int       fd    = -1;
   char     *buf   = malloc(filesize);
+  int       n;
   esl_pos_t pos;
 
   fd = open(filename, O_RDONLY);
-  read(fd, buf, filesize);
+  if (( n = read(fd, buf, filesize)) != filesize) esl_fatal("bad read()");
   close(fd);
 
   for (pos = 0; pos < filesize; pos++)
@@ -2043,9 +2044,10 @@ benchmark_one_fread(char *filename, esl_pos_t filesize, esl_pos_t *counts)
 {
   FILE     *fp    = fopen(filename, "rb");
   char     *buf   = malloc(filesize);
+  size_t    n;
   esl_pos_t pos;
 
-  fread(buf, 1, filesize, fp);
+  if ((n = fread(buf, 1, filesize, fp)) != filesize) esl_fatal("bad fread()");
   fclose(fp);
   
   for (pos = 0; pos < filesize; pos++)
