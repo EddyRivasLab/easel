@@ -14,7 +14,6 @@
  *   5. Benchmark.
  *   6. Stats driver.
  *   7. Examples.
- *   8. Copyright notice and license.
  */
 #include "esl_config.h"
 
@@ -1112,9 +1111,3 @@ int main(int argc, char **argv)
 }
 /*::cexcerpt::msaweight_example::end::*/
 #endif /*eslMSAWEIGHT_EXAMPLE*/
-
-
-
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

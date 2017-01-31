@@ -10,7 +10,6 @@
  *   6. Unit tests.
  *   7. Test driver.
  *   8. Example.
- *   9. License and copyright.
  */
 #include "esl_config.h"
 
@@ -2742,8 +2741,3 @@ main(int argc, char **argv)
 /*::cexcerpt::msafile_stockholm_example2::end::*/
 #endif /*eslMSAFILE_STOCKHOLM_EXAMPLE2*/
 /*--------------------- end of example --------------------------*/
-
-
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

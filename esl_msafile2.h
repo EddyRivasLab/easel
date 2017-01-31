@@ -81,6 +81,4 @@ extern int   esl_msafile2_RegurgitatePfam(ESL_MSAFILE2 *afp, FILE *ofp, int maxn
 #endif
 
 #endif //eslMSAFILE2_INCLUDED
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
+

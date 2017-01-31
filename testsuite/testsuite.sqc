@@ -5,7 +5,6 @@
 ################################################################
 
 1 exercise alphabet-utest     @esl_alphabet_utest@
-1 exercise altivec-utest      @esl_altivec_utest@
 1 exercise buffer-utest       @esl_buffer_utest@
 1 exercise cluster-utest      @esl_cluster_utest@
 1 exercise dirichlet-utest    @esl_dirichlet_utest@
@@ -56,6 +55,7 @@
 1 exercise stretchexp-utest   @esl_stretchexp_utest@
 1 exercise tree-utest         @esl_tree_utest@
 1 exercise vectorops-utest    @esl_vectorops_utest@
+1 exercise vmx-utest          @esl_vmx_utest@
 1 exercise weibull-utest      @esl_weibull_utest@
 1 exercise wuss-utest         @esl_wuss_utest@
 
@@ -148,8 +148,5 @@
 # 3 valgrind buffer-utest       @esl_buffer_utest@
 
 
-################################################################
-# SVN $URL$
-# SVN $Id: testsuite.sqc 714 2011-07-29 21:26:26Z eddys $
-################################################################
+
 

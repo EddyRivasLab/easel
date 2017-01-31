@@ -12,7 +12,6 @@
  *    1. The esl_mem*() API.
  *    2. Unit tests.
  *    3. Test driver.
- *    4. Copyright and license.
  */
 
 #include "esl_config.h"

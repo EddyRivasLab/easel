@@ -114,7 +114,7 @@ esl_avx512_hmax_epi16(__m512i a)
 static inline void
 esl_avx512_hsum_ps(__m512 a, float *ret_sum)
 {
-  //  printf("In esl_avx_512_hsum_ps.  Input vector is: ");
+  //  printf("In esl_avx512_hsum_ps.  Input vector is: ");
   // print_512(a);
   __m512 temp1_AVX_512 = _mm512_shuffle_f32x4(a, a, 0x4e);  //swap high and low halves of a
   __m512 temp2_AVX_512 = _mm512_add_ps(a, temp1_AVX_512); // sum corresponding floats in the high, low halves

@@ -5,7 +5,6 @@
  *   2. Unit tests.
  *   3. Test driver.
  *   4. Examples.
- *   5. Copyright and license information.
  */
 #include "esl_config.h"
 
@@ -811,9 +810,3 @@ main(int argc, char **argv)
 /*::cexcerpt::msafile_psiblast_example2::end::*/
 #endif /*eslMSAFILE_PSIBLAST_EXAMPLE2*/
 /*--------------------- end of examples -------------------------*/
-
-
-
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

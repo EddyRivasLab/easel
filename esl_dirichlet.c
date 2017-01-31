@@ -9,7 +9,6 @@
  *   5. Unit tests
  *   6. Test driver
  *   7. Example
- *   8. Copyright and license information
  *   
  * To-do:
  *   -  Fit*() functions should return eslEINVAL on n=0, eslENORESULT
@@ -1675,10 +1674,5 @@ main(int argc, char **argv)
 /*::cexcerpt::dirichlet_example::end::*/
 #endif /*eslDIRICHLET_EXAMPLE*/
 
-/*****************************************************************
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
+
 

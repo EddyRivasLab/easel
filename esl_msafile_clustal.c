@@ -6,7 +6,6 @@
  *   3. Unit tests.
  *   4. Test driver.
  *   5. Example.
- *   6. Copyright and license information.
  *   
  * This module is responsible for i/o of both eslMSAFILE_CLUSTAL and
  * eslMSAFILE_CLUSTALLIKE alignment formats.
@@ -1070,6 +1069,3 @@ main(int argc, char **argv)
 #endif /*eslMSAFILE_CLUSTAL_EXAMPLE2*/
 /*--------------------- end of example --------------------------*/
 
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

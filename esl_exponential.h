@@ -1,8 +1,6 @@
 /* Exponential distributions.
  * 
  * SRE, Wed Aug 10 08:32:45 2005 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslEXPONENTIAL_INCLUDED
 #define eslEXPONENTIAL_INCLUDED
@@ -47,6 +45,3 @@ extern int esl_exp_FitCompleteBinned(ESL_HISTOGRAM *h,
 
 
 #endif /*eslEXPONENTIAL_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

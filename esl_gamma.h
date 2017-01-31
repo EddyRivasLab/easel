@@ -1,8 +1,6 @@
 /* Gamma distributions.
  * 
  * SRE, Wed Nov 16 19:15:33 2005 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslGAMMA_INCLUDED
 #define eslGAMMA_INCLUDED
@@ -43,6 +41,4 @@ extern int esl_gam_FitCompleteBinned(ESL_HISTOGRAM *h, double *ret_mu, double *r
 #endif
 
 #endif /*eslGAMMA_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
+

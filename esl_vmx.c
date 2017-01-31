@@ -1,4 +1,4 @@
-/* Vectorized routines for PowerPC processors, using Altivec/ALTIVEC intrinsics.
+/* Vectorized routines for PowerPC processors, using Altivec/VMX intrinsics.
  * 
  * Table of contents           
  *     1. SIMD logf(), expf()
@@ -10,7 +10,7 @@
  *
  *****************************************************************
  *
- * This code is conditionally compiled, only when <eslENABLE_ALTIVEC> was
+ * This code is conditionally compiled, only when <eslENABLE_VMX> was
  * set in <esl_config.h> by the configure script, and that will only
  * happen on ARM platforms. When <eslENABLE_SSE> is not set, we
  * include some dummy code to silence compiler and ranlib warnings
@@ -28,7 +28,7 @@
  * information is appended at the end of the file.
  */
 #include "esl_config.h"
-#ifdef eslENABLE_ALTIVEC
+#ifdef eslENABLE_VMX
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -40,14 +40,14 @@
 #endif
 
 #include "easel.h"
-#include "esl_altivec.h"
+#include "esl_vmx.h"
 
 
 /*****************************************************************
- * 1. Altivec SIMD logf(), expf()
+ * 1. Altivec/VMX SIMD logf(), expf()
  *****************************************************************/ 
 
-/* Function:  esl_altivec_logf()
+/* Function:  esl_vmx_logf()
  * Synopsis:  <r[z] = log x[z]>
  *
  * Purpose:   Given a vector <x> containing four floats, returns a
@@ -69,7 +69,7 @@
  *            of IEEE754 specials.
  */
 vector float 
-esl_altivec_logf(vector float x) 
+esl_vmx_logf(vector float x) 
 {
   static vector float cephesv_1 = { 7.0376836292E-2f, -1.1514610310E-1f,  1.1676998740E-1f, -1.2420140846E-1f };
   static vector float cephesv_2 = { 1.4249322787E-1f, -1.6668057665E-1f,  2.0000714765E-1f, -2.4999993993E-1f };
@@ -141,7 +141,7 @@ esl_altivec_logf(vector float x)
   return x;
 }
 
-/* Function:  esl_altivec_expf()
+/* Function:  esl_vmx_expf()
  * Synopsis:  <r[z] = exp x[z]>
  *
  * Purpose:   Given a vector <x> containing four floats, returns a
@@ -156,7 +156,7 @@ esl_altivec_logf(vector float x)
  *            Pommier. Converted to SSE2.
  */
 vector float
-esl_altivec_expf(vector float x) 
+esl_vmx_expf(vector float x) 
 {
   static vector float cephesv_p1 = { 1.9875691500E-4f, 1.3981999507E-3f, 8.3334519073E-3f, 4.1665795894E-2f };
   static vector float cephesv_p2 = { 1.6666665459E-1f, 5.0000001201E-1f, 0.693359375f,    -2.12194440E-4f   };
@@ -178,7 +178,7 @@ esl_altivec_expf(vector float x)
   fx = vec_madd(x, ((vector float) {eslCONST_LOG2R, eslCONST_LOG2R, eslCONST_LOG2R, eslCONST_LOG2R}), zerov);
   fx = vec_add(fx, ((vector float) {0.5, 0.5, 0.5, 0.5}));
 
-  /* floorf() with ALTIVEC:  */
+  /* floorf() with VMX:  */
   fx = vec_floor(fx);
   k  = vec_cts(fx, 0);
   
@@ -218,7 +218,7 @@ esl_altivec_expf(vector float x)
  * 2. Miscellaneous convenience functions
  *****************************************************************/ 
 void
-esl_altivec_dump_vecfloat(FILE *fp, vector float v)
+esl_vmx_dump_vecfloat(FILE *fp, vector float v)
 {
   float *p = (float *)&v;
   printf("[%13.8g, %13.8g, %13.8g, %13.8g]", p[0], p[1], p[2], p[3]);
@@ -228,7 +228,7 @@ esl_altivec_dump_vecfloat(FILE *fp, vector float v)
 /*****************************************************************
  * 3. Benchmark
  *****************************************************************/
-#ifdef eslALTIVEC_BENCHMARK
+#ifdef eslVMX_BENCHMARK
 
 #include "esl_config.h"
 
@@ -267,26 +267,26 @@ main(int argc, char **argv)
  
   /* Vector time */
   esl_stopwatch_Start(w);
-  for (i = 0; i < N; i++) { xv = esl_altivec_logf(xv); xv = esl_altivec_expf(xv); }
+  for (i = 0; i < N; i++) { xv = esl_vmx_logf(xv); xv = esl_vmx_expf(xv); }
   esl_stopwatch_Stop(w);
   esl_stopwatch_Display(stdout, w, "# vector CPU time: ");
 
   /* If you don't do something with x and xv, the compiler may optimize them away */
   printf("%g  => many scalar logf,expf cycles => %g\n", origx, N, x);
-  printf("%g  => many vector logf,expf cycles => ", origx, N); esl_altivec_dump_vecfloat(stdout, xv); printf("\n");
+  printf("%g  => many vector logf,expf cycles => ", origx, N); esl_vmx_dump_vecfloat(stdout, xv); printf("\n");
 
   esl_stopwatch_Destroy(w);
   esl_getopts_Destroy(go);
   return 0;
 }
 
-#endif /*eslALTIVEC_BENCHMARK*/
+#endif /*eslVMX_BENCHMARK*/
 
 
 /*****************************************************************
  * 4. Unit tests
  *****************************************************************/
-#ifdef eslALTIVEC_TESTDRIVE
+#ifdef eslVMX_TESTDRIVE
 
 #include "esl_getopts.h"
 #include "esl_random.h"
@@ -303,11 +303,11 @@ utest_logf(ESL_GETOPTS *go)
    *    log(0)    = -inf    log(inf)  = inf  log(NaN)  = NaN
    */
   x = (vector float) {-eslINFINITY, -1.0, -0.0, 0.0};
-  r.v =  esl_altivec_logf(x); 
+  r.v =  esl_vmx_logf(x); 
   if (esl_opt_GetBoolean(go, "-v")) {
     printf("logf");
-    esl_altivec_dump_vecfloat(stdout, x);    printf(" ==> ");
-    esl_altivec_dump_vecfloat(stdout, r.v);  printf("\n");
+    esl_vmx_dump_vecfloat(stdout, x);    printf(" ==> ");
+    esl_vmx_dump_vecfloat(stdout, r.v);  printf("\n");
   }
   if (! isnan(r.x[0]))     esl_fatal("logf(-inf) should be NaN");
   if (! isnan(r.x[1]))     esl_fatal("logf(-1)   should be NaN");
@@ -315,11 +315,11 @@ utest_logf(ESL_GETOPTS *go)
   if (isinf(r.x[3]) != -1) esl_fatal("logf(0)    should be -inf");
 
   x = (vector float) {eslINFINITY, eslNaN, FLT_MIN, FLT_MAX};
-  r.v = esl_altivec_logf(x);
+  r.v = esl_vmx_logf(x);
   if (esl_opt_GetBoolean(go, "-v")) {
     printf("logf");
-    esl_altivec_dump_vecfloat(stdout, x);    printf(" ==> ");
-    esl_altivec_dump_vecfloat(stdout, r.v);  printf("\n");
+    esl_vmx_dump_vecfloat(stdout, x);    printf(" ==> ");
+    esl_vmx_dump_vecfloat(stdout, r.v);  printf("\n");
   }
   if (isinf(r.x[0]) != 1)  esl_fatal("logf(inf)  should be inf");
   if (! isnan(r.x[1]))     esl_fatal("logf(NaN)  should be NaN");
@@ -335,22 +335,22 @@ utest_expf(ESL_GETOPTS *go)
   
   /* exp(-inf) = 0    exp(-0)  = 1   exp(0) = 1  exp(inf) = inf   exp(NaN)  = NaN */
   x = (vector float) {-eslINFINITY, -0.0, 0.0, eslINFINITY};
-  r.v =  esl_altivec_expf(x); 
+  r.v =  esl_vmx_expf(x); 
   if (esl_opt_GetBoolean(go, "-v")) {
     printf("expf");
-    esl_altivec_dump_vecfloat(stdout, x);    printf(" ==> ");
-    esl_altivec_dump_vecfloat(stdout, r.v);  printf("\n");
+    esl_vmx_dump_vecfloat(stdout, x);    printf(" ==> ");
+    esl_vmx_dump_vecfloat(stdout, r.v);  printf("\n");
   }
   if (r.x[0] != 0.0f)      esl_fatal("expf(-inf) should be 0");
   if (isinf(r.x[3]) != 1)  esl_fatal("expf(inf)  should be inf");
 
   /* exp(NaN) = NaN    exp(large)  = inf   exp(-large) = 0  exp(1) = exp(1) */
   x = (vector float) {eslNaN, 666.0, -666.0, 1.0};
-  r.v =  esl_altivec_expf(x); 
+  r.v =  esl_vmx_expf(x); 
   if (esl_opt_GetBoolean(go, "-v")) {
     printf("expf");
-    esl_altivec_dump_vecfloat(stdout, x);    printf(" ==> ");
-    esl_altivec_dump_vecfloat(stdout, r.v);  printf("\n");
+    esl_vmx_dump_vecfloat(stdout, x);    printf(" ==> ");
+    esl_vmx_dump_vecfloat(stdout, r.v);  printf("\n");
   }
   if (! isnan(r.x[0]))     esl_fatal("expf(NaN)      should be NaN");
   if (isinf(r.x[1]) != 1)  esl_fatal("expf(large x)  should be inf");
@@ -383,7 +383,7 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
 
       if (odds == 0.0) esl_fatal("whoa, odds ratio can't be 0!\n");
 
-      r1.v      = esl_altivec_logf((vector float) {odds});  /* r1.x[z] = log(p1/p2) */
+      r1.v      = esl_vmx_logf((vector float) {odds});  /* r1.x[z] = log(p1/p2) */
       scalar_r1 = logf(odds);
 
       err1       = (r1.x[0] == 0. && scalar_r1 == 0.) ? 0.0 : 2 * fabs(r1.x[0] - scalar_r1) / fabs(r1.x[0] + scalar_r1);
@@ -391,7 +391,7 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
       avgerr1   += err1 / (float) N;
       if (isnan(avgerr1)) esl_fatal("whoa, what?\n");
 
-      r2.v      = esl_altivec_expf(r1.v);        /* and back to odds */
+      r2.v      = esl_vmx_expf(r1.v);        /* and back to odds */
       scalar_r2 = expf(r1.x[0]);
 
       err2       = (r2.x[0] == 0. && scalar_r2 == 0.) ? 0.0 : 2 * fabs(r2.x[0] - scalar_r2) / fabs(r2.x[0] + scalar_r2);
@@ -413,7 +413,7 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
     printf("(random seed : %ld)\n", esl_randomness_GetSeed(r));
   }
 }
-#endif /*eslALTIVEC_TESTDRIVE*/
+#endif /*eslVMX_TESTDRIVE*/
 
 
 
@@ -422,7 +422,7 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
  * 5. Test driver
  *****************************************************************/
 
-#ifdef eslALTIVEC_TESTDRIVE
+#ifdef eslVMX_TESTDRIVE
 #include "esl_config.h"
 
 #include <stdio.h>
@@ -431,7 +431,7 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
 #include "easel.h"
 #include "esl_getopts.h"
 #include "esl_random.h"
-#include "esl_altivec.h"
+#include "esl_vmx.h"
 
 static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
@@ -444,7 +444,7 @@ static ESL_OPTIONS options[] = {
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options]";
-static char banner[] = "test driver for altivec module";
+static char banner[] = "test driver for vmx module";
 
 int
 main(int argc, char **argv)
@@ -460,7 +460,7 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   return 0;
 }
-#endif /* eslALTIVEC_TESTDRIVE*/
+#endif /* eslVMX_TESTDRIVE*/
 
 
 
@@ -468,15 +468,15 @@ main(int argc, char **argv)
  * 6. Example
  *****************************************************************/
 
-#ifdef eslALTIVEC_EXAMPLE
-/*::cexcerpt::altivec_example::begin::*/
+#ifdef eslVMX_EXAMPLE
+/*::cexcerpt::vmx_example::begin::*/
 #include "esl_config.h"
 
 #include <stdio.h>
 #include <math.h>
 
 #include "easel.h"
-#include "esl_altivec.h"
+#include "esl_vmx.h"
 
 int
 main(int argc, char **argv)
@@ -487,36 +487,36 @@ main(int argc, char **argv)
 
   x    = 2.0;
   xv   = (vector float) {x};
-  rv.v = esl_altivec_logf(xv);
+  rv.v = esl_vmx_logf(xv);
   printf("logf(%f) = %f\n", x, rv.x[0]);
   
-  rv.v = esl_altivec_expf(xv);
+  rv.v = esl_vmx_expf(xv);
   printf("expf(%f) = %f\n", x, rv.x[0]);
 
   return 0;
 }
-/*::cexcerpt::altivec_example::end::*/
-#endif /*eslALTIVEC_EXAMPLE*/
+/*::cexcerpt::vmx_example::end::*/
+#endif /*eslVMX_EXAMPLE*/
 
 
-#else // ! eslENABLE_ALTIVEC
+#else // ! eslENABLE_VMX
 
-/* If we don't have ALTIVEC compiled in, provide some nothingness to:
+/* If we don't have VMX compiled in, provide some nothingness to:
  *   a. prevent Mac OS/X ranlib from bitching about .o file that "has no symbols" 
  *   b. prevent compiler from bitching about "empty compilation unit"
  *   c. compile blank drivers and automatically pass the automated tests.
  */
-void esl_altivec_silence_hack(void) { return; }
-#if defined eslALTIVEC_TESTDRIVE || defined eslALTIVEC_EXAMPLE || eslALTIVEC_BENCHMARK
+void esl_vmx_silence_hack(void) { return; }
+#if defined eslVMX_TESTDRIVE || defined eslVMX_EXAMPLE || eslVMX_BENCHMARK
 int main(void) { return 0; }
 #endif 
-#endif // eslENABLE_ALTIVEC or not
+#endif // eslENABLE_VMX or not
 
 
 /*****************************************************************
  * additional copyright and license information for this file    
  *****************************************************************
- * In addition to our own copyrights, esl_sse_logf() and esl_sse_expf() are also:
+ * In addition to our own copyrights, esl_vmx_logf() and esl_vmx_expf() are also:
  *  Copyright (C) 2007 Julien Pommier
  *  Copyright (C) 1992 Stephen Moshier 
  *

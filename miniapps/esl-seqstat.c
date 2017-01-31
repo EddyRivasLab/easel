@@ -1,7 +1,6 @@
 /* Simple statistics on a sequence file
  * 
  * SRE, Sun Feb 24 15:33:53 2008 [UA5315 to St. Louis]
- * SVN $Id$  
  * from squid's seqstat (1994)
  * 
  * Wish list:

@@ -10,7 +10,6 @@
  *    3. Legacy Stockholm parsing tools
  *    4. Unit tests
  *    5. Test driver
- *    6. Copyright and license information.
  * 
  * to-do:
  *   :: add memory-efficient interface in ESL_MSAFILE
@@ -1473,9 +1472,3 @@ main(int argc, char **argv)
 }
 #endif /*eslMSAFILE2_TESTDRIVE*/
 /*----------------- end, test driver ----------------------------*/
-
-
-
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

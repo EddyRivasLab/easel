@@ -7,7 +7,6 @@
  *    4. Unit tests
  *    5. Test driver
  *    6. Example
- *    7. Copyright and license.
  * 
  *  Augmentations:
  *    eslAUGMENT_ALPHABET:  adds support for digital MSAs
@@ -420,11 +419,3 @@ main(int argc, char **argv)
 /*::cexcerpt::msacluster_example::end::*/
 #endif /*eslMSACLUSTER_EXAMPLE*/
 /*------------------------ end of example -----------------------*/
-
-
-
-
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
-

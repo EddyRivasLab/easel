@@ -9,6 +9,7 @@
  *    1. Inlined horizontal functions for 8 and 16-bit quantities
  *       in 256-bit vectors (__m256i)
  */
+#include "esl_config.h"
 #ifdef  eslENABLE_AVX
 #ifndef eslAVX_INCLUDED
 #define eslAVX_INCLUDED
@@ -16,9 +17,7 @@
 #include "easel.h"
 
 #include <stdio.h>
-#include <xmmintrin.h>		/* SSE  */
-#include <emmintrin.h>		/* SSE2 */
-#include <immintrin.h>          /* AVX2 */
+#include <x86intrin.h>		
 
 
 /* Function:  esl_avx_hmax_epu8()

@@ -1,7 +1,4 @@
 /* Simple threaded work queue using POSIX threads.
- * 
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslWORKQUEUE_INCLUDED
 #define eslWORKQUEUE_INCLUDED
@@ -39,6 +36,3 @@ extern int esl_workqueue_Dump(ESL_WORK_QUEUE *queue);
 
 #endif /*eslWORKQUEUE_INCLUDED*/
 
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

@@ -1,7 +1,4 @@
 /* Unaligned ascii sequence file i/o.
- * 
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslSQIO_ASCII_INCLUDED
 #define eslSQIO_ASCII_INCLUDED
@@ -95,8 +92,4 @@ extern int  esl_sqascii_Open(char *seqfile, int format, struct esl_sqio_s *sqfp)
 extern int  esl_sqascii_WriteFasta(FILE *fp, ESL_SQ *s, int update);
 extern int  esl_sqascii_Parse(char *buf, int size, ESL_SQ *s, int format);
 
-
 #endif /*eslSQIO_ASCII_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

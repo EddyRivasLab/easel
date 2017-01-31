@@ -1,8 +1,6 @@
 /* Phylogenetic trees.
  * 
  * SRE, Tue May  2 13:54:30 2006 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslTREE_INCLUDED
 #define eslTREE_INCLUDED
@@ -117,7 +115,4 @@ extern int esl_tree_ToDistanceMatrix(ESL_TREE *T, ESL_DMATRIX **ret_D);
 
 
 #endif /*eslTREE_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
 

@@ -1,7 +1,6 @@
 /* Determine range of sequences for one of many parallel processes.
  * 
  * EPN, Wed Mar 24 07:23:27 2010
- * SVN $Id: esl-sfetch.c 480 2010-01-06 00:05:59Z farrarm $
  */
 #include "esl_config.h"
 

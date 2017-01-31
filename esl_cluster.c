@@ -1,11 +1,10 @@
 /* Generalized single linkage clustering.
  * 
- * Table of contents:
+ * Contents:
  *     1. Single linkage clustering, generalized
  *     2. Unit tests
  *     3. Test driver
  *     4. Example
- *     5. Copyright and license
  */
 #include "esl_config.h"
 
@@ -336,10 +335,5 @@ main(int argc, char **argv)
 #endif /*eslCLUSTER_EXAMPLE*/
 
 
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
+
 

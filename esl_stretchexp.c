@@ -9,7 +9,6 @@
  *   6. ML fitting to binned data   (augmentation: histogram, minimizer)
  *   7. Test driver
  *   8. Example
- *   9. Copyright and license information
  *   
  * Xrefs:
  *    STL9/146 : original implementation
@@ -685,9 +684,3 @@ main(int argc, char **argv)
 /*::cexcerpt::sxp_example::end::*/
 #endif /*eslSTRETCHEXP_EXAMPLE*/
 
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

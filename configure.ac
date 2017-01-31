@@ -14,7 +14,7 @@
 #
 #   shell variables:
 #      - defined as usual, e.g. esl_var=no
-#      - use within scope of the configure.ac script
+#      - use within scope of the configure script
 #
 # Contents:
 #   1. autoconf requirements
@@ -53,7 +53,7 @@ m4_include([m4/esl_sse.m4])
 m4_include([m4/esl_avx.m4])
 m4_include([m4/esl_avx512.m4])
 m4_include([m4/esl_neon.m4])
-m4_include([m4/esl_altivec.m4])
+m4_include([m4/esl_vmx.m4])
 
 m4_include([m4/ax_mpi.m4])
 m4_include([m4/ax_pthread.m4])
@@ -183,41 +183,6 @@ case $enable_debugging in
      *)  AC_MSG_ERROR([Unknown argument to --enable-debugging: $enable_debugging]);;
 esac
 
-# --enable-threads      Enable POSIX multithreading
-#
-# Uses ACX_PTHREAD macro from the GNU macro archive.
-# Back to my code to finish enabling pthreads...
-# Define these preprocessor variables:
-#     HAVE_PTHREAD
-#     HAVE_PTHREAD_SETCONCURRENCY
-#     HAVE_PTHREAD_ATTR_SETSCOPE
-#
-AC_ARG_ENABLE([threads],
-              [AS_HELP_STRING([--enable-threads],
-                 [enable POSIX multithreading support (default is check)])],
-	      [],
-              [enable_threads=check])
-
-case $enable_threads in 
-   yes)   check_threads=yes
-          ;;
-   no)    check_threads=no
-          ;;
-   check) check_threads=yes
-          ;;
-   *)     check_threads=no
-          AC_MSG_NOTICE([Ignoring unknown argument to --enable-threads: $enable_threads])
-          ;;
-esac
- 
-AS_IF([test "x$check_threads" != xno],
-      [ACX_PTHREAD([AC_DEFINE(HAVE_PTHREAD)
-                    AC_SUBST(PTHREAD_LIBS)
-                    AC_SUBST(PTHREAD_CFLAGS)],
-                   [if test "x$enable_threads" != xcheck; then
-                      AC_MSG_FAILURE([POSIX multithreading failed])
-                    fi])])
-
 AC_ARG_ENABLE(gcov,    [AS_HELP_STRING([--enable-gcov],    [compile for code coverage testing])],       enable_gcov=$enableval,    enable_gcov=no)
 AC_ARG_ENABLE(gprof,   [AS_HELP_STRING([--enable-gprof],   [compile for gcc code profiling])],          enable_gprof=$enableval,   enable_gprof=no)
 
@@ -225,7 +190,7 @@ AC_ARG_ENABLE(sse,     [AS_HELP_STRING([--enable-sse],     [enable our SSE vecto
 AC_ARG_ENABLE(avx,     [AS_HELP_STRING([--enable-avx],     [enable our AVX vector code])],              enable_avx=$enableval,     enable_avx=check)
 AC_ARG_ENABLE(avx512,  [AS_HELP_STRING([--enable-avx512],  [enable our AVX-512 vector code])],          enable_avx512=$enableval,  enable_avx512=check)
 AC_ARG_ENABLE(neon,    [AS_HELP_STRING([--enable-neon],    [enable our NEON vector code])] ,            enable_neon=$enableval,    enable_neon=check)
-AC_ARG_ENABLE(altivec, [AS_HELP_STRING([--enable-altivec], [enable our Altivec/VMX vector code])],      enable_altivec=$enableval, enable_altivec=check)
+AC_ARG_ENABLE(vmx,     [AS_HELP_STRING([--enable-vmx],     [enable our Altivec/VMX vector code])],      enable_vmx=$enableval,     enable_vmx=check)
 
 AC_ARG_ENABLE(threads, [AS_HELP_STRING([--enable-threads], [enable POSIX threads parallelization])],    enable_threads=$enableval, enable_threads=check)
 AC_ARG_ENABLE(mpi,     [AS_HELP_STRING([--enable-mpi],     [enable MPI parallelization])],              enable_mpi=$enableval,     enable_mpi=no)
@@ -233,20 +198,20 @@ AC_ARG_ENABLE(mpi,     [AS_HELP_STRING([--enable-mpi],     [enable MPI paralleli
 AC_ARG_WITH(gsl,       [AS_HELP_STRING([--with-gsl],       [use the GSL, GNU Scientific Library])],     with_gsl=$withval,         with_gsl=no)
 
 
+
+
+
+
 ################################################################
 # 5. Checks for programs, including ${CC} and its ${CFLAGS}
 ################################################################
 
 AC_PROG_CC
-AC_PROG_INSTALL
-# MPI :  set @CC@ to mpicc;
-#        set @MPILIBS@ if needed (usually not; mpicc deals w/ it);
-#        defines HAVE_MPI. 
-if test "$enable_mpi" = "yes"; then
-   ACX_MPI(,AC_MSG_ERROR([MPI library not found for --enable-mpi]))
-   CC=$MPICC
-fi
 AC_PROG_CPP
+AC_PROG_INSTALL
+AC_PROG_RANLIB
+AC_PATH_PROG([AR], [ar], [:], [$PATH:/usr/ccs/bin:/usr/xpg4/bin])
+
 
 # AC_PROG_CC_STDC wants to append -c99 to icc; icc doesn't like this.
 # To autodetect icc, we use the AX_COMPILER_VENDOR macro.
@@ -254,9 +219,6 @@ AX_COMPILER_VENDOR
 if test "$ax_cv_c_compiler_vendor" != "intel"; then
   AC_PROG_CC_STDC
 fi
-
-AC_PROG_RANLIB
-AC_PATH_PROG([AR],       [ar],       [:], [$PATH:/usr/ccs/bin:/usr/xpg4/bin])
 
 
 # Select our default optimization flags in CFLAGS.
@@ -280,6 +242,30 @@ else
    CFLAGS="-O3"
 fi
 
+
+# MPI :  set @CC@ to mpicc;
+#        set @MPILIBS@ if needed (usually not; mpicc deals w/ it);
+#        defines HAVE_MPI. 
+if test "$enable_mpi" = "yes"; then
+   AX_MPI(,AC_MSG_ERROR([MPI library not found for --enable-mpi]))
+   CC=$MPICC
+fi
+
+
+# Support for POSIX multithreading (we should generally have this)
+#
+if test "$enable_threads" != "no"; then
+  AX_PTHREAD([
+      AC_DEFINE(HAVE_PTHREAD)
+      AC_SUBST(PTHREAD_LIBS)
+      AC_SUBST(PTHREAD_CFLAGS)
+    ],[
+      if test "$enable_threads" = "yes"; then
+        AC_MSG_FAILURE([Unable to compile with POSIX multithreading.])
+      fi
+      enable_threads=no
+    ])
+fi
 
 
 # Support for vector implementations (xref SRE:H3/28)
@@ -315,7 +301,7 @@ if test "$enable_sse" = "yes" || test "$enable_sse" = "check"; then
     enable_sse=yes
     ],[
     if test "$enable_sse" = "yes"; then
-      AC_MSG_ERROR([Unable to compile our SSE implementations. Try another compiler?])
+      AC_MSG_FAILURE([Unable to compile our SSE implementations. Try another compiler?])
     fi
     enable_sse=no
     ])
@@ -329,7 +315,7 @@ if test "$enable_avx" = "yes" || test "$enable_avx" = "check"; then
     enable_avx=yes
     ],[
     if test "$enable_avx" = "yes"; then
-      AC_MSG_ERROR([Unable to compile our AVX implementations. Try another compiler?])
+      AC_MSG_FAILURE([Unable to compile our AVX implementations. Try another compiler?])
     fi
     enable_avx=no
     ])
@@ -343,7 +329,7 @@ if test "$enable_avx512" = "yes" || test "$enable_avx512" = "check"; then
     enable_avx512=yes
     ],[
     if test "$enable_avx512" = "yes"; then
-      AC_MSG_ERROR([Unable to compile our AVX-512 implementations. Try another compiler?])
+      AC_MSG_FAILURE([Unable to compile our AVX-512 implementations. Try another compiler?])
     fi
     enable_avx512=no
     ])
@@ -358,23 +344,23 @@ if test "$enable_neon" = "yes" || test "$enable_neon" = "check"; then
     enable_neon=yes
     ],[
     if test "$enable_neon" = "yes"; then
-      AC_MSG_ERROR([Unable to compile our ARM NEON implementations. Try another compiler?])
+      AC_MSG_FAILURE([Unable to compile our ARM NEON implementations. Try another compiler?])
     fi
     enable_neon=no
     ])
 fi
 
-if test "$enable_altivec" = "yes" || test "$enable_altivec" = "check"; then
-  ESL_ALTIVEC([
-    AC_DEFINE(eslENABLE_ALTIVEC)
-    ALTIVEC_CFLAGS=$esl_altivec_cflags
-    AC_SUBST(ALTIVEC_CFLAGS)
-    enable_altivec=yes
+if test "$enable_vmx" = "yes" || test "$enable_vmx" = "check"; then
+  ESL_VMX([
+    AC_DEFINE(eslENABLE_VMX)
+    VMX_CFLAGS=$esl_vmx_cflags
+    AC_SUBST(VMX_CFLAGS)
+    enable_vmx=yes
     ],[
-    if test "$enable_altivec" = "yes"; then
-      AC_MSG_ERROR([Unable to compile our Altivec/VMX implementations. Try another compiler?])
+    if test "$enable_vmx" = "yes"; then
+      AC_MSG_FAILURE([Unable to compile our Altivec/VMX implementations. Try another compiler?])
     fi
-    enable_altivec=no
+    enable_vmx=no
     ])
 fi
 
@@ -555,12 +541,12 @@ AC_MSG_NOTICE([    SSE_CFLAGS= $SSE_CFLAGS])
 AC_MSG_NOTICE([    AVX_CFLAGS= $AVX_CFLAGS])
 AC_MSG_NOTICE([ AVX512_CFLAGS= $AVX512_CFLAGS])
 AC_MSG_NOTICE([   NEON_CFLAGS= $NEON_CFLAGS])
-AC_MSG_NOTICE([ALTIVEC_CFLAGS= $ALTIVEC_CFLAGS])
+AC_MSG_NOTICE([    VMX_CFLAGS= $VMX_CFLAGS])
 AC_MSG_NOTICE([])
 AC_MSG_NOTICE([           sse: $esl_have_sse])
 AC_MSG_NOTICE([           avx: $esl_have_avx])
 AC_MSG_NOTICE([        avx512: $esl_have_avx512])
 AC_MSG_NOTICE([          neon: $esl_have_neon])
-AC_MSG_NOTICE([       altivec: $esl_have_altivec])
+AC_MSG_NOTICE([           vmx: $esl_have_vmx])
 AC_MSG_NOTICE([])
 AC_MSG_NOTICE([          LIBS= ${LIBS} ${LIBGSL} ${PTHREAD_LIBS}])

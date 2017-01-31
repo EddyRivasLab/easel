@@ -2,8 +2,6 @@
  * Generalized extreme value (GEV) distributions.
  * 
  * SRE, Tue Jul 12 09:15:56 2005
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslGEV_INCLUDED
 #define eslGEV_INCLUDED
@@ -45,6 +43,4 @@ extern int esl_gev_FitCensored(double *x, int n, int z, double phi,
 
 
 #endif /*eslGEV_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
+

@@ -2,8 +2,6 @@
 /* interface_lapack.h
  * 
  * SRE, Tue Jul 13 15:11:51 2004 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslINTERFACE_LAPACK_INCLUDED
 #define eslINTERFACE_LAPACK_INCLUDED

@@ -69,9 +69,7 @@ extern int esl_scorematrix_Probify(const ESL_SCOREMATRIX *S, ESL_DMATRIX **opt_P
 				   double **opt_fi, double **opt_fj, double *opt_lambda);
 
 #endif /*eslSCOREMATRIX_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/ 
+
 
 
 

@@ -6,7 +6,6 @@
 # Example:  ./i1-degen-residues.pl .. .. foo
 #
 # SRE, Tue Feb  2 13:09:58 2010 [Janelia]
-# SVN $Id$
 
 $top_builddir = shift;
 $top_srcdir   = shift;

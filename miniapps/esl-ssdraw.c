@@ -6306,7 +6306,6 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
     x = ps->pagex_max - (PAGE_SIDEBUF) - (footerx_charsize * (5 + ndigits)); 
     fprintf(fp, "(page %d) %.2f %.2f moveto show\n", pageidx2print, x, PAGE_BOTBUF);
     
-    /* fprintf(fp, "(Created by \'esl-ssdraw\'. Copyright (C) 2010 Howard Hughes Medical Institute.) %.2f %.2f moveto show \n", PAGE_SIDEBUF , PAGE_BOTBUF); */
     fprintf(fp, "%% end footer section\n\n");
   }
 
@@ -7480,6 +7479,4 @@ void define_outline_procedure(FILE *fp)
   return;
 }
 
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
+

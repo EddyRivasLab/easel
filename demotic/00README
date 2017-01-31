@@ -3,7 +3,6 @@ output of one program with the greek input of another program.
 
 original:   SRE, Wed Oct 25 16:32:09 2000
 into Easel: SRE, Fri Apr 16 16:10:25 2010
-SVN $Id$
 
   demotic_blast.pm   NCBI blastp; NCBI blastpgp; WU blastp
   demotic_fasta.pm   fasta; ssearch

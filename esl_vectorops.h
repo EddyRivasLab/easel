@@ -120,9 +120,3 @@ extern int esl_vec_IShuffle(ESL_RANDOMNESS *r, int    *v, int n);
 
 #endif /* eslVECTOROPS_INCLUDED */
 
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

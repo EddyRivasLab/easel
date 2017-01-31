@@ -206,6 +206,4 @@ extern int esl_sq_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int maxL, ESL_S
 #endif /* eslAUGMENT_RANDOM && eslAUGMENT_RANDOMSEQ */
 
 #endif /*eslSQ_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
+

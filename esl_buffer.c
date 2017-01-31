@@ -13,7 +13,6 @@
  *   9. Unit tests.
  *  10. Test driver.
  *  11. Examples.
- *  12. Copyright and license.
  */
 /*::cexcerpt::header_example::end::*/
 
@@ -3221,9 +3220,3 @@ main(int argc, char **argv)
 }
 /*::cexcerpt::buffer_example6b::end::*/
 #endif /*eslBUFFER_EXAMPLE6*/
-/*****************************************************************
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

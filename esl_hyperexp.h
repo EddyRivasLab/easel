@@ -1,5 +1,4 @@
 /* Hyperexponential (mixture exponential) distributions.
- * 
  */
 #ifndef eslHYPEREXP_INCLUDED
 #define eslHYPEREXP_INCLUDED
@@ -67,9 +66,4 @@ extern int esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h);
 #endif
 
 #endif /*eslHYPEREXP_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
+

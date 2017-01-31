@@ -13,6 +13,3 @@ extern int esl_msafile_clustal_Write        (FILE *fp,    const ESL_MSA *msa, in
 
 #endif /* eslMSAFILE_CLUSTAL_INCLUDED */
 
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

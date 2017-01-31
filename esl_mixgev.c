@@ -8,7 +8,6 @@
  *   5. Sampling                    (augmentation: random)
  *   6. ML fitting to complete data (augmentation: minimizer)
  *   7. Example
- *   8. Copyright and license information
  *   
  * Xrefs:
  *  SRE:STL9/139  original implementation
@@ -17,7 +16,6 @@
  *   - Fit*() functions should return eslEINVAL on n=0, eslENORESULT
  *     on failure due to small n. Compare esl_gumbel. xref J12/93. 
  *     SRE, Wed Nov 27 11:02:14 2013
- *     
  */
 #include "esl_config.h"
 
@@ -825,10 +823,3 @@ main(int argc, char **argv)
 /*::cexcerpt::mixgev_example::end::*/
 #endif /*eslMIXGEV_EXAMPLE*/
 
-
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

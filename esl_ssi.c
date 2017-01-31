@@ -5,7 +5,6 @@
  *  3. Portable binary i/o.
  *  4. Test driver.
  *  5. Example code.
- *  6. License and copyright information.
  */
 #include "esl_config.h"
 
@@ -2041,10 +2040,3 @@ int main(int argc, char **argv)
 /*::cexcerpt::ssi_example2::end::*/
 #endif /*eslSSI_EXAMPLE2*/
 
-
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

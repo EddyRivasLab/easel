@@ -27,13 +27,9 @@
  *   6. Unit tests.
  *   7. Test driver.
  *   8. Example.
- *   9. Copyright/license information.
- *
- *   
  *   
  * See also:
  *   paml   - i/o of rate matrices from/to data files in PAML format
- * 
  */
 #include "esl_config.h"
 
@@ -808,15 +804,3 @@ main(void)
 }
 #endif /*eslRATEMATRIX_TESTDRIVE*/
 
-/*****************************************************************
- * 8. Example driver
- *****************************************************************/
-
-
-
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/ 

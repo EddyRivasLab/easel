@@ -5,7 +5,6 @@
 #    and for PSIBLAST runs from checkpoint files (as I use in profmark).
 #    (SRE originated, 10/2000)
 #
-# SVN $Id$
 ############################################################################
 
 package demotic_blast;

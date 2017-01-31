@@ -106,6 +106,3 @@ extern int esl_buffer_Read(ESL_BUFFER *bf, size_t nbytes, void *p);
  */
 
 #endif	/*eslBUFFER_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

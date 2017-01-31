@@ -134,9 +134,4 @@ extern int esl_stats_LinearRegression(const double *x, const double *y, const do
 #endif
 
 #endif /*eslSTATS_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
+

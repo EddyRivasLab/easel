@@ -1,8 +1,6 @@
 /* Shuffling or bootstrapping multiple sequence alignments.
  * 
  * SRE, Tue Jan 22 09:18:09 2008 [Market Street Cafe, Leesburg]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslMSASHUFFLE_INCLUDED
 #define eslMSASHUFFLE_INCLUDED
@@ -26,6 +24,3 @@ extern int esl_msashuffle_XQRNA(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, ESL_DSQ *x
 #endif /*eslAUGMENT_ALPHABET*/
 
 #endif /*eslMSASHUFFLE_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/ 

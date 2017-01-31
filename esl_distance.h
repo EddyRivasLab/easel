@@ -2,8 +2,6 @@
  * probabilistic evolutionary models and ad hoc measures.
  * 
  * SRE, Fri Apr 28 06:41:13 2006 [New York]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslDISTANCE_INCLUDED
 #define eslDISTANCE_INCLUDED
@@ -72,6 +70,4 @@ extern int esl_dst_XAverageMatch(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, i
 
 
 #endif /*eslDISTANCE_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
+

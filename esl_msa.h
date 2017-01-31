@@ -202,10 +202,3 @@ extern int      esl_msa_CompareMandatory(ESL_MSA *a1, ESL_MSA *a2);
 extern int      esl_msa_CompareOptional (ESL_MSA *a1, ESL_MSA *a2);
 #endif /*eslMSA_INCLUDED*/
 
-
-/*****************************************************************
- * @LICENSE@
- * 
- * SVN $URL$
- * SVN $Id$
- *****************************************************************/

@@ -64,7 +64,7 @@
 #undef eslENABLE_AVX
 #undef eslENABLE_AVX512
 #undef eslENABLE_NEON
-#undef eslENABLE_ALTIVEC
+#undef eslENABLE_VMX
 
 #undef eslHAVE_NEON_AARCH64
 

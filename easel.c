@@ -12,7 +12,6 @@
  *    9. Unit tests.
  *   10. Test driver.
  *   11. Examples. 
- *   12. Copyright and license. 
  */
 #include "esl_config.h"
 

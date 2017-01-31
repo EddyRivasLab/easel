@@ -6,7 +6,6 @@
 # Example:   ./esl-mask.itest.pl ./esl-mask        foo
 #
 # SRE, Sun Nov  1 09:26:45 2009 [Casa de Gatos]
-# SVN $Id$
 
 $eslmask = shift;
 $tmppfx  = shift;

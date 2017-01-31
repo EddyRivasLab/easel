@@ -1,5 +1,4 @@
 /* Clustering sequences in an MSA by % identity.
- * 
  */
 #ifndef eslMSACLUSTER_INCLUDED
 #define eslMSACLUSTER_INCLUDED
@@ -10,9 +9,3 @@ extern int esl_msacluster_SingleLinkage(const ESL_MSA *msa, double maxid,
 					int **opt_c, int **opt_nin, int *opt_nc);
 
 #endif /*eslMSACLUSTER_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

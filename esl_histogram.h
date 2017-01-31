@@ -1,8 +1,6 @@
 /* Collection and display of score histograms.
  * 
  * SRE, Fri Jul  1 13:22:45 2005 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslHISTOGRAM_INCLUDED
 #define eslHISTOGRAM_INCLUDED
@@ -125,6 +123,3 @@ extern int esl_histogram_Goodness(ESL_HISTOGRAM *h, int nfitted,
 
 
 #endif /*eslHISTOGRAM_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

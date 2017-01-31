@@ -2,7 +2,7 @@
 #ifdef eslENABLE_AVX
 
 #include <stdio.h>
-#include <immintrin.h>	
+#include <x86intrin.h>	
 
 #include "esl_avx.h"
 #include "easel.h"

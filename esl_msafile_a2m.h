@@ -13,6 +13,3 @@ extern int esl_msafile_a2m_Write        (FILE *fp,    const ESL_MSA *msa);
 
 #endif /* eslMSAFILE_A2M_INCLUDED */
 
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

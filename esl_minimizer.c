@@ -640,15 +640,3 @@ main(int argc, char **argv)
 }
 /*::cexcerpt::minimizer_example::end::*/
 #endif /*eslMINIMIZER_EXAMPLE*/
-
-
-
-
-
-
-/*****************************************************************  
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

@@ -177,13 +177,5 @@ extern int   esl_sqio_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t 
 extern int   esl_sqfile_Cache(const ESL_ALPHABET *abc, const char *seqfile, int fmt, const char *env, ESL_SQCACHE **ret_sqcache);
 extern void  esl_sqfile_Free(ESL_SQCACHE *sqcache);
 
-
-
-
-
-
-
 #endif /*eslSQIO_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
+

@@ -7,7 +7,6 @@
  *   4. Unit tests.
  *   5. Test driver.
  *   6. Examples.
- *   7. License and copyright.
  *   
  * Notes:
  *   In SELEX, a tricky and unusual issue is that spaces are allowed
@@ -1244,11 +1243,3 @@ main(int argc, char **argv)
 /*::cexcerpt::msafile_selex_example2::end::*/
 #endif /*eslMSAFILE_SELEX_EXAMPLE2*/
 /*--------------------- end of example --------------------------*/
-
-
-
-
-
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

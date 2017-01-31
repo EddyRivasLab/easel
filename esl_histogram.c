@@ -2069,11 +2069,5 @@ main(int argc, char **argv)
 /*::cexcerpt::histogram_example5::end::*/
 #endif /*eslHISTOGRAM_EXAMPLE5*/
 
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
 
 

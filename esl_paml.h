@@ -7,8 +7,6 @@
  * 
  *           incept: SRE, Tue Jul 13 13:20:08 2004 [St. Louis]
  * upgrade to Easel: SRE, Thu Mar  8 13:26:20 2007 [Janelia]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslPAML_INCLUDED
 #define eslPAML_INCLUDED
@@ -20,6 +18,3 @@ extern int esl_paml_ReadE(FILE *fp, ESL_DMATRIX *E, double *pi);
 
 
 #endif /*eslPAML_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

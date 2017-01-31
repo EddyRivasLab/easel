@@ -10,8 +10,6 @@
  *    7. Unit tests.
  *    8. Test driver.
  *    9. Example.
- *   10. Copyright notice and license.
- *    
  */
 #include "esl_config.h"
 
@@ -1640,9 +1638,5 @@ int main(int argc, char **argv)
 /*::cexcerpt::distance_example::end::*/
 #endif /*eslDISTANCE_EXAMPLE*/
 
-
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
 
 
