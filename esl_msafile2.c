@@ -62,7 +62,7 @@ static int msafile2_open(const char *filename, const char *env, ESL_MSAFILE2 **r
  *           <filename> is "-", then the alignment is read from
  *           <stdin>. If <filename> ends in ".gz", then the file is
  *           assumed to be compressed by gzip, and it is opened as a
- *           pipe from <gzip -dc>. (Auto-decompression of gzipp'ed files
+ *           pipe from <gzip -dc>. (Auto-decompression of gzip'ed files
  *           is only available on POSIX-compliant systems w/ popen(), when 
  *           <HAVE_POPEN> is defined at compile-time.)
  *          

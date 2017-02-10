@@ -5,6 +5,7 @@
 ################################################################
 
 1 exercise alphabet-utest     @esl_alphabet_utest@
+1 exercise alloc-utest        @esl_alloc_utest@
 1 exercise buffer-utest       @esl_buffer_utest@
 1 exercise cluster-utest      @esl_cluster_utest@
 1 exercise cpu-utest          @esl_cpu_utest@

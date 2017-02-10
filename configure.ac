@@ -400,14 +400,14 @@ AC_SEARCH_LIBS(clock_gettime, [rt posix4])
 ################################################################
 # 7. Checks for headers
 ################################################################
-#    Defines preprocessor symbols like HAVE_UNISTD_H
+
 AC_CHECK_HEADERS([\
-  endian.h \
-  inttypes.h \
-  stdint.h \
-  unistd.h \
+  endian.h    \
+  inttypes.h  \
+  stdint.h    \
+  strings.h   \
+  unistd.h    \
   sys/types.h \
-  strings.h \
 ])
 
 # Check for sysctl.h separately.  On OpenBSD, it requires
@@ -482,20 +482,20 @@ AX_GCC_FUNC_ATTRIBUTE(format)
 # 11. Checks for library functions: define HAVE_FOO
 ################################################################
 
-AC_CHECK_FUNCS(mkstemp)
-AC_CHECK_FUNCS(popen)
-AC_CHECK_FUNCS(putenv)
-AC_CHECK_FUNCS(strcasecmp)
-AC_CHECK_FUNCS(strsep)
-AC_CHECK_FUNCS(times)
-AC_CHECK_FUNCS(getpid)
-AC_CHECK_FUNCS(sysctl)
-AC_CHECK_FUNCS(sysconf)
-AC_CHECK_FUNCS(getcwd)
-AC_CHECK_FUNCS(chmod)
-AC_CHECK_FUNCS(stat)
-AC_CHECK_FUNCS(fstat)
-AC_CHECK_FUNCS(erfc)
+# multiline argument to AC_CHECK_FUNCS needs the \'s
+AC_CHECK_FUNCS([ \
+  aligned_alloc  \
+  erfc           \
+  getpid         \
+  _mm_malloc     \
+  popen          \
+  posix_memalign \
+  strcasecmp     \
+  strsep         \
+  sysconf        \
+  sysctl         \
+  times          \
+])
 
 AC_SEARCH_LIBS(ntohs,     socket)
 AC_SEARCH_LIBS(ntohl,     socket)
@@ -529,24 +529,29 @@ AC_CONFIG_FILES([documentation/Makefile])
 #################################################################
 AC_OUTPUT
 
-AC_MSG_NOTICE([])
-AC_MSG_NOTICE([Easel configuration:])
-AC_MSG_NOTICE([])
-AC_MSG_NOTICE([          host= $host])
-AC_MSG_NOTICE([])
-AC_MSG_NOTICE([            CC= $CC])
-AC_MSG_NOTICE([        CFLAGS= $CFLAGS])
-AC_MSG_NOTICE([PTHREAD_CFLAGS= $PTHREAD_CFLAGS])
-AC_MSG_NOTICE([    SSE_CFLAGS= $SSE_CFLAGS])
-AC_MSG_NOTICE([    AVX_CFLAGS= $AVX_CFLAGS])
-AC_MSG_NOTICE([ AVX512_CFLAGS= $AVX512_CFLAGS])
-AC_MSG_NOTICE([   NEON_CFLAGS= $NEON_CFLAGS])
-AC_MSG_NOTICE([    VMX_CFLAGS= $VMX_CFLAGS])
-AC_MSG_NOTICE([])
-AC_MSG_NOTICE([           sse: $esl_have_sse])
-AC_MSG_NOTICE([           avx: $esl_have_avx])
-AC_MSG_NOTICE([        avx512: $esl_have_avx512])
-AC_MSG_NOTICE([          neon: $esl_have_neon])
-AC_MSG_NOTICE([           vmx: $esl_have_vmx])
-AC_MSG_NOTICE([])
-AC_MSG_NOTICE([          LIBS= ${LIBS} ${LIBGSL} ${PTHREAD_LIBS}])
+echo "
+
+Easel configuration (generated esl_config.h and Makefiles):
+
+Host:           $host
+
+Compiler:
+            CC= $CC
+        CFLAGS= $CFLAGS
+PTHREAD_CFLAGS= $PTHREAD_CFLAGS
+    SSE_CFLAGS= $SSE_CFLAGS
+    AVX_CFLAGS= $AVX_CFLAGS
+ AVX512_CFLAGS= $AVX512_CFLAGS
+   NEON_CFLAGS= $NEON_CFLAGS
+    VMX_CFLAGS= $VMX_CFLAGS
+
+Vector implementations enabled:
+           sse: $esl_have_sse
+           avx: $esl_have_avx
+        avx512: $esl_have_avx512
+          neon: $esl_have_neon
+           vmx: $esl_have_vmx
+
+Do 'make' to build Easel.
+Do 'make check' to run self-tests.
+"

@@ -94,6 +94,7 @@ endif
 # Code manifests
 #
 HDRS = 	easel.h\
+	esl_alloc.h\
 	esl_alphabet.h\
 	esl_vmx.h\
 	esl_avx.h\
@@ -165,6 +166,7 @@ HDRS = 	easel.h\
 	esl_wuss.h
 
 OBJS =	easel.o\
+	esl_alloc.o\
 	esl_alphabet.o\
 	esl_buffer.o\
 	esl_cluster.o\
@@ -252,6 +254,7 @@ ${VMX_OBJS}:     SIMD_CFLAGS = ${VMX_CFLAGS}
 
 UTESTS =\
 	easel_utest\
+	esl_alloc_utest\
 	esl_alphabet_utest\
 	esl_buffer_utest\
 	esl_cluster_utest\
