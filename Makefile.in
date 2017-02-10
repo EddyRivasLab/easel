@@ -100,6 +100,7 @@ HDRS = 	easel.h\
 	esl_avx512.h\
 	esl_buffer.h\
 	esl_cluster.h\
+	esl_cpu.h\
 	esl_composition.h\
 	esl_dirichlet.h\
 	esl_distance.h\
@@ -168,6 +169,7 @@ OBJS =	easel.o\
 	esl_buffer.o\
 	esl_cluster.o\
 	esl_composition.o\
+	esl_cpu.o\
 	esl_dirichlet.o\
 	esl_distance.o\
 	esl_dmatrix.o\
@@ -230,7 +232,7 @@ OBJS =	easel.o\
 #	esl_swat.o
 
 
-# Seperate lists of objects that may require special compiler flags 
+# Separate lists of objects that may require special compiler flags 
 # for SIMD vector code compilation:
 SSE_OBJS     = esl_sse.o
 AVX_OBJS     = esl_avx.o
@@ -253,6 +255,7 @@ UTESTS =\
 	esl_alphabet_utest\
 	esl_buffer_utest\
 	esl_cluster_utest\
+	esl_cpu_utest\
 	esl_dirichlet_utest\
 	esl_distance_utest\
 	esl_dmatrix_utest\
@@ -382,6 +385,7 @@ EXAMPLES = \
 	esl_buffer_example5\
 	esl_buffer_example6\
         esl_cluster_example\
+	esl_cpu_example\
         esl_dirichlet_example\
         esl_dmatrix_example\
         esl_dsqdata_example\

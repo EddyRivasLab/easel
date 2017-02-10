@@ -140,7 +140,7 @@ esl_avx_hsum_ps(__m256 a, float *ret_sum)
 
    temp1_AVX = (__m256) _mm256_shuffle_epi32((__m256i) temp2_AVX, 0xb1);  // Swap the 32-bit halves of each 64-bit quarter of temp2_AVX
    temp2_AVX = _mm256_add_ps(temp1_AVX, temp2_AVX);  // low 32 bits of temp2_AVX now have the sum of the floats in a
-   __m256i tempint = (__m256i) temp2_AVX;
+
    int *retint_ptr = (int *) ret_sum;  // This is a horrible hack because there isn't an intrinsic to extract a float from
    // an __m256.  Do this to avoid casting an int back to a float and screwing it up
    *retint_ptr = _mm256_extract_epi32((__m256i) temp2_AVX, 0);
