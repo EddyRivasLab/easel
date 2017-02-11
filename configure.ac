@@ -200,8 +200,6 @@ AC_ARG_WITH(gsl,       [AS_HELP_STRING([--with-gsl],       [use the GSL, GNU Sci
 
 
 
-
-
 ################################################################
 # 5. Checks for programs, including ${CC} and its ${CFLAGS}
 ################################################################
@@ -334,6 +332,7 @@ if test "$enable_avx512" = "yes" || test "$enable_avx512" = "check"; then
     enable_avx512=no
     ])
 fi
+
 
 if test "$enable_neon" = "yes" || test "$enable_neon" = "check"; then
   ESL_NEON([
@@ -546,11 +545,11 @@ PTHREAD_CFLAGS= $PTHREAD_CFLAGS
     VMX_CFLAGS= $VMX_CFLAGS
 
 Vector implementations enabled:
-           sse: $esl_have_sse
-           avx: $esl_have_avx
-        avx512: $esl_have_avx512
-          neon: $esl_have_neon
-           vmx: $esl_have_vmx
+           sse: $enable_sse
+           avx: $enable_avx
+        avx512: $enable_avx512
+          neon: $enable_neon
+           vmx: $enable_vmx
 
 Do 'make' to build Easel.
 Do 'make check' to run self-tests.
