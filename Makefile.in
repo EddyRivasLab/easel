@@ -354,9 +354,10 @@ ${VMX_EXPERIMENTS}:     SIMD_CFLAGS= ${VMX_CFLAGS}
 
 
 BENCHMARKS =\
-	esl_buffer_benchmark\
-	esl_keyhash_benchmark\
-	esl_mem_benchmark\
+	esl_alloc_benchmark   \
+	esl_buffer_benchmark  \
+	esl_keyhash_benchmark \
+	esl_mem_benchmark     \
 	esl_random_benchmark
 
 SSE_BENCHMARKS     = esl_sse_benchmark
