@@ -98,8 +98,13 @@ alloc_aligned_free_fallback(void *p)
  *            boundary. <size> is > 0. <alignment> must be a power of
  *            two, >= sizeof(void *), and <= 256. The pointer must be
  *            freed by esl_alloc_free().
+ *            
+ * Args:      size      : size to allocate, in bytes
+ *            alignment : memory aligned on this byte boundary           
  *
- *            Returns NULL if the allocation fails.
+ * Returns:   pointer to the aligned memory
+ * 
+ * Throws:    <NULL> on allocation failure.
  *
  * Note:      It's better to return <void *> so the caller can cast the
  *            pointer to the desired type. If instead you pass
@@ -136,6 +141,9 @@ esl_alloc_aligned(size_t size, size_t alignment)
 #else
   p = alloc_aligned_fallback(size, alignment);
 #endif
+
+  if (p == NULL)
+    esl_exception(eslEMEM, FALSE, __FILE__, __LINE__, "aligned alloc of size %d failed", size); \
   return p;
 }
 
@@ -146,15 +154,17 @@ esl_alloc_aligned(size_t size, size_t alignment)
 void
 esl_alloc_free(void *p)
 {
+  if (p) {
 #ifdef HAVE_POSIX_MEMALIGN
-  free(p);
+    free(p);
 #elif  HAVE_ALIGNED_ALLOC
-  free(p);
+    free(p);
 #elif  HAVE__MM_MALLOC
-  _mm_free(p);
+    _mm_free(p);
 #else
-  alloc_aligned_free_fallback(p);
+    alloc_aligned_free_fallback(p);
 #endif
+  }
 }
 /*----------------------- end, API ------------------------------*/
 
