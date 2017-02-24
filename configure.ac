@@ -364,6 +364,37 @@ if test "$enable_vmx" = "yes" || test "$enable_vmx" = "check"; then
 fi
 
 
+
+# For x86 platforms, check if we can set floating point math to not
+# use denormalized floats. On some platforms, denormalized math incurs
+# a large performance penalty. The recursions in the Forward/Backward
+# algorithms underflow to zero by design.
+#
+esl_save_cflags="$CFLAGS"
+CFLAGS="$CFLAGS $SSE_CFLAGS"
+
+AC_MSG_CHECKING([whether flush-to-zero (FTZ) is supported])
+AC_COMPILE_IFELSE(
+  [AC_LANG_PROGRAM(
+    [#include <xmmintrin.h>],
+    [_MM_SET_FLUSH_ZERO_MODE (_MM_FLUSH_ZERO_ON);])], 
+  [ AC_MSG_RESULT([yes])
+    AC_DEFINE([HAVE_FLUSH_ZERO_MODE])],
+  [ AC_MSG_RESULT([no]) ])
+
+AC_MSG_CHECKING([whether denormals-are-zero (DAZ) is supported])
+AC_COMPILE_IFELSE(
+  [AC_LANG_PROGRAM(
+    [#include <pmmintrin.h>],
+    [_MM_SET_DENORMALS_ZERO_MODE (_MM_DENORMALS_ZERO_ON);])], 
+  [ AC_MSG_RESULT([yes])
+    AC_DEFINE([HAVE_DENORMALS_ZERO_MODE])],
+  [ AC_MSG_RESULT([no]) ])
+
+CFLAGS="$esl_save_cflags"
+
+
+
 # Define HAVE_GZIP if gzip is in $PATH (or if HAVE_GZIP is already set)
 AC_PATH_PROG(HAVE_GZIP, "gzip", "no")
 if test "${HAVE_GZIP}" = "no"; then
@@ -407,6 +438,7 @@ AC_CHECK_HEADERS([\
   strings.h   \
   unistd.h    \
   sys/types.h \
+  netinet/in.h
 ])
 
 # Check for sysctl.h separately.  On OpenBSD, it requires

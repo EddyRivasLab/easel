@@ -30,6 +30,9 @@
 
 #undef eslHAVE_NEON_AARCH64
 
+#undef HAVE_FLUSH_ZERO_MODE        // on x86 platforms: we can turn off denormalized floating point math,
+#undef HAVE_DENORMALS_ZERO_MODE    //   which often incurs performance penalty. See simdvec.md in HMMER.
+
 #undef HAVE_MPI
 #undef HAVE_PTHREAD
 
@@ -46,6 +49,7 @@
 #undef HAVE_UNISTD_H
 #undef HAVE_SYS_TYPES_H
 #undef HAVE_STRINGS_H
+#undef HAVE_NETINET_IN_H	/* On FreeBSD, you need netinet/in.h for struct sockaddr_in */
 
 #undef HAVE_SYS_PARAM_H
 #undef HAVE_SYS_SYSCTL_H
@@ -69,6 +73,7 @@
 /* Functions */
 #undef HAVE_ALIGNED_ALLOC   // esl_alloc
 #undef HAVE_ERFC            // esl_stats
+#undef HAVE_GETCWD          // esl_getcwd
 #undef HAVE_GETPID          // esl_random
 #undef HAVE__MM_MALLOC      // esl_alloc
 #undef HAVE_POPEN           // various file parsers that check for piped input
