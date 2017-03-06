@@ -3,6 +3,8 @@
    execution and then extracts the contents of the tree in some order.  They do not currently
    support deletes in a way that maintains the red-black properties of the tree */
 
+#ifndef ESL_RED_BLACK_INCLUDED
+#define ESL_RED_BLACK_INCLUDED
 
 #define ESL_RED_BLACK_COLOR_RED 0
 #define ESL_RED_BLACK_COLOR_BLACK 1
@@ -47,3 +49,5 @@ void * esl_red_black_doublekey_lookup(ESL_RED_BLACK_DOUBLEKEY *tree, double keyv
 // succeeded.  Returns a pointer to the node with the largest key in head, a pointer to the node
 // with the smallest key in tail
 int esl_red_black_doublekey_convert_to_sorted_linked(ESL_RED_BLACK_DOUBLEKEY *tree, ESL_RED_BLACK_DOUBLEKEY **head, ESL_RED_BLACK_DOUBLEKEY **tail);
+
+#endif // ESL_RED_BLACK_INCLUDED

@@ -1,0 +1,346 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXFileReference section */
+		5AF7FD691E6724A500FEE3DF /* esl-alimask */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-alimask"; sourceTree = "<group>"; };
+		5AF7FD6A1E6724A500FEE3DF /* esl-afetch.itest.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = "esl-afetch.itest.pl"; sourceTree = "<group>"; };
+		5AF7FD6B1E6724A500FEE3DF /* esl-translate.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-translate.c"; sourceTree = "<group>"; };
+		5AF7FD6C1E6724A500FEE3DF /* esl-alimanip.itest.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = "esl-alimanip.itest.pl"; sourceTree = "<group>"; };
+		5AF7FD6D1E6724A500FEE3DF /* esl-seqstat.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-seqstat.c"; sourceTree = "<group>"; };
+		5AF7FD6E1E6724A500FEE3DF /* esl-alimap.itest.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = "esl-alimap.itest.pl"; sourceTree = "<group>"; };
+		5AF7FD6F1E6724A500FEE3DF /* esl-seqstat */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-seqstat"; sourceTree = "<group>"; };
+		5AF7FD701E6724A500FEE3DF /* esl-alimask.itest.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = "esl-alimask.itest.pl"; sourceTree = "<group>"; };
+		5AF7FD711E6724A500FEE3DF /* esl-seqrange.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-seqrange.man"; sourceTree = "<group>"; };
+		5AF7FD721E6724A500FEE3DF /* esl-alimerge.itest.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = "esl-alimerge.itest.pl"; sourceTree = "<group>"; };
+		5AF7FD731E6724A500FEE3DF /* esl-afetch.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-afetch.o"; sourceTree = "<group>"; };
+		5AF7FD741E6724A500FEE3DF /* esl-alimap.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-alimap.o"; sourceTree = "<group>"; };
+		5AF7FD751E6724A500FEE3DF /* esl-alirev.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-alirev.o"; sourceTree = "<group>"; };
+		5AF7FD761E6724A500FEE3DF /* esl-selectn.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-selectn.o"; sourceTree = "<group>"; };
+		5AF7FD771E6724A500FEE3DF /* esl-afetch */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-afetch"; sourceTree = "<group>"; };
+		5AF7FD781E6724A600FEE3DF /* esl-alimerge */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-alimerge"; sourceTree = "<group>"; };
+		5AF7FD791E6724A600FEE3DF /* esl-alistat.itest.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = "esl-alistat.itest.pl"; sourceTree = "<group>"; };
+		5AF7FD7A1E6724A600FEE3DF /* esl-alipid.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-alipid.o"; sourceTree = "<group>"; };
+		5AF7FD7B1E6724A600FEE3DF /* esl-weight */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-weight"; sourceTree = "<group>"; };
+		5AF7FD7C1E6724A600FEE3DF /* esl-compalign.itest.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = "esl-compalign.itest.pl"; sourceTree = "<group>"; };
+		5AF7FD7D1E6724A600FEE3DF /* esl-shuffle.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-shuffle.o"; sourceTree = "<group>"; };
+		5AF7FD7E1E6724A600FEE3DF /* esl-compalign.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-compalign.o"; sourceTree = "<group>"; };
+		5AF7FD7F1E6724A600FEE3DF /* esl-compstruct */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-compstruct"; sourceTree = "<group>"; };
+		5AF7FD801E6724A600FEE3DF /* esl-construct.itest.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = "esl-construct.itest.pl"; sourceTree = "<group>"; };
+		5AF7FD811E6724A600FEE3DF /* esl-reformat.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-reformat.man"; sourceTree = "<group>"; };
+		5AF7FD821E6724A600FEE3DF /* esl-histplot.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-histplot.o"; sourceTree = "<group>"; };
+		5AF7FD831E6724A600FEE3DF /* esl-sfetch */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-sfetch"; sourceTree = "<group>"; };
+		5AF7FD841E6724A600FEE3DF /* esl-mask.itest.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = "esl-mask.itest.pl"; sourceTree = "<group>"; };
+		5AF7FD851E6724A600FEE3DF /* esl-selectn.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-selectn.man"; sourceTree = "<group>"; };
+		5AF7FD861E6724A600FEE3DF /* esl-seqrange.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-seqrange.c"; sourceTree = "<group>"; };
+		5AF7FD871E6724A600FEE3DF /* esl-alimanip */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-alimanip"; sourceTree = "<group>"; };
+		5AF7FD881E6724A600FEE3DF /* esl-weight.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-weight.c"; sourceTree = "<group>"; };
+		5AF7FD891E6724A600FEE3DF /* esl-seqrange.itest.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = "esl-seqrange.itest.pl"; sourceTree = "<group>"; };
+		5AF7FD8A1E6724A600FEE3DF /* esl-sfetch.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-sfetch.c"; sourceTree = "<group>"; };
+		5AF7FD8B1E6724A600FEE3DF /* esl-sfetch.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-sfetch.man"; sourceTree = "<group>"; };
+		5AF7FD8C1E6724A600FEE3DF /* esl-shuffle.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-shuffle.c"; sourceTree = "<group>"; };
+		5AF7FD8D1E6724A600FEE3DF /* esl-shuffle.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-shuffle.man"; sourceTree = "<group>"; };
+		5AF7FD8E1E6724A600FEE3DF /* esl-ssdraw.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-ssdraw.c"; sourceTree = "<group>"; };
+		5AF7FD8F1E6724A600FEE3DF /* esl-shuffle.itest.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = "esl-shuffle.itest.pl"; sourceTree = "<group>"; };
+		5AF7FD901E6724A600FEE3DF /* esl-histplot.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-histplot.c"; sourceTree = "<group>"; };
+		5AF7FD911E6724A600FEE3DF /* esl-ssdraw.itest.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = "esl-ssdraw.itest.pl"; sourceTree = "<group>"; };
+		5AF7FD921E6724A600FEE3DF /* esl-alistat.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-alistat.man"; sourceTree = "<group>"; };
+		5AF7FD931E6724A600FEE3DF /* esl-translate.itest.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = "esl-translate.itest.pl"; sourceTree = "<group>"; };
+		5AF7FD941E6724A600FEE3DF /* esl-alistat.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-alistat.c"; sourceTree = "<group>"; };
+		5AF7FD951E6724A600FEE3DF /* esl-cluster.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-cluster.c"; sourceTree = "<group>"; };
+		5AF7FD961E6724A600FEE3DF /* esl-alimask.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-alimask.o"; sourceTree = "<group>"; };
+		5AF7FD971E6724A600FEE3DF /* esl-sfetch.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-sfetch.o"; sourceTree = "<group>"; };
+		5AF7FD981E6724A600FEE3DF /* esl-seqrange */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-seqrange"; sourceTree = "<group>"; };
+		5AF7FD991E6724A600FEE3DF /* esl-histplot.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-histplot.man"; sourceTree = "<group>"; };
+		5AF7FD9A1E6724A600FEE3DF /* esl-shuffle */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-shuffle"; sourceTree = "<group>"; };
+		5AF7FD9B1E6724A600FEE3DF /* esl-ssdraw */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-ssdraw"; sourceTree = "<group>"; };
+		5AF7FD9C1E6724A600FEE3DF /* esl-compalign.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-compalign.c"; sourceTree = "<group>"; };
+		5AF7FD9D1E6724A600FEE3DF /* esl-seqstat.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-seqstat.o"; sourceTree = "<group>"; };
+		5AF7FD9E1E6724A600FEE3DF /* esl-histplot */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-histplot"; sourceTree = "<group>"; };
+		5AF7FD9F1E6724A600FEE3DF /* esl-mask.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-mask.c"; sourceTree = "<group>"; };
+		5AF7FDA01E6724A600FEE3DF /* esl-construct.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-construct.o"; sourceTree = "<group>"; };
+		5AF7FDA11E6724A600FEE3DF /* esl-mask.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-mask.man"; sourceTree = "<group>"; };
+		5AF7FDA21E6724A600FEE3DF /* esl-ssdraw.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-ssdraw.o"; sourceTree = "<group>"; };
+		5AF7FDA31E6724A600FEE3DF /* esl-alimap */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-alimap"; sourceTree = "<group>"; };
+		5AF7FDA41E6724A600FEE3DF /* esl-compalign.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-compalign.man"; sourceTree = "<group>"; };
+		5AF7FDA51E6724A600FEE3DF /* esl-alimerge.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-alimerge.o"; sourceTree = "<group>"; };
+		5AF7FDA61E6724A600FEE3DF /* esl-mask */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-mask"; sourceTree = "<group>"; };
+		5AF7FDA71E6724A600FEE3DF /* esl-reformat.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-reformat.c"; sourceTree = "<group>"; };
+		5AF7FDA81E6724A600FEE3DF /* esl-alirev */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-alirev"; sourceTree = "<group>"; };
+		5AF7FDA91E6724A600FEE3DF /* esl-selectn.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-selectn.c"; sourceTree = "<group>"; };
+		5AF7FDAA1E6724A600FEE3DF /* esl-translate */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-translate"; sourceTree = "<group>"; };
+		5AF7FDAB1E6724A600FEE3DF /* esl-compalign */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-compalign"; sourceTree = "<group>"; };
+		5AF7FDAC1E6724A600FEE3DF /* esl-seqstat.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-seqstat.man"; sourceTree = "<group>"; };
+		5AF7FDAD1E6724A600FEE3DF /* esl-translate.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-translate.o"; sourceTree = "<group>"; };
+		5AF7FDAE1E6724A600FEE3DF /* esl-cluster.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-cluster.o"; sourceTree = "<group>"; };
+		5AF7FDAF1E6724A600FEE3DF /* esl-reformat.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-reformat.o"; sourceTree = "<group>"; };
+		5AF7FDB01E6724A600FEE3DF /* esl-construct */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-construct"; sourceTree = "<group>"; };
+		5AF7FDB11E6724A600FEE3DF /* esl-compstruct.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-compstruct.c"; sourceTree = "<group>"; };
+		5AF7FDB21E6724A600FEE3DF /* esl-mask.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-mask.o"; sourceTree = "<group>"; };
+		5AF7FDB31E6724A600FEE3DF /* esl-alipid */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-alipid"; sourceTree = "<group>"; };
+		5AF7FDB41E6724A600FEE3DF /* esl-compstruct.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-compstruct.man"; sourceTree = "<group>"; };
+		5AF7FDB51E6724A600FEE3DF /* esl-seqrange.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-seqrange.o"; sourceTree = "<group>"; };
+		5AF7FDB61E6724A600FEE3DF /* esl-reformat */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-reformat"; sourceTree = "<group>"; };
+		5AF7FDB71E6724A600FEE3DF /* esl-construct.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-construct.man"; sourceTree = "<group>"; };
+		5AF7FDB81E6724A600FEE3DF /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		5AF7FDB91E6724A600FEE3DF /* esl-compstruct.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-compstruct.o"; sourceTree = "<group>"; };
+		5AF7FDBA1E6724A600FEE3DF /* esl-alistat.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-alistat.o"; sourceTree = "<group>"; };
+		5AF7FDBB1E6724A600FEE3DF /* esl-weight.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-weight.o"; sourceTree = "<group>"; };
+		5AF7FDBC1E6724A700FEE3DF /* esl-selectn */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-selectn"; sourceTree = "<group>"; };
+		5AF7FDBD1E6724A700FEE3DF /* esl-ssdraw.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-ssdraw.man"; sourceTree = "<group>"; };
+		5AF7FDBE1E6724A700FEE3DF /* esl-cluster */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-cluster"; sourceTree = "<group>"; };
+		5AF7FDBF1E6724A700FEE3DF /* esl-translate.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-translate.man"; sourceTree = "<group>"; };
+		5AF7FDC01E6724A700FEE3DF /* esl-alimanip.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "esl-alimanip.o"; sourceTree = "<group>"; };
+		5AF7FDC11E6724A700FEE3DF /* esl-alistat */ = {isa = PBXFileReference; lastKnownFileType = file; path = "esl-alistat"; sourceTree = "<group>"; };
+		5AF7FDC21E6724A700FEE3DF /* esl-weight.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-weight.man"; sourceTree = "<group>"; };
+		5AF7FDC31E6724A700FEE3DF /* Makefile.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = Makefile.in; sourceTree = "<group>"; };
+		5AF7FDC41E6724A700FEE3DF /* esl-afetch.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-afetch.c"; sourceTree = "<group>"; };
+		5AF7FDC51E6724A700FEE3DF /* esl-afetch.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-afetch.man"; sourceTree = "<group>"; };
+		5AF7FDC61E6724A700FEE3DF /* esl-alimanip.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-alimanip.c"; sourceTree = "<group>"; };
+		5AF7FDC71E6724A700FEE3DF /* esl-alimanip.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-alimanip.man"; sourceTree = "<group>"; };
+		5AF7FDC81E6724A700FEE3DF /* esl-alimap.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-alimap.c"; sourceTree = "<group>"; };
+		5AF7FDC91E6724A700FEE3DF /* esl-alimap.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-alimap.man"; sourceTree = "<group>"; };
+		5AF7FDCA1E6724A700FEE3DF /* esl-alimask.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-alimask.c"; sourceTree = "<group>"; };
+		5AF7FDCB1E6724A700FEE3DF /* esl-alimask.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-alimask.man"; sourceTree = "<group>"; };
+		5AF7FDCC1E6724A700FEE3DF /* esl-alimerge.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-alimerge.c"; sourceTree = "<group>"; };
+		5AF7FDCD1E6724A700FEE3DF /* esl-alimerge.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-alimerge.man"; sourceTree = "<group>"; };
+		5AF7FDCE1E6724A700FEE3DF /* esl-alipid.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-alipid.c"; sourceTree = "<group>"; };
+		5AF7FDCF1E6724A700FEE3DF /* esl-alipid.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-alipid.man"; sourceTree = "<group>"; };
+		5AF7FDD01E6724A700FEE3DF /* esl-alirev.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-alirev.c"; sourceTree = "<group>"; };
+		5AF7FDD11E6724A700FEE3DF /* esl-alirev.man */ = {isa = PBXFileReference; lastKnownFileType = text; path = "esl-alirev.man"; sourceTree = "<group>"; };
+		5AF7FDD21E6724A700FEE3DF /* esl-construct.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "esl-construct.c"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		5AF7FD631E6724A500FEE3DF = {
+			isa = PBXGroup;
+			children = (
+				5AF7FD691E6724A500FEE3DF /* esl-alimask */,
+				5AF7FD6A1E6724A500FEE3DF /* esl-afetch.itest.pl */,
+				5AF7FD6B1E6724A500FEE3DF /* esl-translate.c */,
+				5AF7FD6C1E6724A500FEE3DF /* esl-alimanip.itest.pl */,
+				5AF7FD6D1E6724A500FEE3DF /* esl-seqstat.c */,
+				5AF7FD6E1E6724A500FEE3DF /* esl-alimap.itest.pl */,
+				5AF7FD6F1E6724A500FEE3DF /* esl-seqstat */,
+				5AF7FD701E6724A500FEE3DF /* esl-alimask.itest.pl */,
+				5AF7FD711E6724A500FEE3DF /* esl-seqrange.man */,
+				5AF7FD721E6724A500FEE3DF /* esl-alimerge.itest.pl */,
+				5AF7FD731E6724A500FEE3DF /* esl-afetch.o */,
+				5AF7FD741E6724A500FEE3DF /* esl-alimap.o */,
+				5AF7FD751E6724A500FEE3DF /* esl-alirev.o */,
+				5AF7FD761E6724A500FEE3DF /* esl-selectn.o */,
+				5AF7FD771E6724A500FEE3DF /* esl-afetch */,
+				5AF7FD781E6724A600FEE3DF /* esl-alimerge */,
+				5AF7FD791E6724A600FEE3DF /* esl-alistat.itest.pl */,
+				5AF7FD7A1E6724A600FEE3DF /* esl-alipid.o */,
+				5AF7FD7B1E6724A600FEE3DF /* esl-weight */,
+				5AF7FD7C1E6724A600FEE3DF /* esl-compalign.itest.pl */,
+				5AF7FD7D1E6724A600FEE3DF /* esl-shuffle.o */,
+				5AF7FD7E1E6724A600FEE3DF /* esl-compalign.o */,
+				5AF7FD7F1E6724A600FEE3DF /* esl-compstruct */,
+				5AF7FD801E6724A600FEE3DF /* esl-construct.itest.pl */,
+				5AF7FD811E6724A600FEE3DF /* esl-reformat.man */,
+				5AF7FD821E6724A600FEE3DF /* esl-histplot.o */,
+				5AF7FD831E6724A600FEE3DF /* esl-sfetch */,
+				5AF7FD841E6724A600FEE3DF /* esl-mask.itest.pl */,
+				5AF7FD851E6724A600FEE3DF /* esl-selectn.man */,
+				5AF7FD861E6724A600FEE3DF /* esl-seqrange.c */,
+				5AF7FD871E6724A600FEE3DF /* esl-alimanip */,
+				5AF7FD881E6724A600FEE3DF /* esl-weight.c */,
+				5AF7FD891E6724A600FEE3DF /* esl-seqrange.itest.pl */,
+				5AF7FD8A1E6724A600FEE3DF /* esl-sfetch.c */,
+				5AF7FD8B1E6724A600FEE3DF /* esl-sfetch.man */,
+				5AF7FD8C1E6724A600FEE3DF /* esl-shuffle.c */,
+				5AF7FD8D1E6724A600FEE3DF /* esl-shuffle.man */,
+				5AF7FD8E1E6724A600FEE3DF /* esl-ssdraw.c */,
+				5AF7FD8F1E6724A600FEE3DF /* esl-shuffle.itest.pl */,
+				5AF7FD901E6724A600FEE3DF /* esl-histplot.c */,
+				5AF7FD911E6724A600FEE3DF /* esl-ssdraw.itest.pl */,
+				5AF7FD921E6724A600FEE3DF /* esl-alistat.man */,
+				5AF7FD931E6724A600FEE3DF /* esl-translate.itest.pl */,
+				5AF7FD941E6724A600FEE3DF /* esl-alistat.c */,
+				5AF7FD951E6724A600FEE3DF /* esl-cluster.c */,
+				5AF7FD961E6724A600FEE3DF /* esl-alimask.o */,
+				5AF7FD971E6724A600FEE3DF /* esl-sfetch.o */,
+				5AF7FD981E6724A600FEE3DF /* esl-seqrange */,
+				5AF7FD991E6724A600FEE3DF /* esl-histplot.man */,
+				5AF7FD9A1E6724A600FEE3DF /* esl-shuffle */,
+				5AF7FD9B1E6724A600FEE3DF /* esl-ssdraw */,
+				5AF7FD9C1E6724A600FEE3DF /* esl-compalign.c */,
+				5AF7FD9D1E6724A600FEE3DF /* esl-seqstat.o */,
+				5AF7FD9E1E6724A600FEE3DF /* esl-histplot */,
+				5AF7FD9F1E6724A600FEE3DF /* esl-mask.c */,
+				5AF7FDA01E6724A600FEE3DF /* esl-construct.o */,
+				5AF7FDA11E6724A600FEE3DF /* esl-mask.man */,
+				5AF7FDA21E6724A600FEE3DF /* esl-ssdraw.o */,
+				5AF7FDA31E6724A600FEE3DF /* esl-alimap */,
+				5AF7FDA41E6724A600FEE3DF /* esl-compalign.man */,
+				5AF7FDA51E6724A600FEE3DF /* esl-alimerge.o */,
+				5AF7FDA61E6724A600FEE3DF /* esl-mask */,
+				5AF7FDA71E6724A600FEE3DF /* esl-reformat.c */,
+				5AF7FDA81E6724A600FEE3DF /* esl-alirev */,
+				5AF7FDA91E6724A600FEE3DF /* esl-selectn.c */,
+				5AF7FDAA1E6724A600FEE3DF /* esl-translate */,
+				5AF7FDAB1E6724A600FEE3DF /* esl-compalign */,
+				5AF7FDAC1E6724A600FEE3DF /* esl-seqstat.man */,
+				5AF7FDAD1E6724A600FEE3DF /* esl-translate.o */,
+				5AF7FDAE1E6724A600FEE3DF /* esl-cluster.o */,
+				5AF7FDAF1E6724A600FEE3DF /* esl-reformat.o */,
+				5AF7FDB01E6724A600FEE3DF /* esl-construct */,
+				5AF7FDB11E6724A600FEE3DF /* esl-compstruct.c */,
+				5AF7FDB21E6724A600FEE3DF /* esl-mask.o */,
+				5AF7FDB31E6724A600FEE3DF /* esl-alipid */,
+				5AF7FDB41E6724A600FEE3DF /* esl-compstruct.man */,
+				5AF7FDB51E6724A600FEE3DF /* esl-seqrange.o */,
+				5AF7FDB61E6724A600FEE3DF /* esl-reformat */,
+				5AF7FDB71E6724A600FEE3DF /* esl-construct.man */,
+				5AF7FDB81E6724A600FEE3DF /* Makefile */,
+				5AF7FDB91E6724A600FEE3DF /* esl-compstruct.o */,
+				5AF7FDBA1E6724A600FEE3DF /* esl-alistat.o */,
+				5AF7FDBB1E6724A600FEE3DF /* esl-weight.o */,
+				5AF7FDBC1E6724A700FEE3DF /* esl-selectn */,
+				5AF7FDBD1E6724A700FEE3DF /* esl-ssdraw.man */,
+				5AF7FDBE1E6724A700FEE3DF /* esl-cluster */,
+				5AF7FDBF1E6724A700FEE3DF /* esl-translate.man */,
+				5AF7FDC01E6724A700FEE3DF /* esl-alimanip.o */,
+				5AF7FDC11E6724A700FEE3DF /* esl-alistat */,
+				5AF7FDC21E6724A700FEE3DF /* esl-weight.man */,
+				5AF7FDC31E6724A700FEE3DF /* Makefile.in */,
+				5AF7FDC41E6724A700FEE3DF /* esl-afetch.c */,
+				5AF7FDC51E6724A700FEE3DF /* esl-afetch.man */,
+				5AF7FDC61E6724A700FEE3DF /* esl-alimanip.c */,
+				5AF7FDC71E6724A700FEE3DF /* esl-alimanip.man */,
+				5AF7FDC81E6724A700FEE3DF /* esl-alimap.c */,
+				5AF7FDC91E6724A700FEE3DF /* esl-alimap.man */,
+				5AF7FDCA1E6724A700FEE3DF /* esl-alimask.c */,
+				5AF7FDCB1E6724A700FEE3DF /* esl-alimask.man */,
+				5AF7FDCC1E6724A700FEE3DF /* esl-alimerge.c */,
+				5AF7FDCD1E6724A700FEE3DF /* esl-alimerge.man */,
+				5AF7FDCE1E6724A700FEE3DF /* esl-alipid.c */,
+				5AF7FDCF1E6724A700FEE3DF /* esl-alipid.man */,
+				5AF7FDD01E6724A700FEE3DF /* esl-alirev.c */,
+				5AF7FDD11E6724A700FEE3DF /* esl-alirev.man */,
+				5AF7FDD21E6724A700FEE3DF /* esl-construct.c */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXLegacyTarget section */
+		5AF7FD681E6724A500FEE3DF /* miniapps */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "$(ACTION)";
+			buildConfigurationList = 5AF7FDD31E6724A700FEE3DF /* Build configuration list for PBXLegacyTarget "miniapps" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = /Volumes/eddyfs01/home/npcarter/hmmer/easel/miniapps;
+			dependencies = (
+			);
+			name = miniapps;
+			passBuildSettingsInEnvironment = 1;
+			productName = miniapps;
+		};
+/* End PBXLegacyTarget section */
+
+/* Begin PBXProject section */
+		5AF7FD641E6724A500FEE3DF /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+			};
+			buildConfigurationList = 5AF7FD671E6724A500FEE3DF /* Build configuration list for PBXProject "miniapps" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 5AF7FD631E6724A500FEE3DF;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				5AF7FD681E6724A500FEE3DF /* miniapps */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin XCBuildConfiguration section */
+		5AF7FD651E6724A500FEE3DF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COPY_PHASE_STRIP = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx10.6;
+			};
+			name = Debug;
+		};
+		5AF7FD661E6724A500FEE3DF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COPY_PHASE_STRIP = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				SDKROOT = macosx10.6;
+			};
+			name = Release;
+		};
+		5AF7FDD41E6724A700FEE3DF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = miniapps;
+			};
+			name = Debug;
+		};
+		5AF7FDD51E6724A700FEE3DF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = miniapps;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5AF7FD671E6724A500FEE3DF /* Build configuration list for PBXProject "miniapps" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5AF7FD651E6724A500FEE3DF /* Debug */,
+				5AF7FD661E6724A500FEE3DF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5AF7FDD31E6724A700FEE3DF /* Build configuration list for PBXLegacyTarget "miniapps" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5AF7FDD41E6724A700FEE3DF /* Debug */,
+				5AF7FDD51E6724A700FEE3DF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 5AF7FD641E6724A500FEE3DF /* Project object */;
+}
