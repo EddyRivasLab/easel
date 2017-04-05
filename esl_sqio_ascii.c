@@ -2148,7 +2148,7 @@ loadbuf(ESL_SQFILE *sqfp)
       ascii->balloc = 0;
       ascii->bpos   = 0;
       ascii->nc     = ascii->mn - ascii->mpos;
-      ascii->mpos  += ascii->mn;
+      ascii->mpos  += ascii->nc;
   }
   else
   { /* Copy next line from <mem> into <buf>. Might require new load(s) into <mem>. */
