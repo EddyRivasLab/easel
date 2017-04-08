@@ -1053,7 +1053,7 @@ Creates and returns a pointer to a partial, dependent copy of
 \ccode{obj}. Shadow creation arises in multithreading, when threads
 can share some but not all internal object data. A shadow keeps
 constant data as pointers to the original object.  The object needs to
-know whether it is a shadow or not, so that <_Destroy()> works
+know whether it is a shadow or not, so that <\_Destroy()> works
 properly on both the original and its shadows.
 
 \end{sreapi}

@@ -1029,7 +1029,7 @@ esl_histogram_Write(FILE *fp, ESL_HISTOGRAM *h)
  *            
  *            The number that's plotted on the X axis is the minimum
  *            (starting) value of the bin's interval. The Y value is
- *            the total # of counts in the interval (x,x+w] for bin
+ *            the total number of counts in the interval (x,x+w] for bin
  *            width w. In xmgrace, you want to set "right stairs" as
  *            the line type in an XY plot.
  *
