@@ -2166,6 +2166,50 @@ utest_write(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, int format)
   esl_sq_Destroy(sq);
   remove(tmpfile);
 }
+
+
+/* utest_guess_mechanics()
+ * SRE H3/70, 8 Apr 17
+ *
+ * Related to EPN bugfix a61ee23: esl_sqfile_GuessAlphabet() segfaults
+ * when file contains 1 seq, file is >4096 bytes, seq is <4000
+ * residues, because of a fault in the mechanics of sqio with
+ * is_recording TRUE and is_linebased FALSE.
+ *
+ * This unit test exercises those mechanics, the original bug and
+ * more. It is *not* testing GuessAlphabet() itself. The DNA sequences
+ * in <sqarr> are so dirty, their alphabet cannot be reliably
+ * detected. This unit test is hunting segfaults, not even looking at
+ * the return status of _GuessAlphabet().
+ */
+static void
+utest_guess_mechanics(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N)
+{
+  char       *msg         = "sqio guess_mechanics unit test failure";
+  char        tmpfile[32];
+  FILE       *fp;          
+  ESL_SQFILE *sqfp;
+  int         i;
+  int         alphatype;
+
+  for (i = 0; i < N; i++)  // for each individual sequence in <sqarr>, one at a time:
+    {
+      strcpy(tmpfile, "esltmpXXXXXX");
+      if (esl_tmpfile_named(tmpfile, &fp)                      != eslOK) esl_fatal(msg);
+      if (esl_sqio_Write(fp, sqarr[i], eslSQFILE_FASTA, FALSE) != eslOK) esl_fatal(msg);
+      fclose(fp);
+
+      if (esl_sqfile_Open(tmpfile, eslSQFILE_FASTA, NULL, &sqfp) != eslOK) esl_fatal(msg);
+
+      esl_sqfile_GuessAlphabet(sqfp, &alphatype);
+      // generally, the sequences are so dirty, GuessAlphabet() won't make a guess.
+      // we're hunting segfaults in this utest.
+
+      esl_sqfile_Close(sqfp);
+      remove(tmpfile);
+    }
+}
+
 #endif /*eslSQIO_TESTDRIVE*/
 /*------------------ end, unit tests ----------------------------*/
 
@@ -2195,9 +2239,9 @@ utest_write(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, int format)
 static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
-  { "-L",        eslARG_INT,   "1000",  NULL, NULL,  NULL,  NULL, NULL, "max length of test sequences",                     0 },
+  { "-L",        eslARG_INT,   "8000",  NULL, NULL,  NULL,  NULL, NULL, "max length of test sequences",                     0 },
   { "-N",        eslARG_INT,    "100",  NULL, NULL,  NULL,  NULL, NULL, "number of test sequences",                         0 },
-  { "-s",        eslARG_INT,     "42",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
+  { "-s",        eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options]";
@@ -2251,7 +2295,8 @@ main(int argc, char **argv)
       remove(ssifile);
     }  
 
-  utest_write(abc, sqarr, N, eslMSAFILE_STOCKHOLM);
+  utest_guess_mechanics(abc, sqarr, N);
+  utest_write          (abc, sqarr, N, eslMSAFILE_STOCKHOLM);
 
   for (i = 0; i < N; i++) esl_sq_Destroy(sqarr[i]);
   free(sqarr);
