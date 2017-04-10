@@ -740,7 +740,8 @@ esl_newssi_AddFile(ESL_NEWSSI *ns, const char *filename, int fmt, uint16_t *ret_
     ESL_REALLOC(ns->fileformat, sizeof(uint32_t) * (ns->nfiles+eslSSI_FCHUNK));
     ESL_REALLOC(ns->bpl,        sizeof(uint32_t) * (ns->nfiles+eslSSI_FCHUNK));
     ESL_REALLOC(ns->rpl,        sizeof(uint32_t) * (ns->nfiles+eslSSI_FCHUNK));
-  }
+  } 
+
   *ret_fh = fh;
   return eslOK;
 

@@ -1259,82 +1259,86 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 #endif /* we've completely handled the alignment file case above. */
 
   /* Now for the normal case: we're reading a normal unaligned seq file, not an alignment. */
-
   /* Negative W indicates reverse complement direction */
   if (W < 0)
   {
     if (sq->L == -1) ESL_EXCEPTION(eslESYNTAX, "Can't read reverse complement until you've read forward strand");
 
-    if (sq->end == 1)
-    { /* last end == 1 means last window was the final one on reverse strand,
-        * so we're EOD; jump back to last forward position.
-        */
-       if (ascii->bookmark_offset > 0) {
-         if (esl_sqfile_Position(sqfp, ascii->bookmark_offset) != eslOK)
-           ESL_EXCEPTION(eslECORRUPT, "Failed to reposition seq file at last forward bookmark");
-         ascii->linenumber = ascii->bookmark_linenum;
-       } else {
-         ascii->nc = 0;/* signals EOF */
-       }
-       ascii->bookmark_offset  = 0;
-       ascii->bookmark_linenum = 0;
+    if (sq->end == 1 || sq->L == 0)
+      { /* last end == 1 means last window was the final one on reverse strand,
+         * so we're EOD; jump back to last forward position.
+         *
+         * Also check for the unusual case of sq->L == 0, a completely empty sequence:
+         * in that case, immediately return eslEOD.
+         */
+        if (ascii->bookmark_offset > 0) 
+          {
+            if (esl_sqfile_Position(sqfp, ascii->bookmark_offset) != eslOK)
+              ESL_EXCEPTION(eslECORRUPT, "Failed to reposition seq file at last forward bookmark");
+            ascii->linenumber = ascii->bookmark_linenum;
+          } 
+        else 
+          ascii->nc = 0; /* signals EOF */
 
-       sq->start      = 0;
-       sq->end        = 0;
-       sq->C          = 0;
-       sq->W          = 0;
-       sq->n          = 0;
-       /* sq->L stays as it is */
-       if (sq->dsq != NULL) sq->dsq[1] = eslDSQ_SENTINEL;
-       else                 sq->seq[0] = '\0';
-       return eslEOD;
-    }
+        ascii->bookmark_offset  = 0;
+        ascii->bookmark_linenum = 0;
 
-    /* If s == 0, we haven't read any reverse windows yet;
+        sq->start      = 0;
+        sq->end        = 0;
+        sq->C          = 0;
+        sq->W          = 0;
+        sq->n          = 0;
+        /* sq->L stays as it is */
+        if (sq->dsq != NULL) sq->dsq[1] = eslDSQ_SENTINEL;
+        else                 sq->seq[0] = '\0';
+        return eslEOD;
+      }
+
+    /* If sq->start == 0, we haven't read any reverse windows yet;
      * init reading from sq->L
      */
     W = -W;
     if (sq->start == 0)
-    {
-      sq->start        = ESL_MAX(1, (sq->L - W + 1));
-      sq->end          = sq->L;
-      sq->C            = 0;
-      sq->W            = sq->end - sq->start + 1;
-      ascii->curbpl     = -1;
-      ascii->currpl     = -1;
-      ascii->prvbpl     = -1;
-      ascii->prvrpl     = -1;
-      ascii->linenumber = -1;
-      ascii->L          = -1;
-    }
+      {
+        sq->start        = ESL_MAX(1, (sq->L - W + 1));
+        sq->end          = sq->L;
+        sq->C            = 0;
+        sq->W            = sq->end - sq->start + 1;
+        ascii->curbpl     = -1;
+        ascii->currpl     = -1;
+        ascii->prvbpl     = -1;
+        ascii->prvrpl     = -1;
+        ascii->linenumber = -1;
+        ascii->L          = -1;
+      }
     else
-    { /* Else, we're continuing to next window; prv was <end>..<start> */
-       sq->C     = ESL_MIN(C, sq->L - sq->end + 1);  /* based on prev window's end */
-       sq->end   = sq->end + sq->C - 1;                /* also based on prev end     */
-       sq->start = ESL_MAX(1, (sq->end - W - sq->C + 1));
-       sq->W     = sq->end - sq->start + 1 - sq->C;
-    }
+      { /* Else, we're continuing to next window; prv was <end>..<start> */
+        sq->C     = ESL_MIN(C, sq->L - sq->end + 1);  /* based on prev window's end */
+        sq->end   = sq->end + sq->C - 1;                /* also based on prev end     */
+        sq->start = ESL_MAX(1, (sq->end - W - sq->C + 1));
+        sq->W     = sq->end - sq->start + 1 - sq->C;
+      }
 
     /* Now position for a subseq fetch of <start..end> on fwd strand, using SSI offset calc  */
-    if (sq->doff == 0) ESL_EXCEPTION(eslECORRUPT, "can't happen: sq didn't store data offset");
-
-    if (ascii->bpl == 0 || ascii->rpl == 0) /* no help; brute force resolution. */
-    {
-      offset       = sq->doff;
-      actual_start = 1;
-    }
+    ESL_DASSERT1(( sq->doff != 0 ));
+    if (ascii->bpl == 0 || ascii->rpl == 0)      /* no help; brute force resolution. */
+      {
+        offset       = sq->doff;
+        actual_start = 1;
+      }
     else if (ascii->bpl == ascii->rpl+1)         /* residue resolution */
-    {
-      line = (sq->start-1) / ascii->rpl; /* data line #0.. that <end> is on */
-      offset       = sq->doff + line * ascii->bpl + (sq->start-1)%ascii->rpl;
-      actual_start = sq->start;
-    }
-    else/* line resolution */
-    {
-       line         = (sq->start-1) / ascii->rpl; /* data line #0.. that <end> is on */
-       offset       = sq->doff + line * ascii->bpl;
-       actual_start = 1 + line * ascii->rpl;
-    }
+      {
+        line = (sq->start-1) / ascii->rpl; /* data line #0.. that <end> is on */
+        offset       = sq->doff + line * ascii->bpl + (sq->start-1)%ascii->rpl;
+        actual_start = sq->start;
+      }
+    else /* line resolution */
+      {
+        line         = (sq->start-1) / ascii->rpl; /* data line #0.. that <end> is on */
+        offset       = sq->doff + line * ascii->bpl;
+        actual_start = 1 + line * ascii->rpl;
+      }
+
     if (esl_sqfile_Position(sqfp, offset) != eslOK)
       ESL_EXCEPTION(eslECORRUPT, "Failed to reposition seq file for reverse window read");
 
