@@ -13,7 +13,7 @@
 #
 # VPATH and shell configuration
 #
-top_srcdir = ../..
+top_srcdir = .
 srcdir     = .
 
 SHELL      = /bin/sh
@@ -22,14 +22,14 @@ SHELL      = /bin/sh
 
 # Package information
 #
-PACKAGE         = HMMER
-PACKAGE_VERSION = 4.0dev
-PACKAGE_TARNAME = hmmer
-BASENAME        = hmmer
-RELEASE         = h4.0dev
-RELEASEDATE     = "Apr 2015"
-COPYRIGHT       = "Copyright (C) 2015 Howard Hughes Medical Institute."
-LICENSELINE     = "Freely distributed under the open source BSD license."
+PACKAGE         = Easel
+PACKAGE_VERSION = 0.44
+PACKAGE_TARNAME = easel
+BASENAME        = easel
+RELEASE         = 0.44
+RELEASEDATE     = "January 2017"
+COPYRIGHT       = "Copyright (C) 2017 Howard Hughes Medical Institute"
+LICENSELINE     = "Freely distributed under the BSD open source license."
 
 # Installation targets
 #
@@ -48,13 +48,13 @@ man1ext     = .1
 
 # Compiler configuration
 #
-CC          = mpicc
-CFLAGS      = -O3 -pthread -fPIC
+CC          = gcc
+CFLAGS      = -g -Wall -pthread -fPIC
 SSEFLAGS    = 
 AVXFLAGS    = 
 AVX512FLAGS = 
-NEONFLAGS   = -mcpu=cortex-a15 -mfpu=neon-vfpv4
-NEON64FLAGS = -mcpu=cortex-a15 -mfpu=neon-vfpv4
+NEONFLAGS   = 
+NEON64FLAGS = 
 CPPFLAGS    = 
 LDFLAGS     = 
 LIBGSL      = 

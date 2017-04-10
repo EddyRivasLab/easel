@@ -1,4 +1,4 @@
-/* lib/easel/esl_config.h.  Generated from esl_config.h.in by configure.  */
+/* esl_config.h.  Generated from esl_config.h.in by configure.  */
 /* esl_config.h.in  [input to configure]
  * 
  * System-dependent configuration of Easel, by autoconf.
@@ -14,10 +14,10 @@
 
 /* Version info.
  */
-#define EASEL_VERSION "h4.0dev"
-#define EASEL_DATE "Apr 2015"
-#define EASEL_COPYRIGHT "Copyright (C) 2015 Howard Hughes Medical Institute."
-#define EASEL_LICENSE "Freely distributed under the open source BSD license."
+#define EASEL_VERSION "0.44"
+#define EASEL_DATE "January 2017"
+#define EASEL_COPYRIGHT "Copyright (C) 2017 Howard Hughes Medical Institute"
+#define EASEL_LICENSE "Freely distributed under the BSD open source license."
 
 /* Large file support
  * Must precede any header file inclusion.
@@ -28,7 +28,7 @@
 
 /* Debugging verbosity (0=none;3=most verbose)
  */
-#define eslDEBUGLEVEL 0
+#define eslDEBUGLEVEL 1
 
 /* System headers
  */
@@ -69,7 +69,7 @@
  */
 #define HAVE_SSE2 1
 /* #undef HAVE_VMX */
-#define HAVE_MPI 1
+/* #undef HAVE_MPI */
 #define HAVE_PTHREAD 1
 /* #undef HAVE_NEON */
 /* #undef HAVE_ARM64 */
@@ -81,7 +81,7 @@
 /* Functions */
 #define HAVE_MKSTEMP 1
 #define HAVE_POPEN 1
-/* #undef HAVE_PUTENV */
+#define HAVE_PUTENV 1
 #define HAVE_STRCASECMP 1
 #define HAVE_STRSEP 1
 #define HAVE_TIMES 1
@@ -89,14 +89,14 @@
 #define HAVE_SYSCTL 1
 #define HAVE_SYSCONF 1
 #define HAVE_GETCWD 1
-/* #undef HAVE_CHMOD */
+#define HAVE_CHMOD 1
 #define HAVE_STAT 1
 #define HAVE_FSTAT 1
 #define HAVE_ERFC 1
 #define HAVE_FSEEKO 1
 
 #define HAVE_FUNC_ATTRIBUTE_NORETURN 1
-/* #undef HAVE_FUNC_ATTRIBUTE_FORMAT */
+#define HAVE_FUNC_ATTRIBUTE_FORMAT 1
  
 /* Function behavior */
 #define eslSTOPWATCH_HIGHRES
@@ -121,37 +121,37 @@
 #define eslLIBRARY 1
 
 #ifndef eslLIBRARY
-/* #undef eslAUGMENT_ALPHABET */
-/* #undef eslAUGMENT_NCBI */
-/* #undef eslAUGMENT_DMATRIX */
-/* #undef eslAUGMENT_FILEPARSER */
-/* #undef eslAUGMENT_GEV */
-/* #undef eslAUGMENT_GUMBEL */
-/* #undef eslAUGMENT_HISTOGRAM */
-/* #undef eslAUGMENT_KEYHASH */
-/* #undef eslAUGMENT_MINIMIZER */
-/* #undef eslAUGMENT_MSA */
-/* #undef eslAUGMENT_RANDOM */
+#define eslAUGMENT_ALPHABET 1
+#define eslAUGMENT_NCBI 1
+#define eslAUGMENT_DMATRIX 1
+#define eslAUGMENT_FILEPARSER 1
+#define eslAUGMENT_GEV 1
+#define eslAUGMENT_GUMBEL 1
+#define eslAUGMENT_HISTOGRAM 1
+#define eslAUGMENT_KEYHASH 1
+#define eslAUGMENT_MINIMIZER 1
+#define eslAUGMENT_MSA 1
+#define eslAUGMENT_RANDOM 1
 /* #undef eslAUGMENT_RANDOMSEQ */
-/* #undef eslAUGMENT_SSI */
-/* #undef eslAUGMENT_STATS */
+#define eslAUGMENT_SSI 1
+#define eslAUGMENT_STATS 1
 #endif
 
 #ifdef eslLIBRARY
-#define eslAUGMENT_ALPHABET
-#define eslAUGMENT_NCBI
-#define eslAUGMENT_DMATRIX
-#define eslAUGMENT_FILEPARSER
-#define eslAUGMENT_GEV
-#define eslAUGMENT_GUMBEL
-#define eslAUGMENT_HISTOGRAM
-#define eslAUGMENT_KEYHASH 
-#define eslAUGMENT_MINIMIZER
-#define eslAUGMENT_MSA		
-#define eslAUGMENT_RANDOM
+#define eslAUGMENT_ALPHABET 1
+#define eslAUGMENT_NCBI 1
+#define eslAUGMENT_DMATRIX 1
+#define eslAUGMENT_FILEPARSER 1
+#define eslAUGMENT_GEV 1
+#define eslAUGMENT_GUMBEL 1
+#define eslAUGMENT_HISTOGRAM 1
+#define eslAUGMENT_KEYHASH 1
+#define eslAUGMENT_MINIMIZER 1
+#define eslAUGMENT_MSA 1
+#define eslAUGMENT_RANDOM 1
 #define eslAUGMENT_RANDOMSEQ
-#define eslAUGMENT_SSI
-#define eslAUGMENT_STATS
+#define eslAUGMENT_SSI 1
+#define eslAUGMENT_STATS 1
 #endif
 
 
