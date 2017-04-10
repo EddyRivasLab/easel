@@ -4,9 +4,15 @@
 #include "esl_red_black.h"
 
 //#define P7_CHECK_RED_BLACK // check tree for invariants after every change
+
+#if defined(P7_CHECK_RED_BLACK) || defined(eslRED_BLACK_TESTDRIVE) // only compile these if we're using them in tests in order
+// to keep GCC from complaining
+
 // Checker function that we don't want visible everywhere
 static int esl_red_black_doublekey_check_invariants(ESL_RED_BLACK_DOUBLEKEY *tree);
 static int esl_red_black_doublekey_linked_list_test(ESL_RED_BLACK_DOUBLEKEY **head, ESL_RED_BLACK_DOUBLEKEY **tail);
+#endif
+
 
 ESL_RED_BLACK_DOUBLEKEY * esl_red_black_doublekey_Create(){
   int status; //return code from ESL_ALLOC.  Needs to be declared so that the macro will compile
@@ -53,7 +59,7 @@ ERROR:
 // returns the balanced tree.  Assumes that someone else has checked to make sure that such a violation exists.
 static ESL_RED_BLACK_DOUBLEKEY *esl_red_black_doublekey_rebalance(ESL_RED_BLACK_DOUBLEKEY *tree, ESL_RED_BLACK_DOUBLEKEY *node){
 
-  ESL_RED_BLACK_DOUBLEKEY *parent, *grandparent, *sibling, *root, *uncle;
+  ESL_RED_BLACK_DOUBLEKEY *parent, *grandparent, *root, *uncle;
 
   root = tree;  // root starts out at the base of the original tree, but may change
   
@@ -416,8 +422,10 @@ int esl_red_black_doublekey_convert_to_sorted_linked(ESL_RED_BLACK_DOUBLEKEY *tr
 
 }
 
+#if defined(P7_CHECK_RED_BLACK) || defined(eslRED_BLACK_TESTDRIVE) // only compile these if we're using them in tests in order
+// to keep GCC from complaining
 
-// Checks a red-black tree to see if it maintains the red-black invariants
+// Checks a red-black tree to see if it maintains the red-black invaiants
 // returns eslOK if so, eslFAIL if not
 int esl_red_black_doublekey_check_invariants(ESL_RED_BLACK_DOUBLEKEY *tree){
   if(tree == NULL){
@@ -571,6 +579,7 @@ uint32_t esl_red_black_doublekey_min_depth(ESL_RED_BLACK_DOUBLEKEY *tree){
     return (large_min + 1);
   }
 }
+#endif
 
 /*******************************************************************************************/
 /* Unit test.  Creates a million-node red-black tree. Verifies that the tree obeys the */
@@ -589,18 +598,9 @@ uint32_t esl_red_black_doublekey_min_depth(ESL_RED_BLACK_DOUBLEKEY *tree){
 #include "easel.h"
 #include "esl_getopts.h"
 
-static ESL_OPTIONS options[] = {
-  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
-  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",          0 },
-  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-};
-static char usage[]  = "[-options]";
-static char banner[] = "test driver for red-black trees";
-
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
 
   ESL_RED_BLACK_DOUBLEKEY *tree, *node, **head, **tail;
   int i; 
@@ -612,9 +612,9 @@ main(int argc, char **argv)
   tail = &tail_ptr;
   double my_key = 0.0;
   int runs;
-  for(runs = 0; runs < 100; runs++){
+  for(runs = 0; runs < 2; runs++){
     tree = NULL;
-    for(i=0; i < 1000000; i++){
+    for(i=0; i < 100000; i++){
       my_key = ((double)rand()/(double)RAND_MAX) * 1000;
       // generate "random" floating-point number between 0 and 100000
       node = esl_red_black_doublekey_Create(); // get a new node
@@ -637,7 +637,7 @@ main(int argc, char **argv)
     }
     //printf("Tree maximum depth was %d, tree minimum depth was %d\n", esl_red_black_doublekey_max_depth(tree), esl_red_black_doublekey_min_depth(tree));
     /* Check generated tree for consistency */
- /*   if(esl_red_black_doublekey_check_invariants(tree) != eslOK){
+    if(esl_red_black_doublekey_check_invariants(tree) != eslOK){
       esl_fatal("Generated tree did not obey red-black invariants\n");
     }
 
@@ -646,7 +646,7 @@ main(int argc, char **argv)
     }
     if(esl_red_black_doublekey_linked_list_test(head, tail) != eslOK){
       esl_fatal("Linked list failed consistency check\n");
-    } */ 
+    } 
   }
 return 0;
 }
