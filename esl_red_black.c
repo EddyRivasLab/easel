@@ -612,9 +612,9 @@ main(int argc, char **argv)
   tail = &tail_ptr;
   double my_key = 0.0;
   int runs;
-  for(runs = 0; runs < 100; runs++){
+  for(runs = 0; runs < 2; runs++){
     tree = NULL;
-    for(i=0; i < 1000000; i++){
+    for(i=0; i < 100000; i++){
       my_key = ((double)rand()/(double)RAND_MAX) * 1000;
       // generate "random" floating-point number between 0 and 100000
       node = esl_red_black_doublekey_Create(); // get a new node
