@@ -45,6 +45,7 @@
 1 exercise randomseq-utest    @esl_randomseq_utest@
 1 exercise ratematrix-utest   @esl_ratematrix_utest@
 1 exercise recorder-utest     @esl_recorder_utest@
+1 exercise red_black-utest     @esl_red_black_utest@
 1 exercise regexp-utest       @esl_regexp_utest@
 1 exercise rootfinder-utest   @esl_rootfinder_utest@
 1 exercise scorematrix-utest  @esl_scorematrix_utest@

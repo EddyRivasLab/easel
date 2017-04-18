@@ -17,7 +17,8 @@ typedef struct {
 } ESL_RANDOMNESS;
 
 /* esl_rnd_Roll(a) chooses a uniformly distributed integer
- * in the range 0..a-1, given an initialized ESL_RANDOMNESS r.
+ * in the range 0..a-1, given an initialized ESL_RANDOMNESS r,
+ * for a > 0.
  */
 #define esl_rnd_Roll(r, a)    ((int) (esl_random(r) * (a)))
 

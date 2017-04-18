@@ -258,7 +258,8 @@ create_ssi_index(ESL_GETOPTS *go, ESL_SQFILE *sqfp)
   }
 
   /* Save the SSI file to disk */
-  if (esl_newssi_Write(ns) != eslOK)  esl_fatal("Failed to write keys to ssi file %s\n", ssifile);
+  if (esl_newssi_Write(ns) != eslOK)  
+    esl_fatal("\nFailed to write keys to ssi file %s:\n  %s", ssifile, ns->errbuf);
 
   /* Done - output and exit. */
   printf("done.\n");

@@ -1745,6 +1745,7 @@ benchmark_mmap(char *filename, int bufsize, int64_t *ret_magic)
  *#  10. Unit tests
  *****************************************************************/ 
 #ifdef eslSQIO_TESTDRIVE
+#include "esl_keyhash.h"
 #include "esl_random.h"
 #include "esl_randomseq.h"
 #include "esl_vectorops.h"
@@ -1753,6 +1754,7 @@ static void
 synthesize_testseqs(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, int maxL, int N, ESL_SQ ***ret_sqarr)
 {
   ESL_SQ **sqarr  = malloc(sizeof(ESL_SQ *) * N);
+  ESL_KEYHASH *kh = esl_keyhash_Create();
   float   *fq     = malloc(sizeof(float)   * abc->Kp);
   char    *buf    = NULL;
   int      maxn   = eslSQ_NAMECHUNK*2;
@@ -1790,7 +1792,8 @@ synthesize_testseqs(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, int maxL, int N, ESL_S
 	n = esl_rnd_Roll(r, maxn) + 1; /* 1..maxn */
 	esl_rsq_fIID(r, ascii, af, 128, n, buf);
 	buf[n] = '\0';
-      }	while (ispunct(buf[0])); /* #, // are bad things for names to start with, in Stockholm format */
+      }	while (ispunct(buf[0]) ||                                // #, // are bad things for names to start with, in Stockholm format 
+               esl_keyhash_Store(kh, buf, n, NULL) == eslEDUP);  // Make sure names are unique.
       esl_sq_SetName(sqarr[i], buf);
 
       if (esl_rnd_Roll(r, 2) == 0) { /* 50% chance of an accession */
@@ -1821,6 +1824,7 @@ synthesize_testseqs(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, int maxL, int N, ESL_S
   *ret_sqarr = sqarr;
   free(buf);
   free(fq);
+  esl_keyhash_Destroy(kh);
   return;
 }
 
@@ -1843,7 +1847,7 @@ write_ugly_fasta(ESL_RANDOMNESS *r, FILE *fp, ESL_SQ *sq)
   if (sq->desc[0] != 0) fprintf(fp, " %s", sq->desc);
   fputc('\n', fp);
 
-  sq->doff = ftello(fp);
+  sq->doff = ftello(fp);             
   buf[60] = '\0';
   for (pos = 1; pos <= sq->n; pos+=60)
     {
@@ -1853,7 +1857,9 @@ write_ugly_fasta(ESL_RANDOMNESS *r, FILE *fp, ESL_SQ *sq)
       fputc('\n', fp);
     }
   while (esl_rnd_Roll(r, 10) == 0) fputc('\n', fp);
+
   sq->eoff = ftello(fp) - 1;
+  if (sq->n == 0) sq->doff = sq->eoff+1;  // Deals with an edge case, an L=0 seq with multiple newlines.
 }
 
 static void
@@ -1917,7 +1923,7 @@ make_ssi_index(ESL_ALPHABET *abc, const char *tmpfile, int format, char *ssifile
   rpl = sqfp->data.ascii.rpl;
 
   switch (mode) {
-  case 0:  if (bpl != 0)                     esl_fatal(msg); break; /* uglified: bpl should be invalid (rpl might not be) */
+  case 0:  if (bpl != 0)               esl_fatal(msg); break; /* uglified: bpl should be invalid (rpl might not be) */
   case 1:  if (rpl != 60 || bpl == 0)  esl_fatal(msg); break; /* spaced: bpl, rpl should be valid */
   case 2:  if (rpl != 60 || bpl != 61) esl_fatal(msg); break; /* normal: bpl, rpl should be valid, w/ bpl=rpl+1 */
   }
@@ -2107,8 +2113,9 @@ utest_fetch_subseq(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, 
   if (esl_sqfile_OpenSSI(sqfp, ssifile)                         != eslOK) esl_fatal(msg);
   while (ntest--) 
     {
-      i = esl_rnd_Roll(r, N);
+      i      = esl_rnd_Roll(r, N);
       source = sqarr[i]->name; 
+      if (sqarr[i]->L == 0) continue;   // Don't try to fetch from empty sequences.
       
       do {
 	start = esl_rnd_Roll(r, sqarr[i]->n) + 1;
@@ -2142,10 +2149,14 @@ utest_write(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, int format)
   FILE       *fp          = NULL;
   int         iterations  = 2;	/* 2: reposition and read again */
   int         i;
+  int         require_nonzero_length = FALSE;
+
+  if (esl_sqio_IsAlignment(format)) require_nonzero_length = TRUE;
 
   if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
   for (i = 0; i < N; i++)
-    esl_sqio_Write(fp, sqarr[i], format, FALSE);
+    if (! require_nonzero_length || sqarr[i]->L > 0)
+      esl_sqio_Write(fp, sqarr[i], format, FALSE);
   fclose(fp);
 
   if (esl_sqfile_OpenDigital(abc, tmpfile, format, NULL, &sqfp)           != eslOK)  esl_fatal(msg);
@@ -2153,6 +2164,7 @@ utest_write(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, int format)
     {
       for (i = 0; i < N; i++)
 	{
+          if (require_nonzero_length && sqarr[i]->L == 0) continue;
 	  if (esl_sqio_Read(sqfp, sq)                                     != eslOK)  esl_fatal(msg);
 	  if (strcmp(sqarr[i]->name,   sq->name)                          != 0)      esl_fatal(msg);
 	  if (sqarr[i]->L                                                 !=  sq->L) esl_fatal(msg);
@@ -2165,6 +2177,50 @@ utest_write(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, int format)
   esl_sq_Destroy(sq);
   remove(tmpfile);
 }
+
+
+/* utest_guess_mechanics()
+ * SRE H3/70, 8 Apr 17
+ *
+ * Related to EPN bugfix a61ee23: esl_sqfile_GuessAlphabet() segfaults
+ * when file contains 1 seq, file is >4096 bytes, seq is <4000
+ * residues, because of a fault in the mechanics of sqio with
+ * is_recording TRUE and is_linebased FALSE.
+ *
+ * This unit test exercises those mechanics, the original bug and
+ * more. It is *not* testing GuessAlphabet() itself. The DNA sequences
+ * in <sqarr> are so dirty, their alphabet cannot be reliably
+ * detected. This unit test is hunting segfaults, not even looking at
+ * the return status of _GuessAlphabet().
+ */
+static void
+utest_guess_mechanics(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N)
+{
+  char       *msg         = "sqio guess_mechanics unit test failure";
+  char        tmpfile[32];
+  FILE       *fp;          
+  ESL_SQFILE *sqfp;
+  int         i;
+  int         alphatype;
+
+  for (i = 0; i < N; i++)  // for each individual sequence in <sqarr>, one at a time:
+    {
+      strcpy(tmpfile, "esltmpXXXXXX");
+      if (esl_tmpfile_named(tmpfile, &fp)                      != eslOK) esl_fatal(msg);
+      if (esl_sqio_Write(fp, sqarr[i], eslSQFILE_FASTA, FALSE) != eslOK) esl_fatal(msg);
+      fclose(fp);
+
+      if (esl_sqfile_Open(tmpfile, eslSQFILE_FASTA, NULL, &sqfp) != eslOK) esl_fatal(msg);
+
+      esl_sqfile_GuessAlphabet(sqfp, &alphatype);
+      // generally, the sequences are so dirty, GuessAlphabet() won't make a guess.
+      // we're hunting segfaults in this utest.
+
+      esl_sqfile_Close(sqfp);
+      remove(tmpfile);
+    }
+}
+
 #endif /*eslSQIO_TESTDRIVE*/
 /*------------------ end, unit tests ----------------------------*/
 
@@ -2194,9 +2250,9 @@ utest_write(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, int format)
 static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
-  { "-L",        eslARG_INT,   "1000",  NULL, NULL,  NULL,  NULL, NULL, "max length of test sequences",                     0 },
+  { "-L",        eslARG_INT,   "8000",  NULL, NULL,  NULL,  NULL, NULL, "max length of test sequences",                     0 },
   { "-N",        eslARG_INT,    "100",  NULL, NULL,  NULL,  NULL, NULL, "number of test sequences",                         0 },
-  { "-s",        eslARG_INT,     "42",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
+  { "-s",        eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options]";
@@ -2217,6 +2273,9 @@ main(int argc, char **argv)
   char            ssifile[32];
   FILE           *fp       = NULL;
   char            c;
+
+  fprintf(stderr, "## %s\n", argv[0]);
+  fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(r));
 
   /* Create an array of sequences we'll use for all the tests */
   synthesize_testseqs(r, abc, maxL, N, &sqarr);
@@ -2250,13 +2309,16 @@ main(int argc, char **argv)
       remove(ssifile);
     }  
 
-  utest_write(abc, sqarr, N, eslMSAFILE_STOCKHOLM);
+  utest_guess_mechanics(abc, sqarr, N);
+  utest_write          (abc, sqarr, N, eslMSAFILE_STOCKHOLM);
 
   for (i = 0; i < N; i++) esl_sq_Destroy(sqarr[i]);
   free(sqarr);
   esl_randomness_Destroy(r);
   esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
+
+  fprintf(stderr, "#  status = ok\n");
   return 0;
 }
 #endif /*eslSQIO_TESTDRIVE*/
