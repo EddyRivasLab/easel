@@ -11,9 +11,10 @@
  *    8. Copyright and license information
  *   
  * Augmentations:
- *   alphabet:  adds support for digital MSAs
- *   keyhash:   speeds up Stockholm file input
- *   ssi:       enables indexed random access in a file of many MSAs
+ *   alphabet:         adds support for digital MSAs
+ *   keyhash:          speeds up Stockholm file input
+ *   random+randomseq: adds esl_msa_Sample() for tests
+ *   ssi:              enables indexed random access in a file of many MSAs
  */
 
 #include "esl_config.h"
@@ -37,6 +38,10 @@
 #endif
 #ifdef eslAUGMENT_SSI
 #include "esl_ssi.h"
+#endif
+#if defined (eslAUGMENT_RANDOM) && defined (eslAUGMENT_RANDOMSEQ)
+#include "esl_random.h"
+#include "esl_randomseq.h"
 #endif
 #include "esl_msa.h"
 #include "esl_msafile.h"
@@ -2688,14 +2693,14 @@ esl_msa_SymConvert(ESL_MSA *msa, const char *oldsyms, const char *newsyms)
   int     special;
 
   if (msa->flags & eslMSA_DIGITAL)
-    ESL_EXCEPTION(eslEINVAL, "can't SymConvert on digital mode alignment");
+    ESL_EXCEPTION(eslEINVAL, "can't SymConvert a digital mode alignment");
   if ((strlen(oldsyms) != strlen(newsyms)) && strlen(newsyms) != 1)
     ESL_EXCEPTION(eslEINVAL, "invalid newsyms/oldsyms pair");
 
   special = (strlen(newsyms) == 1 ? TRUE : FALSE);
 
-  for (apos = 0; apos < msa->alen; apos++)
-    for (idx = 0; idx < msa->nseq; idx++)
+  for (idx = 0; idx < msa->nseq; idx++)
+    for (apos = 0; apos < msa->alen; apos++)
       if ((sptr = strchr(oldsyms, msa->aseq[idx][apos])) != NULL)
 	msa->aseq[idx][apos] = (special ? *newsyms : newsyms[sptr-oldsyms]);
   return eslOK;
@@ -2994,6 +2999,57 @@ esl_msa_Hash(ESL_MSA *msa)
 }
 #endif /*eslAUGMENT_KEYHASH*/
 
+
+/* Function:  esl_msa_FlushLeftInserts()
+ * Synopsis:  Make all insertions flush left.
+ * Incept:    SRE, Tue Apr 25 17:04:47 2017 [Cambridge Dance Complex]
+ *
+ * Purpose:   Given an alignment <msa> with reference annotation
+ *            defining consensus (match) columns versus insertions,
+ *            make all the insertions flush left (i.e. in each
+ *            insertion position in the consensus, gaps follow
+ *            inserted residues).
+ *            
+ *            This makes profile multiple alignments unique w.r.t.
+ *            arbitrary gap ordering in insert regions, since profile
+ *            alignments don't specify any alignment of insertions.
+ *            A2M alignment format, for example, does not specify any
+ *            insert alignment.
+ *
+ * Returns:   <eslOK> on success. <msa> is altered, rearranging the
+ *            order of gaps and inserted residues.
+ *            
+ * Throws:    <eslEINVAL> if <msa> has no reference annotation.
+ *
+ * Note:      Written for <esl_msafile_a2m.c::utest_gibberish()>.
+ */
+int
+esl_msa_FlushLeftInserts(ESL_MSA *msa)
+{
+  int i, a, b;
+
+  ESL_DASSERT1(( msa->flags & eslMSA_DIGITAL ));
+  ESL_DASSERT1(( msa->abc != NULL ));
+  ESL_DASSERT1(( msa->ax  != NULL ));
+
+  if (! msa->rf) ESL_EXCEPTION(eslEINVAL, "msa has no reference annotation");
+
+  for (i = 0; i < msa->nseq; i++)
+    {
+      for (a = 1, b = 1; a <= msa->alen; a++)
+        {
+          if ( ! esl_abc_CIsGap(msa->abc, msa->rf[a-1]) )                      // if column[a] is consensus:
+            { for (; b < a; b++) msa->ax[i][b] = esl_abc_XGetGap(msa->abc); }  //   catch b up to a, adding gaps
+          else if (esl_abc_XIsGap(msa->abc, msa->ax[i][a]))                    // else if column[a] is nonconsensus, and ax[a] is a gap:
+            continue;                                                          //   do nothing, just advance to next a
+          msa->ax[i][b++] = msa->ax[i][a];                                     // copy a consensus position, or nonconsensus residue
+        }
+      for (; b <= msa->alen; b++) msa->ax[i][b] = esl_abc_XGetGap(msa->abc);   // finally, catch b up to end of alignment, adding gaps as needed.
+    }
+  return eslOK;
+}
+
+
 /*----------------- end of misc MSA functions -------------------*/
 
 
@@ -3206,6 +3262,97 @@ esl_msa_CompareOptional(ESL_MSA *a1, ESL_MSA *a2)
     }
   return eslOK;
 }
+
+#if defined (eslAUGMENT_RANDOM) && defined (eslAUGMENT_RANDOMSEQ) && defined (eslAUGMENT_ALPHABET)
+/* Function:  esl_msa_Sample()
+ * Synopsis:  Sample a random, ugly <ESL_MSA> for test purposes.
+ * Incept:    SRE, Fri Apr 21 09:51:45 2017 [Culprit 1, Strings Outro]
+ *
+ * Purpose:   Sample a random digital MSA with a random depth 1..<max_nseq>
+ *            random sequences and a random alignment length
+ *            1..<alen>. Return the MSA via <*ret_msa>. Caller is 
+ *            responsible for free'ing it with <esl_msa_Destroy()>.
+ * 
+ *            Currently generates aligned sequences <ax>, names
+ *            <sqname> plus a randomly generated reference/consensus
+ *            annotation line. Sets mandatory weights to default all
+ *            1.0. 
+ *
+ * Returns:   <eslOK> on success, and <*ret_msa> is the sampled MSA.
+ *
+ * Throws:    <eslEMEM> on allocation failure, and <*ret_msa> is <NULL>.
+ * 
+ * Notes:     I wrote this for A2M format unit tests, which is why it's
+ *            not sampling random weights (A2M doesn't store weights),
+ *            and why it samples a reference annotation line (A2M
+ *            always implies one). If you extend this for other
+ *            purposes, make sure you don't break the A2M format
+ *            tests.  We may even want to pull this out into its own
+ *            module, so we can write something a bit for flexible for
+ *            passing options to it, to control what it does and
+ *            doesn't generate.
+ */
+int
+esl_msa_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int max_nseq, int max_alen, ESL_MSA **ret_msa)
+{
+  ESL_MSA *msa    = NULL;
+  int      nseq   = 1 + esl_rnd_Roll(rng, max_nseq); // 1..max_nseq
+  int      alen   = 1 + esl_rnd_Roll(rng, max_alen); // 1..max_alen
+  int      maxn   = 30;
+  double   pgap   = 0.1;  
+  double   pdegen = 0.02;
+  double   pcons  = 0.7;
+  char    *buf    = NULL;
+  int      n;
+  int      i,pos;
+  int      status;
+
+  if ((msa = esl_msa_CreateDigital(abc, nseq, alen)) == NULL) { status = eslEMEM; goto ERROR; }
+
+  /* Randomized digital sequence alignment */
+  for (i = 0; i < nseq; i++) 
+    {
+      msa->ax[i][0] = msa->ax[i][alen+1] = eslDSQ_SENTINEL;
+      for (pos = 1; pos <= alen; pos++)
+        {
+          if      (esl_random(rng) < pgap)   msa->ax[i][pos] = abc->K;
+          else if (esl_random(rng) < pdegen) msa->ax[i][pos] = (abc->K+1) + esl_rnd_Roll(rng, abc->Kp-abc->K-3);
+          else                               msa->ax[i][pos] = esl_rnd_Roll(rng, abc->K);
+        }
+    }
+    
+  /* Random names */
+  ESL_ALLOC(buf, sizeof(char) * (maxn+1));
+  for (i = 0; i < nseq; i++)
+    {
+      do {
+        n = 1 + esl_rnd_Roll(rng, maxn);                    // 1..maxn
+        esl_rsq_Sample(rng, eslRSQ_SAMPLE_GRAPH, n, &buf);  // one word, no space
+      } while (ispunct(buf[0]));                            // #, // are bad things for names to start with
+      esl_msa_SetSeqName(msa, i, buf, n);
+    }
+  
+  /* Random reference/consensus line */
+  ESL_ALLOC(msa->rf, sizeof(char) * (alen+1));
+  for (pos = 0; pos < alen; pos++)
+    msa->rf[pos] = (esl_random(rng) < pcons ? 'x' : '.'); 
+  msa->rf[alen] = '\0';
+
+  /* Set weights to default 1.0 */
+  esl_msa_SetDefaultWeights(msa);
+
+  free(buf);
+  *ret_msa = msa;
+  return eslOK;
+
+ ERROR:
+  if (buf) free(buf);
+  esl_msa_Destroy(msa);
+  *ret_msa = NULL;
+  return status;
+}
+#endif // defined (eslAUGMENT_RANDOM) && defined (eslAUGMENT_RANDOMSEQ) && defined (eslAUGMENT_ALPHABET)
+
 /*---------------- end of debugging/development routines  -------------------*/
 
 
@@ -3641,6 +3788,24 @@ utest_ZeroLengthMSA(const char *tmpfile)
   free(useme);
 }
 
+static void
+utest_Sample(ESL_RANDOMNESS *rng)
+{
+#if defined (eslAUGMENT_RANDOM) && defined (eslAUGMENT_RANDOMSEQ) && defined (eslAUGMENT_ALPHABET)
+  char msg[] = "esl_msa sample unit test failed";
+  ESL_ALPHABET *abc = esl_alphabet_Create(eslAMINO);
+  ESL_MSA      *msa = NULL;
+  
+  if (esl_msa_Sample(rng, abc, 100, 100, &msa) != eslOK) esl_fatal(msg);
+  if (esl_msa_Validate(msa, NULL)              != eslOK) esl_fatal(msg);
+
+  esl_msa_Destroy(msa);
+  esl_alphabet_Destroy(abc);
+#endif
+  return;
+}
+
+
 #endif /*eslMSA_TESTDRIVE*/
 /*------------------------ end of unit tests --------------------------------*/
 
@@ -3649,43 +3814,40 @@ utest_ZeroLengthMSA(const char *tmpfile)
  * 7. Test driver
  *****************************************************************************/
 #ifdef eslMSA_TESTDRIVE
-/* 
- * gcc -g -Wall -o esl_msa_utest -I. -DeslMSA_TESTDRIVE -DAUGMENT_KEYHASH esl_msa.c esl_keyhash.c easel.c -lm
- * gcc -g -Wall -o esl_msa_utest -I. -DeslMSA_TESTDRIVE -DAUGMENT_ALPHABET esl_msa.c esl_alphabet.c easel.c -lm
- * gcc -g -Wall -o esl_msa_utest -I. -DeslMSA_TESTDRIVE -DAUGMENT_SSI esl_msa.c esl_ssi.c easel.c -lm
- * gcc -g -Wall -o esl_msa_utest -L. -I. -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
- * gcc -g -Wall -o esl_msa_utest -L. -I. -DeslTEST_THROWING -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
- * ./msa_utest
- */
 #include <stdlib.h>
 #include <stdio.h>
 
 #include "easel.h"
-#ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
-#endif
-#ifdef eslAUGMENT_KEYHASH
+#include "esl_getopts.h"
 #include "esl_keyhash.h"
-#endif
-#ifdef eslAUGMENT_RANDOM
 #include "esl_random.h"
-#endif
-#ifdef eslAUGMENT_SSI
+#include "esl_randomseq.h"
 #include "esl_ssi.h"
-#endif
 #include "esl_msa.h"
 
+static ESL_OPTIONS options[] = {
+   /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
+  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",             0},
+  {"-s",  eslARG_INT,       "0", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>",   0},
+  { 0,0,0,0,0,0,0,0,0,0},
+};
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for msa module";
 
 int
 main(int argc, char **argv)
 {
+  ESL_GETOPTS    *go           = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng          = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
   ESL_MSAFILE    *mfp          = NULL;
   ESL_MSA        *msa          = NULL;
   FILE           *fp           = NULL;
   char            tmpfile[16]  = "esltmpXXXXXX"; /* tmpfile template */
-#ifdef eslAUGMENT_ALPHABET
   ESL_ALPHABET   *abc          = NULL;
-#endif
+
+  fprintf(stderr, "## %s\n", argv[0]);
+  fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
 
 #ifdef eslTEST_THROWING
   esl_exception_SetHandler(&esl_nonfatal_handler);
@@ -3713,6 +3875,8 @@ main(int argc, char **argv)
   utest_NoGaps(tmpfile);
   utest_SymConvert(tmpfile);
   utest_ZeroLengthMSA(tmpfile);	/* this tests in digital mode too if eslAUGMENT_ALPHABET */
+  utest_Sample(rng);
+
   esl_msa_Destroy(msa);
 
 #ifdef eslAUGMENT_ALPHABET
@@ -3725,10 +3889,14 @@ main(int argc, char **argv)
   utest_Digitize(abc, tmpfile);
   utest_Textize(abc, tmpfile);
 
-  esl_alphabet_Destroy(abc);
   esl_msa_Destroy(msa);
 #endif
 
+  fprintf(stderr, "#  status = ok\n");
+
+  esl_alphabet_Destroy(abc);
+  esl_randomness_Destroy(rng);
+  esl_getopts_Destroy(go);
   remove(tmpfile);
   exit(0);	/* success  */
 }

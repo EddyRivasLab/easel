@@ -270,10 +270,10 @@ esl_msafile_a2m_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
     /* now for each sequence line... */
     thislen = 0;		/* count of lowercase, uppercase, and '-': w/o dots, on first pass */
     this_ncons = 0;		/* count of uppercase + '-': number of consensus columns in alignment: must match for all seqs */
-    if (nseq) {
-      for (cpos = 0; cpos <= ncons; cpos++) // A little tricksy. <this_nins> is allocated on first seq, when nseq=0. 
-	this_nins[cpos] = 0;                // cppcheck gets confused and erroneously calls "possible null pointer deference"; ignore it.
-    }
+    if (! this_nins)                      // Starting w/ first sequence, we need a wee initial alloc. Also nseq == 0, ncons == 0 ... 
+      ESL_ALLOC(this_nins, sizeof(int) * 1);
+    for (cpos = 0; cpos <= ncons; cpos++) // A little tricksy. On the first sequence, ncons == 0, so this initializes just [0].
+      this_nins[cpos] = 0;          
 
     while ( (status = esl_msafile_GetLine(afp, &p, &n)) == eslOK)
       {				
@@ -284,7 +284,7 @@ esl_msafile_a2m_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 	ESL_REALLOC(csflag[nseq], sizeof(char) * (thislen + n + 1)); /* might be an overalloc by a bit, depending on whitespace on line */
 	if (nseq == 0) {
 	  ESL_REALLOC(this_nins, sizeof(int) * (this_ncons + n + 1));
-	  for (cpos = this_ncons; cpos <= this_ncons+n; cpos++)
+	  for (cpos = this_ncons+1; cpos <= this_ncons+n; cpos++)    // DO NOT zero [this_ncons]; we may still be in an insert from prev line.
 	    this_nins[cpos] = 0;
 	}
 
@@ -310,6 +310,17 @@ esl_msafile_a2m_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
     /* status == OK: then *p == '>'. status == eslEOF: we're eof.  status == anything else: error */
     /* Finished reading a sequence record. */
     
+    /* Edge case: it's possible to have a sequence of length 0 residues in the alignment,
+     * and that causes the loop structure above to exit before allocating csflag[] or ax[]
+     */
+    if (thislen == 0)
+      {
+        ESL_ALLOC(csflag[nseq], sizeof(char) * 1);
+        csflag[nseq][0] = TRUE;                       // csflag[] needs a sentinel even if there's no seq; make one.
+        ESL_ALLOC(msa->ax[nseq], sizeof(ESL_DSQ) * 2);
+        msa->ax[nseq][0] = msa->ax[nseq][1] = eslDSQ_SENTINEL;
+      }
+
     if (nseq == 0) 
       {
 	ncons = this_ncons;
@@ -433,7 +444,7 @@ esl_msafile_a2m_Write(FILE *fp, const ESL_MSA *msa)
 		  if (msa->rf) is_consensus = (isalnum(msa->rf[pos]) ? TRUE : FALSE);
 		  else         is_consensus = (esl_abc_XIsResidue(msa->abc, msa->ax[0][pos+1]) ? TRUE : FALSE);
 
-		  if (sym == 'O') sym = esl_abc_XGetUnknown(msa->abc); /* watch out: O means "insert a FIM" in a2m format, not pyrrolysine */
+		  if (sym == 'O') sym = esl_abc_CGetUnknown(msa->abc); /* watch out: O means "insert a FIM" in a2m format, not pyrrolysine */
 		  
 		  if      (is_consensus) { buf[bpos++] = (is_residue ? toupper(sym) : '-'); }
 		  else if (is_residue)   { buf[bpos++] = tolower(sym); }
@@ -614,6 +625,29 @@ a2m_padding_text(ESL_MSA *msa, char **csflag, int *nins, int ncons)
  * 3. Unit tests.
  *****************************************************************/
 #ifdef eslMSAFILE_A2M_TESTDRIVE
+
+#include "esl_random.h"
+
+/* A2M is unable to write O (pyrrolysine) residues, because it uses O
+ * to mean a free insertion module. For unit tests that generate
+ * dirty/sampled MSAs, we have to avoid O's in those alignments.
+ */
+static void
+a2m_no_O(ESL_MSA *msa)
+{
+  int idx;
+  int apos;
+  int symO;
+  
+  ESL_DASSERT1(( msa->flags & eslMSA_DIGITAL ));
+  ESL_DASSERT1(( msa->abc != NULL ));
+
+  symO = esl_abc_DigitizeSymbol(msa->abc, 'O');
+
+  for (idx = 0; idx < msa->nseq; idx++)
+    for (apos = 1; apos <= msa->alen; apos++)
+      if (msa->ax[idx][apos] == symO) msa->ax[idx][apos] = esl_abc_XGetUnknown(msa->abc);
+}
 
 static void
 utest_write_good1(FILE *ofp, int *ret_alphatype, int *ret_nseq, int *ret_alen)
@@ -848,6 +882,39 @@ read_test_msas_text(char *a2mfile, char *stkfile)
   esl_msa_Destroy(msa4);
 }
 
+static void
+utest_gibberish(ESL_RANDOMNESS *rng)
+{
+  char          msg[]       = "esl_msafile_a2m gibberish test failed";
+  char          a2mfile[32] = "esltmpXXXXXX";
+  FILE         *fp          = NULL;
+  ESL_ALPHABET *abc         = esl_alphabet_Create(eslAMINO);
+  ESL_MSA      *msa         = NULL;
+  ESL_MSAFILE  *msafp       = NULL;
+  ESL_MSA      *msa2        = NULL;
+  
+  if ( esl_msa_Sample(rng, abc, 100, 100, &msa) != eslOK) esl_fatal(msg);  
+  if ( esl_msa_Validate(msa, NULL)              != eslOK) esl_fatal(msg);
+  if ( esl_msa_FlushLeftInserts(msa)            != eslOK) esl_fatal(msg);  // Reading A2M back in will flush inserts left.
+  if ( esl_msa_MinimGaps(msa, NULL, NULL, TRUE) != eslOK) esl_fatal(msg);  // Reading A2M back in will minimize gaps.
+  a2m_no_O(msa);                                                           // A2M doesn't allow O residues.
+  ESL_DASSERT1(( !(msa->flags & eslMSA_HASWGTS) ));                        // A2M can't store weights.
+  ESL_DASSERT1(( msa->rf != NULL ));                                       // A2M always implies consensus annotation.
+
+  if ( esl_tmpfile_named(a2mfile, &fp)          != eslOK) esl_fatal(msg);
+  if ( esl_msafile_a2m_Write(fp, msa)           != eslOK) esl_fatal(msg);
+  fclose(fp);
+  
+  if ( esl_msafile_Open(&abc, a2mfile, NULL, eslMSAFILE_A2M, NULL, &msafp) != eslOK) esl_fatal(msg);
+  if ( esl_msafile_a2m_Read(msafp, &msa2)                                  != eslOK) esl_fatal(msg);
+  if ( esl_msa_Validate(msa2, NULL)                                        != eslOK) esl_fatal(msg);
+  if ( esl_msa_Compare(msa, msa2)                                          != eslOK) esl_fatal(msg);
+  esl_msafile_Close(msafp);
+
+  esl_msa_Destroy(msa);
+  esl_msa_Destroy(msa2);
+  esl_alphabet_Destroy(abc);
+}
 #endif /*eslMSAFILE_A2M_TESTDRIVE*/
 /*---------------------- end, unit tests ------------------------*/
 
@@ -872,8 +939,9 @@ read_test_msas_text(char *a2mfile, char *stkfile)
 #include "esl_msafile_a2m.h"
 
 static ESL_OPTIONS options[] = {
-   /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
+   /* name  type         default  env  range togs  reqs  incomp  help                        docgrp */
   {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                            0},
+  {"-s",  eslARG_INT,       "0", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>",   0},
   { 0,0,0,0,0,0,0,0,0,0},
 };
 static char usage[]  = "[-options]";
@@ -884,8 +952,9 @@ main(int argc, char **argv)
 {
   char            msg[]        = "a2m MSA i/o module test driver failed";
   ESL_GETOPTS    *go           = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
-  char            a2mfile[32] = "esltmpa2mXXXXXX";
-  char            stkfile[32] = "esltmpstkXXXXXX";
+  ESL_RANDOMNESS *rng          = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+  char            a2mfile[32]  = "esltmpa2mXXXXXX";
+  char            stkfile[32]  = "esltmpstkXXXXXX";
   FILE           *a2mfp, *stkfp;
   int             testnumber;
   int             ngoodtests = 2;
@@ -894,6 +963,9 @@ main(int argc, char **argv)
   int             expected_alphatype;
   int             expected_nseq;
   int             expected_alen;
+
+  fprintf(stderr, "## %s\n", argv[0]);
+  fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
 
   if ( esl_tmpfile_named(a2mfile, &a2mfp) != eslOK) esl_fatal(msg);
   if ( esl_tmpfile_named(stkfile, &stkfp) != eslOK) esl_fatal(msg);
@@ -918,8 +990,13 @@ main(int argc, char **argv)
       remove(tmpfile);
     }
 
+  utest_gibberish(rng);
+
+  fprintf(stderr, "#  status = ok\n");
+
   remove(a2mfile);
   remove(stkfile);
+  esl_randomness_Destroy(rng);
   esl_getopts_Destroy(go);
   return 0;
 }

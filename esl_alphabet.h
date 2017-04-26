@@ -118,10 +118,10 @@ extern int    esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int64_
 #define esl_abc_CIsUnknown(a, c)     ((a)->inmap[(int)c] == (a)->Kp-3)
 #define esl_abc_CIsNonresidue(a, c)  ((a)->inmap[(int)c] == (a)->Kp-2)
 #define esl_abc_CIsMissing(a, c)     ((a)->inmap[(int)c] == (a)->Kp-1)
-#define esl_abc_CGetGap(a)           ((a)->sym[(int)(a)->K])
-#define esl_abc_CGetUnknown(a)       ((a)->sym[(int)(a)->Kp-3])
-#define esl_abc_CGetNonresidue(a)    ((a)->sym[(int)(a)->Kp-2])
-#define esl_abc_CGetMissing(a)       ((a)->sym[(int)(a)->Kp-1])
+#define esl_abc_CGetGap(a)           ((a)->sym[(a)->K])
+#define esl_abc_CGetUnknown(a)       ((a)->sym[(a)->Kp-3])
+#define esl_abc_CGetNonresidue(a)    ((a)->sym[(a)->Kp-2])
+#define esl_abc_CGetMissing(a)       ((a)->sym[(a)->Kp-1])
 
 #endif /*eslALPHABET_INCLUDED*/
 /*****************************************************************

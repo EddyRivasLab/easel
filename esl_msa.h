@@ -7,6 +7,8 @@
 
 #include "esl_alphabet.h"	/* digital alphabets                         */
 #include "esl_keyhash.h"	/* string hashes, for mapping uniq seq names */
+#include "esl_random.h"
+#include "esl_randomseq.h"
 #include "esl_ssi.h"		/* indexes of large flatfiles on disk        */
 
 /* The following constants define the Pfam/Rfam cutoff set we propagate
@@ -193,6 +195,7 @@ extern int esl_msa_ReverseComplement(ESL_MSA *msa);
 #ifdef eslAUGMENT_KEYHASH
 extern int esl_msa_Hash(ESL_MSA *msa);
 #endif
+extern int esl_msa_FlushLeftInserts(ESL_MSA *msa);
 
 /* 5. Debugging, testing, development */
 extern int      esl_msa_Validate(const ESL_MSA *msa, char *errmsg);
@@ -200,6 +203,9 @@ extern ESL_MSA *esl_msa_CreateFromString(const char *s, int fmt);
 extern int      esl_msa_Compare         (ESL_MSA *a1, ESL_MSA *a2);
 extern int      esl_msa_CompareMandatory(ESL_MSA *a1, ESL_MSA *a2);
 extern int      esl_msa_CompareOptional (ESL_MSA *a1, ESL_MSA *a2);
+#if defined (eslAUGMENT_RANDOM) && defined (eslAUGMENT_RANDOMSEQ) && defined (eslAUGMENT_ALPHABET)
+extern int      esl_msa_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int max_nseq, int max_alen, ESL_MSA **ret_msa);
+#endif
 #endif /*eslMSA_INCLUDED*/
 
 
