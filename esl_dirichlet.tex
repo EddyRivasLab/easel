@@ -27,11 +27,11 @@ The API consists of the following functions:
 \ccode{esl\_dirichlet\_LogProbData()}       & $\log P( \mbox{count vector} \mid \mbox{mixture Dirichlet}$.\\
 \ccode{esl\_dirichlet\_LogProbProbs()}      & $\log P( \mbox{prob vector} \mid \mbox{mixture Dirichlet}$.\\
 \ccode{esl\_dirichlet\_LogGamma()}          & $\log \Gamma(x)$.\\
-   \multicolumn{2}{c}{\textbf{Sampling code (requires augmentation w/ random)}}\\
+   \multicolumn{2}{c}{\textbf{Sampling code}}\\
 \ccode{esl\_dirichlet\_\{D,F\}Sample()}            & Sample a probability vector from a Dirichlet.\\
 \ccode{esl\_dirichlet\_\{D,F\}SampleUniform()}     & Sample a probability vector uniformly.\\
 \ccode{esl\_dirichlet\_SampleBeta()}        & Sample from Beta$(\theta_1, \theta_2$).\\
-   \multicolumn{2}{c}{\textbf{Input from file (requires augmentation w/ fileparser)}}\\
+   \multicolumn{2}{c}{\textbf{Input from file}}\\
 \ccode{esl\_mixdchlet\_Read()}              & Input of a mixture Dirichlet from a file.\\ \hline
 \end{tabular}
 
@@ -53,11 +53,5 @@ object. The data fields inside this structure are:
 \input{cexcerpts/dirichlet_mixdchlet}
 
 
-\subsection{Augmentations}
 
-The \ccode{esl\_dirichlet\_Sample*()} functions are only available
-when the module is augmented with the \ccode{random} module.
-
-The \ccode{esl\_dirichlet\_Read()} function is only available when the
-module is augmented with the \ccode{fileparser} module.
 

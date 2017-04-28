@@ -8,9 +8,11 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
-#include "esl_hmm.h"
 #include "esl_random.h"
 #include "esl_vectorops.h"
+
+#include "esl_hmm.h"
+
 
 /* Function:  esl_hmm_Create()
  * Synopsis:  Allocates a new HMM.

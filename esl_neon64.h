@@ -9,11 +9,11 @@
  *    3. Inlined utilities for float vectors (4 floats in esl_neon_128f_t)
  *    4. Inlined utilities for epu8 vectors (16 uchars in esl_neon_128i_t)
  */
-
-#ifdef  HAVE_NEON64
 #ifndef eslNEON64_INCLUDED
 #define eslNEON64_INCLUDED
+#include "esl_config.h"
 
+#ifdef  HAVE_NEON64
 #include "easel.h"
 #include <stdio.h>
 #include <arm_neon.h>
@@ -187,5 +187,6 @@ esl_neon64_hmax_s16(esl_neon_128i_t a)
   return vmaxvq_s16(a.s16x8);
 }
 
-#endif /* peslINCLUDED */
 #endif /* HAVE_NEON64 */
+#endif /* eslNEON64_INCLUDED */
+

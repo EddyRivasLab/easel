@@ -1482,10 +1482,6 @@ esl_str_GetMaxWidth(char **s, int n)
  *
  * Purpose:   Returns TRUE if <filename> exists and is readable, else FALSE.
  *     
- * Note:      Testing a read-only fopen() is the only portable ANSI C     
- *            I'm aware of. We could also use a POSIX func here, since
- *            we have a ESL_POSIX_AUGMENTATION flag in the code.
- *            
  * Xref:      squid's FileExists().
  */
 int

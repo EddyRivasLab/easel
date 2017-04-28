@@ -23,7 +23,6 @@
  */
 #include "esl_config.h"
 #ifdef HAVE_SSE2
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>

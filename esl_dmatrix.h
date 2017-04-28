@@ -6,6 +6,7 @@
  */
 #ifndef eslDMATRIX_INCLUDED
 #define eslDMATRIX_INCLUDED
+#include "esl_config.h"
 
 #include <stdio.h>
 

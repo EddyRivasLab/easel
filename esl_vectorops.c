@@ -18,6 +18,8 @@
 #include <float.h>
 
 #include "easel.h"
+#include "esl_random.h"
+
 #include "esl_vectorops.h"
 
 /* Function:  esl_vec_DSet()
@@ -1284,8 +1286,8 @@ esl_vec_FLogValidate(float *vec, int n, float tol, char *errbuf)
   return eslOK;
 }
 
-#ifdef eslAUGMENT_RANDOM
-#include "esl_random.h"
+
+
 
 /* Function:  esl_vec_DShuffle()
  * Synopsis:  Shuffle a vector, in place.
@@ -1335,7 +1337,6 @@ esl_vec_IShuffle(ESL_RANDOMNESS *r, int *v, int n)
     }
   return eslOK;
 }
-#endif /*eslAUGMENT_RANDOM*/
 
 
 /*****************************************************************

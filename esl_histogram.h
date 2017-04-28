@@ -6,6 +6,7 @@
  */
 #ifndef eslHISTOGRAM_INCLUDED
 #define eslHISTOGRAM_INCLUDED
+#include "esl_config.h"
 
 #include <math.h>   /* floor() is in one of the macros */
 

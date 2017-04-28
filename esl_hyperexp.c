@@ -5,10 +5,10 @@
  *   2. Evaluating densities and distributions
  *   3. Generic API routines: for general interface w/ histogram module
  *   4. Dumping plots for files
- *   5. Sampling                    (augmentation: random)
- *   6. File input                  (augmentation: fileparser)
- *   7. ML fitting to complete data (augmentation: minimizer)
- *   8. ML fitting to binned data   (augmentation: histogram, minimizer)
+ *   5. Sampling                   
+ *   6. File input                 
+ *   7. ML fitting to complete data
+ *   8. ML fitting to binned data  
  *   9. Test driver
  *  10. Example
  *  11. Copyright and license information
@@ -29,23 +29,15 @@
 #include <math.h>
 
 #include "easel.h"
+#include "esl_exponential.h"
+#include "esl_fileparser.h"
+#include "esl_histogram.h"
+#include "esl_minimizer.h"
+#include "esl_random.h"
 #include "esl_stats.h"
 #include "esl_vectorops.h"
-#include "esl_exponential.h"
-#include "esl_hyperexp.h"
 
-#ifdef eslAUGMENT_RANDOM
-#include "esl_random.h"
-#endif
-#ifdef eslAUGMENT_HISTOGRAM
-#include "esl_histogram.h"
-#endif
-#ifdef eslAUGMENT_MINIMIZER
-#include "esl_minimizer.h"
-#endif
-#ifdef eslAUGMENT_FILEPARSER
-#include "esl_fileparser.h"
-#endif
+#include "esl_hyperexp.h"
 
 /****************************************************************************
  *# 1. The ESL_HYPEREXP object
@@ -512,9 +504,9 @@ esl_hxp_Plot(FILE *fp, ESL_HYPEREXP *h,
 
 
 /****************************************************************************
- * 5. Sampling (requires augmentation w/ random module)
+ * 5. Sampling
  ****************************************************************************/ 
-#ifdef eslAUGMENT_RANDOM
+
 /* Function:  esl_hxp_Sample()
  *
  * Purpose:   Sample a random variate x from a hyperexponential <h>, 
@@ -527,7 +519,7 @@ esl_hxp_Sample(ESL_RANDOMNESS *r, ESL_HYPEREXP *h)
   k = esl_rnd_DChoose(r, h->q, h->K);
   return esl_exp_Sample(r, h->mu, h->lambda[k]);
 }
-#endif /*eslAUGMENT_RANDOM*/
+
 /*--------------------------- end sampling ---------------------------------*/
 
 
@@ -535,7 +527,7 @@ esl_hxp_Sample(ESL_RANDOMNESS *r, ESL_HYPEREXP *h)
 /****************************************************************************
  * 6. File input (mixture models are a little too complex to set on commandline)
  ****************************************************************************/ 
-#ifdef eslAUGMENT_FILEPARSER
+
 /* Function:  esl_hyperexp_Read()
  *
  * Purpose:   Reads hyperexponential parameters from an open <e>.
@@ -662,10 +654,6 @@ esl_hyperexp_ReadFile(char *filename, ESL_HYPEREXP **ret_hxp)
   fclose(fp);
   return status;
 }
-#endif /*eslAUGMENT_FILEPARSER*/
-
-
-
 
 
 
@@ -673,7 +661,7 @@ esl_hyperexp_ReadFile(char *filename, ESL_HYPEREXP **ret_hxp)
 /****************************************************************************
  * 7. ML fitting to complete data
  ****************************************************************************/ 
-#ifdef eslAUGMENT_MINIMIZER
+
 /* This structure is used to sneak the data into minimizer's generic
  * (void *) API for all aux data
  */
@@ -933,7 +921,7 @@ esl_hxp_FitComplete(double *x, int n, ESL_HYPEREXP *h)
 /****************************************************************************
  * 8. Maximum likelihood fitting, complete binned data         xref STL9/143-144
  ****************************************************************************/ 
-#ifdef eslAUGMENT_HISTOGRAM
+
 /* minimizer API only allows us one generic void ptr to pass
  * our data through:
  */
@@ -1153,8 +1141,6 @@ esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
   if (wrk != NULL) free(wrk);
   return status;
 }
-#endif /*eslAUGMENT_HISTOGRAM*/
-#endif /*eslAUGMENT_MINIMIZER*/
 /*--------------------------- end fitting ----------------------------------*/
 
 
@@ -1343,13 +1329,6 @@ main(int argc, char **argv)
  ****************************************************************************/ 
 #ifdef eslHYPEREXP_EXAMPLE
 /*::cexcerpt::hyperexp_example::begin::*/
-/* compile: 
-   gcc -g -Wall -I. -o example -DeslHYPEREXP_EXAMPLE\
-     -DeslAUGMENT_HISTOGRAM -DeslAUGMENT_RANDOM -DeslAUGMENT_MINIMIZER\
-      esl_hyperexp.c esl_exponential.c esl_histogram.c esl_random.c esl_minimizer.c\
-       esl_stats.c esl_vectorops.c easel.c -lm
- * run:     ./example
- */
 #include <stdio.h>
 #include "easel.h"
 #include "esl_random.h"

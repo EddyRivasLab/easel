@@ -10,9 +10,10 @@
  *    2. Inlined utilities for ps vectors (4 floats in __m128)
  *    3. Inlined utilities for epu8 vectors (16 uchars in __m128i)
  */
-#ifdef HAVE_SSE2
 #ifndef eslSSE_INCLUDED
 #define eslSSE_INCLUDED
+#include "esl_config.h"
+#ifdef HAVE_SSE2
 
 #include "easel.h"
 
@@ -231,8 +232,9 @@ esl_sse_hmax_epi16(__m128i a)
 }
 
 
-#endif /*eslSSE_INCLUDED*/
 #endif /*HAVE_SSE2*/
+#endif /*eslSSE_INCLUDED*/
+
 /*****************************************************************
  * @LICENSE@
  *

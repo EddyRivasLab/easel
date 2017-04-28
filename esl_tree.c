@@ -19,11 +19,12 @@
 #include <assert.h>
 
 #include "easel.h"
-#include "esl_tree.h"
 #include "esl_dmatrix.h"
+#include "esl_random.h"
 #include "esl_stack.h"
 #include "esl_vectorops.h"
-#include "esl_random.h"
+
+#include "esl_tree.h"
 
 /*****************************************************************
  *# 1. The ESL_TREE object.

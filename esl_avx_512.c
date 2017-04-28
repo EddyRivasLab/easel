@@ -1,5 +1,7 @@
-#include <stdio.h>
+#include "esl_config.h"
+
 #ifdef HAVE_AVX512
+#include <stdio.h>
 #include <immintrin.h>		/* AVX2 */
 #include "esl_avx_512.h"
 

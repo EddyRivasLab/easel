@@ -18,8 +18,9 @@
 
 #include "easel.h"
 #include "esl_stats.h"
-#include "esl_histogram.h"
 #include "esl_vectorops.h"
+
+#include "esl_histogram.h"
 
 static int esl_histogram_sort(ESL_HISTOGRAM *h);
 

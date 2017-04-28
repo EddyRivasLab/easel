@@ -5,8 +5,8 @@
  *   2. Evaluating densities and distributions
  *   3. Generic API routines: for general interface w/ histogram module
  *   4. Dumping plots to xmgrace XY format
- *   5. Sampling                    (augmentation: random)
- *   6. ML fitting to complete data (augmentation: minimizer)
+ *   5. Sampling                    
+ *   6. ML fitting to complete data 
  *   7. Example
  *   8. Copyright and license information
  *   
@@ -26,19 +26,14 @@
 #include <assert.h>
 
 #include "easel.h"
-#include "esl_vectorops.h"
-#include "esl_stats.h"
-#include "esl_gev.h"
-#include "esl_mixgev.h"
-
-#ifdef eslAUGMENT_RANDOM
 #include "esl_dirichlet.h"  /* for uniform sampling of a probability vector */
-#include "esl_random.h"
-#endif 
-
-#ifdef eslAUGMENT_MINIMIZER
+#include "esl_gev.h"
 #include "esl_minimizer.h"
-#endif
+#include "esl_random.h"
+#include "esl_stats.h"
+#include "esl_vectorops.h"
+
+#include "esl_mixgev.h"
 
 
 /****************************************************************************
@@ -429,9 +424,8 @@ esl_mixgev_Plot(FILE *fp, ESL_MIXGEV *mg,
 
 
 /****************************************************************************
- * 5. Sampling (requires augmentation w/ random module)
+ * 5. Sampling 
  ****************************************************************************/ 
-#ifdef eslAUGMENT_RANDOM
 
 /* Function:  esl_mixgev_Sample()
  *
@@ -446,7 +440,6 @@ esl_mixgev_Sample(ESL_RANDOMNESS *r, ESL_MIXGEV *mg)
   return esl_gev_Sample(r, mg->mu[k], mg->lambda[k], mg->alpha[k]);
 }
 
-#endif /*eslAUGMENT_RANDOM*/
 /*--------------------------- end sampling ---------------------------------*/
 
 
@@ -455,9 +448,8 @@ esl_mixgev_Sample(ESL_RANDOMNESS *r, ESL_MIXGEV *mg)
 
 
 /****************************************************************************
- * 6. ML fitting to complete data (augmentation: minimizer)
+ * 6. ML fitting to complete data 
  ****************************************************************************/ 
-#ifdef eslAUGMENT_MINIMIZER
 
 struct mixgev_data {
   double *x;
@@ -706,7 +698,6 @@ esl_mixgev_FitComplete(double *x, int n, ESL_MIXGEV *mg)
   if (wrk != NULL) free(wrk);
   return status;
 }
-#endif /*eslAUGMENT_MINIMIZER*/
 /*--------------------------- end fitting ----------------------------------*/
 
 

@@ -6,10 +6,9 @@
  */
 #ifndef eslMIXGEV_INCLUDED
 #define eslMIXGEV_INCLUDED
-
-#ifdef eslAUGMENT_RANDOM
+#include "esl_config.h"
+#include <stdio.h>
 #include "esl_random.h"
-#endif
 
 typedef struct {
   double *q;			/* mixture coefficients      [0..K-1]*/
@@ -45,16 +44,11 @@ extern int         esl_mixgev_Plot(FILE *fp, ESL_MIXGEV *mg,
 				   double (*func)(double x, ESL_MIXGEV *mg), 
 				   double xmin, double xmax, double xstep);
 
-#ifdef eslAUGMENT_RANDOM
 extern double      esl_mixgev_Sample(ESL_RANDOMNESS *r, ESL_MIXGEV *mg);
 extern int         esl_mixgev_FitGuess(ESL_RANDOMNESS *r, double *x, int n, 
 				       ESL_MIXGEV *mg);
-#endif /*eslAUGMENT_RANDOM*/
 
-
-#ifdef eslAUGMENT_MINIMIZER
 extern int         esl_mixgev_FitComplete(double *x, int n, ESL_MIXGEV *mg);
-#endif /*eslAUGMENT_MINIMIZER*/
 
 
 #endif /*eslMIXGEV_INCLUDED*/

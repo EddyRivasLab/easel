@@ -17,17 +17,14 @@
 #include <string.h>
 
 #include "easel.h"
-#ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
-#endif
 #include "esl_mem.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
+
 #include "esl_msafile_a2m.h"
 
-#ifdef eslAUGMENT_ALPHABET
 static int a2m_padding_digital(ESL_MSA *msa, char **csflag, int *nins, int ncons);
-#endif
 static int a2m_padding_text   (ESL_MSA *msa, char **csflag, int *nins, int ncons);
 
 /*****************************************************************
@@ -66,7 +63,6 @@ esl_msafile_a2m_SetInmap(ESL_MSAFILE *afp)
 {
   int sym;
 
-#ifdef eslAUGMENT_ALPHABET
   if (afp->abc)
     {
       for (sym = 0; sym < 128; sym++) 
@@ -76,7 +72,7 @@ esl_msafile_a2m_SetInmap(ESL_MSAFILE *afp)
       afp->inmap['*']  = eslDSQ_ILLEGAL;
       afp->inmap['~']  = eslDSQ_ILLEGAL;
     }
-#endif
+
   if (! afp->abc)
     {
       for (sym = 1; sym < 128; sym++) 
@@ -238,9 +234,7 @@ esl_msafile_a2m_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 
   afp->errmsg[0] = '\0';	
 
-#ifdef eslAUGMENT_ALPHABET
   if (afp->abc   &&  (msa = esl_msa_CreateDigital(afp->abc, 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
-#endif
   if (! afp->abc &&  (msa = esl_msa_Create(                 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
   ESL_ALLOC(csflag, sizeof(char *) * msa->sqalloc);
   for (idx = 0; idx < msa->sqalloc; idx++) csflag[idx] = NULL; 
@@ -298,9 +292,7 @@ esl_msafile_a2m_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 	  }
 	csflag[nseq][spos] = TRUE; /* need a sentinel, because of the way the padding functions work */
 
-#ifdef eslAUGMENT_ALPHABET
 	if (msa->abc)   { status = esl_abc_dsqcat(afp->inmap, &(msa->ax[nseq]),   &thislen, p, n); } 
-#endif
 	if (! msa->abc) { status = esl_strmapcat (afp->inmap, &(msa->aseq[nseq]), &thislen, p, n); }
 	if (status == eslEINVAL)   ESL_XFAIL(eslEFORMAT, afp->errmsg, "one or more invalid sequence characters");
 	else if (status != eslOK)  goto ERROR;
@@ -343,9 +335,7 @@ esl_msafile_a2m_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
    * This is sufficient information to reconstruct each aligned sequence.
    */
   msa->nseq = nseq;
-#ifdef eslAUGMENT_ALPHABET
   if (msa->abc)  { if ((status = a2m_padding_digital(msa, csflag, nins, ncons)) != eslOK) goto ERROR; }
-#endif
   if (!msa->abc) { if ((status = a2m_padding_text   (msa, csflag, nins, ncons)) != eslOK) goto ERROR; }
 
   if (( status = esl_msa_SetDefaultWeights(msa)) != eslOK) goto ERROR;
@@ -431,7 +421,6 @@ esl_msafile_a2m_Write(FILE *fp, const ESL_MSA *msa)
       if (msa->sqdesc != NULL && msa->sqdesc[i] != NULL) { if (fprintf(fp, " %s", msa->sqdesc[i]) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m msa file write failed"); }
       if (fputc('\n', fp)                                                                         < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m msa file write failed"); 
 
-#ifdef eslAUGMENT_ALPHABET
       if (msa->abc)
 	{
 	  pos = 0;
@@ -454,7 +443,7 @@ esl_msafile_a2m_Write(FILE *fp, const ESL_MSA *msa)
 	      if (bpos) { if (fprintf(fp, "%s\n", buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m msa file write failed");}
 	    }
 	}
-#endif
+
       if (! msa->abc)
 	{
 	  pos = 0;
@@ -516,7 +505,6 @@ esl_msafile_a2m_Write(FILE *fp, const ESL_MSA *msa)
  *  all msa->ax[]/msa->aseq are now aligned digital sequences         
  *  msa->rf is set
  */
-#ifdef eslAUGMENT_ALPHABET
 static int
 a2m_padding_digital(ESL_MSA *msa, char **csflag, int *nins, int ncons)
 {
@@ -569,7 +557,7 @@ a2m_padding_digital(ESL_MSA *msa, char **csflag, int *nins, int ncons)
   if (ax) free(ax);
   return status;
 }
-#endif /*eslAUGMENT_ALPHABET*/
+
 
 static int
 a2m_padding_text(ESL_MSA *msa, char **csflag, int *nins, int ncons)

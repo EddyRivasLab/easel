@@ -13,6 +13,7 @@
 #ifdef  HAVE_NEON
 #ifndef eslNEON_INCLUDED
 #define eslNEON_INCLUDED
+#include "esl_config.h"
 
 #include "easel.h"
 #include <stdio.h>

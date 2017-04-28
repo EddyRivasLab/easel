@@ -17,27 +17,24 @@
  *   :: add memory-efficient ESL_MSA w/ API
  *   :: add space-efficient MSA file format
  */
+#include "esl_config.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 
+#include "easel.h"
+#include "esl_alphabet.h"	/* digital alphabet                                                   */
+#include "esl_keyhash.h"	/* string hashes, for mapping unique seq names                        */
 #include "esl_msa.h"		/* ESL_MSA structure                                                  */
 #include "esl_msafile.h"	/* preferred msafile interface, inc. fmt codes shared w/ ESL_MSAFILE2 */
-#include "esl_msafile2.h"	/* legacy ESL_MSAFILE2 interface                                      */
+#include "esl_ssi.h"        	/* indexing large flatfiles on disk                                   */
 #include "esl_vectorops.h"
 #include "esl_wuss.h"
 
-#ifdef eslAUGMENT_ALPHABET
-#include "esl_alphabet.h"	/* digital alphabet                                                   */
-#endif
-#ifdef eslAUGMENT_KEYHASH
-#include "esl_keyhash.h"	/* string hashes, for mapping unique seq names                        */
-#endif
-#ifdef eslAUGMENT_SSI
-#include "esl_ssi.h"        	/* indexing large flatfiles on disk                                   */
-#endif
+#include "esl_msafile2.h"
+
 
 static int     msafile2_getline(ESL_MSAFILE2 *afp);
 static int     is_blankline(char *s);
@@ -106,19 +103,14 @@ esl_msafile2_Close(ESL_MSAFILE2 *afp)
   if (afp->do_gzip && afp->f != NULL)    pclose(afp->f);
 #endif
   if (!afp->do_gzip && ! afp->do_stdin && afp->f != NULL) fclose(afp->f);
-  if (afp->fname != NULL) free(afp->fname);
-  if (afp->buf  != NULL)  free(afp->buf);
-#ifdef eslAUGMENT_SSI
-  if (afp->ssi  != NULL)  esl_ssi_Close(afp->ssi); 
-#endif /* eslAUGMENT_SSI*/
-  if (afp->msa_cache != NULL) esl_msa_Destroy(afp->msa_cache);
+  if (afp->fname)     free(afp->fname);
+  if (afp->buf)       free(afp->buf);
+  if (afp->ssi)       esl_ssi_Close(afp->ssi); 
+  if (afp->msa_cache) esl_msa_Destroy(afp->msa_cache);
   free(afp);
 }
 
 
-
-
-#ifdef eslAUGMENT_ALPHABET
 /* Function:  esl_msafile2_OpenDigital()
  * Synopsis:  Open an msa file for digital input.
  *
@@ -164,7 +156,6 @@ esl_msafile2_OpenDigital(const ESL_ALPHABET *abc, const char *filename,
   *ret_msafp = msafp;
   return eslOK;
 }
-#endif /*eslAUGMENT_ALPHABET*/
 
 /* msafile2_open():
  * this is the routine that actually opens an ESL_MSAFILE2;
@@ -229,7 +220,6 @@ msafile2_open(const char *filename, const char *env, ESL_MSAFILE2 **ret_afp)
       /* When we open a file, it may be either in the current
        * directory, or in the directory indicated by the env
        * argument - and we construct an SSI filename accordingly.
-       * (Whether or not we're SSI augmented, in fact, for simplicity.)
        */
       if ((afp->f = fopen(filename, "r")) != NULL)
 	{
@@ -247,15 +237,12 @@ msafile2_open(const char *filename, const char *env, ESL_MSAFILE2 **ret_afp)
 	{ status = eslENOTFOUND; goto ERROR;}
     }
 
-#ifdef eslAUGMENT_SSI
-  /* If augmented by SSI indexing:
-   * Open the SSI index file. If it doesn't exist, or
+  /* Open the SSI index file. If it doesn't exist, or
    * it's corrupt, or some error happens, afp->ssi stays NULL.
    * We should warn, probably, or provide some way for caller to 
    * to know that we've opened the index successfully or not.
    */
   esl_ssi_Open(ssifile, &(afp->ssi));
-#endif
 
   if (envfile != NULL) free(envfile);
   if (ssifile != NULL) free(ssifile);
@@ -453,10 +440,8 @@ esl_msafile2_ReadInfoPfam(ESL_MSAFILE2 *afp, FILE *listfp, ESL_ALPHABET *abc, in
    * We won't store any sequence information, so initial blocksize is
    * 0 seqs of 0 length.
    */
-#ifdef eslAUGMENT_ALPHABET
   if (afp->do_digital == TRUE && (msa = esl_msa_CreateDigital(afp->abc, 16, -1))  == NULL) 
     { status = eslEMEM; goto ERROR; }
-#endif
   if (afp->do_digital == FALSE && (msa = esl_msa_Create(16, -1))  == NULL)
     { status = eslEMEM; goto ERROR; }
   if (msa == NULL)    
@@ -708,7 +693,6 @@ esl_msafile2_ReadInfoPfam(ESL_MSAFILE2 *afp, FILE *listfp, ESL_ALPHABET *abc, in
   return status;
 }
 
-#ifdef eslAUGMENT_KEYHASH
 /* Function: esl_msafile2_RegurgitatePfam()
  * Synopsis: Read and write next Pfam formatted MSA without storing it.
  *
@@ -1045,7 +1029,6 @@ esl_msafile2_RegurgitatePfam(ESL_MSAFILE2 *afp, FILE *ofp, int maxname, int maxg
  ERROR:
   return status;
 }
-#endif
 
 /* get_pp_idx
  *                   

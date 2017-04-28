@@ -14,7 +14,6 @@
  *    3. Test driver.
  *    4. Copyright and license.
  */
-
 #include "esl_config.h"
 
 #include <string.h>

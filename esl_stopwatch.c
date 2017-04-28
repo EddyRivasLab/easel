@@ -260,6 +260,7 @@ esl_stopwatch_Include(ESL_STOPWATCH *master, ESL_STOPWATCH *w)
 /*****************************************************************
  * Portable high resolution timing
  *****************************************************************/
+#ifdef eslSTOPWATCH_HIGHRES
 
 /* The following code is
  * (C) 2012 David Robert Nadeau, http://NadeauSoftware.com
@@ -370,7 +371,7 @@ stopwatch_getRealTime(void)
 	return -1.0;		/* Failed. */
 #endif
 }
-
+#endif /*eslSTOPWATCH_HIGHRES*/
 
 /*****************************************************************
  * Example of using the stopwatch module

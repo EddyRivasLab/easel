@@ -4,8 +4,8 @@
  * Contents:
  *   1. The <ESL_MIXDCHLET> object for mixture Dirichlet priors
  *   2. Dirichlet likelihood functions
- *   3. Sampling from Dirichlets              [with <random>]
- *   4. Reading mixture Dirichlets from files [with <fileparser>]
+ *   3. Sampling from Dirichlets              
+ *   4. Reading mixture Dirichlets from files 
  *   5. Unit tests
  *   6. Test driver
  *   7. Example
@@ -16,7 +16,7 @@
  *      on failure due to small n. Compare esl_gumbel. xref J12/93.
  *      SRE, Wed Nov 27 11:18:12 2013
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -24,17 +24,12 @@
 #include <math.h>
 
 #include "easel.h"
-#ifdef eslAUGMENT_RANDOM
-#include "esl_random.h"
-#endif
-#ifdef eslAUGMENT_MINIMIZER
-#include "esl_minimizer.h"
-#endif
-#ifdef eslAUGMENT_FILEPARSER
 #include "esl_fileparser.h"
-#endif
-#include "esl_vectorops.h"
+#include "esl_minimizer.h"
+#include "esl_random.h"
 #include "esl_stats.h"
+#include "esl_vectorops.h"
+
 #include "esl_dirichlet.h"
 
 
@@ -621,7 +616,6 @@ esl_dirichlet_LogProbProbs(double *p, double *alpha, int K, double *ret_answer)
  * Dirichlet Maximum likelihood fit from counts
  *****************************************************************/
 
-#ifdef eslAUGMENT_MINIMIZER
 /* This structure is used to sneak the data into minimizer's generic
  * (void *) API for all aux data
  */
@@ -921,7 +915,6 @@ esl_mixdchlet_Fit(double **c, int nc, ESL_MIXDCHLET *d, int be_verbose)
 }
 
 
-#ifdef eslAUGMENT_RANDOM
 /* Function:  esl_mixdchlet_Fit_Multipass()
  *
  * Purpose:   Given a set of count vectors <c>, find maximum
@@ -1009,16 +1002,12 @@ esl_mixdchlet_Fit_Multipass(ESL_RANDOMNESS *rng, double **c, int nc, int reps, E
   esl_mixdchlet_Destroy(md);
   return status;
 }
-#endif /*eslAUGMENT_RANDOM*/
-
-#endif /*eslAUGMENT_MINIMIZER*/
 /*----------- end, Dirichlet Maximum likelihood fit from counts ---------------*/
 
 
 /*****************************************************************
  *# 3. Sampling from Dirichlets: requires <esl_random>
  *****************************************************************/
-#ifdef eslAUGMENT_RANDOM
 
 /* Function:  esl_dirichlet_DSample()
  *
@@ -1117,14 +1106,12 @@ esl_dirichlet_SampleBeta(ESL_RANDOMNESS *r, double theta1, double theta2, double
   *ret_answer = p / (p+q);
   return eslOK;
 }
-#endif /*eslAUGMENT_RANDOM*/
 /*---------------- end, Dirichlet sampling ----------------------*/
 
 
 /*****************************************************************
  *# 4. Reading mixture Dirichlets from files [requires esl_fileparser]
  *****************************************************************/
-#ifdef eslAUGMENT_FILEPARSER 
 
 /* Function:  esl_mixdchlet_Read()
  *
@@ -1229,9 +1216,6 @@ esl_mixdchlet_Write(FILE *fp, ESL_MIXDCHLET *d)
     }
   return eslOK;
 }
-
-
-#endif /* eslAUGMENT_FILEPARSER */
 /*-------------- end, reading mixture Dirichlets ----------------*/
 
 
@@ -1596,12 +1580,6 @@ main(int argc, char **argv)
  *****************************************************************/
 #ifdef eslDIRICHLET_EXAMPLE
 /*::cexcerpt::dirichlet_example::begin::*/
-/* compile: 
-    gcc -g -Wall -I. -o example -DeslDIRICHLET_EXAMPLE\
-      -DeslAUGMENT_RANDOM -DeslAUGMENT_FILEPARSER esl_random.c esl_fileparser.c\
-      esl_vectorops.c esl_dirichlet.c easel.c -lm
- * run:     ./example <mixture Dirichlet file>
- */
 #include <stdlib.h>
 #include <stdio.h>
 #include "easel.h"

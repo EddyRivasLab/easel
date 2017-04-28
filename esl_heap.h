@@ -3,7 +3,6 @@
  */
 #ifndef eslHEAP_INCLUDED
 #define eslHEAP_INCLUDED
-
 #include "esl_config.h"
 
 #define eslHEAP_INITALLOC 128

@@ -1,8 +1,5 @@
 /* Support for MPI parallelization.
  * 
- * Only available when the entire Easel library is in use (HAVE_MPI
- * and eslLIBRARY are defined).
- * 
  * Contents:
  *    1. Communicating optional arrays.
  *    2. Communicating ESL_SQ (single biosequences)
@@ -14,7 +11,7 @@
  *    8. Copyright and license information.
  */
 #include "esl_config.h"		
-#if defined(HAVE_MPI) && defined(eslLIBRARY)
+#if defined(HAVE_MPI)
 #include <string.h>
 #include "mpi.h"
 
@@ -1217,7 +1214,7 @@ main(int argc, char **argv)
 
 
 
-#else /*!(HAVE_MPI && eslLIBRARY)*/
+#else /*!HAVE_MPI*/
 
 /* If we don't have MPI compiled in, provide some nothingness to:
  *   a. prevent Mac OS/X ranlib from bitching about .o file that "has no symbols" 
@@ -1231,7 +1228,7 @@ void esl_mpi_DoAbsolutelyNothing(void) { return; }
 int main(void) { return 0; }
 #endif
 
-#endif /*HAVE_MPI && eslLIBRARY*/
+#endif /*HAVE_MPI*/
 
 /*****************************************************************
  * @LICENSE@

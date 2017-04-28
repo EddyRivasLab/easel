@@ -1,4 +1,5 @@
-/* Esl_red_black.c -- functions for implementing red-black trees */
+/* esl_red_black.c -- functions for implementing red-black trees */
+#include "esl_config.h"
 
 #include "easel.h"
 #include "esl_red_black.h"

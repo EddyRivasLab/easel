@@ -2,10 +2,10 @@
  * 
  * Contents:
  *    1. An <ESL_SQFILE> object, in text mode.
- *    2. An <ESL_SQFILE> object, in digital mode. [with <alphabet>]
+ *    2. An <ESL_SQFILE> object, in digital mode. 
  *    3. Miscellaneous routines.
  *    4. Sequence reading (sequential).
- *    5. Sequence/subsequence fetching, random access [with <ssi>]
+ *    5. Sequence/subsequence fetching, random access 
  *    6. Internal routines shared by parsers.
  *    7. Internal routines for EMBL format (including UniProt, TrEMBL)
  *    8. Internal routines for GenBank format
@@ -29,18 +29,12 @@
 #include <unistd.h>
 
 #include "easel.h"
-#ifdef eslAUGMENT_ALPHABET
-#include "esl_alphabet.h"/* alphabet aug adds digital sequences */
-#endif 
-#ifdef eslAUGMENT_MSA
-#include "esl_msa.h"/* msa aug adds ability to read MSAs as unaligned seqs  */
+#include "esl_alphabet.h"
+#include "esl_msa.h"
 #include "esl_msafile.h"
-#endif
-#ifdef eslAUGMENT_SSI
-#include "esl_ssi.h"/* ssi aug adds ability to randomly access sequences/subsequences */
-#endif
 #include "esl_sqio.h"
 #include "esl_sq.h"
+#include "esl_ssi.h"
 
 /* format specific routines */
 static int   sqascii_GuessFileFormat(ESL_SQFILE *sqfp, int *ret_fmt);
@@ -58,14 +52,12 @@ static int   sqascii_Echo           (ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *o
 static int   sqascii_IsRewindable   (const ESL_SQFILE *sqfp);
 static const char *sqascii_GetError (const ESL_SQFILE *sqfp);
 
-#ifdef eslAUGMENT_SSI
 static int   sqascii_OpenSSI         (ESL_SQFILE *sqfp, const char *ssifile_hint);
 static int   sqascii_PositionByKey   (ESL_SQFILE *sqfp, const char *key);
 static int   sqascii_PositionByNumber(ESL_SQFILE *sqfp, int which);
 static int   sqascii_Fetch           (ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq);
 static int   sqascii_FetchInfo       (ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq);
 static int   sqascii_FetchSubseq     (ESL_SQFILE *sqfp, const char *source, int64_t start, int64_t end, ESL_SQ *sq);
-#endif /*eslAUGMENT_SSI*/
 
 /* Internal routines shared by parsers. */
 static int  loadmem  (ESL_SQFILE *sqfp);
@@ -263,14 +255,12 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
    * Or, if format is still unknown, try to open the file as an MSA file,
    * using msafile autodetection. 
    */
-#ifdef eslAUGMENT_MSA
   if (format == eslSQFILE_UNKNOWN || esl_sqio_IsAlignment(format))
     {
       status = esl_msafile_Open(NULL, filename, NULL, format, NULL, &(ascii->afp));
       if (status != eslOK) { status = eslEFORMAT; goto ERROR; } /* This was our last attempt. Failure to open == failure to detect format */
       sqfp->format = format = ascii->afp->format;
     }
-#endif
   if (format == eslSQFILE_UNKNOWN) { status = eslEFORMAT; goto ERROR; }
 
 
@@ -330,7 +320,6 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
 
   sqfp->read_block        = &sqascii_ReadBlock;
 
-#ifdef eslAUGMENT_SSI
   sqfp->open_ssi          = &sqascii_OpenSSI;
   sqfp->pos_by_key        = &sqascii_PositionByKey;
   sqfp->pos_by_number     = &sqascii_PositionByNumber;
@@ -338,8 +327,6 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
   sqfp->fetch             = &sqascii_Fetch;
   sqfp->fetch_info        = &sqascii_FetchInfo;
   sqfp->fetch_subseq      = &sqascii_FetchSubseq;
-#endif
-
   sqfp->get_error         = &sqascii_GetError;
 
   return eslOK;
@@ -553,14 +540,10 @@ sqascii_Close(ESL_SQFILE *sqfp)
   if (ascii->ssifile  != NULL) free(ascii->ssifile);
   if (ascii->mem      != NULL) free(ascii->mem);
   if (ascii->balloc   > 0)     free(ascii->buf);
-#ifdef eslAUGMENT_SSI
   if (ascii->ssi      != NULL) esl_ssi_Close(ascii->ssi);
-#endif
 
-#ifdef eslAUGMENT_MSA
   if (ascii->afp      != NULL) esl_msafile_Close(ascii->afp);
   if (ascii->msa      != NULL) esl_msa_Destroy(ascii->msa);
-#endif /*eslAUGMENT_MSA*/
 
   ascii->do_gzip  = FALSE;
   ascii->do_stdin = FALSE;
@@ -586,7 +569,6 @@ sqascii_Close(ESL_SQFILE *sqfp)
 /*****************************************************************
  *# 2. An <ESL_SQFILE> object, in digital mode [with <alphabet>]
  *****************************************************************/
-#ifdef eslAUGMENT_ALPHABET
 
 /* Function:  sqascii_SetDigital()
  * Synopsis:  Set an open <ESL_SQFILE> to read in digital mode.
@@ -625,13 +607,7 @@ sqascii_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc)
       }
     }
   else
-    {
-#ifdef eslAUGMENT_MSA
-      esl_msafile_SetDigital(ascii->afp, abc);
-#else
-      status = eslEFORMAT;
-#endif
-    }
+    esl_msafile_SetDigital(ascii->afp, abc);
 
   return status;
 }
@@ -674,9 +650,7 @@ sqascii_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
   /* Special case: for MSA files, hand this off to msafile_GuessAlphabet. */
-#ifdef eslAUGMENT_MSA
   if (esl_sqio_IsAlignment(sqfp->format)) return esl_msafile_GuessAlphabet(ascii->afp, ret_type);
-#endif
 
   /* set the sqfp to record; we'll rewind afterwards and use the recording */
   ascii->is_recording = TRUE;
@@ -702,7 +676,6 @@ sqascii_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
   *ret_type      = eslUNKNOWN;
   return status;
 }
-#endif /*eslAUGMENT_ALPHABET*/
 /*-------------- end, digital mode ESL_SQFILE -------------------*/
 
 
@@ -774,7 +747,6 @@ sqascii_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
-#ifdef eslAUGMENT_MSA
   if (esl_sqio_IsAlignment(sqfp->format))
   {
       ESL_SQ *tmpsq = NULL;
@@ -807,7 +779,6 @@ sqascii_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
       sq->L     = sq->n;
       return eslOK;
     }
-#endif
 
   /* Main case: read next seq from sqfp's stream */
   if (ascii->nc == 0) return eslEOF;
@@ -871,7 +842,6 @@ sqascii_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
-#ifdef eslAUGMENT_MSA
   if (esl_sqio_IsAlignment(sqfp->format))
     {
       ESL_SQ *tmpsq = NULL;
@@ -909,7 +879,6 @@ sqascii_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
       sq->W     = 0;
       return eslOK;
     }
-#endif
 
   if (ascii->nc == 0) return eslEOF;
   if ((status = ascii->parse_header(sqfp, sq)) != eslOK) return status; /* EOF, EFORMAT */
@@ -976,7 +945,6 @@ sqascii_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
   int64_t n;
   int     status;
 
-#ifdef eslAUGMENT_MSA
   if (esl_sqio_IsAlignment(sqfp->format))
     {
       ESL_SQ *tmpsq = NULL;
@@ -1011,7 +979,6 @@ sqascii_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
       sq->L     = sq->n;
       return eslOK;
     }
-#endif
 
   /* Main case: read next seq from sqfp's stream */
   if (ascii->nc == 0) return eslEOF;
@@ -1155,7 +1122,6 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
-#ifdef eslAUGMENT_MSA
   if (esl_sqio_IsAlignment(sqfp->format))
   {
     /* special: if we're initializing a revcomp window read, back ascii->idx up one */
@@ -1256,7 +1222,6 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
     esl_sq_Destroy(tmpsq);
     return eslOK;
   }
-#endif /* we've completely handled the alignment file case above. */
 
   /* Now for the normal case: we're reading a normal unaligned seq file, not an alignment. */
   /* Negative W indicates reverse complement direction */
@@ -1710,7 +1675,6 @@ sqascii_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
 /*****************************************************************
  *# 5. Sequence/subsequence fetching, random access [with <ssi>]
  *****************************************************************/
-#ifdef eslAUGMENT_SSI
 
 /* Function:  sqascii_OpenSSI()
  * Synopsis:  Opens an SSI index associated with a sequence file.
@@ -2030,7 +1994,6 @@ sqascii_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t start, int64_t
   esl_sq_SetSource (sq, source);
   return eslOK;
 }  
-#endif /*eslAUGMENT_SSI*/
 /*------------- end, random sequence access with SSI -------------------*/
 
 

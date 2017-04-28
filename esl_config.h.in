@@ -100,59 +100,5 @@
 /* Function behavior */
 #define eslSTOPWATCH_HIGHRES
 
-/*****************************************************************
- * Available augmentations.
- * 
- * If you grab a single module from Easel to use it by itself,
- * leave all these #undef'd; you have no augmentations.
- * 
- * If you grab additional Easel .c files, you can enable any
- * augmentations they provide to other modules by #defining the
- * modules you have below. Alternatively, you can -D them on
- * the compile line, as in cc -DeslAUGMENT_SSI -DeslAUGMENT_MSA.
- * 
- * If you compile and install the complete Easel library, all of these
- * get #defined automatically by ./configure, plus the eslLIBRARY flag
- * which means the full library with all augmentations is
- * available. So, if you steal files from an installed library, just
- * set these all back to #undef (depending on which files you have).
- *****************************************************************/
-#undef eslLIBRARY
-
-#ifndef eslLIBRARY
-#undef eslAUGMENT_ALPHABET
-#undef eslAUGMENT_NCBI
-#undef eslAUGMENT_DMATRIX
-#undef eslAUGMENT_FILEPARSER
-#undef eslAUGMENT_GEV
-#undef eslAUGMENT_GUMBEL
-#undef eslAUGMENT_HISTOGRAM
-#undef eslAUGMENT_KEYHASH 
-#undef eslAUGMENT_MINIMIZER
-#undef eslAUGMENT_MSA		
-#undef eslAUGMENT_RANDOM
-#undef eslAUGMENT_RANDOMSEQ
-#undef eslAUGMENT_SSI
-#undef eslAUGMENT_STATS
-#endif
-
-#ifdef eslLIBRARY
-#define eslAUGMENT_ALPHABET
-#define eslAUGMENT_NCBI
-#define eslAUGMENT_DMATRIX
-#define eslAUGMENT_FILEPARSER
-#define eslAUGMENT_GEV
-#define eslAUGMENT_GUMBEL
-#define eslAUGMENT_HISTOGRAM
-#define eslAUGMENT_KEYHASH 
-#define eslAUGMENT_MINIMIZER
-#define eslAUGMENT_MSA		
-#define eslAUGMENT_RANDOM
-#define eslAUGMENT_RANDOMSEQ
-#define eslAUGMENT_SSI
-#define eslAUGMENT_STATS
-#endif
-
-
 #endif /*eslCONFIG_INCLUDED*/
 

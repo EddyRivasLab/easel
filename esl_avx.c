@@ -1,9 +1,12 @@
+#include "esl_config.h"
+
 #ifdef HAVE_AVX2
 #include <stdio.h>
 #include <immintrin.h>		/* AVX2 */
 
-#include "esl_avx.h"
 #include "easel.h"
+#include "esl_avx.h"
+
 
  void esl_print_256(__m256i var){
   uint64_t *val = (uint64_t*) &var;

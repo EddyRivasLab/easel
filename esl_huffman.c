@@ -12,9 +12,13 @@
  *   p /t v     (no leading zeros, beware!)
  *   x &v 
  */
+#include "esl_config.h"
+
+#include <stdio.h>
 
 #include "easel.h"
 #include "esl_quicksort.h"
+
 #include "esl_huffman.h"
 
 

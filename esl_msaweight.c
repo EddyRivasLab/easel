@@ -22,17 +22,15 @@
 #include <string.h>
 #include <ctype.h>
 
-/* Dependencies on Easel core: */
 #include "easel.h"
 #include "esl_alphabet.h"
-#include "esl_msa.h"
+#include "esl_distance.h"
 #include "esl_dmatrix.h"
+#include "esl_msa.h"
+#include "esl_msacluster.h"
+#include "esl_tree.h"
 #include "esl_vectorops.h"
 
-/* Dependencies on phylogeny modules: */
-#include "esl_distance.h"
-#include "esl_tree.h"
-#include "esl_msacluster.h"
 #include "esl_msaweight.h"
 
 
@@ -117,14 +115,14 @@ esl_msaweight_GSC(ESL_MSA *msa)
   /* GSC weights use a rooted tree with "branch lengths" calculated by
    * UPGMA on a fractional difference matrix - pretty crude.
    */
-  if (! (msa->flags & eslMSA_DIGITAL)) {
-    if ((status = esl_dst_CDiffMx(msa->aseq, msa->nseq, &D))         != eslOK) goto ERROR;
-  } 
-#ifdef eslAUGMENT_ALPHABET
-  else {
-    if ((status = esl_dst_XDiffMx(msa->abc, msa->ax, msa->nseq, &D)) != eslOK) goto ERROR;
-  }
-#endif
+  if (! (msa->flags & eslMSA_DIGITAL)) 
+    {
+      if ((status = esl_dst_CDiffMx(msa->aseq, msa->nseq, &D))         != eslOK) goto ERROR;
+    } 
+  else 
+    {
+      if ((status = esl_dst_XDiffMx(msa->abc, msa->ax, msa->nseq, &D)) != eslOK) goto ERROR;
+    }
 
   /* oi, look out here.  UPGMA is correct, but old squid library uses
    * single linkage, so for regression tests ONLY, we use single link. 
@@ -271,10 +269,8 @@ esl_msaweight_PB(ESL_MSA *msa)
    */
   if (! (msa->flags & eslMSA_DIGITAL)) 
     { ESL_ALLOC(nres, sizeof(int) * 26);          K = 26;          }
-#ifdef eslAUGMENT_ALPHABET
   else 
     { ESL_ALLOC(nres, sizeof(int) * msa->abc->K); K = msa->abc->K; }
-#endif
 
   esl_vec_DSet(msa->wgt, msa->nseq, 0.);
 
@@ -308,10 +304,7 @@ esl_msaweight_PB(ESL_MSA *msa)
 	/* if rlen == 0 for this seq, its weight is still 0.0, as initialized. */
       }
     }
-
-  /* This section handles digital alignments. */
-#ifdef eslAUGMENT_ALPHABET
-  else
+  else   /* This section handles digital alignments. */
     {
       for (pos = 1; pos <= msa->alen; pos++)
 	{
@@ -340,7 +333,6 @@ esl_msaweight_PB(ESL_MSA *msa)
 	  /* if rlen == 0 for this seq, its weight is still 0.0, as initialized. */
 	}
     }
-#endif
 
   /* Make weights normalize up to nseq, and return.  In pathological
    * case where all wgts were 0 (no seqs contain any unambiguous
@@ -487,11 +479,9 @@ esl_msaweight_IDFilter(const ESL_MSA *msa, double maxid, ESL_MSA **ret_newmsa)
 	  if (! (msa->flags & eslMSA_DIGITAL)) {
 	    if ((status = esl_dst_CPairId(msa->aseq[i], msa->aseq[list[j]], &ident, NULL, NULL))       != eslOK) goto ERROR;
 	  } 
-#ifdef eslAUGMENT_ALPHABET
 	  else {
 	    if ((status = esl_dst_XPairId(msa->abc, msa->ax[i], msa->ax[list[j]], &ident, NULL, NULL)) != eslOK) goto ERROR;
 	  }
-#endif
 	  
 	  if (ident >= maxid)
 	    { 

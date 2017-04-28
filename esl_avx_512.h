@@ -10,9 +10,10 @@
  *    1. Inlined horizontal functions for 8 and 16-bit quantities
  *       in 256-bit vectors (__m256i)
  */
-
 #ifndef eslAVX512_INCLUDED
 #define eslAVX512_INCLUDED
+#include "esl_config.h"
+
 #ifdef HAVE_AVX512 // make sure we don't include AVX-512 instructions on architectures that can't handle them
 #include "easel.h"
 

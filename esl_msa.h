@@ -2,6 +2,7 @@
  */
 #ifndef eslMSA_INCLUDED
 #define eslMSA_INCLUDED
+#include "esl_config.h"
 
 #include <stdio.h>
 
@@ -41,13 +42,11 @@ typedef struct {
   int     flags;      /* flags for what info has been set                        */
   /*::cexcerpt::msa_mandatory::end::*/
 
-#ifdef eslAUGMENT_ALPHABET
-  /* When augmented w/ digital alphabets, we can store pre-digitized data in
+  /* w/ digital alphabets, we store pre-digitized data in
    * ax[][], instead of the text info in aseq[][].
    */
   ESL_ALPHABET  *abc;    	/* reference ptr to alphabet            */
   ESL_DSQ      **ax;		/* digitized aseqs [0..nseq-1][1..alen] */
-#endif
 
   /* Optional information that we understand, and that we might have.
    * (The occasionally useful stuff.)
@@ -109,20 +108,14 @@ typedef struct {
   char ***gr;                   /* [0..ngr-1][0..nseq-1][0..alen-1] markup */
   int     ngr;			/* number of #=GR tag types                */
 
-  /* Optional augmentation w/ keyhashes. 
-   * This can significantly speed up parsing of large alignments
-   * with many (>1,000) sequences.
+  /* Keyhashing significantly speeds up parsing of large alignments.
    */
-#ifdef eslAUGMENT_KEYHASH 
   ESL_KEYHASH  *index;	        /* name ->seqidx hash table */
   ESL_KEYHASH  *gs_idx;         /* hash of #=GS tag types   */
   ESL_KEYHASH  *gc_idx;         /* hash of #=GC tag types   */
   ESL_KEYHASH  *gr_idx;         /* hash of #=GR tag types   */
-#endif /*eslAUGMENT_KEYHASH*/
 
-#ifdef eslAUGMENT_SSI
   off_t         offset;		/* disk offset to start of 1st line of this MSA's record */
-#endif
 } ESL_MSA;
 
 
@@ -141,14 +134,12 @@ extern int      esl_msa_Copy (const ESL_MSA *msa, ESL_MSA *new);
 extern ESL_MSA *esl_msa_Clone(const ESL_MSA *msa);
 extern void     esl_msa_Destroy(ESL_MSA *msa);
 
-/* 2. Digital mode MSA's (augmentation: alphabet) */
-#ifdef eslAUGMENT_ALPHABET
+/* 2. Digital mode MSA's  */
 extern int      esl_msa_GuessAlphabet(const ESL_MSA *msa, int *ret_type);
 extern ESL_MSA *esl_msa_CreateDigital(const ESL_ALPHABET *abc, int nseq, int64_t alen);
 extern int      esl_msa_Digitize(const ESL_ALPHABET *abc, ESL_MSA *msa, char *errmsg);
 extern int      esl_msa_Textize(ESL_MSA *msa);
 extern int      esl_msa_ConvertDegen2X(ESL_MSA *msa);
-#endif /*eslAUGMENT_ALPHABET*/
 
 /* 3. Setting or checking data fields in an ESL_MSA */
 extern int esl_msa_SetName          (ESL_MSA *msa, const char *s, esl_pos_t n);
@@ -192,9 +183,7 @@ extern int esl_msa_RemoveBrokenBasepairsFromSS(char *ss, char *errbuf, int len, 
 extern int esl_msa_RemoveBrokenBasepairs(ESL_MSA *msa, char *errbuf, const int *useme);
 
 extern int esl_msa_ReverseComplement(ESL_MSA *msa);
-#ifdef eslAUGMENT_KEYHASH
 extern int esl_msa_Hash(ESL_MSA *msa);
-#endif
 extern int esl_msa_FlushLeftInserts(ESL_MSA *msa);
 
 /* 5. Debugging, testing, development */
@@ -203,9 +192,7 @@ extern ESL_MSA *esl_msa_CreateFromString(const char *s, int fmt);
 extern int      esl_msa_Compare         (ESL_MSA *a1, ESL_MSA *a2);
 extern int      esl_msa_CompareMandatory(ESL_MSA *a1, ESL_MSA *a2);
 extern int      esl_msa_CompareOptional (ESL_MSA *a1, ESL_MSA *a2);
-#if defined (eslAUGMENT_RANDOM) && defined (eslAUGMENT_RANDOMSEQ) && defined (eslAUGMENT_ALPHABET)
 extern int      esl_msa_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int max_nseq, int max_alen, ESL_MSA **ret_msa);
-#endif
 #endif /*eslMSA_INCLUDED*/
 
 

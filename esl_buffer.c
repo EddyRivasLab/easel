@@ -17,7 +17,6 @@
  */
 /*::cexcerpt::header_example::end::*/
 
-
 /*::cexcerpt::include_example::begin::*/
 #include "esl_config.h"
 
@@ -36,6 +35,7 @@
 
 #include "easel.h"
 #include "esl_mem.h"
+
 #include "esl_buffer.h"
 /*::cexcerpt::include_example::end::*/
 

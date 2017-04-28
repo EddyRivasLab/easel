@@ -5,9 +5,7 @@ files, such as FASTA files.
 file formats, including FASTA, UniProt, Genbank, DDBJ, and EMBL.
 Additionally, it can read individual unaligned sequences from multiple
 alignment files in several different formats, including Stockholm,
-Clustal, aligned FASTA, PSI-BLAST, and Phylip.\footnote{Sequential
-  input from MSA files requires either the full Easel library or
-  augmentation with \eslmod{msafile}.}
+Clustal, aligned FASTA, PSI-BLAST, and Phylip.
 
 Sequences can be read from normal files, directly from the
 \ccode{stdin} pipe, or from \ccode{gzip}-compressed files.
@@ -223,9 +221,7 @@ The list of formats are defined in \ccode{esl\_sqio.h}.  A new
 
 A data structure for parser specific data will need to be added
 to \ccode{ESL\_SQDATA}.  This structure is a union of the 
-different parser specific data structures.  If possible the
-addition of the parser structure should be augmented so its
-inclusion can be controlled.
+different parser specific data structures. 
 
 \input{cexcerpts/sq_sqio_data}
 
@@ -272,10 +268,8 @@ successful, then the ASCII sequence parsers try to open the
 file.
 
 \begin{cchunk}
-#ifdef eslAUGMENT\_NCBI
     if (format == eslSQFILE\_NCBI && status == eslENOTFOUND)
       status = esl\_sqncbi\_Open(sqfp->filename, sqfp->format, sqfp);
-#endif
     if (status == eslENOTFOUND)
       status = esl\_sqascii\_Open(sqfp->filename, sqfp->format, sqfp);
 \end{cchunk}

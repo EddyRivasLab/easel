@@ -31,6 +31,11 @@
 #  13. AC_OUTPUT
 #
 # Order obeys autoconf manual, "standard configure.ac layout".
+#
+# Use full 3-arg form of AC_DEFINE() macros. autoheader chokes if you
+# don't.  We don't use autoheader (we only use autoconf, out of the
+# GNU build tools, to limit complexity) but some packagers do, such
+# as Debian.
 
 
 
@@ -99,12 +104,10 @@ AC_SUBST(EASEL_VERSION)
 AC_SUBST(EASEL_URL)
 
 # Preprocessor symbols.
-# adds a -Dvar=value to @DEFS@;
-# replace #undef's in easel.h.in
-AC_DEFINE_UNQUOTED(EASEL_DATE,      "$EASEL_DATE")
-AC_DEFINE_UNQUOTED(EASEL_COPYRIGHT, "$EASEL_COPYRIGHT")
-AC_DEFINE_UNQUOTED(EASEL_LICENSE,   "$EASEL_LICENSE")
-AC_DEFINE_UNQUOTED(EASEL_VERSION,   "$EASEL_VERSION")
+AC_DEFINE_UNQUOTED([EASEL_DATE],      ["$EASEL_DATE"],      [Release date])
+AC_DEFINE_UNQUOTED([EASEL_COPYRIGHT], ["$EASEL_COPYRIGHT"], [Brief copyright statement])
+AC_DEFINE_UNQUOTED([EASEL_LICENSE],   ["$EASEL_LICENSE"],   [Brief license statement])
+AC_DEFINE_UNQUOTED([EASEL_VERSION],   ["$EASEL_VERSION"],   [Version number])
 
 # Figure out what host we're compiling on.
 # Three GNU scripts must be included in the distro: 
@@ -122,33 +125,6 @@ AC_CANONICAL_HOST
 # 4. Process ./configure command line options
 ################################################################
 
-# --enable-modular       - configure for use of standalone modules
-#
-# Default is to enable all augmentations and compile entire library.
-# With --enable-modular, any desired augmentations must be set
-# at compile-time by the user.
-#
-AC_ARG_ENABLE(modular,[AS_HELP_STRING([--enable-modular],[compile and prepare modules for standalone use])], 
-  [ 
-    AC_MSG_NOTICE([Compiling for standalone (independent) use of modules.])
-  ], 
-  [
-    AC_MSG_NOTICE([Compiling the full Easel library, with all augmentations.])
-    AC_DEFINE(eslAUGMENT_ALPHABET)
-    AC_DEFINE(eslAUGMENT_NCBI)
-    AC_DEFINE(eslAUGMENT_DMATRIX)
-    AC_DEFINE(eslAUGMENT_FILEPARSER)
-    AC_DEFINE(eslAUGMENT_GEV)
-    AC_DEFINE(eslAUGMENT_GUMBEL)
-    AC_DEFINE(eslAUGMENT_HISTOGRAM)
-    AC_DEFINE(eslAUGMENT_KEYHASH)
-    AC_DEFINE(eslAUGMENT_MINIMIZER)
-    AC_DEFINE(eslAUGMENT_MSA)
-    AC_DEFINE(eslAUGMENT_RANDOM)
-    AC_DEFINE(eslAUGMENT_SSI)
-    AC_DEFINE(eslAUGMENT_STATS)
-    AC_DEFINE(eslLIBRARY)
-  ])
 
 # --enable-debugging      - enable basic debugging code (level 1)
 # --enable-debugging=x    - also set verbosity level to <x> (1-3)
@@ -162,11 +138,11 @@ AS_HELP_STRING([--enable-debugging=x],[also set diagnostics verbosity level to <
 enable_debugging=$enableval, enable_debugging=no)
 
 case $enable_debugging in
-   yes)  AC_DEFINE(eslDEBUGLEVEL, 1);;
-     1)  AC_DEFINE(eslDEBUGLEVEL, 1);;
-     2)  AC_DEFINE(eslDEBUGLEVEL, 2);;
-     3)  AC_DEFINE(eslDEBUGLEVEL, 3);;
-    no)  AC_DEFINE(eslDEBUGLEVEL, 0);;
+   yes)  AC_DEFINE([eslDEBUGLEVEL], 1,  [debugging on, low verbosity]);;
+     1)  AC_DEFINE([eslDEBUGLEVEL], 1,  [debugging on, low verbosity]);;
+     2)  AC_DEFINE([eslDEBUGLEVEL], 2,  [debugging on, moderate verbosity]);;
+     3)  AC_DEFINE([eslDEBUGLEVEL], 3,  [debugging on, high verbosity]);;
+    no)  AC_DEFINE([eslDEBUGLEVEL], 0,  [debugging off]);;
      *)  AC_MSG_ERROR([Unknown argument to --enable-debugging: $enable_debugging]);;
 esac
 
@@ -198,7 +174,7 @@ case $enable_threads in
 esac
  
 AS_IF([test "x$check_threads" != xno],
-      [ACX_PTHREAD([AC_DEFINE(HAVE_PTHREAD)
+      [ACX_PTHREAD([AC_DEFINE(HAVE_PTHREAD, [], [POSIX threads supported])
                     AC_SUBST(PTHREAD_LIBS)
                     AC_SUBST(PTHREAD_CFLAGS)],
                    [if test "x$enable_threads" != xcheck; then
@@ -321,7 +297,7 @@ if test "$enable_sse" = "check" && test "$enable_vmx" != "yes" && test "$enable_
    CPPFLAGS="$sre_save_CPPFLAGS"
 fi
 if test "$enable_sse" = "yes"; then
-   AC_DEFINE(HAVE_SSE2,1,[Support SSE2 (Streaming SIMD Extensions 2) instructions])
+   AC_DEFINE([HAVE_SSE2],1,[Support SSE2 (Streaming SIMD Extensions 2) instructions])
 fi
 
 if test "$enable_avx2" = "yes" || test "$enable_avx2" = "check"; then
@@ -344,7 +320,7 @@ AC_MSG_CHECKING([whether AVX2 is supported])
          test2 = _mm256_set1_epi8(111);
          test2 = _mm256_adds_epi8(test1, test2);
       ]])],
-  [AC_DEFINE([HAVE_AVX2])
+  [AC_DEFINE([HAVE_AVX2],1,[Support AVX (Advanced Vector Extensions) instructions])
   haveavx=yes])
   AC_MSG_RESULT([$haveavx])
   CFLAGS="$sre_save_cflags"
@@ -370,7 +346,7 @@ AC_MSG_CHECKING([whether AVX-512 is supported])
          test2 = _mm512_set1_epi8(111);
          test2 = _mm512_adds_epi8(test1, test2);
       ]])],
-  [AC_DEFINE([HAVE_AVX512])
+  [AC_DEFINE([HAVE_AVX512],1,[Support AVX-512 vector instructions])
   haveavx512=yes])
   AC_MSG_RESULT([$haveavx512])
   CFLAGS="$sre_save_cflags"
@@ -527,7 +503,7 @@ AC_PATH_PROG(HAVE_GZIP, "gzip", "no")
 if test "${HAVE_GZIP}" = "no"; then
   AC_MSG_WARN([gzip not found])
 else
-  AC_DEFINE(HAVE_GZIP)
+  AC_DEFINE([HAVE_GZIP],1,[Support external gzip decompression])
 fi
 
 
@@ -696,6 +672,7 @@ AC_SYS_LARGEFILE
 #################################################################
 # 13. Write out esl_config.h header and the Makefiles
 #################################################################
+AC_CONFIG_HEADERS([decoy_config.h])   # This keeps gnu 'autoheader' from overwriting our esl_config.h.in
 AC_CONFIG_HEADERS([esl_config.h])
 AC_CONFIG_FILES([miniapps/Makefile])
 AC_CONFIG_FILES([testsuite/Makefile])

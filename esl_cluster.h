@@ -6,6 +6,7 @@
  */
 #ifndef eslCLUSTER_INCLUDED
 #define eslCLUSTER_INCLUDED
+#include "esl_config.h"
 
 extern int esl_cluster_SingleLinkage(void *base, size_t n, size_t size, 
 				     int (*linkfunc)(const void *, const void *, const void *, int *), void *param,

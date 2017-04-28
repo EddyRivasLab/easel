@@ -1,4 +1,3 @@
-
 /* Vectorized utility routines for Intel AVX instructions and 
  * compatible processors.
  *
@@ -10,10 +9,10 @@
  *    1. Inlined horizontal functions for 8 and 16-bit quantities
  *       in 256-bit vectors (__m256i)
  */
-
 #ifndef eslAVX_INCLUDED
 #define eslAVX_INCLUDED
 #ifdef HAVE_AVX2 // don't include on architectures that can't compile avx2S
+#include "esl_config.h"
 #include "easel.h"
 
 #include <stdio.h>

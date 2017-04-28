@@ -6,7 +6,6 @@
  */
 #ifndef ESL_ROOTFINDER_INCLUDED
 #define ESL_ROOTFINDER_INCLUDED
-
 #include "esl_config.h"
 
 typedef struct {

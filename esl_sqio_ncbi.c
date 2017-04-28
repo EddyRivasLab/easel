@@ -24,11 +24,9 @@
 #endif
 
 #include "easel.h"
-#ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"	/* alphabet aug adds digital sequences */
-#endif 
-#include "esl_sqio.h"
 #include "esl_sq.h"
+#include "esl_sqio.h"
 
 #ifndef htobe32
 #ifdef  WORDS_BIGENDIAN
@@ -649,7 +647,6 @@ sqncbi_Close(ESL_SQFILE *sqfp)
 /*****************************************************************
  *# 2. An <ESL_SQFILE> object, in digital mode [with <alphabet>]
  *****************************************************************/
-#ifdef eslAUGMENT_ALPHABET
 
 /* Function:  sqncbi_SetDigital()
  * Synopsis:  Set an open <ESL_SQFILE> to read in digital mode.
@@ -688,7 +685,7 @@ sqncbi_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
   *ret_type = sqfp->data.ncbi.alphatype;
   return eslOK;
 }
-#endif /*eslAUGMENT_ALPHABET*/
+
 /*-------------- end, digital mode SQNCBI -------------------*/
 
 
