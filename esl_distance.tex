@@ -1,11 +1,6 @@
 
 The \eslmod{distance} module implements routines for inferring
-mutational distances between pairs of aligned sequences.
-
-Augmentation with the \eslmod{alphabet} module provides distance
-routines for digitized sequences, in addition to text sequences.
-
-Augmentation with the \eslmod{dmatrix} module provides routines for
+mutational distances between pairs of aligned sequences, and for
 constructing distance matrices from multiple sequence alignments.
 
 The API for the \eslmod{distance} module is summarized in
@@ -18,14 +13,14 @@ Table~\ref{tbl:distance_api}.
    \apisubhead{Pairwise distances for aligned text sequences}\\
 \hyperlink{func:esl_dst_CPairId()}{\ccode{esl\_dst\_CPairId()}} & Pairwise identity of two aligned text strings.\\
 \hyperlink{func:esl_dst_CJukesCantor()}{\ccode{esl\_dst\_CJukesCantor()}} & Jukes-Cantor distance for two aligned strings.\\
-   \apisubhead{Pairwise distances for aligned digital seqs [\eslmod{alphabet}]}\\
+   \apisubhead{Pairwise distances for aligned digital seqs}\\
 \hyperlink{func:esl_dst_XPairId()}{\ccode{esl\_dst\_XPairId()}} & Pairwise identity of two aligned digital seqs.\\
 \hyperlink{func:esl_dst_XJukesCantor()}{\ccode{esl\_dst\_XJukesCantor()}} & Jukes-Cantor distance for two aligned digitized seqs.\\
-   \apisubhead{Distance matrices for aligned text sequences [\eslmod{dmatrix}]}\\
+   \apisubhead{Distance matrices for aligned text sequences}\\
 \hyperlink{func:esl_dst_CPairIdMx()}{\ccode{esl\_dst\_CPairIdMx()}} & NxN identity matrix for N aligned text sequences. \\
 \hyperlink{func:esl_dst_CDiffMx()}{\ccode{esl\_dst\_CDiffMx()}} & NxN difference matrix for N aligned text sequences.\\
 \hyperlink{func:esl_dst_CJukesCantorMx()}{\ccode{esl\_dst\_CJukesCantorMx()}} & NxN Jukes/Cantor distance matrix for N aligned text seqs.\\
-   \apisubhead{Distance matrices for aligned digital sequences [\eslmod{dmatrix}$,$\eslmod{alphabet}]}\\
+   \apisubhead{Distance matrices for aligned digital sequences}\\
 \hyperlink{func:esl_dst_XPairIdMx()}{\ccode{esl\_dst\_XPairIdMx()}} & NxN identity matrix for N aligned digital seqs.\\
 \hyperlink{func:esl_dst_XDiffMx()}{\ccode{esl\_dst\_XDiffMx()}} & NxN difference matrix for N aligned digital seqs.\\
 \hyperlink{func:esl_dst_XJukesCantorMx()}{\ccode{esl\_dst\_XJukesCantorMx()}} & NxN Jukes/Cantor distance matrix for N aligned digital seqs.\\
@@ -33,7 +28,7 @@ Table~\ref{tbl:distance_api}.
 \end{tabular}
 }
 \end{center}
-\caption{The \eslmod{distance} API. Requires: \eslmod{easel}. Optional augmentation: \eslmod{alphabet}, \eslmod{dmatrix}.}
+\caption{The \eslmod{distance} API.}
 \label{tbl:distance_api}
 \end{table}
 

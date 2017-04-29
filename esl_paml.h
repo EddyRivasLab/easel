@@ -10,9 +10,11 @@
  */
 #ifndef eslPAML_INCLUDED
 #define eslPAML_INCLUDED
+#include "esl_config.h"
 
 #include <stdio.h>
-#include <esl_dmatrix.h>
+
+#include "esl_dmatrix.h"
 
 extern int esl_paml_ReadE(FILE *fp, ESL_DMATRIX *E, double *pi);
 

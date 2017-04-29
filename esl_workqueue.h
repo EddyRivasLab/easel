@@ -2,6 +2,7 @@
  */
 #ifndef eslWORKQUEUE_INCLUDED
 #define eslWORKQUEUE_INCLUDED
+#include "esl_config.h"
 
 typedef struct {
   pthread_mutex_t  queueMutex;          /* mutex for queue serialization                           */

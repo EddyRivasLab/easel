@@ -12,12 +12,10 @@
  *   6. Basic support for Easel digitized biosequences
  *   7. Using optional compiler attributes
  *   8. Miscellaneous
- *   9. Void declarations of missing augmentations
- *  10. API declarations of easel.c
+ *   9. API declarations of easel.c
  */
 #ifndef eslEASEL_INCLUDED
 #define eslEASEL_INCLUDED
-
 #include "esl_config.h"
 
 #include <stdlib.h>
@@ -309,7 +307,7 @@
  *****************************************************************/
 
 /* Most of this support is in the alphabet module, but we externalize 
- * some into the easel foundation because ESL_INMAP is used in unaugmented
+ * some into the easel foundation because ESL_INMAP is used in 
  * sqio, msa modules.
  * 
  * A digital sequence residue (ESL_DSQ) is an unsigned 8-bit type
@@ -380,7 +378,7 @@ typedef uint8_t ESL_DSQ;
 
 
 /*****************************************************************
- * 7. Miscellaneous.
+ * 8. Miscellaneous.
  *****************************************************************/
 /* A placeholder for helping w/ portability of filenames/paths.
  * I think, but have not tested, that:
@@ -425,16 +423,6 @@ static inline float esl_log2f(float x) { return (x == 0.0 ? -eslINFINITY : eslCO
 typedef int64_t esl_pos_t;
 
 
-
-/*****************************************************************
- * 8. Void declarations of missing augmentations
- *****************************************************************/
-#ifndef eslAUGMENT_ALPHABET
-typedef void ESL_ALPHABET;
-#endif
-#ifndef eslAUGMENT_KEYHASH
-typedef void ESL_KEYHASH;
-#endif
 
 /*****************************************************************
  * 9. The API declarations for easel.c

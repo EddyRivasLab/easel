@@ -2,15 +2,15 @@
  */
 #ifndef eslSQIO_NCBI_INCLUDED
 #define eslSQIO_NCBI_INCLUDED
+#include "esl_config.h"
 
 #include <stdio.h>
-#include "esl_sq.h"
-#include "esl_sqio.h"
-
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
 
+#include "esl_sq.h"
+#include "esl_sqio.h"
 
 /* forward declaration */
 struct esl_sqio_s;

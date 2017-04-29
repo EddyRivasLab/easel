@@ -31,22 +31,15 @@
 #endif
 
 #include "easel.h"
-#ifdef eslAUGMENT_ALPHABET
-#include "esl_alphabet.h"	/* alphabet aug adds digital sequences */
-#endif 
-#include "esl_sqio.h"
-#include "esl_sqio_ascii.h"
-#ifdef eslAUGMENT_NCBI
-#include "esl_sqio_ncbi.h"
-#endif
-#include "esl_sq.h"
-
-/* Optional MSA<->sqio interoperability */
-#ifdef eslAUGMENT_MSA
+#include "esl_alphabet.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
+#include "esl_sqio.h"
+#include "esl_sq.h"
+#include "esl_sqio_ascii.h"
+#include "esl_sqio_ncbi.h"
+
 static int convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa);
-#endif
 
 
 /*****************************************************************
@@ -159,7 +152,6 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
 
   sqfp->read_block        = NULL;
 
-#ifdef eslAUGMENT_SSI
   sqfp->open_ssi          = NULL;
   sqfp->pos_by_key        = NULL;
   sqfp->pos_by_number     = NULL;
@@ -167,7 +159,6 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
   sqfp->fetch             = NULL;
   sqfp->fetch_info        = NULL;
   sqfp->fetch_subseq      = NULL;
-#endif
 
   sqfp->get_error         = NULL;
 
@@ -186,10 +177,10 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
 
     /* check the local directory first */
     status = eslENOTFOUND;
-#ifdef eslAUGMENT_NCBI
+
     if (format == eslSQFILE_NCBI && status == eslENOTFOUND)
       status = esl_sqncbi_Open(sqfp->filename, sqfp->format, sqfp);
-#endif
+
     if (status == eslENOTFOUND)
       status = esl_sqascii_Open(sqfp->filename, sqfp->format, sqfp);
 
@@ -210,10 +201,10 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
 	strcpy(path+n+1, filename);
 	s1 = s2;
 
-#ifdef eslAUGMENT_NCBI
+
 	if (format == eslSQFILE_NCBI && status == eslENOTFOUND)
 	  status = esl_sqncbi_Open(path, sqfp->format, sqfp);
-#endif
+
 	if (status == eslENOTFOUND)
 	  status = esl_sqascii_Open(path, sqfp->format, sqfp);
       }
@@ -242,7 +233,6 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
 /*****************************************************************
  *# 2. An <ESL_SQFILE> object, in digital mode [with <alphabet>]
  *****************************************************************/
-#ifdef eslAUGMENT_ALPHABET
 
 /* Function:  esl_sqfile_OpenDigital()
  * Synopsis:  Open an <ESL_SQFILE> for digital input.
@@ -334,7 +324,6 @@ esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
   return sqfp->guess_alphabet(sqfp, ret_type);
 }
 
-#endif /*eslAUGMENT_ALPHABET*/
 /*-------------- end, digital mode ESL_SQFILE -------------------*/
 
 
@@ -594,10 +583,9 @@ esl_sqio_Parse(char *buf, int size, ESL_SQ *s, int format)
 int
 esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update)
 {
+  ESL_MSA *msa;
   int status;
 
-#ifdef eslAUGMENT_MSA
-  ESL_MSA *msa;
   if (esl_sqio_IsAlignment(format))
     {
       if ((status = convert_sq_to_msa(s, &msa)) != eslOK) return status;
@@ -605,7 +593,6 @@ esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update)
       esl_msa_Destroy(msa);
       return status;
     }
-#endif
 
   switch (format) {
   case eslSQFILE_FASTA:   
@@ -718,30 +705,21 @@ esl_sqio_IsAlignment(int fmt)
  *            
  *            Matching is case insensitive; fasta, FASTA, and FastA
  *            all return <eslSQFILE_FASTA>, for example.
- *            
- *            When augmented by msa, then alignment file formats
- *            are recognized in addition to unaligned file formats.
  */
 int
 esl_sqio_EncodeFormat(char *fmtstring)
 {
-  if (strcasecmp(fmtstring, "fasta")     == 0) return eslSQFILE_FASTA;
-  if (strcasecmp(fmtstring, "embl")      == 0) return eslSQFILE_EMBL;
-  if (strcasecmp(fmtstring, "genbank")   == 0) return eslSQFILE_GENBANK;
-  if (strcasecmp(fmtstring, "ddbj")      == 0) return eslSQFILE_DDBJ;
-  if (strcasecmp(fmtstring, "uniprot")   == 0) return eslSQFILE_UNIPROT;
   if (strcasecmp(fmtstring, "daemon")    == 0) return eslSQFILE_DAEMON;
-  if (strcasecmp(fmtstring, "hmmpgmd")   == 0) return eslSQFILE_HMMPGMD;
+  if (strcasecmp(fmtstring, "ddbj")      == 0) return eslSQFILE_DDBJ;
+  if (strcasecmp(fmtstring, "embl")      == 0) return eslSQFILE_EMBL;
+  if (strcasecmp(fmtstring, "fasta")     == 0) return eslSQFILE_FASTA;
   if (strcasecmp(fmtstring, "fmindex")   == 0) return eslSQFILE_FMINDEX;
-
-
-#ifdef eslAUGMENT_NCBI
+  if (strcasecmp(fmtstring, "genbank")   == 0) return eslSQFILE_GENBANK;
+  if (strcasecmp(fmtstring, "hmmpgmd")   == 0) return eslSQFILE_HMMPGMD;
   if (strcasecmp(fmtstring, "ncbi")      == 0) return eslSQFILE_NCBI;
-#endif
-#ifdef eslAUGMENT_MSA
+  if (strcasecmp(fmtstring, "uniprot")   == 0) return eslSQFILE_UNIPROT;
+
   return esl_msafile_EncodeFormat(fmtstring);
-#endif
-  return eslSQFILE_UNKNOWN;
 }
 
 /* Function:  esl_sqio_DecodeFormat()
@@ -750,16 +728,11 @@ esl_sqio_EncodeFormat(char *fmtstring)
  * Purpose:   Given a format code <fmt>, returns a string label for
  *            that format. For example, if <fmt> is <eslSQFILE_FASTA>,
  *            returns "FASTA". 
- *            
- *            When augmented by msa, then alignment file format codes
- *            are recognized in addition to unaligned file format codes.
  */
 char *
 esl_sqio_DecodeFormat(int fmt)
 {
-#ifdef eslAUGMENT_MSA
   if (esl_sqio_IsAlignment(fmt)) return esl_msafile_DecodeFormat(fmt);
-#endif
 
   switch (fmt) {
   case eslSQFILE_UNKNOWN:    return "unknown";
@@ -770,9 +743,7 @@ esl_sqio_DecodeFormat(int fmt)
   case eslSQFILE_UNIPROT:    return "UniProt";
   case eslSQFILE_DAEMON:     return "daemon";
   case eslSQFILE_HMMPGMD:    return "hmmpgmd";
-#ifdef eslAUGMENT_NCBI
   case eslSQFILE_NCBI:       return "NCBI";
-#endif
   default:                   break;
   }
   esl_exception(eslEINVAL, FALSE, __FILE__, __LINE__,  "no such sqio format code %d", fmt);
@@ -862,13 +833,12 @@ esl_sqio_AcceptAs(ESL_SQFILE *sqfp, char *xchars, char readas)
 {
   int i;
   
-#ifdef eslAUGMENT_ALPHABET
   if (sqfp->do_digital)
     {
       for (i = 0; xchars[i] != '\0'; i++)
 	sqfp->inmap[(int) xchars[i]] = esl_abc_DigitizeSymbol(sqfp->abc, readas);
     }
-#endif
+
   if (! sqfp->do_digital)
     {
       for (i = 0; xchars[i] != '\0'; i++)
@@ -885,7 +855,7 @@ esl_sqio_AcceptAs(ESL_SQFILE *sqfp, char *xchars, char readas)
  *# 6. Sequence/subsequence fetching, random access [with <ssi>]
  *****************************************************************/
 
-#ifdef eslAUGMENT_SSI
+
 /* Function:  esl_sqfile_OpenSSI()
  * Synopsis:  Opens an SSI index associated with a sequence file.
  *
@@ -1097,7 +1067,6 @@ esl_sqio_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t start, int64_
 {
   return sqfp->fetch_subseq(sqfp, source, start, end, sq);
 }  
-#endif /*eslAUGMENT_SSI*/
 /*------------- end, random sequence access with SSI -------------------*/
 
 
@@ -1389,7 +1358,6 @@ esl_sqfile_Free(ESL_SQCACHE *sqcache)
  *  8. Functions specific to sqio <-> msa interoperation [with <msa>] 
  *****************************************************************/
 
-#ifdef eslAUGMENT_MSA
 /* convert_sq_to_msa()
  * 
  * Given a <sq>, create and return an "MSA" through <ret_msa>, which
@@ -1410,12 +1378,11 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
   int      x;        /* counter for extra-residue markups */
   int      status;
 
-#ifdef eslAUGMENT_ALPHABET
-  if (sq->dsq != NULL) { 
-    if ((msa = esl_msa_CreateDigital(sq->abc, 1, sq->n)) == NULL) { status = eslEMEM; goto ERROR; }
-  } else 
-#endif
-  if ((msa = esl_msa_Create(1, sq->n)) == NULL) { status = eslEMEM; goto ERROR; }
+  if (sq->dsq != NULL) 
+    { 
+      if ((msa = esl_msa_CreateDigital(sq->abc, 1, sq->n)) == NULL) { status = eslEMEM; goto ERROR; }
+    } 
+  else if ((msa = esl_msa_Create(1, sq->n)) == NULL) { status = eslEMEM; goto ERROR; }
 
   if ((status = esl_strdup(sq->name, -1, &(msa->sqname[0]))) != eslOK) goto ERROR;
   
@@ -1430,23 +1397,16 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
       if ((status = esl_strdup(sq->desc, -1, &(msa->sqdesc[0]))) != eslOK) goto ERROR;
     }
 
-#ifdef eslAUGMENT_ALPHABET
   if (sq->dsq != NULL) esl_abc_dsqcpy(sq->dsq, sq->n, msa->ax[0]);
-  else
-#endif
-  strcpy(msa->aseq[0], sq->seq);
+  else                 strcpy(msa->aseq[0], sq->seq);
   
   if (sq->ss != NULL)
     {
       ESL_ALLOC(msa->ss, sizeof(char *) * 1);
 
-#ifdef eslAUGMENT_ALPHABET
       if (sq->dsq != NULL) {	/* sq->ss is 1..L in digital mode; but msa->ss is always 0..L-1 */
-	if ((status = esl_strdup(sq->ss+1, -1, &(msa->ss[0]))) != eslOK) goto ERROR;
-      } else
-#endif
-      if ((status = esl_strdup(sq->ss, -1, &(msa->ss[0]))) != eslOK) goto ERROR;     	
-
+	if      ((status = esl_strdup(sq->ss+1, -1, &(msa->ss[0]))) != eslOK) goto ERROR;
+      } else if ((status = esl_strdup(sq->ss,   -1, &(msa->ss[0]))) != eslOK) goto ERROR;     	
     }
 
   if (sq->nxr > 0) {
@@ -1458,12 +1418,9 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
       ESL_ALLOC(msa->gr[x],     sizeof(char *));  
       ESL_ALLOC(msa->gr_tag[x], sizeof(char));
    
-#ifdef eslAUGMENT_ALPHABET
       if (sq->dsq != NULL) {	/* sq->xr is 1..L in digital mode; but msa->gr is always 0..L-1 */
-	if ((status = esl_strdup(sq->xr[x]+1, -1, &(msa->gr[x][0]))) != eslOK) goto ERROR;
-      } else
-#endif
-      if ((status = esl_strdup(sq->xr[x], -1, &(msa->gr[x][0]))) != eslOK) goto ERROR;     	
+        if      ((status = esl_strdup(sq->xr[x]+1, -1, &(msa->gr[x][0]))) != eslOK) goto ERROR;
+      } else if ((status = esl_strdup(sq->xr[x],   -1, &(msa->gr[x][0]))) != eslOK) goto ERROR;     	
 
       if ((status = esl_strdup(sq->xr_tag[x], -1, &(msa->gr_tag[x]))) != eslOK) goto ERROR;     	  
     }
@@ -1479,8 +1436,6 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
   *ret_msa = NULL;
   return status;
 }
-
-#endif /*eslAUGMENT_MSA*/
 /*---------- end of msa <-> sqio module interop -----------------*/
 
 
@@ -1628,10 +1583,8 @@ main(int argc, char **argv)
   esl_stopwatch_Display(stdout, w, "sqio:  ");
   printf("Read %d sequences; %lld residues.\n", n, (long long int) nr);
 
-#ifdef eslAUGMENT_NCBI
   if (sqfp->format == eslSQFILE_NCBI)
     printf("  DB %d sequences; %lld residues.\n", sqfp->data.ncbi.num_seq, (long long int) sqfp->data.ncbi.total_res);
-#endif
 
   esl_sqfile_Close(sqfp);
   esl_sq_Destroy(sq);

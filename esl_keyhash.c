@@ -19,6 +19,7 @@
 
 #include "easel.h"
 #include "esl_mem.h"
+
 #include "esl_keyhash.h"
 
 static ESL_KEYHASH *keyhash_create(uint32_t hashsize, int init_key_alloc, int init_string_alloc);

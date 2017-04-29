@@ -2,15 +2,15 @@
  */
 #ifndef eslDSQDATA_INCLUDED
 #define eslDSQDATA_INCLUDED
-
-#include "easel.h"
-#include "esl_alphabet.h"
-#include "esl_sqio.h"
+#include "esl_config.h"
 
 #include <stdio.h>
 #include <stdint.h>
 #include <pthread.h>
 
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_sqio.h"
 
 
 /* ESL_DSQDATA_CHUNK

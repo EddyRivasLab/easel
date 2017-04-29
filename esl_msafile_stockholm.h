@@ -2,6 +2,11 @@
  */
 #ifndef eslMSAFILE_STOCKHOLM_INCLUDED
 #define eslMSAFILE_STOCKHOLM_INCLUDED
+#include "esl_config.h"
+
+#include <stdio.h>
+
+#include <esl_msafile.h>
 
 extern int esl_msafile_stockholm_SetInmap     (ESL_MSAFILE *afp);
 extern int esl_msafile_stockholm_GuessAlphabet(ESL_MSAFILE *afp, int *ret_type);

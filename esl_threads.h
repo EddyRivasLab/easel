@@ -2,6 +2,7 @@
  */
 #ifndef eslTHREADS_INCLUDED
 #define eslTHREADS_INCLUDED
+#include "esl_config.h"
 
 #include <pthread.h>
 

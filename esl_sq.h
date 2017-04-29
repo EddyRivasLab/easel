@@ -2,17 +2,12 @@
  */
 #ifndef eslSQ_INCLUDED
 #define eslSQ_INCLUDED
+#include "esl_config.h"
 
-#ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
-#endif
-#ifdef eslAUGMENT_MSA
 #include "esl_msa.h"
-#endif
-#if defined eslAUGMENT_RANDOM && defined eslAUGMENT_RANDOMSEQ
 #include "esl_random.h"         /* random, randomseq add ability to sample random sq objects for unit tests */
-#include "esl_randomseq.h"         /* random, randomseq add ability to sample random sq objects for unit tests */
-#endif
+#include "esl_randomseq.h"      /* random, randomseq add ability to sample random sq objects for unit tests */
 
 /* ESL_SQ - a biosequence
  * 
@@ -129,11 +124,7 @@ typedef struct {
   int     nxr;             /* number of extra residue markups                                                             */
 
   /* Copy of a pointer to the alphabet, if digital mode */
-#if defined(eslAUGMENT_ALPHABET)
   const ESL_ALPHABET *abc; /* reference to the alphabet for <dsq>              */
-#else
-  const void         *abc; /* void reference, if we're not even augmented      */
-#endif
 } ESL_SQ;
 
 typedef struct {
@@ -178,7 +169,6 @@ extern int     esl_sq_ReverseComplement(ESL_SQ *sq);
 extern int     esl_sq_Checksum(const ESL_SQ *sq, uint32_t *ret_checksum);
 extern int     esl_sq_CountResidues(const ESL_SQ *sq, int start, int L, float *f);
 
-#ifdef eslAUGMENT_ALPHABET
 extern ESL_SQ *esl_sq_CreateDigital(const ESL_ALPHABET *abc);
 extern ESL_SQ *esl_sq_CreateDigitalFrom(const ESL_ALPHABET *abc, const char *name, const ESL_DSQ *dsq, 
 					int64_t L, const char *desc, const char *acc,  const char *ss);
@@ -187,23 +177,16 @@ extern int     esl_sq_Textize(ESL_SQ *sq);
 extern int     esl_sq_GuessAlphabet(ESL_SQ *sq, int *ret_type);
 extern int     esl_sq_XAddResidue(ESL_SQ *sq, ESL_DSQ x);
 extern int     esl_sq_ConvertDegen2X(ESL_SQ *sq);
-#endif
 
-#ifdef eslAUGMENT_MSA
 extern int     esl_sq_GetFromMSA  (const ESL_MSA *msa, int which, ESL_SQ *sq);
 extern int     esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq);
-#endif
 
 extern ESL_SQ_BLOCK *esl_sq_CreateBlock(int count);
 extern int esl_sq_BlockGrowTo(ESL_SQ_BLOCK *sqblock, int newsize, int do_digital, const ESL_ALPHABET *abc);
-#ifdef eslAUGMENT_ALPHABET
 extern ESL_SQ_BLOCK *esl_sq_CreateDigitalBlock(int count, const ESL_ALPHABET *abc);
-#endif
 extern void          esl_sq_DestroyBlock(ESL_SQ_BLOCK *sqBlock);
 
-#if defined eslAUGMENT_RANDOM && defined eslAUGMENT_RANDOMSEQ
 extern int esl_sq_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int maxL, ESL_SQ **ret_sq);
-#endif /* eslAUGMENT_RANDOM && eslAUGMENT_RANDOMSEQ */
 
 #endif /*eslSQ_INCLUDED*/
 

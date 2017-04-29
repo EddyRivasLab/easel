@@ -26,9 +26,9 @@
 #include "esl_fileparser.h"
 #include "esl_rootfinder.h"
 #include "esl_ratematrix.h"
-#include "esl_scorematrix.h"
 #include "esl_vectorops.h"
 
+#include "esl_scorematrix.h"
 
 /*****************************************************************
  *# 1. The ESL_SCOREMATRIX object
@@ -1955,7 +1955,7 @@ main(int argc, char **argv)
  *****************************************************************/
 
 #ifdef eslSCOREMATRIX_TESTDRIVE
-#include <esl_dirichlet.h>
+#include "esl_dirichlet.h"
 
 static void
 utest_ReadWrite(ESL_ALPHABET *abc, ESL_SCOREMATRIX *S)

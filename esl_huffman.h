@@ -1,10 +1,8 @@
 /* Huffman codes for digitized alphabets
- * 
- * 
  */
 #ifndef eslHUFFMAN_INCLUDED
 #define eslHUFFMAN_INCLUDED
-
+#include "esl_config.h"
 
 typedef struct huffman_s {
   int      *len;           // [0..K-1] = codelength 0..127.  L[i]=0: symbol i is not coded.

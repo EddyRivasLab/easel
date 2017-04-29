@@ -4,6 +4,7 @@
  */
 #ifndef eslMINIMIZER_INCLUDED
 #define eslMINIMIZER_INCLUDED
+#include "esl_config.h"
 
 #define MAXITERATIONS 100
 

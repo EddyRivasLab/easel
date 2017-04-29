@@ -1,8 +1,8 @@
 /* RNA secondary structure markup in WUSS notation.
- * 
  */
 #ifndef eslWUSS_INCLUDED
 #define eslWUSS_INCLUDED
+#include "esl_config.h"
 
 extern int esl_wuss2ct(char *ss, int len, int *ct);
 extern int esl_ct2wuss(int *ct, int n, char *ss);

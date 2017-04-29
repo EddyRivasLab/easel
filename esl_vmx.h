@@ -2,6 +2,8 @@
  */
 #ifndef eslVMX_INCLUDED
 #define eslVMX_INCLUDED
+#include "esl_config.h"
+#ifdef HAVE_VMX
 
 #include "esl_config.h"
 #ifdef eslENABLE_VMX
@@ -160,7 +162,6 @@ esl_vmx_hmax_u8(vector unsigned char v)
   return s;
 }
 
-
+#endif /*HAVE_VMX*/
 #endif /*eslVMX_INCLUDED*/
-#endif /*eslENABLE_VMX*/
 

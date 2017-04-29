@@ -27,18 +27,20 @@
  *   8. Test driver
  *   9. Examples
  */
-
-#include "easel.h"
-#include "esl_alphabet.h"
-#include "esl_dsqdata.h"
-#include "esl_random.h"
-#include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_config.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 #include <pthread.h>
+
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_random.h"
+#include "esl_sq.h"
+#include "esl_sqio.h"
+
+#include "esl_dsqdata.h"
 
 static ESL_DSQDATA_CHUNK *dsqdata_chunk_Create (ESL_DSQDATA *dd);
 static void               dsqdata_chunk_Destroy(ESL_DSQDATA_CHUNK *chu);

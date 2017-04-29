@@ -13,12 +13,11 @@
 #include <ctype.h>
 
 #include "easel.h"
-#ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
-#endif
 #include "esl_mem.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
+
 #include "esl_msafile_psiblast.h"
 
 /*****************************************************************
@@ -40,7 +39,6 @@ esl_msafile_psiblast_SetInmap(ESL_MSAFILE *afp)
 {
    int sym;
 
-#ifdef eslAUGMENT_ALPHABET
   if (afp->abc)
     {
       for (sym = 0; sym < 128; sym++) 
@@ -51,7 +49,7 @@ esl_msafile_psiblast_SetInmap(ESL_MSAFILE *afp)
       afp->inmap['*'] = eslDSQ_ILLEGAL;
       afp->inmap['~'] = eslDSQ_ILLEGAL;
     }
-#endif
+
   if (! afp->abc)
     {
       for (sym = 1; sym < 128; sym++) 
@@ -202,9 +200,7 @@ esl_msafile_psiblast_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   afp->errmsg[0] = '\0';
   
   /* allocate a growable MSA. We set msa->{nseq,alen} only when we're done. */
-#ifdef eslAUGMENT_ALPHABET
   if (afp->abc   &&  (msa = esl_msa_CreateDigital(afp->abc, 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
-#endif
   if (! afp->abc &&  (msa = esl_msa_Create(                 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
 
   /* skip leading blank lines in file */
@@ -260,9 +256,7 @@ esl_msafile_psiblast_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 
       /* Append the sequence. */
       cur_alen = alen;
-#ifdef eslAUGMENT_ALPHABET
       if (msa->abc)    { status = esl_abc_dsqcat(afp->inmap, &(msa->ax[idx]),   &(cur_alen), afp->line+seq_start, seq_len); }
-#endif
       if (! msa->abc)  { status = esl_strmapcat (afp->inmap, &(msa->aseq[idx]), &(cur_alen), afp->line+seq_start, seq_len); }
       if      (status == eslEINVAL)    ESL_XFAIL(eslEFORMAT, afp->errmsg, "one or more invalid sequence characters");
       else if (status != eslOK)        goto ERROR;
@@ -345,7 +339,6 @@ esl_msafile_psiblast_Write(FILE *fp, const ESL_MSA *msa)
 	{
 	  acpl =  (msa->alen - pos > cpl)? cpl : msa->alen - pos;
 
-#ifdef eslAUGMENT_ALPHABET
 	  if (msa->abc)
 	    {
 	      for (bpos = 0; bpos < acpl; bpos++)
@@ -359,7 +352,7 @@ esl_msafile_psiblast_Write(FILE *fp, const ESL_MSA *msa)
 		  else              { buf[bpos] = (is_residue ? tolower(sym) : '-'); }
 		}
 	    }
-#endif
+
 	  if (! msa->abc)
 	    {
 	      for (bpos = 0; bpos < acpl; bpos++)

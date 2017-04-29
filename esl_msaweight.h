@@ -4,6 +4,7 @@
  */
 #ifndef eslMSAWEIGHT_INCLUDED
 #define eslMSAWEIGHT_INCLUDED
+#include "esl_config.h"
 
 #include "esl_msa.h"
 

@@ -636,7 +636,7 @@ ifneq (,$(wildcard ./documentation/.))
 endif
 	${QUIET_SUBDIR0}testsuite     ${QUIET_SUBDIR1} distclean
 	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} distclean
-	-rm esl_config.h
+	-rm esl_config.h decoy_config.h
 	-rm -rf autom4te.cache
 	-rm LICENSE.sh
 	-rm Makefile

@@ -4,8 +4,9 @@
 #include <stdio.h>
 #include <x86intrin.h>	
 
-#include "esl_avx.h"
 #include "easel.h"
+#include "esl_avx.h"
+
 
 void 
 esl_avx_dump_256i_hex4(__m256i v)

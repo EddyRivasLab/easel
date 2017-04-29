@@ -165,10 +165,8 @@ included first. It contains platform-independent configuration code
 that may affect even the standard library header files. Standard
 headers like \ccode{stdio.h} come next, then Easel's main header
 \ccode{easel.h}; then headers of any other Easel modules this module
-depends on; then any headers for modules this module can be augmented
-with, surrounded by appropriate \ccode{\#ifdef}'s; then the module's
-own header. For example, the \ccode{\#include}'s in the
-\eslmod{buffer} module look like:
+depends on, then the module's own header. For example, the
+\ccode{\#include}'s in the \eslmod{buffer} module look like:
 
 \input{cexcerpts/include_example}
 
@@ -197,13 +195,8 @@ the following, in this order:
   destroying the object that this module implements.
 
 \item[\textbf{The rest of the API.}]
-  Everything else that is part of the API for this module in its
-  baseline (unaugmented) form. This might be split across multiple
-  sections.
-
-\item[\textbf{Augmented API, if any.}]
-  Any functions that are only available with one or more augmentations
-  are split out into one or more separate sections. 
+  Everything else that is part of the API for this module.
+  This might be split across multiple sections.
 
 \item[\textbf{Debugging/dev code.}]
   Most objects can be validated or dumped to an output stream
@@ -1440,9 +1433,6 @@ Unit tests should attempt to deliberately generate exceptions and
 failures, and test that the appropriate error code is returned.  Unit
 tests must temporarily register a nonfatal error handler when testing
 exceptions. 
-
-Unit tests should test all possible combinations of augmentations that
-may affect a function.
 
 Every function, procedure, and macro in the exposed API shall be
 tested by one or more unit tests. The unit tests aim for complete code

@@ -4,7 +4,7 @@
  *   1. Routines for evaluating densities and distributions
  *   2. Generic API routines: for general interface w/ histogram module
  *   3. Dumping plots for files
- *   4. Sampling (requires augmentation w/ random module)
+ *   4. Sampling
  *   5. ML fitting to complete data
  *   6. Test driver
  *   7. Example
@@ -23,14 +23,11 @@
 #include <float.h>
 
 #include "easel.h"
-#include "esl_stats.h"
-#include "esl_gamma.h"
-#ifdef eslAUGMENT_RANDOM
-#include "esl_random.h"
-#endif
-#ifdef eslAUGMENT_HISTOGRAM
 #include "esl_histogram.h"
-#endif
+#include "esl_random.h"
+#include "esl_stats.h"
+
+#include "esl_gamma.h"
 
 static int    tau_by_moments(double *x, int n, double mu, double *ret_tau, 
 			     double *ret_mean, double *ret_logsum);
@@ -300,9 +297,8 @@ esl_gam_Plot(FILE *fp, double mu, double lambda, double tau,
 
 
 /****************************************************************************
- * 4. Sampling (requires augmentation w/ random module)
+ * 4. Sampling 
  ****************************************************************************/ 
-#ifdef eslAUGMENT_RANDOM
 /* Function:  esl_gam_Sample()
  *
  * Purpose:   Sample a gamma-distributed random variate.
@@ -315,7 +311,6 @@ esl_gam_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double tau)
   x = esl_rnd_Gamma(r, tau);
   return (mu + x / lambda);
 } 
-#endif /*eslAUGMENT_RANDOM*/
 /*--------------------------- end sampling ---------------------------------*/
 
 
@@ -471,7 +466,6 @@ tau_function(double tau, double mean, double logsum)
   return ( ((log(tau) - psitau) - log(mean)) + logsum );  
 }
 
-#ifdef eslAUGMENT_HISTOGRAM
 /* Function:  esl_gam_FitCompleteBinned()
  *
  * Purpose:   Fit a complete exponential distribution to the observed
@@ -652,8 +646,6 @@ tau_by_moments_binned(ESL_HISTOGRAM *g, double mu, double *ret_tau, double *ret_
 }
 
 
-#endif /*eslAUGMENT_HISTOGRAM*/
-
 
 /****************************************************************************
  * 6. Test driver
@@ -777,11 +769,6 @@ main(int argc, char **argv)
  ****************************************************************************/ 
 #ifdef eslGAMMA_EXAMPLE
 /*::cexcerpt::gam_example::begin::*/
-/* compile:
-   gcc -g -Wall -I. -o example -DeslGAMMA_EXAMPLE\
-     -DeslAUGMENT_RANDOM -DeslAUGMENT_HISTOGRAM\
-     esl_gamma.c esl_random.c esl_histogram.c esl_stats.c easel.c -lm
- */
 #include <stdio.h>
 #include "easel.h"
 #include "esl_random.h"
