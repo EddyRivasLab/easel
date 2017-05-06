@@ -8,7 +8,6 @@
  *    5. ML fitting to complete or censored data
  *    6. Stats driver
  *    7. Example
- *    8. Copyright and license information
  *    
  * Xref:
  *    STL9/118, 2005/0712-easel-gev-impl. Verified against evd package in R.
@@ -966,10 +965,3 @@ main(int argc, char **argv)
 /*::cexcerpt::gev_example::end::*/
 #endif /*eslGEV_EXAMPLE*/
 
-
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

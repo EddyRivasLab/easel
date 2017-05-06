@@ -10,7 +10,6 @@
 # save file parser strictly requires DESC <s> or ACC <s>.
 #
 # SRE, Tue Jul 13 10:46:02 2010
-# SVN $Id$
 
 BEGIN {
     $builddir  = shift;

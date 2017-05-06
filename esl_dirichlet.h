@@ -2,8 +2,6 @@
  * and simple and mixture Dirichlet priors.
  * 
  * SRE, Tue Nov  2 14:35:06 2004 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslDIRICHLET_INCLUDED
 #define eslDIRICHLET_INCLUDED
@@ -63,6 +61,3 @@ extern int esl_mixdchlet_Read(ESL_FILEPARSER *efp,  ESL_MIXDCHLET **ret_pri);
 extern int esl_mixdchlet_Write(FILE *fp,  ESL_MIXDCHLET *d);
 
 #endif /*eslDIRICHLET_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

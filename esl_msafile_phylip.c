@@ -9,7 +9,6 @@
  *   6. Unit tests
  *   7. Test driver
  *   8. Example
- *   9. Copyright and license information.
  *
  * See: http://evolution.genetics.washington.edu/phylip/doc/sequence.html
  */
@@ -1480,7 +1479,7 @@ utest_write_ambig1(FILE *ofp)
   fputs("YYYYYYYYY DDDDDDDDDD EEEEEEEEEE\n", ofp);
   fputs("YYYYYYYYY FFFFFFFFFF GGGGGGGGGG\n", ofp);
   fputs("HHHHHHHHH IIIIIIIIII KKKKKKKKKK\n", ofp);
-};
+}
 
 
 
@@ -1894,9 +1893,3 @@ main(int argc, char **argv)
 /*::cexcerpt::msafile_phylip_example::end::*/
 #endif /*eslMSAFILE_PHYLIP_EXAMPLE*/
 /*--------------------- end of examples -------------------------*/
-
-
-
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

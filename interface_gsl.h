@@ -2,8 +2,6 @@
  * Easel's interfaces to the GNU Scientific Library
  * 
  * SRE, Tue Jul 13 15:36:48 2004
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslINTERFACE_GSL_INCLUDED
 #define eslINTERFACE_GSL_INCLUDED

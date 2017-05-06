@@ -1,5 +1,4 @@
 /* Support for MPI parallelization.
- * 
  */
 #ifndef eslMPI_INCLUDED
 #define eslMPI_INCLUDED
@@ -65,12 +64,3 @@ extern int esl_stopwatch_MPIReduce(ESL_STOPWATCH *w, int root, MPI_Comm comm);
 
 #endif /*HAVE_MPI*/
 #endif /*eslMPI_INCLUDED*/
-
-
-/*****************************************************************
- * @LICENSE@
- *
- * SRE, Sat Jun  2 09:07:25 2007 [Janelia]
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

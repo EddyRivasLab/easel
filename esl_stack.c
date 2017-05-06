@@ -8,7 +8,6 @@
  *   5. Unit tests.
  *   6. Test driver.
  *   7. Example.
- *   8. Copyright and license.
  */ 
 #include "esl_config.h"
 
@@ -1154,12 +1153,3 @@ main(void)
 #endif /*eslSTACK_EXAMPLE*/
 /*------------------------ end of example -----------------------*/
 
-
-
-
-/*****************************************************************  
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

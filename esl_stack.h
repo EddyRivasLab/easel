@@ -4,9 +4,6 @@
  * mstack - SRE, Fri Oct 10 10:18:16 2003 [St. Louis]
  * cstack - SRE, Mon Oct 13 12:57:56 2003 [St. Louis]
  * Incorp into easel - SRE, Sun Dec 26 07:39:02 2004 [Zaragoza]
- *
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslSTACK_INCLUDED
 #define eslSTACK_INCLUDED
@@ -65,6 +62,3 @@ extern int esl_stack_UseCond    (ESL_STACK *s);
 extern int esl_stack_ReleaseCond(ESL_STACK *s);
 #endif
 #endif /*eslSTACK_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

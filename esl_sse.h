@@ -1,9 +1,7 @@
-
 /* Vectorized routines for Intel/AMD, using Streaming SIMD Extensions (SSE).
  *
  * This header file, unusually, provides many complete function
- * implementations; this is so that they can be inlined by the
- * compiler, for maximum efficiency.
+ * implementations so they can be inlined by the compiler.
  * 
  * Contents:
  *    1. Function declarations (from esl_sse.c)
@@ -13,24 +11,13 @@
 #ifndef eslSSE_INCLUDED
 #define eslSSE_INCLUDED
 #include "esl_config.h"
-#ifdef HAVE_SSE2
+#ifdef eslENABLE_SSE
 
 #include "easel.h"
 
 #include <stdio.h>
 #include <xmmintrin.h>		/* SSE  */
 #include <emmintrin.h>		/* SSE2 */
-
-/* Some compilers (gcc 3.4) did not implement SSE2 cast functions 
- * on the theory that they're unnecessary no-ops -- but then
- * code that has proper SSE cast calls doesn't compile. Provide 
- * the no-ops.
- */
-#ifndef HAVE_SSE2_CAST
-#define _mm_castps_si128(x) (__m128i)(x)
-#define _mm_castsi128_ps(x) (__m128)(x)
-#endif
-
 
 
 /*****************************************************************
@@ -235,9 +222,3 @@ esl_sse_hmax_epi16(__m128i a)
 #endif /*HAVE_SSE2*/
 #endif /*eslSSE_INCLUDED*/
 
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

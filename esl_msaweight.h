@@ -1,8 +1,6 @@
 /* Sequence weighting algorithms.
  * 
  * SRE, Sun Nov  5 09:11:13 2006 [Janelia]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslMSAWEIGHT_INCLUDED
 #define eslMSAWEIGHT_INCLUDED
@@ -17,6 +15,3 @@ extern int esl_msaweight_IDFilter(const ESL_MSA *msa, double maxid, ESL_MSA **re
 
 
 #endif /*eslMSAWEIGHT_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

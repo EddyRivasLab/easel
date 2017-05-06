@@ -1,9 +1,7 @@
 /* Clusters tabular data.
  * 
  * SRE, Mon Nov  3 13:43:29 2008 [Janelia]
- * SVN $Id$
  */
-
 #include "esl_config.h"
 
 #include <stdlib.h>

@@ -5,7 +5,6 @@
  *   2. Unit tests.
  *   3. Test driver.
  *   4. Examples.
- *   5. License and copyright.
  */
 #include "esl_config.h"
 
@@ -716,10 +715,3 @@ main(int argc, char **argv)
 /*::cexcerpt::msafile_afa_example2::end::*/
 #endif /*eslMSAFILE_AFA_EXAMPLE2*/
 /*--------------------- end of examples -------------------------*/
-
-
-
-
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

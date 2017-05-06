@@ -5,8 +5,10 @@
 ################################################################
 
 1 exercise alphabet-utest     @esl_alphabet_utest@
+1 exercise alloc-utest        @esl_alloc_utest@
 1 exercise buffer-utest       @esl_buffer_utest@
 1 exercise cluster-utest      @esl_cluster_utest@
+1 exercise cpu-utest          @esl_cpu_utest@
 1 exercise dirichlet-utest    @esl_dirichlet_utest@
 1 exercise distance-utest     @esl_distance_utest@
 1 exercise dmatrix-utest      @esl_dmatrix_utest@
@@ -36,7 +38,7 @@
 1 exercise msafile-selex      @esl_msafile_selex_utest@
 1 exercise msafile-stockholm  @esl_msafile_stockholm_utest@
 1 exercise msaweight-utest    @esl_msaweight_utest@
-1 exercise neon-utest		  @esl_neon_utest@
+1 exercise neon-utest	      @esl_neon_utest@
 1 exercise normal-utest       @esl_normal_utest@
 1 exercise quicksort-utest    @esl_quicksort_utest@
 1 exercise random-utest       @esl_random_utest@
@@ -49,12 +51,14 @@
 1 exercise scorematrix-utest  @esl_scorematrix_utest@
 1 exercise sq-utest           @esl_sq_utest@
 1 exercise sqio-utest         @esl_sqio_utest@
+1 exercise sse-utest          @esl_sse_utest@
 1 exercise ssi-utest          @esl_ssi_utest@
 1 exercise stack-utest        @esl_stack_utest@
 1 exercise stats-utest        @esl_stats_utest@
 1 exercise stretchexp-utest   @esl_stretchexp_utest@
 1 exercise tree-utest         @esl_tree_utest@
 1 exercise vectorops-utest    @esl_vectorops_utest@
+1 exercise vmx-utest          @esl_vmx_utest@
 1 exercise weibull-utest      @esl_weibull_utest@
 1 exercise wuss-utest         @esl_wuss_utest@
 
@@ -147,8 +151,5 @@
 # 3 valgrind buffer-utest       @esl_buffer_utest@
 
 
-################################################################
-# SVN $URL$
-# SVN $Id: testsuite.sqc 714 2011-07-29 21:26:26Z eddys $
-################################################################
+
 

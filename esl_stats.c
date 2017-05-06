@@ -10,8 +10,6 @@
  *   7. Examples.
  *      - driver for linear regression
  *      - driver for G-test
- *   8. License and copyright information.
- * 
  */
 #include "esl_config.h"
 
@@ -1160,12 +1158,3 @@ main(int argc, char **argv)
 #endif /* eslSTATS_EXAMPLE2 */
 /*--------------------- end of examples -------------------------*/
 
-
-
-
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

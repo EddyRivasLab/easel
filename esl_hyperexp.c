@@ -11,7 +11,6 @@
  *   8. ML fitting to binned data  
  *   9. Test driver
  *  10. Example
- *  11. Copyright and license information
  *   
  * Xrefs:
  *   STL9/140     :  original implementation
@@ -1386,12 +1385,5 @@ main(int argc, char **argv)
 }
 /*::cexcerpt::hyperexp_example::end::*/
 #endif /*eslHYPEREXP_EXAMPLE*/
-
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
 
 

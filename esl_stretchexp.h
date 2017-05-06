@@ -1,8 +1,6 @@
 /* Stretched exponential distributions.
  * 
  * SRE, Fri Aug 19 13:51:14 2005 [St. Louis] [xref STL9/146]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslSTRETCHEXP_INCLUDED
 #define eslSTRETCHEXP_INCLUDED
@@ -39,6 +37,3 @@ extern int esl_sxp_FitCompleteBinned(ESL_HISTOGRAM *g,
 
 
 #endif /*eslSTRETCHEXP_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

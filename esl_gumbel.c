@@ -12,7 +12,6 @@
  *   9. Unit tests
  *  10. Test driver
  *  11. Example
- *  12. Copyright and license information
  * 
  * To-do:
  *   - ML fitting routines will be prone to over/underfitting 
@@ -1397,10 +1396,3 @@ main(int argc, char **argv)
 
 
 
-
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

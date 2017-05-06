@@ -11,7 +11,6 @@
  *   8. Unit tests
  *   9. Test driver
  *   10. Examples
- *   11. Copyright and license
  */
 #include "esl_config.h"
 
@@ -1172,10 +1171,3 @@ main(int argc, char **argv)
 }
 #endif /*eslGENCODE_EXAMPLE2*/
 
-
-/****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- ****************************************************************/

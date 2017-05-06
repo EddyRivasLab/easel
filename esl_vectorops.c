@@ -9,8 +9,6 @@
  *    2. Unit tests.
  *    3. Test driver.
  *    4. Examples.
- *    5. Copyright and license information.
- * 
  */                      
 #include "esl_config.h"
 
@@ -1453,9 +1451,4 @@ int main(void)
 /*::cexcerpt::vectorops_example::end::*/
 #endif /*eslVECTOROPS_EXAMPLE*/
 
-/*****************************************************************  
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
+

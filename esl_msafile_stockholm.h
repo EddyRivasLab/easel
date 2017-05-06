@@ -15,6 +15,3 @@ extern int esl_msafile_stockholm_Write        (FILE *fp, const ESL_MSA *msa, int
 
 #endif /*eslMSAFILE_STOCKHOLM_INCLUDED*/
 
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

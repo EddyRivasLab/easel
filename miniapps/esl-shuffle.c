@@ -1,7 +1,6 @@
 /* Shuffling or generating random sequences.
  * 
  * SRE, Wed Jan 16 15:30:05 2008 [UA5230 to New York]
- * SVN $Id$
  * from squid's shuffle (1995)
  */
 #include "esl_config.h"
@@ -389,6 +388,4 @@ main(int argc, char **argv)
 } 
 
 
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/ 
+

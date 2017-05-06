@@ -125,6 +125,3 @@ extern int    esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int64_
 #define esl_abc_CGetMissing(a)       ((a)->sym[(a)->Kp-1])
 
 #endif /*eslALPHABET_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

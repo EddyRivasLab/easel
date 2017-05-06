@@ -6,7 +6,6 @@
  *    3. Unit tests.
  *    4. Test driver.
  *    5. Examples.
- *    6. Copyright/license information.
  */
 #include "esl_config.h"
 
@@ -792,14 +791,4 @@ main(int argc, char **argv)
 #endif /*eslFILEPARSER_EXAMPLE*/
 
 
-
-
-
-
-/*****************************************************************
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
 

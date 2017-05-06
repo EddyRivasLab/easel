@@ -9,7 +9,6 @@
  *   6. Unit tests.
  *   7. Test driver.
  *   8. Examples.
- *   9. Copyright notice and license.
  */
 #include "esl_config.h"
 
@@ -1591,6 +1590,7 @@ cluster_engine(ESL_DMATRIX *D_original, int mode, ESL_TREE **ret_T)
   ESL_DASSERT1((D_original != NULL));               /* matrix exists      */
   ESL_DASSERT1((D_original->n == D_original->m));   /* D is NxN square    */
   ESL_DASSERT1((D_original->n >= 2));               /* >= 2 taxa          */
+
 #if (eslDEBUGLEVEL >=1)
   for (i = 0; i < D_original->n; i++) {
     assert(D_original->mx[i][i] == 0.);	           /* self-self d = 0    */
@@ -2184,9 +2184,3 @@ int main(int argc, char **argv)
 }
 /*::cexcerpt::tree_example2::end::*/
 #endif /*eslTREE_EXAMPLE*/
-
-
-
-/*****************************************************************  
- * @LICENSE@
- *****************************************************************/

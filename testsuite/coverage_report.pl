@@ -131,4 +131,3 @@ if ($have_sloccount) {
 
 #
 # SRE, Thu Mar  1 19:22:57 2007 (Janelia)
-# SVN $Id$

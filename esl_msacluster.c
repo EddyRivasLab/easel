@@ -7,7 +7,6 @@
  *    4. Unit tests
  *    5. Test driver
  *    6. Example
- *    7. Copyright and license.
  *  
  * (Wondering why isn't this just part of the cluster or MSA modules?
  * esl_cluster itself is a core module, dependent only on easel. MSA
@@ -400,11 +399,3 @@ main(int argc, char **argv)
 /*::cexcerpt::msacluster_example::end::*/
 #endif /*eslMSACLUSTER_EXAMPLE*/
 /*------------------------ end of example -----------------------*/
-
-
-
-
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
-

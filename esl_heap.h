@@ -35,9 +35,3 @@ extern int       esl_heap_IExtractTop(ESL_HEAP *hp, int *ret_val);
 extern int       esl_heap_IGetTop(ESL_HEAP *hp);
 
 #endif /*eslHEAP_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

@@ -9,8 +9,6 @@
  *    5. Unit tests.
  *    6. Test driver.
  *    7. Example.
- *    8. Copyright and license information.
- * 
  */
 #include "esl_config.h"
 
@@ -844,6 +842,3 @@ main(int argc, char **argv)
 /*::cexcerpt::keyhash_example::end::*/
 #endif /*eslKEYHASH_EXAMPLE*/
 /*----------------------- end, example --------------------------*/
-
-
-

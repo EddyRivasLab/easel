@@ -189,6 +189,4 @@ extern void          esl_sq_DestroyBlock(ESL_SQ_BLOCK *sqBlock);
 extern int esl_sq_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int maxL, ESL_SQ **ret_sq);
 
 #endif /*eslSQ_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
+

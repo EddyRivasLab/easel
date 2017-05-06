@@ -8,11 +8,11 @@ Copyright (C) 2004-2006 Washington University School of Medicine
 
 Easel's code includes contributions from members of the Eddy/Rivas
 laboratory at Harvard University, the HMMER and Infernal development
-teams, and others, including:
+teams, and other colleagues, including:
 
    Tyler Camp        University of Texas, Austin
    Nick Carter       HHMI | Harvard University
-   Michael Farrar    deceased, 2010
+   Michael Farrar    Deceased, 2010
    Graeme Mitchison  Cambridge University
    Eric Nawrocki     National Center for Biotechnology Information (NCBI)
    Elena Rivas       Harvard University
@@ -24,14 +24,12 @@ appropriate places in individual files. Copyright holders and
 contributors include:
 
    Free Software Foundation, Inc.    configure	
-   Matteo Frigo                      aclocal.m4
-   Steven G. Johnson                 aclocal.m4
+   (various authors)                 autoconf macros in m4/
    Stephen Moshier                   esl_sse.c,esl_vmx.c   
    Julien Pommier                    esl_sse.c,esl_vmx.c   
    Sun Microsystems, Inc.            esl_stats.c::esl_erfc()
-   David Robert Nadeau               esl_stopwatch.c
+   David Robert Nadeau               espl_stopwatch.c
    Henry Spencer, U. of Toronto      esl_regexp.c
-   Christophe Tournayre              aclocal.m4
    David Wheeler                     easel.c::esl_tmpfile()
 
 

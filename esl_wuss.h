@@ -14,6 +14,4 @@ extern int esl_wuss_nopseudo(char *ss1, char *ss2);
 extern int esl_wuss_reverse(char *ss, char *new);
 
 #endif /*eslWUSS_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
+

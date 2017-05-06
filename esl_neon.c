@@ -1,14 +1,22 @@
-/* Vectorized routines for Intel/AMD, using Streaming SIMD Extensions (NEON).
+/* Vectorized routines for ARM processors, using NEON intrinsics.
  * 
- * Table of contents           
+ * Table of contents:          
  *     1. SIMD logf(), expf()
  *     2. Utilities for float vectors (4 floats in an esl_neon_128f_t)
  *     3. Benchmark
  *     4. Unit tests
  *     5. Test driver
  *     6. Example
- *     7. Copyrights and licensing
  *     
+ *****************************************************************
+ *
+ * This code is conditionally compiled, only when <eslENABLE_NEON> was
+ * set in <esl_config.h> by the configure script, and that will only
+ * happen on ARM platforms. When <eslENABLE_NEON> is not set, we
+ * include some dummy code to silence compiler and ranlib warnings
+ * about empty translation units and no symbols, and dummy drivers
+ * that do nothing but declare success.
+ *
  *****************************************************************
  * Credits:
  *
@@ -21,7 +29,7 @@
  * information is appended at the end of the file.
  */
 #include "esl_config.h"
-#ifdef HAVE_NEON
+#ifdef eslENABLE_NEON
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -79,8 +87,9 @@
  * Note:      Derived from an ARM implementation by Julian
  *            Pommier. Added handling of IEEE754 specials.
  */
-esl_neon_128f_t esl_neon_logf(esl_neon_128f_t x) {
-
+esl_neon_128f_t 
+esl_neon_logf(esl_neon_128f_t x) 
+{
   esl_neon_128f_t one, e, tmp, z, y, inf_vector, neginf_vector;
   esl_neon_128i_t nan_mask, emm0, ux, mask;
   esl_neon_128i_t poszero_mask, inf_mask; /* Special IEEE754 inputs */
@@ -141,39 +150,26 @@ esl_neon_128f_t esl_neon_logf(esl_neon_128f_t x) {
   x.f32x4 = vaddq_f32(x.f32x4, tmp.f32x4);
 
   z.f32x4 = vmulq_f32(x.f32x4, x.f32x4);
-
   y.f32x4 = vdupq_n_f32(c_cephes_log_p0);
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, vdupq_n_f32(c_cephes_log_p1));
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, vdupq_n_f32(c_cephes_log_p2));
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, vdupq_n_f32(c_cephes_log_p3));
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, vdupq_n_f32(c_cephes_log_p4));
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, vdupq_n_f32(c_cephes_log_p5));
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, vdupq_n_f32(c_cephes_log_p6));
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, vdupq_n_f32(c_cephes_log_p7));
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, vdupq_n_f32(c_cephes_log_p8));
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
 
-  y.f32x4 = vmulq_f32(y.f32x4, z.f32x4);
-  
+  y.f32x4 = vmlaq_f32(vdupq_n_f32(c_cephes_log_p1), y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(vdupq_n_f32(c_cephes_log_p2), y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(vdupq_n_f32(c_cephes_log_p3), y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(vdupq_n_f32(c_cephes_log_p4), y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(vdupq_n_f32(c_cephes_log_p5), y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(vdupq_n_f32(c_cephes_log_p6), y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(vdupq_n_f32(c_cephes_log_p7), y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(vdupq_n_f32(c_cephes_log_p8), y.f32x4, x.f32x4);
 
+  y.f32x4   = vmulq_f32(y.f32x4, x.f32x4);
+  y.f32x4   = vmulq_f32(y.f32x4, z.f32x4);
   tmp.f32x4 = vmulq_f32(e.f32x4, vdupq_n_f32(c_cephes_log_q1));
-  y.f32x4 = vaddq_f32(y.f32x4, tmp.f32x4);
-
-
+  y.f32x4   = vaddq_f32(y.f32x4, tmp.f32x4);
   tmp.f32x4 = vmulq_f32(z.f32x4, vdupq_n_f32(0.5f));
-  y.f32x4 = vsubq_f32(y.f32x4, tmp.f32x4);
-
+  y.f32x4   = vsubq_f32(y.f32x4, tmp.f32x4);
   tmp.f32x4 = vmulq_f32(e.f32x4, vdupq_n_f32(c_cephes_log_q2));
-  x.f32x4 = vaddq_f32(x.f32x4, y.f32x4);
-  x.f32x4 = vaddq_f32(x.f32x4, tmp.f32x4);
+  x.f32x4   = vaddq_f32(x.f32x4, y.f32x4);
+  x.f32x4   = vaddq_f32(x.f32x4, tmp.f32x4);
   
   /* IEEE754 cleanup */
   esl_neon_128f_t inf_mask_view, poszero_mask_view;
@@ -241,17 +237,13 @@ esl_neon_expf(esl_neon_128f_t x)
   y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
   z.f32x4 = vmulq_f32(x.f32x4,x.f32x4);
   y.f32x4 = vaddq_f32(y.f32x4, c1.f32x4);
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, c2.f32x4);
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, c3.f32x4);
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, c4.f32x4);
-  y.f32x4 = vmulq_f32(y.f32x4, x.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, c5.f32x4);
-  
-  y.f32x4 = vmulq_f32(y.f32x4, z.f32x4);
-  y.f32x4 = vaddq_f32(y.f32x4, x.f32x4);
+
+  y.f32x4 = vmlaq_f32(c2.f32x4, y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(c3.f32x4, y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(c4.f32x4, y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(c5.f32x4, y.f32x4, x.f32x4);
+  y.f32x4 = vmlaq_f32(x.f32x4, y.f32x4, z.f32x4);
+
   y.f32x4 = vaddq_f32(y.f32x4, one.f32x4);
 
   /* build 2^n */
@@ -555,9 +547,19 @@ main(int argc, char **argv)
   ESL_GETOPTS    *go = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   ESL_RANDOMNESS *r  = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));;
 
+  fprintf(stderr, "## %s\n", argv[0]);
+  fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(r));
+#ifdef eslHAVE_NEON_AARCH64
+  fprintf(stderr, "#  flavor   = aarch64\n");
+#else
+  fprintf(stderr, "#  flavor   = armv7\n");
+#endif
+
   utest_logf(go);
   utest_expf(go);
   utest_odds(go, r);
+
+  fprintf(stderr, "#  status   = ok\n");
 
   esl_randomness_Destroy(r);
   esl_getopts_Destroy(go);
@@ -603,52 +605,55 @@ main(int argc, char **argv)
 /*::cexcerpt::neon_example::end::*/
 #endif /* eslNEON_EXAMPLE */
 
-#else /* ! HAVE_NEON */
+#else // ! eslENABLE_NEON
 
 /* If we don't have NEON compiled in, provide some nothingness to:
  *   a. prevent Mac OS/X ranlib from bitching about .o file that "has no symbols" 
  *   b. prevent compiler from bitching about "empty compilation unit"
- *   c. automatically pass the automated tests.
+ *   c. compile blank drivers and automatically pass the automated tests.
  */
-#include "easel.h"
-
-void esl_neon_DoAbsolutelyNothing(void) { return; }
+void esl_neon_silence_hack(void) { return; }
 #if defined eslNEON_TESTDRIVE || eslNEON_EXAMPLE || eslNEON_BENCHMARK
 int main(void) { return 0; }
 #endif
 
-#endif /* HAVE_NEON or not*/
+#endif // !eslENABLE_NEON or not
 
 
-/* esl_neon_logf() and esl_neon_expf() are additionally:
+
+/*****************************************************************
+ * additional copyright and license information for this file    
+ *****************************************************************
+ * In addition to our own copyrights, esl_neon_logf() and esl_neon_expf() are also:
  *  Copyright (C) 2007 Julien Pommier
  *  Copyright (C) 1992 Stephen Moshier 
  *
- * Because these functions derived from zlib-licensed routines by
+ * These functions derived from zlib-licensed routines by
  * Julien Pommier, http://gruntthepeon.free.fr/ssemath/. The
  * zlib license:
- */
-
-/* Copyright (C) 2007  Julien Pommier
-
-  This software is provided 'as-is', without any express or implied
-  warranty.  In no event will the authors be held liable for any damages
-  arising from the use of this software.
-
-  Permission is granted to anyone to use this software for any purpose,
-  including commercial applications, and to alter it and redistribute it
-  freely, subject to the following restrictions:
-
-  1. The origin of this software must not be misrepresented; you must not
-     claim that you wrote the original software. If you use this software
-     in a product, an acknowledgment in the product documentation would be
-     appreciated but is not required.
-  2. Altered source versions must be plainly marked as such, and must not be
-     misrepresented as being the original software.
-  3. This notice may not be removed or altered from any source distribution.
-*/
-
-/* In turn, Pommier had derived the logf() and expf() functions from
+ *
+ *-------------------------------------------------------------------------
+ * Copyright (C) 2007  Julien Pommier
+ *
+ *  This software is provided 'as-is', without any express or implied
+ *  warranty.  In no event will the authors be held liable for any damages
+ *  arising from the use of this software.
+ *
+ *  Permission is granted to anyone to use this software for any purpose,
+ *  including commercial applications, and to alter it and redistribute it
+ *  freely, subject to the following restrictions:
+ *
+ *  1. The origin of this software must not be misrepresented; you must not
+ *     claim that you wrote the original software. If you use this software
+ *     in a product, an acknowledgment in the product documentation would be
+ *     appreciated but is not required.
+ *  2. Altered source versions must be plainly marked as such, and must not be
+ *     misrepresented as being the original software.
+ *  3. This notice may not be removed or altered from any source distribution.
+ *
+ *-------------------------------------------------------------------------
+ *
+ * In turn, Pommier had derived the logf() and expf() functions from
  * serial versions in the Cephes math library. According to its
  * readme, Cephes is "copyrighted by the author" and "may be used
  * freely but it comes with no support or guarantee."  Cephes is
@@ -659,4 +664,3 @@ int main(void) { return 0; }
  * to credit his original contribution. Thanks to both Pommier and
  * Moshier for their clear code.
  */
-

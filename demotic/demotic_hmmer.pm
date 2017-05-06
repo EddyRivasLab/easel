@@ -4,7 +4,6 @@
 # Does not parse env coords nor alignments yet,
 # but is suitable for use in profmark.
 #
-# SVN $Id: demotic_hmmer.pm 2720 2009-01-20 12:03:54Z eddys $
 # SRE, Tue Apr 22 13:13:51 2008
 
 package demotic_hmmer;

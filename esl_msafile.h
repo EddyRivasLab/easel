@@ -134,9 +134,3 @@ extern int esl_msafile_PutLine(ESL_MSAFILE *afp);
 #include "esl_msafile_selex.h"
 #include "esl_msafile_stockholm.h"
 #endif /*eslMSAFILE_INCLUDED*/
-
-
-
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

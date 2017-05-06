@@ -112,10 +112,3 @@ extern char  *esl_opt_GetArg    (const ESL_GETOPTS *g, int which);
 extern int esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent, int textwidth);
 
 #endif /*eslGETOPTS_INCLUDED*/
-
-/*****************************************************************
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

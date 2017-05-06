@@ -13,7 +13,6 @@
  *   9. Unit tests.
  *  10. Test driver.
  *  11. Example program.
- *  12. License and copyright.
  */
 #include "esl_config.h"
 
@@ -2289,11 +2288,3 @@ int main(int argc, char **argv)
 }
 /*::cexcerpt::scorematrix_example::end::*/
 #endif /*eslSCOREMATRIX_EXAMPLE*/
-
-
-/*****************************************************************
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/ 

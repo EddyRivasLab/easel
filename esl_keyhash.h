@@ -60,6 +60,4 @@ extern int  esl_keyhash_Lookup(const ESL_KEYHASH *kh, const char *key, esl_pos_t
 
 
 #endif /* eslKEYHASH_INCLUDED */
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
+

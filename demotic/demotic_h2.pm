@@ -3,7 +3,6 @@
 # Does not parse alignment section yet. But suitable for profmark use.
 # H2's hmmsearch can only search a single query model, not multiples.
 #
-# SVN $Id$
 # SRE, Fri Apr 16 11:07:34 2010
 
 package demotic_h2;

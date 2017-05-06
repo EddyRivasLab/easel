@@ -9,7 +9,6 @@
  *   6. ML fitting to binned data   
  *   7. Test driver
  *   8. Example 
- *   9. Copyright and licence information.
  *   
  * To-do:
  *    - Fit*() functions should return eslEINVAL on n=0, eslENORESULT
@@ -719,9 +718,4 @@ main(int argc, char **argv)
 #endif /*eslWEIBULL_EXAMPLE*/
 
 
-/*****************************************************************
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
+

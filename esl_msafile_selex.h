@@ -14,6 +14,3 @@ extern int esl_msafile_selex_Write        (FILE *fp,    const ESL_MSA *msa);
 
 #endif /* eslMSAFILE_SELEX_INCLUDED */
 
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

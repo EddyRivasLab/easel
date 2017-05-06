@@ -195,10 +195,3 @@ extern int      esl_msa_CompareOptional (ESL_MSA *a1, ESL_MSA *a2);
 extern int      esl_msa_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int max_nseq, int max_alen, ESL_MSA **ret_msa);
 #endif /*eslMSA_INCLUDED*/
 
-
-/*****************************************************************
- * @LICENSE@
- * 
- * SVN $URL$
- * SVN $Id$
- *****************************************************************/

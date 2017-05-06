@@ -1,12 +1,12 @@
-/* sequence/subsequence indices: fast lookup in large sequence files by keyword.
+/* Sequence/subsequence indices: fast lookup in large sequence files by keyword.
  *
+ * Contents:
  *  1. Using (reading) an SSI index.
  *  2. Creating (writing) new SSI files.
  *  3. Portable binary i/o.
  *  4. Unit tests.
  *  5. Test driver.
  *  6. Example code.
- *  7. License and copyright information.
  */
 #include "esl_config.h"
 
@@ -2137,10 +2137,3 @@ int main(int argc, char **argv)
 /*::cexcerpt::ssi_example2::end::*/
 #endif /*eslSSI_EXAMPLE2*/
 
-
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

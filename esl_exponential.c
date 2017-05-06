@@ -10,7 +10,6 @@
  *   7. Unit tests
  *   8. Test driver
  *   9. Example
- *  10. Copyright and license information
  *
  * xref STL9/138  
  * 
@@ -677,10 +676,3 @@ main(int argc, char **argv)
 /*::cexcerpt::exp_example::end::*/
 #endif /*eslEXPONENTIAL_EXAMPLE*/
 
-
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

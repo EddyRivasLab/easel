@@ -8,7 +8,6 @@
  *    5. Unit tests.
  *    6. Test driver.
  *    7. Example.
- *    8. Copyright and license information.
  */
 #include "esl_config.h"		
 #if defined(HAVE_MPI)
@@ -1230,6 +1229,3 @@ int main(void) { return 0; }
 
 #endif /*HAVE_MPI*/
 
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

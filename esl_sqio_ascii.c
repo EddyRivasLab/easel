@@ -12,7 +12,6 @@
  *    9. Internal routines for FASTA format
  *   10. Internal routines for DAEMON format
  *   11. Internal routines for HMMPGMD format
- *   12. Copyright and license.
  * 
  * This module shares remote evolutionary homology with Don Gilbert's
  * seminal, public domain ReadSeq package, though the last common
@@ -3369,10 +3368,5 @@ fileheader_hmmpgmd(ESL_SQFILE *sqfp)
   return eslOK;
 }
 /*-------------------- end of HMMPGMD ---------------------------*/
-
-
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
 
 

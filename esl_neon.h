@@ -1,16 +1,24 @@
-/* Vectorized routines for ARM, using NEON technology.
+/* Vectorized routines for ARM processors, using NEON intrinsics.
  *
  * This header file, unusually, provides many complete function
- * implementations, so they can be inlined by the compiler.
+ * implementations so they can be inlined by the compiler.
  * 
+ * We expect to compile separately for ARMv7 versus AARCH64 platforms,
+ * but 128bit NEON intrinsics are essentially the same on both. A few
+ * extra intrinsics are available on AARCH64 (ARMv8). Our autoconf
+ * sets an extra preprocessor define, eslHAVE_NEON_AARCH64, when these
+ * intrinsics are available. Code in esl_neon.[ch] works in both
+ * cases.
+ *
  * Contents:
  *    1. Data structures for ARM/Intel intrinsics compatibility
  *    2. Function declarations for esl_neon
  *    3. Inlined utilities for float vectors (4 floats in esl_neon_128f_t)
  *    4. Inlined utilities for epu8 vectors (16 uchars in esl_neon_128i_t)
+ *  
  */
-
-#ifdef  HAVE_NEON
+#include "esl_config.h"
+#ifdef  eslENABLE_NEON
 #ifndef eslNEON_INCLUDED
 #define eslNEON_INCLUDED
 #include "esl_config.h"
@@ -23,11 +31,12 @@
 /*****************************************************************
  * 1. Data structures for ARM/Intel intrinsics compatibility
  *****************************************************************
- * Data structures for the ARM AArch32/AArch64 architectures' NEON technology.
+ *
+ * We tend to develop in x86 vector intrinsics (SSE/AVX/AVX512) then
+ * port to ARM NEON. It simplifies this process to have our ARM port
+ * work in terms of variables that work like x86 vector variables.
  * 
- * These data structures exist for compatibility between Intel's
- * vector intrinsics (SSE/SSE2/SSE3/AVX) and ARM NEON intrinsics. Intel's 
- * vectorization code utilizes a single type for each view of its vector
+ * x86 vector code utilizes a single type for each view of its vector
  * registers; for example:
  * 
  * __m128 a = _mm_and_ps(...)
@@ -35,32 +44,14 @@
  * would be used for any combination of element sizes and lane numbers 
  * for some Intel vector register mapped to the C variable 'a'.
  *
- * By contrast, ARM requires the programmer to specify both the element 
- * size and the number of lanes when mapping a C variable onto a NEON 
- * register:
+ * In contrast, on ARM NEON you specify both the element size and the
+ * number of lanes when mapping a C variable onto a NEON register:
  *
  * uint32x4_t a = vdupq_n_s32(...)
  *
- * For compatibility reasons, and to simplify the code porting process and 
- * code maintainability, we define here a union type for each different view 
- * of the 128-bit registers.
+ * We define here x86-style union types that encompass each different
+ * NEON-style view of the 128-bit registers.
  */ 
-
-
-/* Union type for vectorized integers. 
- *
- * Fields are named according to the following scheme in keeping with standard 
- * ARM NEON intrinsic naming/type conventions: 
- * 
- * <signed/unsigned><element size>x<number of lanes> 
- * 
- * For example:
- *
- * esl_neon_128i_t vector.u64x2 
- * 
- * views the 128-bit register as 2 lanes of 64-bit integers. 
- * 
- */
 typedef union
 {
   int8x16_t   s8x16;
@@ -137,7 +128,6 @@ typedef union
 {
   float32x4x2_t f32x4x2;
 } esl_neon_256fc_t;
-
 
 
 
@@ -219,11 +209,15 @@ esl_neon_any_gt_float(esl_neon_128f_t a, esl_neon_128f_t b)
 static inline void
 esl_neon_hsum_float(esl_neon_128f_t a, float *ret_sum)
 {
+#ifdef eslHAVE_NEON_AARCH64
+  *ret_sum = vaddvq_f32(a.f32x4);
+#else
   esl_neon_128f_t fvec;  
   a.f32x4    = vaddq_f32(a.f32x4, vrev64q_f32(a.f32x4));
   fvec.f32x4 = vextq_f32(a.f32x4, a.f32x4, 2);
   a.f32x4    = vaddq_f32(a.f32x4, fvec.f32x4);
   vst1q_lane_f32(ret_sum, a.f32x4, 0);
+#endif
 }
 
 
@@ -298,6 +292,9 @@ esl_neon_any_gt_s16(esl_neon_128i_t a, esl_neon_128i_t b)
 static inline uint8_t
 esl_neon_hmax_u8(esl_neon_128i_t a)
 {
+#ifdef eslHAVE_NEON_AARCH64
+  return vmaxvq_u8(a.u8x16);
+#else
   register esl_neon_128i_t tempv;
 
   tempv.u8x16 = vreinterpretq_u8_u32(vextq_u32(a.u32x4, a.u32x4, 2));
@@ -310,6 +307,7 @@ esl_neon_hmax_u8(esl_neon_128i_t a)
   a.u8x16     = vmaxq_u8(a.u8x16, tempv.u8x16);
 
   return vgetq_lane_u8(a.u8x16, 15);
+#endif
 }
 
 /* Function:  esl_neon_hmax_s16()
@@ -321,11 +319,15 @@ esl_neon_hmax_u8(esl_neon_128i_t a)
 static inline int16_t
 esl_neon_hmax_s16(esl_neon_128i_t a)
 {
+#ifdef eslHAVE_NEON_AARCH64
+  return vmaxvq_s16(a.s16x8);
+#else
   a.s16x8 = vmaxq_s16(a.s16x8, vrev64q_s16(a.s16x8));
   a.s16x8 = vmaxq_s16(a.s16x8, vreinterpretq_s16_s32(vrev64q_s32(a.s32x4)));
   a.s16x8 = vmaxq_s16(a.s16x8, vreinterpretq_s16_s32(vextq_s32(a.s32x4, a.s32x4, 2)));
   return vgetq_lane_s16(a.s16x8, 7);
+#endif
 }
 
-#endif /* eslNEON_INCLUDED */
-#endif /* HAVE_NEON */
+#endif // eslNEON_INCLUDED 
+#endif // eslENABLE_NEON

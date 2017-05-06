@@ -2,8 +2,6 @@
  * Gumbel (type I extreme value) distributions.
  * 
  * SRE, Mon Jun 27 08:44:41 2005 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslGUMBEL_INCLUDED
 #define eslGUMBEL_INCLUDED
@@ -44,6 +42,3 @@ extern int esl_gumbel_FitTruncated  (double *x, int n,        double phi, double
 
 
 #endif /*eslGUMBEL_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

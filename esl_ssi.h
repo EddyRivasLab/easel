@@ -154,6 +154,3 @@ extern int	esl_fread_offset(FILE *fp, int mode, off_t *ret_offset);
 extern int      esl_fwrite_offset(FILE *fp, off_t offset);
 
 #endif /* eslSSI_INCLUDED */
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

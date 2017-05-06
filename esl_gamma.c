@@ -8,7 +8,6 @@
  *   5. ML fitting to complete data
  *   6. Test driver
  *   7. Example
- *   8. Copyright and license information
  *   
  * Xref:  STL10/65
  * 
@@ -817,10 +816,3 @@ main(int argc, char **argv)
 #endif /*eslGAMMA_EXAMPLE*/
 
 
-
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

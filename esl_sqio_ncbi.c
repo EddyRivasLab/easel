@@ -6,7 +6,6 @@
  *    3. Miscellaneous routines.
  *    4. Sequence reading (sequential).
  *    5. Parsing routines
- *    6. Copyright and license.
  */
 #include "esl_config.h"
 
@@ -3291,11 +3290,3 @@ ignore_sequence_of_integer(ESL_SQNCBI_DATA *ncbi)
 
   return eslOK;
 }
-
-
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

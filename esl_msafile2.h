@@ -65,6 +65,4 @@ extern int   esl_msafile2_RegurgitatePfam(ESL_MSAFILE2 *afp, FILE *ofp, int maxn
 					  int *useme, int *add2me, int exp_alen, char gapchar2add, int *opt_nseq_read, int *opt_nseq_written);
 
 #endif //eslMSAFILE2_INCLUDED
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
+

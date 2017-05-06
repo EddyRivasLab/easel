@@ -13,7 +13,6 @@
  *   10. Unit tests.
  *   11. Test driver.
  *   12. Examples.
- *   13. Copyright and license.
  * 
  * This module shares remote evolutionary homology with Don Gilbert's
  * seminal, public domain ReadSeq package, though the last common

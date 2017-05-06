@@ -58,6 +58,3 @@ extern int    esl_rnd_FChooseCDF(ESL_RANDOMNESS *r, const float  *cdf, int N);
 
 
 #endif /*eslRANDOM_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

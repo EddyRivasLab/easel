@@ -12,7 +12,6 @@
  *   9. Unit tests.
  *  10. Test driver.
  *  11. Example.
- *  12. Copyright and license information 
  */
 #include "esl_config.h"
 
@@ -2109,10 +2108,3 @@ main(int argc, char **argv)
 /*::cexcerpt::randomseq_example::end::*/
 #endif /*eslRANDOMSEQ_EXAMPLE*/
 /*--------------------- end, example ----------------------------*/
-
-/*****************************************************************
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

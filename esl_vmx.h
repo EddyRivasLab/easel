@@ -1,12 +1,12 @@
-/* Vectorized routines for PowerPC, using Altivec.
- * 
- * SVN $Id$
- * SVN $URL$
+/* Vectorized routines for PowerPC, using Altivec/VMX.
  */
 #ifndef eslVMX_INCLUDED
 #define eslVMX_INCLUDED
 #include "esl_config.h"
 #ifdef HAVE_VMX
+
+#include "esl_config.h"
+#ifdef eslENABLE_VMX
 
 #include "easel.h"
 
@@ -162,12 +162,6 @@ esl_vmx_hmax_u8(vector unsigned char v)
   return s;
 }
 
-
 #endif /*HAVE_VMX*/
 #endif /*eslVMX_INCLUDED*/
-
-
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
 

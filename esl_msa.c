@@ -8,7 +8,6 @@
  *    5. Debugging, testing, development
  *    6. Unit tests
  *    7. Test driver
- *    8. Copyright and license information
  */
 #include "esl_config.h"
 
@@ -3756,6 +3755,3 @@ main(int argc, char **argv)
 #endif /*eslMSA_TESTDRIVE*/
 /*-------------------- end of test driver ---------------------*/
 
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

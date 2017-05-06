@@ -84,6 +84,3 @@ extern int esl_gencode_ProcessEnd(ESL_GENCODE_WORKSTATE *wrk, ESL_SQ *sq);
 
 
 #endif	/*eslGENCODE_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

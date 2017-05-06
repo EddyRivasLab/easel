@@ -4,7 +4,6 @@
  *    1. The <ESL_THREADS> object: a gang of workers.
  *    2. Determining thread number to use.
  *    3. Examples.
- *    4. Copyright and license.
  */
 #include "esl_config.h"
 
@@ -425,10 +424,4 @@ main(void)
 #endif /*eslTHREADS_EXAMPLE2*/
 #endif /*HAVE_PTHREAD*/
 
-/*****************************************************************  
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
 

@@ -1,8 +1,6 @@
 /* Mixture generalized extreme value distributions.
  * 
  * SRE, Mon Aug 15 08:33:57 2005 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslMIXGEV_INCLUDED
 #define eslMIXGEV_INCLUDED
@@ -52,6 +50,4 @@ extern int         esl_mixgev_FitComplete(double *x, int n, ESL_MIXGEV *mg);
 
 
 #endif /*eslMIXGEV_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
+

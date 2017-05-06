@@ -1,8 +1,6 @@
 /* Weibull distributions.
  * 
  * SRE, Tue Aug  9 10:48:35 2005 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslWEIBULL_INCLUDED
 #define eslWEIBULL_INCLUDED
@@ -39,6 +37,3 @@ extern int esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double *ret_mu,
 				     double *ret_lambda, double *ret_tau);
 
 #endif /*eslWEIBULL_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

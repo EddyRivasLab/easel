@@ -6,7 +6,6 @@
  *   3. Unit tests.
  *   4. Test driver.
  *   5. Examples.
- *   6. License and copyright.
  *
  * Reference:
  *   http://compbio.soe.ucsc.edu/a2m-desc.html
@@ -1107,8 +1106,3 @@ main(int argc, char **argv)
 #endif /*eslMSAFILE_A2M_EXAMPLE2*/
 /*--------------------- end of examples -------------------------*/
 
-
-
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

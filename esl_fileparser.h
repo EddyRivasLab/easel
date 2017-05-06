@@ -37,6 +37,4 @@ extern void esl_fileparser_Destroy         (ESL_FILEPARSER *efp);
 extern void esl_fileparser_Close           (ESL_FILEPARSER *efp);
 
 #endif /*eslFILEPARSER_INCLUDED */
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
+
