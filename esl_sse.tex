@@ -4,9 +4,11 @@ the Intel/AMD SSE (Streaming SIMD Extensions) Intrinsics: most
 importantly, vectorized \ccode{logf()} and \ccode{expf()} routines.
 
 The \eslmod{sse} module is only available on platforms that support
-SSE2 instructions. This includes all modern Intel and AMD processors,
-but nor PowerPC processors. By default, the Easel configure script
-enables SSE if it is available on the compilation machine.
+SSE, SSE2, and SSE4.1 instructions. This includes all modern Intel and
+AMD processors (since Intel Penryn in 2007, and AMD Bulldozer, Jaguar,
+and Piledriver processors since 2011), but not PowerPC processors. By
+default, the Easel configure script enables SSE if it is available on
+the compilation machine.
 
 
 \begin{table}[hbp]

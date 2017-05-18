@@ -10,6 +10,7 @@
  * References:
  *   https://software.intel.com/en-us/articles/how-to-detect-new-instruction-support-in-the-4th-generation-intel-core-processor-family
  *   https://software.intel.com/en-us/articles/how-to-detect-knl-instruction-support
+ *   https://en.wikipedia.org/wiki/CPUID
  */
 #include "esl_config.h"
 
@@ -44,13 +45,13 @@ static int  cpu_has_avx512(void);
  *****************************************************************/
 
 /* Function:  esl_cpu_has_sse()
- * Synopsis:  Check if processor supports x86 SSE/SSE2.
+ * Synopsis:  Check if processor supports x86 SSE/SSE2/SSE4.1
  * Incept:    SRE, Wed Feb  1 09:19:11 2017
  *
  * Purpose:   Returns TRUE if our code has an available SSE vector
  *            implementation compiled in, and the processor we're
- *            running on can support it (i.e. has SSE+SSE2).  Else
- *            returns FALSE.
+ *            running on can support it (i.e. has SSE+SSE2+SSE4.1).
+ *            Else returns FALSE.
  * 
  * Note:      Although these use static flags, they are thread-safe.  
  *            They can only go in one direction, from a not-set-yet 
@@ -213,18 +214,20 @@ cpu_check_xcr0_zmm(void)
 #ifdef eslENABLE_SSE
 /* cpu_has_sse()
  * 
- * Test whether processor supports SSE/SSE2 instructions.
- * Note that Easel's "SSE" vector code means SSE+SSE2.
+ * Test whether processor supports SSE/SSE2/SSE4.1 instructions.
+ * Note that Easel's "SSE" vector code means SSE+SSE2+SSE4.1.
  */
 static int
 cpu_has_sse(void)
 {
   uint32_t abcd[4];
-  uint32_t sse2_mask = (1 << 25) |  // SSE
-                       (1 << 26);   // SSE2
+  uint32_t sse2_mask =  (1 << 25) |  // edx: SSE
+                        (1 << 26);   //      SSE2
+  uint32_t sse41_mask = (1 << 19);   // ecx: SSE4.1
 
   cpu_run_id( 1, 0, abcd );
-  if ( (abcd[3] & sse2_mask) != sse2_mask)  // edx
+  if ( (abcd[3] & sse2_mask)  != sse2_mask || // edx check
+       (abcd[2] & sse41_mask) != sse41_mask)  // ecx check
     return 0;
   return 1;
 }

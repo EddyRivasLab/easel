@@ -1464,10 +1464,6 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
  * ./benchmark -d2w /misc/data0/genomes/c.elegans/genome/allWS120
  * CPU Time: 2.16u 0.31s 00:00:02.47 Elapsed: 00:00:03
  */
-/* gcc -std=gnu99 -O3 -fomit-frame-pointer -malign-double -fstrict-aliasing -msse2 -pthread -I. -L. -o esl_sqio_benchmark -DeslSQIO_BENCHMARK esl_sqio.c -leasel -lm
- * icc -O3 -ansi_alias -xW -static -I. -L. -o esl_sqio_benchmark -DeslSQIO_BENCHMARK esl_sqio.c -leasel -lm
- * ./esl_sqio_benchmark <seqfile>
- */
 #ifdef eslSQIO_BENCHMARK
 #include <stdlib.h>
 #include <stdio.h>

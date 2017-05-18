@@ -5,7 +5,7 @@
  * 
  * Contents:
  *    1. Function declarations (from esl_sse.c)
- *    2. Inlined utilities for ps vectors (4 floats in __m128)
+ *    2. Inlined utilities for ps vectors   (4 floats in __m128)
  *    3. Inlined utilities for epu8 vectors (16 uchars in __m128i)
  */
 #ifndef eslSSE_INCLUDED
@@ -16,8 +16,7 @@
 #include "easel.h"
 
 #include <stdio.h>
-#include <xmmintrin.h>		/* SSE  */
-#include <emmintrin.h>		/* SSE2 */
+#include <x86intrin.h>	
 
 
 /*****************************************************************
@@ -188,10 +187,7 @@ esl_sse_any_gt_epi16(__m128i a, __m128i b)
 
 
 /* Function:  esl_sse_hmax_epu8()
- * Synopsis:  Return the max of the 16 elements in epu8 vector.
- *
- * Purpose:   Returns the maximum value of the 16 elements in
- *            an <epu8> vector.
+ * Synopsis:  Return max of 16 uint8_t elements in epu8 vector.
  */
 static inline uint8_t
 esl_sse_hmax_epu8(__m128i a)
@@ -203,22 +199,42 @@ esl_sse_hmax_epu8(__m128i a)
   return (uint8_t) _mm_extract_epi16(a, 0);   /* only low-order 8 bits set; so _epi16 or _epi8 equiv; _epi8 is SSE4.1 */
 }
 
+
+
+/*****************************************************************
+ * 4. Inlined utilities for epi8 vectors 
+ *****************************************************************/ 
+
+/* Function:  esl_sse_hmax_epi8()
+ * Synopsis:  Return max of 16 int8_t elements in epi8 vector.
+ */
+static inline int8_t
+esl_sse_hmax_epi8(__m128i a)
+{
+  a  = _mm_max_epi8(a, _mm_shuffle_epi32  (a, _MM_SHUFFLE(2,3,0,1)));  //  _MM_SHUFFLE() args are reversed._MM_SHUFFLE(3,2,1,0) is a no-op, for example.
+  a  = _mm_max_epi8(a, _mm_shuffle_epi32  (a, _MM_SHUFFLE(0,1,2,3)));
+  a  = _mm_max_epi8(a, _mm_shufflelo_epi16(a, _MM_SHUFFLE(2,3,0,1)));
+  a  = _mm_max_epi8(a, _mm_srli_epi16     (a, 8));
+  return (int8_t) _mm_cvtsi128_si32(a);
+}
+
+
+/*****************************************************************
+ * 5. Inlined utilities for epi16 vectors 
+ *****************************************************************/ 
+
 /* Function:  esl_sse_hmax_epi16()
- * Synopsis:  Return the max of the 8 elements in epi16 vector.
- *
- * Purpose:   Returns the maximum value of the 16 elements in
- *            an <epu8> vector.
+ * Synopsis:  Return max of 16 int16_t elements in epi16 vector.
  */
 static inline int16_t
 esl_sse_hmax_epi16(__m128i a)
 {
-  a = _mm_max_epi16(a, _mm_srli_si128(a, 8));
-  a = _mm_max_epi16(a, _mm_srli_si128(a, 4));
-  a = _mm_max_epi16(a, _mm_srli_si128(a, 2));
-  return (int16_t) _mm_extract_epi16(a, 0);   /* only low-order 8 bits set; so _epi16 or _epi8 equiv; _epi8 is SSE4.1 */
+  a  = _mm_max_epi16(a, _mm_shuffle_epi32  (a, _MM_SHUFFLE(1,0,3,2)));  
+  a  = _mm_max_epi16(a, _mm_shufflelo_epi16(a, _MM_SHUFFLE(1,0,3,2)));
+  a  = _mm_max_epi16(a, _mm_srli_epi32(a, 16));
+  return (int16_t) _mm_cvtsi128_si32(a);
 }
 
-
-#endif /*HAVE_SSE2*/
+#endif /*eslENABLE_SSE*/
 #endif /*eslSSE_INCLUDED*/
 

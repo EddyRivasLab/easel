@@ -249,8 +249,8 @@ fi
 # support an instruction set. A program must also check at runtime
 # that its processor supports the instruction set.
 #
-# Our SSE implementations require SSE and SSE2;
-#     AVX implementations require AVX and AVX2;
+# Our SSE implementations require SSE+SSE2+SSE4.1;
+#     AVX implementations require AVX+AVX2;
 #     AVX-512 requires the F, ER, and BW subsets.
 #
 # If we were explicitly told to enable one ($enable_foo="yes") and we

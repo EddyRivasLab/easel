@@ -37,8 +37,7 @@
 #include <math.h>
 #include <float.h>
 
-#include <xmmintrin.h>		/* SSE  */
-#include <emmintrin.h>		/* SSE2 */
+#include <x86intrin.h>
 
 #include "easel.h"
 #include "esl_sse.h"
@@ -466,7 +465,70 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
   if (avgerr2 > 1e-8) esl_fatal("average error on expf() is intolerable\n");
   if (maxerr2 > 1e-6) esl_fatal("maximum error on expf() is intolerable\n");
 }
+
+
+static void
+utest_hmax_epu8(ESL_RANDOMNESS *rng)
+{
+  union { __m128i v; uint8_t x[16]; } u;
+  uint8_t r1, r2;
+  int     i,z;
+
+  for (i = 0; i < 100; i++)
+    {
+      r1 = 0;
+      for (z = 0; z < 16; z++) 
+        {
+          u.x[z] = (uint8_t) (esl_rnd_Roll(rng, 256));  // 0..255
+          if (u.x[z] > r1) r1 = u.x[z];
+        }
+      r2 = esl_sse_hmax_epu8(u.v);
+      if (r1 != r2) esl_fatal("hmax_epu8 utest failed");
+    }
+}
+
+static void
+utest_hmax_epi8(ESL_RANDOMNESS *rng)
+{
+  union { __m128i v; int8_t x[16]; } u;
+  int8_t r1, r2;
+  int    i,z;
+
+  for (i = 0; i < 100; i++)
+    {
+      r1 = -128;
+      for (z = 0; z < 16; z++) 
+        {
+          u.x[z] = (int8_t) (esl_rnd_Roll(rng, 256) - 128);  // -128..127
+          if (u.x[z] > r1) r1 = u.x[z];
+        }
+      r2 = esl_sse_hmax_epi8(u.v);
+      if (r1 != r2) esl_fatal("hmax_epi8 utest failed");
+    }
+}
+
+
+static void
+utest_hmax_epi16(ESL_RANDOMNESS *rng)
+{
+  union { __m128i v; int16_t x[8]; } u;
+  int16_t r1, r2;
+  int     i,z;
+
+  for (i = 0; i < 100; i++)
+    {
+      r1 = -32768;
+      for (z = 0; z < 8; z++) 
+        {
+          u.x[z] = (int16_t) (esl_rnd_Roll(rng, 65536) - 32768);  // -32768..32767
+          if (u.x[z] > r1) r1 = u.x[z];
+        }
+      r2 = esl_sse_hmax_epi16(u.v);
+      if (r1 != r2) esl_fatal("hmax_epi16 utest failed: %d != %d", r1, r2);
+    }
+}
 #endif /*eslSSE_TESTDRIVE*/
+
 
 
 
@@ -491,7 +553,7 @@ static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
   { "-N",        eslARG_INT,  "10000",  NULL, NULL,  NULL,  NULL, NULL, "number of random test points",                     0 },
-  { "-s",        eslARG_INT,     "42",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
+  { "-s",        eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
   { "-v",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "be verbose: show test report",                     0 },
   { "--vv",      eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "be very verbose: show individual test samples",    0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
@@ -502,14 +564,17 @@ static char banner[] = "test driver for sse module";
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS    *go = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
-  ESL_RANDOMNESS *r  = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));;
+  ESL_GETOPTS    *go  = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));;
 
   utest_logf(go);
   utest_expf(go);
-  utest_odds(go, r);
+  utest_odds(go, rng);
+  utest_hmax_epu8(rng);
+  utest_hmax_epi8(rng);
+  utest_hmax_epi16(rng);
 
-  esl_randomness_Destroy(r);
+  esl_randomness_Destroy(rng);
   esl_getopts_Destroy(go);
   return 0;
 }
