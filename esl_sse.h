@@ -186,7 +186,7 @@ esl_sse_any_gt_epu8(__m128i a, __m128i b)
 }
 
 /* Function:  esl_sse_any_gt_epi16()
- * Synopsis:  Return TRUE if any a[z] > b[z]
+ * Synopsis:  Return >0 if any a[z] > b[z]
  */
 static inline int 
 esl_sse_any_gt_epi16(__m128i a, __m128i b)

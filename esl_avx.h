@@ -7,6 +7,7 @@
  *    1. Function declarations for esl_avx.c
  *    2. Inlined functions: horizontal max, sum
  *    3. Inlined functions: left and right shifts
+ *    4. Inlined functions: any_gt
  */
 #ifndef eslAVX_INCLUDED
 #define eslAVX_INCLUDED
@@ -147,7 +148,18 @@ static inline __m256 esl_avx_rightshift_ps(__m256 vector)
 }
 
 
+/****************************************************************** 
+ * 4. Inlined functions: any_gt
+ ******************************************************************/
 
+/* Function:  esl_avx_any_gt_epi16()
+ * Synopsis:  Return >0 if any a[z] > b[z]
+ */
+static inline int 
+esl_avx_any_gt_epi16(__m256i a, __m256i b)
+{
+  return (_mm256_movemask_epi8(_mm256_cmpgt_epi16(a,b)) != 0); 
+}
 
 
 
