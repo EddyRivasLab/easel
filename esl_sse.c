@@ -1,6 +1,6 @@
 /* Vectorized routines for Intel/AMD processors, using Streaming SIMD Extensions (SSE).
  * 
- * Table of contents           
+ * Contents:           
  *     1. SIMD logf(), expf()
  *     2. Utilities for ps vectors (4 floats in a __m128)
  *     3. Utilities for epu8 vectors (16 uchars in a __m128i)
@@ -13,7 +13,7 @@
  *
  * This code is conditionally compiled, only when <eslENABLE_SSE> was
  * set in <esl_config.h> by the configure script, and that will only
- * happen on ARM platforms. When <eslENABLE_SSE> is not set, we
+ * happen on x86 platforms. When <eslENABLE_SSE> is not set, we
  * include some dummy code to silence compiler and ranlib warnings
  * about empty translation units and no symbols, and dummy drivers
  * that do nothing but declare success.

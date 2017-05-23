@@ -1,12 +1,14 @@
-/* Vectorized routines for Intel/AMD, using Streaming SIMD Extensions (SSE).
+/* Vectorized routines for x86 Streaming SIMD Extensions (SSE).
  *
  * This header file, unusually, provides many complete function
  * implementations so they can be inlined by the compiler.
  * 
  * Contents:
- *    1. Function declarations (from esl_sse.c)
- *    2. Inlined utilities for ps vectors   (4 floats in __m128)
- *    3. Inlined utilities for epu8 vectors (16 uchars in __m128i)
+ *    1. Function declarations for esl_sse.c
+ *    2. Inlined functions: horizontal max, min, sum
+ *    3. Inlined functions: left, right shift
+ *    4. Inlined functions: any_gt
+ *    5. Inlined functions: select
  */
 #ifndef eslSSE_INCLUDED
 #define eslSSE_INCLUDED
@@ -27,50 +29,48 @@ extern __m128  esl_sse_expf(__m128 x);
 extern void    esl_sse_dump_ps(FILE *fp, __m128 v);
 
 
+
+
 /*****************************************************************
- * 2. Inline utilities for ps vectors (4 floats in __m128)
+ * 2. Inlined functions: horizontal max, min
  *****************************************************************/
 
-/* Function:  esl_sse_select_ps()
- * Synopsis:  SSE equivalent of <vec_sel()>
- *
- * Purpose:   Vector select. Returns a vector <r[z] = a[z]> where <mask[z]>
- *            is all 0's; <r[z] = b[z]> where <mask[z]> is all 1's.
- *            
- *            Useful for avoiding conditional branches. For example,
- *            to implement \ccode{if (a > 0) a += a;}:
- *            
- *            \begin{cchunk}
- *              mask = _mm_cmpgt_ps(a, _mm_setzero_ps());
- *              twoa = _mm_add_ps(a, a);
- *              a    = esl_sse_select_ps(a, twoa, mask);
- *            \end{cchunk}
- *
- * Notes:     As recommended by the Altivec/SSE Migration Guide,
- *            Apple Computer, Inc.
+/* Function:  esl_sse_hmax_epu8()
+ * Synopsis:  Return max of 16 uint8_t elements in epu8 vector.
  */
-static inline __m128
-esl_sse_select_ps(__m128 a, __m128 b, __m128 mask)
+static inline uint8_t
+esl_sse_hmax_epu8(__m128i a)
 {
-  b = _mm_and_ps(b, mask);
-  a = _mm_andnot_ps(mask, a);
-  return _mm_or_ps(a,b);
+  a = _mm_max_epu8(a, _mm_srli_si128(a, 8));
+  a = _mm_max_epu8(a, _mm_srli_si128(a, 4));
+  a = _mm_max_epu8(a, _mm_srli_si128(a, 2));
+  a = _mm_max_epu8(a, _mm_srli_si128(a, 1));
+  return (uint8_t) _mm_extract_epi16(a, 0);   /* only low-order 8 bits set; so _epi16 or _epi8 equiv; _epi8 is SSE4.1 */
 }
 
-/* Function:  esl_sse_any_gt_ps()
- * Synopsis:  Returns TRUE if any a[z] > b[z]
- *
- * Purpose:   Returns TRUE if any a[z] > b[z] in two
- *            <ps> vectors of floats.
- *
- * Xref:      From Apple Altivec/SSE migration guide.
+/* Function:  esl_sse_hmax_epi8()
+ * Synopsis:  Return max of 16 int8_t elements in epi8 vector.
  */
-static inline int 
-esl_sse_any_gt_ps(__m128 a, __m128 b)
+static inline int8_t
+esl_sse_hmax_epi8(__m128i a)
 {
-  __m128 mask    = _mm_cmpgt_ps(a,b);
-  int   maskbits = _mm_movemask_ps( mask );
-  return maskbits != 0;
+  a  = _mm_max_epi8(a, _mm_shuffle_epi32  (a, _MM_SHUFFLE(2,3,0,1)));  //  _MM_SHUFFLE() args are reversed._MM_SHUFFLE(3,2,1,0) is a no-op, for example.
+  a  = _mm_max_epi8(a, _mm_shuffle_epi32  (a, _MM_SHUFFLE(0,1,2,3)));
+  a  = _mm_max_epi8(a, _mm_shufflelo_epi16(a, _MM_SHUFFLE(2,3,0,1)));
+  a  = _mm_max_epi8(a, _mm_srli_epi16     (a, 8));
+  return (int8_t) _mm_cvtsi128_si32(a);
+}
+
+/* Function:  esl_sse_hmax_epi16()
+ * Synopsis:  Return max of 16 int16_t elements in epi16 vector.
+ */
+static inline int16_t
+esl_sse_hmax_epi16(__m128i a)
+{
+  a  = _mm_max_epi16(a, _mm_shuffle_epi32  (a, _MM_SHUFFLE(1,0,3,2)));  
+  a  = _mm_max_epi16(a, _mm_shufflelo_epi16(a, _MM_SHUFFLE(1,0,3,2)));
+  a  = _mm_max_epi16(a, _mm_srli_epi32(a, 16));
+  return (int16_t) _mm_cvtsi128_si32(a);
 }
 
 
@@ -89,7 +89,6 @@ esl_sse_hmax_ps(__m128 a, float *ret_max)
   a = _mm_max_ps(a, _mm_shuffle_ps(a, a, _MM_SHUFFLE(1, 0, 3, 2)));
   _mm_store_ss(ret_max, a);
 }
-
 
 /* Function:  esl_sse_hmin_ps()
  * Synopsis:  Find the minimum of elements in a vector.
@@ -119,6 +118,12 @@ esl_sse_hsum_ps(__m128 a, float *ret_sum)
   _mm_store_ss(ret_sum, a);
 }
 
+
+
+
+/*****************************************************************
+ * 3. Inlined functions: left, right shift
+ *****************************************************************/
 
 /* Function:  esl_sse_rightshift_ps()
  * Synopsis:  Shift vector elements to the right.
@@ -154,8 +159,8 @@ esl_sse_leftshift_ps(__m128 a, __m128 b)
 
 
 /*****************************************************************
- * 3. Inlined utilities for epu8 vectors (16 uchars in __m128i)
- *****************************************************************/ 
+ * 3. Inlined functions: any_gt
+ *****************************************************************/
 
 /* Function:  esl_sse_any_gt_epu8()
  * Synopsis:  Returns TRUE if any a[z] > b[z].
@@ -179,61 +184,61 @@ esl_sse_any_gt_epu8(__m128i a, __m128i b)
   int   maskbits  = _mm_movemask_epi8(_mm_xor_si128(mask,  _mm_cmpeq_epi8(mask, mask))); /* the xor incantation is a bitwise inversion */
   return maskbits != 0;
 }
+
+/* Function:  esl_sse_any_gt_epi16()
+ * Synopsis:  Return TRUE if any a[z] > b[z]
+ */
 static inline int 
 esl_sse_any_gt_epi16(__m128i a, __m128i b)
 {
   return (_mm_movemask_epi8(_mm_cmpgt_epi16(a,b)) != 0); 
 }
 
-
-/* Function:  esl_sse_hmax_epu8()
- * Synopsis:  Return max of 16 uint8_t elements in epu8 vector.
+/* Function:  esl_sse_any_gt_ps()
+ * Synopsis:  Returns TRUE if any a[z] > b[z]
+ *
+ * Xref:      From Apple Altivec/SSE migration guide.
  */
-static inline uint8_t
-esl_sse_hmax_epu8(__m128i a)
+static inline int 
+esl_sse_any_gt_ps(__m128 a, __m128 b)
 {
-  a = _mm_max_epu8(a, _mm_srli_si128(a, 8));
-  a = _mm_max_epu8(a, _mm_srli_si128(a, 4));
-  a = _mm_max_epu8(a, _mm_srli_si128(a, 2));
-  a = _mm_max_epu8(a, _mm_srli_si128(a, 1));
-  return (uint8_t) _mm_extract_epi16(a, 0);   /* only low-order 8 bits set; so _epi16 or _epi8 equiv; _epi8 is SSE4.1 */
+  __m128 mask    = _mm_cmpgt_ps(a,b);
+  int   maskbits = _mm_movemask_ps( mask );
+  return maskbits != 0;
 }
 
 
 
 /*****************************************************************
- * 4. Inlined utilities for epi8 vectors 
- *****************************************************************/ 
+ * 5. Inlined functions: select
+ *****************************************************************/
 
-/* Function:  esl_sse_hmax_epi8()
- * Synopsis:  Return max of 16 int8_t elements in epi8 vector.
+/* Function:  esl_sse_select_ps()
+ * Synopsis:  SSE equivalent of <vec_sel()>
+ *
+ * Purpose:   Vector select. Returns a vector <r[z] = a[z]> where <mask[z]>
+ *            is all 0's; <r[z] = b[z]> where <mask[z]> is all 1's.
+ *            
+ *            Useful for avoiding conditional branches. For example,
+ *            to implement \ccode{if (a > 0) a += a;}:
+ *            
+ *            \begin{cchunk}
+ *              mask = _mm_cmpgt_ps(a, _mm_setzero_ps());
+ *              twoa = _mm_add_ps(a, a);
+ *              a    = esl_sse_select_ps(a, twoa, mask);
+ *            \end{cchunk}
+ *
+ * Notes:     As recommended by the Altivec/SSE Migration Guide,
+ *            Apple Computer, Inc.
  */
-static inline int8_t
-esl_sse_hmax_epi8(__m128i a)
+static inline __m128
+esl_sse_select_ps(__m128 a, __m128 b, __m128 mask)
 {
-  a  = _mm_max_epi8(a, _mm_shuffle_epi32  (a, _MM_SHUFFLE(2,3,0,1)));  //  _MM_SHUFFLE() args are reversed._MM_SHUFFLE(3,2,1,0) is a no-op, for example.
-  a  = _mm_max_epi8(a, _mm_shuffle_epi32  (a, _MM_SHUFFLE(0,1,2,3)));
-  a  = _mm_max_epi8(a, _mm_shufflelo_epi16(a, _MM_SHUFFLE(2,3,0,1)));
-  a  = _mm_max_epi8(a, _mm_srli_epi16     (a, 8));
-  return (int8_t) _mm_cvtsi128_si32(a);
+  b = _mm_and_ps(b, mask);
+  a = _mm_andnot_ps(mask, a);
+  return _mm_or_ps(a,b);
 }
 
-
-/*****************************************************************
- * 5. Inlined utilities for epi16 vectors 
- *****************************************************************/ 
-
-/* Function:  esl_sse_hmax_epi16()
- * Synopsis:  Return max of 16 int16_t elements in epi16 vector.
- */
-static inline int16_t
-esl_sse_hmax_epi16(__m128i a)
-{
-  a  = _mm_max_epi16(a, _mm_shuffle_epi32  (a, _MM_SHUFFLE(1,0,3,2)));  
-  a  = _mm_max_epi16(a, _mm_shufflelo_epi16(a, _MM_SHUFFLE(1,0,3,2)));
-  a  = _mm_max_epi16(a, _mm_srli_epi32(a, 16));
-  return (int16_t) _mm_cvtsi128_si32(a);
-}
 
 #endif /*eslENABLE_SSE*/
 #endif /*eslSSE_INCLUDED*/

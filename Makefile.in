@@ -319,7 +319,7 @@ UTESTS =\
 #	swat_utest\
 
 SSE_UTESTS     = esl_sse_utest
-AVX_UTESTS     =
+AVX_UTESTS     = esl_avx_utest
 AVX512_UTESTS  = 
 NEON_UTESTS    = esl_neon_utest
 VMX_UTESTS     = esl_vmx_utest
@@ -364,7 +364,7 @@ BENCHMARKS =\
 	esl_random_benchmark
 
 SSE_BENCHMARKS     = esl_sse_benchmark
-AVX_BENCHMARKS     =
+AVX_BENCHMARKS     = esl_avx_benchmark
 AVX512_BENCHMARKS  =
 NEON_BENCHMARKS    = esl_neon_benchmark
 VMX_BENCHMARKS     =
