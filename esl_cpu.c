@@ -117,6 +117,37 @@ esl_cpu_has_avx512(void)
   return 0;
 #endif
 }
+
+
+
+/* Function:  esl_cpu_Get()
+ * Synopsis:  Returns a string showing which implementation our dispatchers choose.
+ * Incept:    SRE, Tue May 23 12:30:37 2017 [Handsome Family, Winnebago Skeletons]
+ *
+ * Purpose:   Return a string indicating which vector implementation is
+ *            chosen by our dispatchers, assuming they follow our
+ *            standard pattern.
+ */
+char *
+esl_cpu_Get(void)
+{
+#ifdef eslENABLE_AVX512  // Fastest first.
+  if (esl_cpu_has_avx512()) return "AVX512";
+#endif
+#ifdef eslENABLE_AVX
+  if (esl_cpu_has_avx())    return "AVX";
+#endif
+#ifdef eslENABLE_SSE
+  if (esl_cpu_has_sse())    return "SSE";
+#endif
+#ifdef eslENABLE_NEON
+  return "NEON";
+#endif
+//#ifdef eslENABLE_VMX
+//  return "VMX";
+//#endif
+  return "none";
+}
 /*---------- end, API for x86 vector instruction checks ---------*/
 
 
@@ -377,5 +408,6 @@ main(int argc, char **argv)
   printf("your cpu supports our SSE code    : %s\n",  esl_cpu_has_sse()    ? "yes" : "no");
   printf("               ...our AVX code    : %s\n",  esl_cpu_has_avx()    ? "yes" : "no");
   printf("               ...our AVX512 code : %s\n",  esl_cpu_has_avx512() ? "yes" : "no");
+  printf("Our dispatchers will choose       : %s\n",  esl_cpu_Get());
 }
 #endif // eslCPU_EXAMPLE
