@@ -1,108 +1,81 @@
-
-/* Vectorized utility routines for Intel AVX instructions and 
- * compatible processors.
+/* Vectorized routines for x86 AVX-512 instructions.
  *
  * This header file, unusually, provides many complete function
- * implementations; this is so that they can be inlined by the
- * compiler, for maximum efficiency.
+ * implementations so they can be inlined by the compiler.
  * 
  * Contents:
- *    1. Inlined horizontal functions for 8 and 16-bit quantities
- *       in 256-bit vectors (__m256i)
+ *    1. Function declarations for esl_avx512.c
+ *    2. Inlined functions: horizontal max, sum
+ *    3. Inlined functions: left and right shifts
  */
-#ifdef  eslENABLE_AVX512 
 #ifndef eslAVX512_INCLUDED
 #define eslAVX512_INCLUDED
+#include "esl_config.h"
+#ifdef  eslENABLE_AVX512 
 
 #include "easel.h"
 
 #include <stdio.h>
 #include <x86intrin.h>
 
-//temporary helper function.  Should not be in release version
-static void 
-print_512(__m512 var)
-{
-  float *val = (float*) &var;
-  printf("%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f\n", 
-	 val[15], val[14], val[13], val[12], val[11], val[10], val[9], val[8],
-	 val[7],  val[6],  val[5],  val[4],  val[3],  val[2],  val[1], val[0]);
- }
+/*****************************************************************
+ * 1. Function declarations for esl_avx512.c
+ *****************************************************************/
 
+extern void esl_avx512_dump_512i_hex8(__m512i v);
+
+
+
+
+/*****************************************************************
+ * 2. Inlined functions: horizontal max, sum
+ *****************************************************************/
 
 /* Function:  esl_avx512_hmax_epu8()
- * Synopsis:  Return the unsigned max of the 64 elements in epu8 vector.
- *
- * Purpose:   Returns the maximum value of the 64 elements in
- *            an <epu8> vector.
+ * Synopsis:  Return max of 64 unsigned uint8_t elements in epu8 vector.
  */
 static inline uint8_t
 esl_avx512_hmax_epu8(__m512i a)
 {
-  //Use AVX instructions for this because AVX-512 can't extract 8-bit quantities
+  // Use AVX instructions for this because AVX-512 can't extract 8-bit quantities
   // Intel has stated that there will be no performance penalty for switching between AVX-512 and AVX
-  __m256i temp3 = _mm512_extracti32x8_epi32(a, 0);
-  __m256i temp4 = _mm512_extracti32x8_epi32(a, 1);
-  temp3 = _mm256_max_epu8(temp3, temp4);
-  temp4 = _mm256_permute2x128_si256(temp3, temp3, 0x01);
-  // Swap the 128-bit halves from xEv_AVX into temp1
-
-  temp3 = _mm256_max_epu8(temp4, temp3); // each 8-bit field in temp3 now has the max of the
-  //corresponding fields in the high and low halves of Dmaxv_AVX
-
-  temp4 = _mm256_shuffle_epi32(temp3, 0x4e);  // Swap the 64-bit halves of each 128-bit half of temp3
-  temp3 = _mm256_max_epu8(temp4, temp3);  // Each 64-bit quantity in temp2 now has the max of the corresponding
-  // 8-bit fields from the 64-bit quarters of Dmaxv_AVX
-
-  temp4 = _mm256_shuffle_epi32(temp3, 0xb1);  // Swap the 32-bit halves of each 64-bit quarter of temp3
-  temp3 = _mm256_max_epu8(temp4, temp3);  // Each 32-bit quantity in temp2 now has the max of the corresponding
-  // 8 bit fields from the 32-bit eighths of Dmaxv_AVX
-
-  temp4 = _mm256_shufflelo_epi16(temp3, 0xb1); // bottom 32-bits of temp4 now contain the swapped 16-bit halves
-  // of the low 32 bits of temp3
-  temp3 = _mm256_max_epu8(temp4, temp3);  //bottom 16 bits of temp3 now contain the max of the 16-bit fields of Dmaxv_AVX
-
-  uint8_t temp_stash2 = _mm256_extract_epi8(temp3, 1);
-  temp4 = _mm256_insert_epi8(temp3, temp_stash2, 0);  // low byte of temp4 now has byte 2 of temp3
-  temp3 = _mm256_max_epu8(temp4, temp3);  //bottom 16 bits of temp3 now contain the max of the 16-bit fields of Dmaxv_AVX
-  return(_mm256_extract_epi8(temp3, 0));  // get low byte of temp3
+  __m256i b = _mm256_max_epu8(_mm512_extracti32x8_epi32(a, 0), _mm512_extracti32x8_epi32(a, 1));
+  b = _mm256_max_epu8(b, _mm256_permute2x128_si256(b, b, 0x01));    
+  b = _mm256_max_epu8(b, _mm256_shuffle_epi32     (b,    0x4e));    
+  b = _mm256_max_epu8(b, _mm256_shuffle_epi32     (b,    0xb1));
+  b = _mm256_max_epu8(b, _mm256_shufflelo_epi16   (b,    0xb1));
+  b = _mm256_max_epu8(b, _mm256_srli_si256        (b,    1));
+  return _mm256_extract_epi8(b, 0);  // epi8 is fine here. gets cast properly to uint8_t on return.
 }
 
-
+/* Function:  esl_avx512_hmax_epu8()
+ * Synopsis:  Return max of 64 unsigned uint8_t elements in epu8 vector.
+ * Incept:    SRE, Thu May 25 13:20:45 2017 [Old 97's, Oppenheimer]
+ */
+static inline int8_t
+esl_avx512_hmax_epi8(__m512i a)
+{
+  __m256i b = _mm256_max_epi8(_mm512_extracti32x8_epi32(a, 0), _mm512_extracti32x8_epi32(a, 1));
+  b = _mm256_max_epi8(b, _mm256_permute2x128_si256(b, b, 0x01));    
+  b = _mm256_max_epi8(b, _mm256_shuffle_epi32     (b,    0x4e));    
+  b = _mm256_max_epi8(b, _mm256_shuffle_epi32     (b,    0xb1));
+  b = _mm256_max_epi8(b, _mm256_shufflelo_epi16   (b,    0xb1));
+  b = _mm256_max_epi8(b, _mm256_srli_si256        (b,    1));
+  return _mm256_extract_epi8(b, 0); 
+}
 
 /* Function:  esl_avx512_hmax_epi16()
- * Synopsis:  Return the signed max of the 16 elements in epu8 vector.
- *
- * Purpose:   Returns the maximum value of the 32 elements in
- *            an <epu8> vector.
+ * Synopsis:  Return max of 32 signed int8_t elements in epi16 vector.
  */
-static inline uint16_t
+static inline int16_t
 esl_avx512_hmax_epi16(__m512i a)
 {
-  __m512i temp1_AVX_512 = _mm512_shuffle_i64x2(a, a, 0x4e);
-  temp1_AVX_512 = _mm512_max_epi16(a, temp1_AVX_512);  // get max of corresponding 16-bit quantities in high and 
-  // low halves of a
-
-  __m256i temp3_AVX = _mm512_extracti64x4_epi64(temp1_AVX_512, 0);  //shift to normal AVX for 16-bit operations
-  __m256i temp4_AVX = _mm256_permute2x128_si256(temp3_AVX, temp3_AVX, 0x01);
-  // Swap the 128-bit halves from temp3 into temp4
-
-  temp3_AVX = _mm256_max_epi16(temp3_AVX, temp4_AVX); // each 16-bit field in temp3_AVX now has the max of the
-  //corresponding fields in the high and low halves of a
-
-  temp4_AVX = _mm256_shuffle_epi32(temp3_AVX, 0x4e);  // Swap the 64-bit halves of each 128-bit half of temp3_AVX
-  temp3_AVX = _mm256_max_epi16(temp4_AVX, temp3_AVX);  // Each 64-bit quantity in temp4 now has the max of the corresponding
-  // 16-bit fields from the 64-bit eighths of a
-
-  temp4_AVX = _mm256_shuffle_epi32(temp3_AVX, 0xb1);  // Swap the 32-bit halves of each 64-bit quarter of temp3_AVX
-  temp3_AVX = _mm256_max_epi16(temp4_AVX, temp3_AVX);  // Each 32-bit quantity in temp2 now has the max of the corresponding
-  // 16 bit fields from the 32-bit sixteenths of a
-
-  temp4_AVX = _mm256_shufflelo_epi16(temp3_AVX, 0xb1); // bottom 32-bits of temp1_AVX now contain the swapped 16-bit halves
-  // of the low 32 bits of temp3_AVX
-  temp3_AVX = _mm256_max_epi16(temp4_AVX, temp3_AVX);  //bottom 16 bits of temp2_AVX now contain the max of the 16-bit fields of xEv_AVX
-
-  return(_mm256_extract_epi16(temp3_AVX, 0));  // return those low 16 bits
+  __m256i b = _mm256_max_epi16(_mm512_extracti32x8_epi32(a, 0), _mm512_extracti32x8_epi32(a, 1));
+  b = _mm256_max_epi16(b, _mm256_permute2x128_si256(b, b, 0x01));    
+  b = _mm256_max_epi16(b, _mm256_shuffle_epi32     (b,    0x4e));    
+  b = _mm256_max_epi16(b, _mm256_shuffle_epi32     (b,    0xb1));
+  b = _mm256_max_epi16(b, _mm256_shufflelo_epi16   (b,    0xb1));
+  return _mm256_extract_epi16(b, 0);
 }
 
 
@@ -114,8 +87,6 @@ esl_avx512_hmax_epi16(__m512i a)
 static inline void
 esl_avx512_hsum_ps(__m512 a, float *ret_sum)
 {
-  //  printf("In esl_avx512_hsum_ps.  Input vector is: ");
-  // print_512(a);
   __m512 temp1_AVX_512 = _mm512_shuffle_f32x4(a, a, 0x4e);  //swap high and low halves of a
   __m512 temp2_AVX_512 = _mm512_add_ps(a, temp1_AVX_512); // sum corresponding floats in the high, low halves
  
@@ -137,6 +108,10 @@ esl_avx512_hsum_ps(__m512 a, float *ret_sum)
   *retint_ptr = _mm256_extract_epi32((__m256i) temp3_AVX, 0);
 }
 
+
+/*****************************************************************
+ * 3. Inlined functions: left and right shifts
+ *****************************************************************/
 
 // shifts vector left by one byte.  Uses a similar technique to the AVX macro, but is complicated by the 
 // lack of permute2x128 instruction in AVX-512
