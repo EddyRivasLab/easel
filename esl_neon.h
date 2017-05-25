@@ -1,4 +1,4 @@
-/* Vectorized routines for ARM processors, using NEON intrinsics.
+/* Vectorized routines for ARM NEON intrinsics.
  *
  * This header file, unusually, provides many complete function
  * implementations so they can be inlined by the compiler.
@@ -13,6 +13,8 @@
  * Contents:
  *    1. Data structures for ARM/Intel intrinsics compatibility
  *    2. Function declarations for esl_neon
+ *    3. Inlined functions: horizontal max, sum
+ *
  *    3. Inlined utilities for float vectors (4 floats in esl_neon_128f_t)
  *    4. Inlined utilities for epu8 vectors (16 uchars in esl_neon_128i_t)
  *  
@@ -141,6 +143,83 @@ extern void             esl_neon_dump_float(FILE *fp, esl_neon_128f_t v);
 
 
 /*****************************************************************
+ * 3. Inlined functions: horizontal max, sum
+ *****************************************************************/
+
+
+
+/* Function:  esl_neon_hmax_u8()
+ * Synopsis:  Return max of 16 uint8_t elements in u8 vector.
+ */
+static inline uint8_t
+esl_neon_hmax_u8(esl_neon_128i_t a)
+{
+#ifdef eslHAVE_NEON_AARCH64
+  return vmaxvq_u8(a.u8x16);
+#else
+  a.u8x16 = vmaxq_u8(a.u8x16, vreinterpretq_u8_u32(vextq_u32(a.u32x4, a.u32x4, 2)));
+  a.u8x16 = vmaxq_u8(a.u8x16, vreinterpretq_u8_u32(vextq_u32(a.u32x4, a.u32x4, 1)));
+  a.u8x16 = vmaxq_u8(a.u8x16, vreinterpretq_u8_u16(vrev64q_u16(a.u16x8)));
+  a.u8x16 = vmaxq_u8(a.u8x16, vrev64q_u8(a.u8x16));
+  return vgetq_lane_u8(a.u8x16, 15);
+#endif
+}
+
+/* Function:  esl_neon_hmax_s8()
+ * Synopsis:  Return max of 16 int8_t elements in s8 vector.
+ */
+static inline int8_t
+esl_neon_hmax_s8(esl_neon_128i_t a)
+{
+#ifdef eslHAVE_NEON_AARCH64
+  return vmaxvq_s8(a.s8x16);
+#else
+  a.s8x16 = vmaxq_s8(a.s8x16, vreinterpretq_s8_s32(vextq_s32(a.s32x4, a.s32x4, 2)));
+  a.s8x16 = vmaxq_s8(a.s8x16, vreinterpretq_s8_s32(vextq_s32(a.s32x4, a.s32x4, 1)));
+  a.s8x16 = vmaxq_s8(a.s8x16, vreinterpretq_s8_s16(vrev64q_s16(a.s16x8)));
+  a.s8x16 = vmaxq_s8(a.s8x16, vrev64q_s8(a.s8x16));
+  return vgetq_lane_s8(a.s8x16, 15);
+#endif
+}
+
+/* Function:  esl_neon_hmax_s16()
+ * Synopsis:  Return max of 8 elements in s16 vector.
+ */
+static inline int16_t
+esl_neon_hmax_s16(esl_neon_128i_t a)
+{
+#ifdef eslHAVE_NEON_AARCH64
+  return vmaxvq_s16(a.s16x8);
+#else
+  a.s16x8 = vmaxq_s16(a.s16x8, vrev64q_s16(a.s16x8));
+  a.s16x8 = vmaxq_s16(a.s16x8, vreinterpretq_s16_s32(vrev64q_s32(a.s32x4)));
+  a.s16x8 = vmaxq_s16(a.s16x8, vreinterpretq_s16_s32(vextq_s32(a.s32x4, a.s32x4, 2)));
+  return vgetq_lane_s16(a.s16x8, 7);
+#endif
+}
+
+
+/* Function:  esl_neon_hsum_float()
+ * Synopsis:  Takes the horizontal sum of elements in a vector.
+ *
+ * Purpose:   Add the four float elements in vector <a>; return
+ *            that sum in <*ret_sum>.
+ */
+static inline void
+esl_neon_hsum_float(esl_neon_128f_t a, float *ret_sum)
+{
+#ifdef eslHAVE_NEON_AARCH64
+  *ret_sum = vaddvq_f32(a.f32x4);
+#else
+  esl_neon_128f_t fvec;  
+  a.f32x4    = vaddq_f32(a.f32x4, vrev64q_f32(a.f32x4));
+  fvec.f32x4 = vextq_f32(a.f32x4, a.f32x4, 2);
+  a.f32x4    = vaddq_f32(a.f32x4, fvec.f32x4);
+  vst1q_lane_f32(ret_sum, a.f32x4, 0);
+#endif
+}
+
+/*****************************************************************
  * 3. Inline utilities for ps vectors (4 floats in esl_neon_128f_t)
  *****************************************************************/
 
@@ -200,25 +279,7 @@ esl_neon_any_gt_float(esl_neon_128f_t a, esl_neon_128f_t b)
 }
 
 
-/* Function:  esl_neon_hsum_float()
- * Synopsis:  Takes the horizontal sum of elements in a vector.
- *
- * Purpose:   Add the four float elements in vector <a>; return
- *            that sum in <*ret_sum>.
- */
-static inline void
-esl_neon_hsum_float(esl_neon_128f_t a, float *ret_sum)
-{
-#ifdef eslHAVE_NEON_AARCH64
-  *ret_sum = vaddvq_f32(a.f32x4);
-#else
-  esl_neon_128f_t fvec;  
-  a.f32x4    = vaddq_f32(a.f32x4, vrev64q_f32(a.f32x4));
-  fvec.f32x4 = vextq_f32(a.f32x4, a.f32x4, 2);
-  a.f32x4    = vaddq_f32(a.f32x4, fvec.f32x4);
-  vst1q_lane_f32(ret_sum, a.f32x4, 0);
-#endif
-}
+
 
 
 /* Function:  esl_neon_rightshift_float()
@@ -283,51 +344,8 @@ esl_neon_any_gt_s16(esl_neon_128i_t a, esl_neon_128i_t b)
   return maskbits != 0;
 }
 
-/* Function:  esl_neon_hmax_u8()
- * Synopsis:  Return the max of the 16 elements in u8 vector.
- *
- * Purpose:   Returns the maximum value of the 16 elements in
- *            a <u8> vector.
- */
-static inline uint8_t
-esl_neon_hmax_u8(esl_neon_128i_t a)
-{
-#ifdef eslHAVE_NEON_AARCH64
-  return vmaxvq_u8(a.u8x16);
-#else
-  register esl_neon_128i_t tempv;
 
-  tempv.u8x16 = vreinterpretq_u8_u32(vextq_u32(a.u32x4, a.u32x4, 2));
-  a.u8x16     = vmaxq_u8(a.u8x16, tempv.u8x16);
-  tempv.u8x16 = vreinterpretq_u8_u32(vextq_u32(a.u32x4, a.u32x4, 1));
-  a.u8x16     = vmaxq_u8(a.u8x16, tempv.u8x16);
-  tempv.u8x16 = vreinterpretq_u8_u16(vrev64q_u16(a.u16x8));
-  a.u8x16     = vmaxq_u8(a.u8x16, tempv.u8x16);
-  tempv.u8x16 = vrev64q_u8(a.u8x16);
-  a.u8x16     = vmaxq_u8(a.u8x16, tempv.u8x16);
 
-  return vgetq_lane_u8(a.u8x16, 15);
-#endif
-}
-
-/* Function:  esl_neon_hmax_s16()
- * Synopsis:  Return the max of the 8 elements in s16 vector.
- *
- * Purpose:   Returns the maximum value of the 16 elements in
- *            an <s8> vector.
- */
-static inline int16_t
-esl_neon_hmax_s16(esl_neon_128i_t a)
-{
-#ifdef eslHAVE_NEON_AARCH64
-  return vmaxvq_s16(a.s16x8);
-#else
-  a.s16x8 = vmaxq_s16(a.s16x8, vrev64q_s16(a.s16x8));
-  a.s16x8 = vmaxq_s16(a.s16x8, vreinterpretq_s16_s32(vrev64q_s32(a.s32x4)));
-  a.s16x8 = vmaxq_s16(a.s16x8, vreinterpretq_s16_s32(vextq_s32(a.s32x4, a.s32x4, 2)));
-  return vgetq_lane_s16(a.s16x8, 7);
-#endif
-}
 
 #endif // eslNEON_INCLUDED 
 #endif // eslENABLE_NEON

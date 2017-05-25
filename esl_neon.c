@@ -507,6 +507,70 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
   if (avgerr2 > 1e-8) esl_fatal("average error on expf() is intolerable\n");
   if (maxerr2 > 1e-6) esl_fatal("maximum error on expf() is intolerable\n");
 }
+
+
+static void
+utest_hmax_u8(ESL_RANDOMNESS *rng)
+{
+  union { esl_neon_128i_t v; uint8_t x[16]; } u;
+  uint8_t r1, r2;
+  int     i,z;
+
+  for (i = 0; i < 100; i++)
+    {
+      r1 = 0;
+      for (z = 0; z < 16; z++) 
+        {
+          u.x[z] = (uint8_t) (esl_rnd_Roll(rng, 256));  // 0..255
+          if (u.x[z] > r1) r1 = u.x[z];
+        }
+      r2 = esl_neon_hmax_u8(u.v.u8x16);
+      if (r1 != r2) esl_fatal("hmax_u8 utest failed");
+    }
+}
+
+static void
+utest_hmax_epi8(ESL_RANDOMNESS *rng)
+{
+  union { esl_neon_128i_t v; int8_t x[16]; } u;
+  int8_t r1, r2;
+  int    i,z;
+
+  for (i = 0; i < 100; i++)
+    {
+      r1 = -128;
+      for (z = 0; z < 16; z++) 
+        {
+          u.x[z] = (int8_t) (esl_rnd_Roll(rng, 256) - 128);  // -128..127
+          if (u.x[z] > r1) r1 = u.x[z];
+        }
+      r2 = esl_neon_hmax_s8(u.v.s8x16);
+      if (r1 != r2) esl_fatal("hmax_s8 utest failed");
+    }
+}
+
+
+static void
+utest_hmax_s16(ESL_RANDOMNESS *rng)
+{
+  union { esl_neon_128i_t v; int16_t x[8]; } u;
+  int16_t r1, r2;
+  int     i,z;
+
+  for (i = 0; i < 100; i++)
+    {
+      r1 = -32768;
+      for (z = 0; z < 8; z++) 
+        {
+          u.x[z] = (int16_t) (esl_rnd_Roll(rng, 65536) - 32768);  // -32768..32767
+          if (u.x[z] > r1) r1 = u.x[z];
+        }
+      r2 = esl_neon_hmax_s16(u.v.s16x8);
+      if (r1 != r2) esl_fatal("hmax_s16 utest failed: %d != %d", r1, r2);
+    }
+}
+
+
 #endif /*eslNEON_TESTDRIVE*/
 
 
@@ -544,11 +608,11 @@ static char banner[] = "test driver for neon module";
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS    *go = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
-  ESL_RANDOMNESS *r  = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));;
+  ESL_GETOPTS    *go  = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));;
 
   fprintf(stderr, "## %s\n", argv[0]);
-  fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(r));
+  fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
 #ifdef eslHAVE_NEON_AARCH64
   fprintf(stderr, "#  flavor   = aarch64\n");
 #else
@@ -557,11 +621,14 @@ main(int argc, char **argv)
 
   utest_logf(go);
   utest_expf(go);
-  utest_odds(go, r);
+  utest_odds(go, rng);
+  utest_hmax_u8(rng);
+  utest_hmax_s8(rng);
+  utest_hmax_s16(rng);
 
   fprintf(stderr, "#  status   = ok\n");
 
-  esl_randomness_Destroy(r);
+  esl_randomness_Destroy(rng);
   esl_getopts_Destroy(go);
   return 0;
 }

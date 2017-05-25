@@ -3,7 +3,6 @@
  * Contents:           
  *     1. SIMD logf(), expf()
  *     2. Utilities for ps vectors (4 floats in a __m128)
- *     3. Utilities for epu8 vectors (16 uchars in a __m128i)
  *     3. Benchmark
  *     4. Unit tests
  *     5. Test driver
@@ -567,12 +566,17 @@ main(int argc, char **argv)
   ESL_GETOPTS    *go  = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   ESL_RANDOMNESS *rng = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));;
 
+  fprintf(stderr, "## %s\n", argv[0]);
+  fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
+
   utest_logf(go);
   utest_expf(go);
   utest_odds(go, rng);
   utest_hmax_epu8(rng);
   utest_hmax_epi8(rng);
   utest_hmax_epi16(rng);
+
+  fprintf(stderr, "#  status   = ok\n");
 
   esl_randomness_Destroy(rng);
   esl_getopts_Destroy(go);
