@@ -524,13 +524,13 @@ utest_hmax_u8(ESL_RANDOMNESS *rng)
           u.x[z] = (uint8_t) (esl_rnd_Roll(rng, 256));  // 0..255
           if (u.x[z] > r1) r1 = u.x[z];
         }
-      r2 = esl_neon_hmax_u8(u.v.u8x16);
+      r2 = esl_neon_hmax_u8(u.v);
       if (r1 != r2) esl_fatal("hmax_u8 utest failed");
     }
 }
 
 static void
-utest_hmax_epi8(ESL_RANDOMNESS *rng)
+utest_hmax_s8(ESL_RANDOMNESS *rng)
 {
   union { esl_neon_128i_t v; int8_t x[16]; } u;
   int8_t r1, r2;
@@ -544,7 +544,7 @@ utest_hmax_epi8(ESL_RANDOMNESS *rng)
           u.x[z] = (int8_t) (esl_rnd_Roll(rng, 256) - 128);  // -128..127
           if (u.x[z] > r1) r1 = u.x[z];
         }
-      r2 = esl_neon_hmax_s8(u.v.s8x16);
+      r2 = esl_neon_hmax_s8(u.v);
       if (r1 != r2) esl_fatal("hmax_s8 utest failed");
     }
 }
@@ -565,7 +565,7 @@ utest_hmax_s16(ESL_RANDOMNESS *rng)
           u.x[z] = (int16_t) (esl_rnd_Roll(rng, 65536) - 32768);  // -32768..32767
           if (u.x[z] > r1) r1 = u.x[z];
         }
-      r2 = esl_neon_hmax_s16(u.v.s16x8);
+      r2 = esl_neon_hmax_s16(u.v);
       if (r1 != r2) esl_fatal("hmax_s16 utest failed: %d != %d", r1, r2);
     }
 }
