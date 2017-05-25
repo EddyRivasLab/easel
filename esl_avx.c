@@ -3,9 +3,10 @@
  * Most speed-critical code is in the .h file, to facilitate inlining.
  * 
  * Contents:
- *    1. 
- *    2. Unit tests
- *    3. Test driver
+ *    1. Debugging/development routines
+ *    2. Benchmark
+ *    3. Unit tests
+ *    4. Test driver
  *    
  * This code is conditionally compiled, only when <eslENABLE_AVX> was
  * set in <esl_config.h> by the configure script, and that will only
@@ -24,6 +25,10 @@
 #include "esl_avx.h"
 
 
+/*****************************************************************
+ * 1. Debugging/development routines
+ *****************************************************************/
+
 void 
 esl_avx_dump_256i_hex4(__m256i v)
 {
@@ -34,7 +39,7 @@ esl_avx_dump_256i_hex4(__m256i v)
 
 
 /*****************************************************************
- * x. Benchmark
+ * 2. Benchmark
  *****************************************************************/
 #ifdef eslAVX_BENCHMARK
 
@@ -121,7 +126,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 2. Unit tests
+ * 3. Unit tests
  *****************************************************************/
 #ifdef eslAVX_TESTDRIVE
 
@@ -191,7 +196,7 @@ utest_hmax_epi16(ESL_RANDOMNESS *rng)
 #endif /*eslAVX_TESTDRIVE*/
 
 /*****************************************************************
- * 3. Test driver
+ * 4. Test driver
  *****************************************************************/
 
 #ifdef eslAVX_TESTDRIVE
@@ -203,7 +208,7 @@ utest_hmax_epi16(ESL_RANDOMNESS *rng)
 #include "easel.h"
 #include "esl_getopts.h"
 #include "esl_random.h"
-#include "esl_sse.h"
+#include "esl_avx.h"
 
 static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
@@ -212,7 +217,7 @@ static ESL_OPTIONS options[] = {
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options]";
-static char banner[] = "test driver for sse module";
+static char banner[] = "test driver for avx512 module";
 
 int
 main(int argc, char **argv)
