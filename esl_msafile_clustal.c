@@ -230,11 +230,15 @@ esl_msafile_clustal_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   do { 		/* afp->line, afp->n is now the first line of a block... */
     idx = 0;
     do {
-      for (pos = 0;     pos < n; pos++) if (! isspace(p[pos])) break;  name_start = pos; 
-      for (pos = pos+1; pos < n; pos++) if (  isspace(p[pos])) break;  name_len   = pos - name_start;
-      for (pos = pos+1; pos < n; pos++) if (! isspace(p[pos])) break;  seq_start  = pos;      
+      for (pos = 0;     pos < n; pos++) if (! isspace(p[pos])) break;  
+      name_start = pos; 
+      for (pos = pos+1; pos < n; pos++) if (  isspace(p[pos])) break;  
+      name_len   = pos - name_start;
+      for (pos = pos+1; pos < n; pos++) if (! isspace(p[pos])) break;  
+      seq_start  = pos;      
       if (pos >= n) ESL_XFAIL(eslEFORMAT, afp->errmsg, "invalid alignment line");
-      for (pos = pos+1; pos < n; pos++) if (  isspace(p[pos])) break;  seq_len    = pos - seq_start; /* expect one block; ignore trailing stuff, inc. optional coords */
+      for (pos = pos+1; pos < n; pos++) if (  isspace(p[pos])) break;  
+      seq_len    = pos - seq_start; /* expect one block; ignore trailing stuff, inc. optional coords */
 
       if (idx == 0) {
 	block_seq_start = seq_start;

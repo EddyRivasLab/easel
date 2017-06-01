@@ -3077,9 +3077,12 @@ example_read_fasta(ESL_BUFFER *bf, char **ret_name, char **ret_desc, char **ret_
   return eslOK;
 
  ERROR:
-  if (seqname) free(seqname);  *ret_name   = NULL;
-  if (seqdesc) free(seqdesc);  *ret_desc   = NULL;
-  if (seq)     free(seq);      *ret_seq    = NULL;
+  if (seqname) free(seqname);  
+  if (seqdesc) free(seqdesc); 
+  if (seq)     free(seq);  
+  *ret_name   = NULL;
+  *ret_desc   = NULL;
+  *ret_seq    = NULL;
   *ret_seqlen = 0;
   return status;
 }
