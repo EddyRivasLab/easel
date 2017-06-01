@@ -5,21 +5,22 @@
 #
 # We call this "AVX-512" in the generic sense of the lab's vector
 # implementations in Easel, HMMER, Infernal, etc; more precisely,
-# we're checking for AVX-512 Foundation, Exponential/Reciprocal, and
+# we're checking for AVX-512 Foundation, Double/Quadword, and
 # Byte/Word instruction subsets. Xeon Phi200 "Knights Landing" does
-# not support the AVX512BW instructions. We await Skylake EX/EP
-# processors for that.
+# not support BW or DQ instructions. We require Skylake EX/EP (Purley)
+# processors or later.
 #
 # Tries to compile and link a test program using the current CC,
 # CFLAGS, and (optionally) any AVX512_CFLAGS passed by the user. If
 # AVX512_CFLAGS are not provided, then we try to determine them, by
 # trying nothing (i.e. the compiler deals with AVX-512 intrinsics by
 # default), then trying each of:
-#    "-mavx512f -mavx512er -mavx512bw"
+#    "-mavx512f -mavx512dq -mavx512bw"    
+#    "-xCORE-AVX512"                      
 #    "-march=skylake-avx512"
 #
 # Sets $esl_have_avx512 = yes | no
-# Sets $esl_avx512_cflags to any extra needed CFLAGS, such as "-mavx512f -mavx512er -mavx512bw"
+# Sets $esl_avx512_cflags to any extra needed CFLAGS, such as "-mavx512f -mavx512dq -mavx512bw"
 # 
 # A typical ACTION-IF-FOUND might be:
 #      AC_DEFINE(HAVE_AVX512)
@@ -42,7 +43,7 @@ AC_DEFUN([ESL_AVX512],[
   if test "x$AVX512_CFLAGS" != x; then 
     esl_avx512_try_flags=$AVX_CFLAGS
   else
-    esl_avx512_try_flags="none,-mavx512f -mavx512er -mavx512bw,-march=skylake-avx512"
+    esl_avx512_try_flags="none,-mavx512f -mavx512dq -mavx512bw,-xCORE-AVX512,-march=skylake-avx512"
   fi
 
   for esl_avx512_cflags in $esl_avx512_try_flags; do 
@@ -51,19 +52,16 @@ AC_DEFUN([ESL_AVX512],[
       *)    CFLAGS="$save_CFLAGS $esl_avx512_cflags";;
     esac
 
-    # The test program could be improved. It's only using Foundation instructions.
+    # The test program exercises F, DQ, and BW instructions, compactly.
     IFS=$save_IFS
     AC_LINK_IFELSE([AC_LANG_SOURCE([[
 #include <x86intrin.h>
 #include <stdint.h>
-int stub_avx512(void) {
-__m512i v1 = _mm512_set1_epi32(42);
-__m512i v2 = _mm512_set1_epi32(470);
-union { __m512i v; int32_t x[16]; } v3;
-v3.v = _mm512_add_epi32(v1, v2);
-return (int) v3.x[0];
-}
-int main(void) { if (stub_avx512() != 512) return 1; else return 0;}
+int main(void) {
+  __m512i v1 = _mm512_set1_epi8(21);   
+  union { __m256i v; int8_t x[32]; } v2;
+  v2.v = _mm512_extracti32x8_epi32(_mm512_adds_epi8(v1, v1), 0x1);
+  return (v2.x[0] == 42 ? 0 : 1);}
     ]])], [ esl_have_avx512=yes; break; ], [])
     IFS=,
   done
