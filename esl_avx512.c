@@ -163,6 +163,7 @@ main(int argc, char **argv)
 
 
 #else  // ! eslENABLE_AVX512
+#include <stdio.h>
 void esl_avx512_silence_hack(void) { return; }
 #if defined eslAVX512_TESTDRIVE || eslAVX512_EXAMPLE || eslAVX512_BENCHMARK
 int main(void) { fprintf(stderr, "# AVX512 support not compiled.\n"); return 0; }
