@@ -309,11 +309,10 @@ cpu_has_avx(void)
 #ifdef eslENABLE_AVX512
 /* cpu_has_avx512()
  * 
- * Test whether processors supports AVX-512.  Easel AVX-512 code may
- * depend on Foundation, Double/Quadword, Prefetch,
- * Exponential/Reciprocal, Conflict Detection, and Byte/Word subsets
- * (F, DQ, PF, ER, CD, BW).
- * 
+ * Test whether processors supports AVX-512.  Our AVX-512 code
+ * currently can depend on Foundation, Double/Quadword, and Byte/Word
+ * subsets (F, DQ, BW), and requires Intel Skylake Xeon (Purley)
+ * processors or later. 
  */
 static int 
 cpu_has_avx512(void) 
@@ -322,9 +321,6 @@ cpu_has_avx512(void)
   uint32_t osxsave_mask = (1 << 27);  
   uint32_t knl_mask     = (1 << 16) | // AVX-512F
                           (1 << 17) | // AVX-512DQ
-                          (1 << 26) | // AVX-512PF
-                          (1 << 27) | // AVX-512ER
-                          (1 << 28) | // AVX-512CD
                           (1 << 30);  // AVX-512BW
 
   cpu_run_id( 1, 0, abcd );

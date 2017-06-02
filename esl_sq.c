@@ -1898,12 +1898,17 @@ esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq)
 	ESL_ALLOC(sq->xr,     sizeof(char *) * sq->nxr); for (x = 0; x < sq->nxr; x ++) sq->xr[x] = NULL;
 	for (x = 0; x < sq->nxr; x ++) {
 	  if (xr[x] != NULL) {
-	    if (sq->xr[x] == NULL) {
-	      ESL_ALLOC(sq->xr[x], sizeof(char) * (sq->n+2));
-	      sq->xr[x][0] = '\0';
-	      strcpy(sq->xr[x]+1, xr[x]);
-	    }
-	    else strcpy(sq->xr[x]+1, xr[x]); sq->xr[x][0] = '\0'; 	    
+	    if (sq->xr[x] == NULL) 
+              {
+                ESL_ALLOC(sq->xr[x], sizeof(char) * (sq->n+2));
+                sq->xr[x][0] = '\0';
+                strcpy(sq->xr[x]+1, xr[x]);
+              }
+	    else 
+              {
+                strcpy(sq->xr[x]+1, xr[x]); 
+                sq->xr[x][0] = '\0'; 	    
+              }
 	    esl_abc_CDealign(sq->abc, sq->xr[x]+1, sq->dsq, NULL);
 	  }
 	  if (xr_tag[x] != NULL) {
@@ -1931,7 +1936,8 @@ esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq)
   
  ERROR:
   if (msa->ngr > 0) {
-    if (xr_tag != NULL) free(xr_tag); if (xr != NULL) free(xr);
+    if (xr_tag) free(xr_tag); 
+    if (xr)     free(xr);
   }  
   esl_sq_Destroy(sq);
   *ret_sq = NULL;
@@ -2481,11 +2487,10 @@ utest_ExtraResMarkups()
   esl_msafile_Open(&abc, tmpfile, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp1);  
   esl_msafile_stockholm_Read(afp1, &msa1);  
 
-  sq = esl_sq_CreateDigital(abc);
-  if (esl_sq_GetFromMSA(msa1, 0, sq) != eslOK) esl_fatal(msg); esl_sq_Reuse(sq);
-  if (esl_sq_GetFromMSA(msa1, 1, sq) != eslOK) esl_fatal(msg); esl_sq_Reuse(sq);
-  if (esl_sq_GetFromMSA(msa1, 2, sq) != eslOK) esl_fatal(msg); esl_sq_Reuse(sq);
-  if (esl_sq_GetFromMSA(msa1, 5, sq) != eslOK) esl_fatal(msg); 
+  sq = esl_sq_CreateDigital(abc);  if (esl_sq_GetFromMSA(msa1, 0, sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Reuse(sq);                if (esl_sq_GetFromMSA(msa1, 1, sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Reuse(sq);                if (esl_sq_GetFromMSA(msa1, 2, sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Reuse(sq);                if (esl_sq_GetFromMSA(msa1, 5, sq) != eslOK) esl_fatal(msg); 
 
   /* test of sq_Copy */
   sq1 = esl_sq_Create();
@@ -2494,28 +2499,27 @@ utest_ExtraResMarkups()
   esl_sq_Copy(sq, sq2);
   esl_sq_Destroy(sq1);
   esl_sq_Destroy(sq2);
-  esl_sq_Destroy(sq);
-  
-  if (esl_sq_FetchFromMSA(msa1, 0, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
-  if (esl_sq_FetchFromMSA(msa1, 1, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
-  if (esl_sq_FetchFromMSA(msa1, 2, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
-  if (esl_sq_FetchFromMSA(msa1, 5, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
 
-  
+  esl_sq_Destroy(sq);  if (esl_sq_FetchFromMSA(msa1, 0, &sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Destroy(sq);  if (esl_sq_FetchFromMSA(msa1, 1, &sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Destroy(sq);  if (esl_sq_FetchFromMSA(msa1, 2, &sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Destroy(sq);  if (esl_sq_FetchFromMSA(msa1, 5, &sq) != eslOK) esl_fatal(msg);
+  esl_sq_Destroy(sq);
+
   /* Text msa to text sq */
   esl_msafile_Open(NULL, tmpfile, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp2);  
   esl_msafile_stockholm_Read(afp2, &msa2);  
   
-  sq = esl_sq_Create();
-  if (esl_sq_GetFromMSA(msa2, 0, sq) != eslOK) esl_fatal(msg); esl_sq_Reuse(sq);
-  if (esl_sq_GetFromMSA(msa2, 1, sq) != eslOK) esl_fatal(msg); esl_sq_Reuse(sq);
-  if (esl_sq_GetFromMSA(msa2, 2, sq) != eslOK) esl_fatal(msg); esl_sq_Reuse(sq);
-  if (esl_sq_GetFromMSA(msa2, 5, sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
-  
-  if (esl_sq_FetchFromMSA(msa2, 0, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
-  if (esl_sq_FetchFromMSA(msa2, 1, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
-  if (esl_sq_FetchFromMSA(msa2, 2, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
-  if (esl_sq_FetchFromMSA(msa2, 5, &sq) != eslOK) esl_fatal(msg); 
+  sq = esl_sq_Create();  if (esl_sq_GetFromMSA(msa2, 0, sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Reuse(sq);      if (esl_sq_GetFromMSA(msa2, 1, sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Reuse(sq);      if (esl_sq_GetFromMSA(msa2, 2, sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Reuse(sq);      if (esl_sq_GetFromMSA(msa2, 5, sq) != eslOK) esl_fatal(msg); 
+
+  esl_sq_Destroy(sq);    if (esl_sq_FetchFromMSA(msa2, 0, &sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Destroy(sq);    if (esl_sq_FetchFromMSA(msa2, 1, &sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Destroy(sq);    if (esl_sq_FetchFromMSA(msa2, 2, &sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Destroy(sq);    if (esl_sq_FetchFromMSA(msa2, 5, &sq) != eslOK) esl_fatal(msg); 
+
   /* test of sq_Copy */
   sq1 = esl_sq_Create();
   sq2 = esl_sq_CreateDigital(abc);

@@ -346,14 +346,16 @@ esl_huffman_Dump(FILE *fp, ESL_HUFFMAN *hc)
 
   /* Decoding table (if set) */
   if (hc->dt_len)
-    fprintf(fp, "Decoding table:\n");
-    for (d = 0; d < hc->D; d++)
-      {
-	L = hc->dt_len[d];
-	fprintf(fp, "L=%2d  r=%3d (%3d) ", L, hc->dt_rank[d], hc->sorted_at[hc->dt_rank[d]]);
-	dump_uint32(fp, hc->dt_lcode[d], eslHUFFMAN_MAXCODE);
-	fputc('\n', fp);
-      }
+    {
+      fprintf(fp, "Decoding table:\n");
+      for (d = 0; d < hc->D; d++)
+        {
+          L = hc->dt_len[d];
+          fprintf(fp, "L=%2d  r=%3d (%3d) ", L, hc->dt_rank[d], hc->sorted_at[hc->dt_rank[d]]);
+          dump_uint32(fp, hc->dt_lcode[d], eslHUFFMAN_MAXCODE);
+          fputc('\n', fp);
+        }
+    }
 
   return eslOK;
 }

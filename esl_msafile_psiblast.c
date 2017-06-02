@@ -211,11 +211,15 @@ esl_msafile_psiblast_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
    do { /* while in the file... */
     idx = 0;
     do { /* while in a block... */
-      for (pos = 0;     pos < afp->n; pos++) if (! isspace(afp->line[pos])) break;  name_start = pos; 
-      for (pos = pos+1; pos < afp->n; pos++) if (  isspace(afp->line[pos])) break;  name_len   = pos - name_start;
-      for (pos = pos+1; pos < afp->n; pos++) if (! isspace(afp->line[pos])) break;  seq_start  = pos;      
+      for (pos = 0;     pos < afp->n; pos++) if (! isspace(afp->line[pos])) break;  
+      name_start = pos; 
+      for (pos = pos+1; pos < afp->n; pos++) if (  isspace(afp->line[pos])) break;  
+      name_len   = pos - name_start;
+      for (pos = pos+1; pos < afp->n; pos++) if (! isspace(afp->line[pos])) break;  
+      seq_start  = pos;      
       if (pos >= afp->n) ESL_XFAIL(eslEFORMAT, afp->errmsg, "invalid alignment line");
-      for (pos = afp->n-1; pos > 0; pos--)   if (! isspace(afp->line[pos])) break;  seq_len    = pos - seq_start + 1;
+      for (pos = afp->n-1; pos > 0; pos--)   if (! isspace(afp->line[pos])) break;  
+      seq_len    = pos - seq_start + 1;
 
       if (idx == 0) {
 	block_seq_start = seq_start;
