@@ -111,61 +111,54 @@ esl_avx512_hsum_ps(__m512 a, float *ret_sum)
  * 3. Inlined functions: left and right shifts
  *****************************************************************/
 
-// shifts vector left by one byte.  Uses a similar technique to the AVX macro, but is complicated by the 
-// lack of permute2x128 instruction in AVX-512
-
-
-
+/* Function:  esl_avx512_rightshift_int8()
+ * Synopsis:  Shift int8 vector elements to the right, shifting -inf on.
+ * Incept:    SRE, Sun Jun  4 17:43:14 2017
+ * See:       esl_sse.h::esl_sse_rightshift_int8()
+ */
 static inline __m512i 
-esl_avx512_leftshift_one(__m512i vector)
+esl_avx512_rightshift_int8(__m512i v, __m512i neginfmask)
 {
-  __mmask16 zero_low_128 = 0xfff0;   // maskz_shuffle zeroes out 32-bit fields where the mask is 0, so this will
-  // zero out the low 128-bits
-  __m512i temp_mask_AVX_512 = _mm512_maskz_shuffle_i32x4(zero_low_128, vector, vector, 0x90);
-       	
-  //now do the same merge and right-shift trick we used with AVX to create a left-shift by one byte
-  return(_mm512_alignr_epi8(vector, temp_mask_AVX_512,15));
+  // Similar to AVX logic, but complicated by lack of permute2x128 instruction.
+  v = _mm512_alignr_epi8(v,  _mm512_maskz_shuffle_i32x4(0xfff0, v, v, 0x90), 15);
+  return _mm512_or_si512(v, neginfmask);
 }
 
 
-// shifts vector left by two bytes
+/* Function:  esl_avx512_rightshift_int16()
+ * Synopsis:  Shift int16 vector elements to the right, shifting -inf on.
+ * Incept:    SRE, Sun Jun  4 17:49:02 2017
+ * See:       esl_sse.h::esl_sse_rightshift_int16()
+ */
 static inline __m512i
-esl_avx512_leftshift_two(__m512i vector)
+esl_avx512_rightshift_int16(__m512i v, __m512i neginfmask)
 {
-  // left_shift dp_temp by 128 bits by shuffling and then inzerting zeroes at the low end
-  __mmask16 zero_low_128 = 0xfff0;   // maskz_shuffle zeroes out 32-bit fields where the mask is 0, so this will
-  // zero out the low 128-bits
-  __m512i temp_mask_AVX_512 = _mm512_maskz_shuffle_i32x4(zero_low_128, vector, vector, 0x90);
-
-  //now do the same merge and right-shift trick we used with AVX to create a left-shift by two bytes
-  return(_mm512_alignr_epi8(vector, temp_mask_AVX_512,14));
+  v = _mm512_alignr_epi8(v, _mm512_maskz_shuffle_i32x4(0xfff0, v, v, 0x90), 14);
+  return _mm512_or_si512(v, neginfmask);
 }
 
 
-// shifts vector left by four bytes (one float)
-static inline __m512 
-esl_avx512_leftshift_ps(__m512 vector)
-{
-  // left_shift dp_temp by 128 bits by shuffling and then inzerting zeroes at the low end
-  __mmask16 zero_low_128 = 0xfff0;   // maskz_shuffle zeroes out 32-bit fields where the mask is 0, so this will
-  // zero out the low 128-bits
-  __m512i temp_mask_AVX_512 = _mm512_maskz_shuffle_i32x4(zero_low_128, (__m512i) vector, (__m512i) vector, 0x90);
 
-  //now do the same merge and right-shift trick we used with AVX to create a left-shift by two bytes
-  __m512 retval = (__m512) _mm512_alignr_epi8((__m512i) vector, temp_mask_AVX_512,12);
-  return(retval);
+/* Function:  esl_avx512_rightshiftz_float()
+ * Synopsis:  Shift float vector elements to the right, shifting zero on.
+ * Incept:    SRE, Sun Jun  4 17:59:54 2017
+ * See:       esl_sse.h::esl_sse_rightshiftz_float()
+ */
+static inline __m512 
+esl_avx512_rightshiftz_float(__m512 v)
+{
+  return ((__m512) _mm512_alignr_epi8((__m512i) v, _mm512_maskz_shuffle_i32x4(0xfff0, v, v, 0x90), 12));
 }
 
-// shifts vector right by four bytes (one float)
+/* Function:  esl_avx512_leftshiftz_float()
+ * Synopsis:  Shift float vector elements to the left, shifting zero on.
+ * Incept:    SRE, Sun Jun  4 18:04:34 2017
+ * See:       esl_sse.h::esl_sse_leftshiftz_float()
+ */
 static inline __m512 
-esl_avx512_rightshift_ps(__m512 vector)
+esl_avx512_leftshiftz_float(__m512 v)
 {
-  __mmask16 zero_high_128 = 0x0fff;   // maskz_shuffle zeroes out 32-bit fields where the mask is 0, so this will
-  // zero out the low 128-bits
-  __m512i temp_mask_AVX_512 = _mm512_maskz_shuffle_i32x4(zero_high_128, (__m512i) vector, (__m512i) vector, 0x39);
-
-  //now do the same merge and right-shift trick we used with AVX to create a left-shift by two bytes
-  return((__m512) _mm512_alignr_epi8(temp_mask_AVX_512, (__m512i) vector,4));
+  return ((__m512) _mm512_alignr_epi8( _mm512_maskz_shuffle_i32x4(0x0fff, v, v, 0x39), v, 4));
 }
 #endif //eslAVX512_INCLUDED
 #endif //eslENABLE_AVX512

@@ -114,7 +114,7 @@ esl_avx_hsum_ps(__m256 a, float *ret_sum)
  ******************************************************************/
 
 /* Function:  esl_avx_rightshift_int8()
- * Synopsis:  Shift int8 vector elements to the right.
+ * Synopsis:  Shift int8 vector elements to the right, shifting a -inf on.
  * Incept:    SRE, Sun Jun  4 17:12:07 2017
  * See:       esl_sse.h::esl_sse_rightshift_int8()
  */
@@ -125,7 +125,7 @@ esl_avx_rightshift_int8(__m256i v, __m256i neginfmask)
 }
 
 /* Function:  esl_avx_rightshift_int16()
- * Synopsis:  Shift int16 vector elements to the right.
+ * Synopsis:  Shift int16 vector elements to the right, shifting a -inf on.
  * Incept:    SRE, Sun Jun  4 17:13:58 2017
  * See:       esl_sse.h::esl_sse_rightshift_int16()
  */

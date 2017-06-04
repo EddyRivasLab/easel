@@ -126,7 +126,7 @@ esl_sse_hsum_ps(__m128 a, float *ret_sum)
  *****************************************************************/
 
 /* Function:  esl_sse_rightshift_int8()
- * Synopsis:  Shift int8 vector elements to the right.
+ * Synopsis:  Shift int8 vector elements to the right, shifting -inf on
  * Incept:    SRE, Sun Jun  4 09:52:45 2017
  *
  * Purpose:   Given an int8 vector <{ a0 .. a16}>, and a mask <{-inf,
@@ -153,7 +153,7 @@ esl_sse_rightshift_int8(__m128i a, __m128i neginfmask)
 
 
 /* Function:  esl_sse_rightshift_int16()
- * Synopsis:  Shift int16 vector elements to the right.
+ * Synopsis:  Shift int16 vector elements to the right, shifting -inf on
  * Incept:    SRE, Sun Jun  4 10:12:24 2017 [Gary Jules, Mad World]
  *
  * Purpose:   Same as <esl_sse_rightshift_int8()> but for int16.
@@ -180,7 +180,7 @@ esl_sse_rightshiftz_float(__m128 a)
 /* Function:  esl_sse_leftshiftz_float()
  * Synopsis:  Shift float vector elements to the left, shifting zero on.
  *
- * Purpose:   Same as <esl_sse_rightshift_float()> but left: <[ a0 a1 a2
+ * Purpose:   Same as <esl_sse_rightshift_float()> but leftwise: <[ a0 a1 a2
  *            a3 ]> becomes <[ a1 a2 a3 0 ]>. Used in Backwards.
  */
 static inline __m128
@@ -191,7 +191,7 @@ esl_sse_leftshiftz_float(__m128 a)
 }
 
 /* Function:  esl_sse_rightshift_ps()
- * Synopsis:  Shift vector elements to the right.
+ * Synopsis:  Shift vector elements to the right, shifting -inf on.
  *
  * Purpose:   Returns a vector containing
  *            <{ b[0] a[0] a[1] a[2] }>:
@@ -208,7 +208,7 @@ esl_sse_rightshift_ps(__m128 a, __m128 b)
 }
 
 /* Function:  esl_sse_leftshift_ps()
- * Synopsis:  Shift vector elements to the left.
+ * Synopsis:  Shift vector elements to the left, shifting -inf on.
  *
  * Purpose:   Returns a vector containing
  *            <{ a[1] a[2] a[3] b[0]}>:
