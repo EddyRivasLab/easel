@@ -6,7 +6,7 @@
  * Contents:
  *    1. Function declarations for esl_avx512.c
  *    2. Inlined functions: horizontal max, sum
- *    3. Inlined functions: left and right shifts
+ *    3. Inlined functions: left, right shift
  */
 #ifndef eslAVX512_INCLUDED
 #define eslAVX512_INCLUDED
@@ -23,8 +23,6 @@
  *****************************************************************/
 
 extern void esl_avx512_dump_512i_hex8(__m512i v);
-
-
 
 
 /*****************************************************************
@@ -115,6 +113,9 @@ esl_avx512_hsum_ps(__m512 a, float *ret_sum)
 
 // shifts vector left by one byte.  Uses a similar technique to the AVX macro, but is complicated by the 
 // lack of permute2x128 instruction in AVX-512
+
+
+
 static inline __m512i 
 esl_avx512_leftshift_one(__m512i vector)
 {

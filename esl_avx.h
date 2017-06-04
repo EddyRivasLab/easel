@@ -113,38 +113,49 @@ esl_avx_hsum_ps(__m256 a, float *ret_sum)
  * 3. Inlined functions: left and right shift 
  ******************************************************************/
 
-/* naming conventions:  The left/right in the names of these functions refers to the direction of the SSE shift instruction
-that they emulate, because that's what the first filters to be ported to AVX used.  The esl_sse_(left/right)shift functions 
-are vector-logical, meaning that, on x86, they mirror the function of the shift instruction with the opposite name.  For
-self-consistency, I'm sticking with names that match the direction of the instruction, even though this means that the SSE
-and AVX filters call different functions.
-*/
-
-// shifts vector left by one byte
-static inline __m256i esl_avx_leftshift_one(__m256i vector)
+/* Function:  esl_avx_rightshift_int8()
+ * Synopsis:  Shift int8 vector elements to the right.
+ * Incept:    SRE, Sun Jun  4 17:12:07 2017
+ * See:       esl_sse.h::esl_sse_rightshift_int8()
+ */
+static inline __m256i 
+esl_avx_rightshift_int8(__m256i v, __m256i neginfmask)
 {
-   register __m256i temp_mask_AVX = _mm256_permute2x128_si256(vector, vector, _MM_SHUFFLE(0,0,3,0) );
-   return(_mm256_alignr_epi8(vector, temp_mask_AVX,15));
+  return _mm256_or_si256(_mm256_alignr_epi8(v, _mm256_permute2x128_si256(v, v, _MM_SHUFFLE(0,0,3,0)), 15), neginfmask);
 }
 
-// shifts vector left by two bytes
-static inline __m256i esl_avx_leftshift_two(__m256i vector)
+/* Function:  esl_avx_rightshift_int16()
+ * Synopsis:  Shift int16 vector elements to the right.
+ * Incept:    SRE, Sun Jun  4 17:13:58 2017
+ * See:       esl_sse.h::esl_sse_rightshift_int16()
+ */
+static inline __m256i 
+esl_avx_rightshift_int16(__m256i v, __m256i neginfmask)
 {
-   register __m256i temp_mask_AVX = _mm256_permute2x128_si256(vector, vector, _MM_SHUFFLE(0,0,3,0) );
-   return(_mm256_alignr_epi8(vector, temp_mask_AVX,14));
-}
-// shifts vector left by four bytes (one float)
-static inline __m256 esl_avx_leftshift_ps(__m256 vector)
-{
-   register __m256i temp_mask_AVX = _mm256_permute2x128_si256((__m256i) vector, (__m256i) vector, _MM_SHUFFLE(0,0,3,0) );
-   return((__m256) _mm256_alignr_epi8((__m256i) vector, temp_mask_AVX,12));
+  return _mm256_or_si256(_mm256_alignr_epi8(v, _mm256_permute2x128_si256(v, v, _MM_SHUFFLE(0,0,3,0)), 14), neginfmask);
 }
 
-// shifts vector right by four bytes (one float)
-static inline __m256 esl_avx_rightshift_ps(__m256 vector)
+/* Function:  esl_avx_rightshiftz_float()
+ * Synopsis:  Shift float vector elements to the right, shifting zero on.
+ * Incept:    SRE, Sun Jun  4 17:16:42 2017
+ * See:       esl_sse.h::esl_sse_rightshiftz_float()
+ */
+static inline __m256 
+esl_avx_rightshiftz_float(__m256 v)
 {
-   register __m256i temp1 = _mm256_permute2x128_si256((__m256i) vector, (__m256i) vector, 0x81);  //result has vector[255:128] in low 128 bits, 0 in high 128
-   return((__m256) _mm256_alignr_epi8(temp1, (__m256i) vector,4));
+  return ((__m256) _mm256_alignr_epi8((__m256i) v, _mm256_permute2x128_si256((__m256i) v, (__m256i) v, _MM_SHUFFLE(0,0,3,0) ), 12));
+}
+
+/* Function:  esl_avx_leftshiftz_float()
+ * Synopsis:  Shift float vector elements to the left, shifting zero on.
+ * Incept:    SRE, Sun Jun  4 17:27:52 2017
+ * See:       esl_sse.h::esl_sse_leftshiftz_float()
+ */
+static inline __m256 
+esl_avx_leftshiftz_float(__m256 v)
+{
+  //permute result has vector[255:128] in low 128 bits, 0 in high 128
+  return ((__m256) _mm256_alignr_epi8(_mm256_permute2x128_si256((__m256i) v, (__m256i) v, 0x81), v, 4));  
 }
 
 
@@ -160,8 +171,6 @@ esl_avx_any_gt_epi16(__m256i a, __m256i b)
 {
   return (_mm256_movemask_epi8(_mm256_cmpgt_epi16(a,b)) != 0); 
 }
-
-
 
 #endif /*eslAVX_INCLUDED*/
 #endif // eslENABLE_AVX

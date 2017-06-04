@@ -14,8 +14,9 @@
  *    1. Data structures for ARM/Intel intrinsics compatibility
  *    2. Function declarations for esl_neon
  *    3. Inlined functions: horizontal max, sum
- *    4. Inlined utilities for float vectors (4 floats in esl_neon_128f_t)
- *    4. Inlined utilities for epu8 vectors (16 uchars in esl_neon_128i_t)
+ *    4. Inlined functions: left, right shift
+ *    5. Inlined functions: any_gt
+ *    6. Inlined functions: select
  *  
  */
 #include "esl_config.h"
@@ -219,66 +220,8 @@ esl_neon_hsum_float(esl_neon_128f_t a, float *ret_sum)
 }
 
 /*****************************************************************
- * 3. Inline utilities for ps vectors (4 floats in esl_neon_128f_t)
+ * 4. Inlined functions: left, right shifts
  *****************************************************************/
-
-/* Function:  esl_neon_select_float()
- * Synopsis:  NEON equivalent of <vec_sel()>
- *
- * Purpose:   Vector select. Returns a vector <r[z] = a[z]> where <mask[z]>
- *            is all 0's; <r[z] = b[z]> where <mask[z]> is all 1's.
- *            
- *            Useful for avoiding conditional branches. For example,
- *            to implement \ccode{if (a > 0) a += a;}:
- *            
- *            \begin{cchunk}
- *              mask = _mm_cmpgt_ps(a, _mm_setzero_ps());
- *              twoa = _mm_add_ps(a, a);
- *              a    = esl_sse_select_ps(a, twoa, mask);
- *            \end{cchunk}
- *
- */
-static inline esl_neon_128f_t
-esl_neon_select_float(esl_neon_128f_t a, esl_neon_128f_t b, esl_neon_128f_t mask)
-{
-  esl_neon_128i_t aview, bview, maskview, masknot;
-  esl_neon_128f_t ret;
-
-  maskview.s64x2 = vreinterpretq_s64_f32(mask.f32x4);
-  bview.s64x2    = vreinterpretq_s64_f32(b.f32x4);
-  aview.s64x2    = vreinterpretq_s64_f32(a.f32x4);
-  bview.s64x2    = vandq_s64(bview.s64x2, maskview.s64x2);
-  masknot.s32x4  = vmvnq_s32(maskview.s32x4);
-  aview.s64x2    = vandq_s64(masknot.s64x2, aview.s64x2);
-  ret.f32x4      = vreinterpretq_f32_s64(vorrq_s64(aview.s64x2,bview.s64x2));  
-  return ret; 
-}
-
-
-/* Function:  esl_neon_any_gt_float()
- * Synopsis:  Returns TRUE if any a[z] > b[z]
- *
- * Purpose:   Returns TRUE if any a[z] > b[z] in two
- *            <ps> vectors of floats.
- *
- * Note:      Ported from esl_sse.c::esl_sse_any_gt_float().
- */
-static inline int 
-esl_neon_any_gt_float(esl_neon_128f_t a, esl_neon_128f_t b)
-{
-  esl_neon_128i_t mask;
-  int             l0, l1;
-  int             maskbits;
-
-  mask.u32x4 = vcgtq_f32(a.f32x4,b.f32x4);
-  l0         = vgetq_lane_u64(mask.u64x2, 0);
-  l1         = vgetq_lane_u64(mask.u64x2, 1);
-  maskbits   = l0 | l1;
-  return maskbits != 0;
-}
-
-
-
 
 
 /* Function:  esl_neon_rightshift_float()
@@ -320,8 +263,8 @@ esl_neon_leftshift_float(esl_neon_128f_t a, esl_neon_128f_t b)
 
 
 /*****************************************************************
- * 4. Inlined utilities for epu8 vectors (16 uchars in __m128i)
- *****************************************************************/ 
+ * 5. Inlined functions: any_gt
+ *****************************************************************/
 
 /* Function:  esl_neon_any_gt_s16()
  * Synopsis:  Returns TRUE if any a[z] > b[z].
@@ -343,6 +286,65 @@ esl_neon_any_gt_s16(esl_neon_128i_t a, esl_neon_128i_t b)
   return maskbits != 0;
 }
 
+/* Function:  esl_neon_any_gt_float()
+ * Synopsis:  Returns TRUE if any a[z] > b[z]
+ *
+ * Purpose:   Returns TRUE if any a[z] > b[z] in two
+ *            <ps> vectors of floats.
+ *
+ * Note:      Ported from esl_sse.c::esl_sse_any_gt_float().
+ */
+static inline int 
+esl_neon_any_gt_float(esl_neon_128f_t a, esl_neon_128f_t b)
+{
+  esl_neon_128i_t mask;
+  int             l0, l1;
+  int             maskbits;
+
+  mask.u32x4 = vcgtq_f32(a.f32x4,b.f32x4);
+  l0         = vgetq_lane_u64(mask.u64x2, 0);
+  l1         = vgetq_lane_u64(mask.u64x2, 1);
+  maskbits   = l0 | l1;
+  return maskbits != 0;
+}
+
+
+
+/*****************************************************************
+ * 6. Inlined functions: select
+ *****************************************************************/ 
+
+/* Function:  esl_neon_select_float()
+ * Synopsis:  NEON equivalent of <vec_sel()>
+ *
+ * Purpose:   Vector select. Returns a vector <r[z] = a[z]> where <mask[z]>
+ *            is all 0's; <r[z] = b[z]> where <mask[z]> is all 1's.
+ *            
+ *            Useful for avoiding conditional branches. For example,
+ *            to implement \ccode{if (a > 0) a += a;}:
+ *            
+ *            \begin{cchunk}
+ *              mask = _mm_cmpgt_ps(a, _mm_setzero_ps());
+ *              twoa = _mm_add_ps(a, a);
+ *              a    = esl_sse_select_ps(a, twoa, mask);
+ *            \end{cchunk}
+ *
+ */
+static inline esl_neon_128f_t
+esl_neon_select_float(esl_neon_128f_t a, esl_neon_128f_t b, esl_neon_128f_t mask)
+{
+  esl_neon_128i_t aview, bview, maskview, masknot;
+  esl_neon_128f_t ret;
+
+  maskview.s64x2 = vreinterpretq_s64_f32(mask.f32x4);
+  bview.s64x2    = vreinterpretq_s64_f32(b.f32x4);
+  aview.s64x2    = vreinterpretq_s64_f32(a.f32x4);
+  bview.s64x2    = vandq_s64(bview.s64x2, maskview.s64x2);
+  masknot.s32x4  = vmvnq_s32(maskview.s32x4);
+  aview.s64x2    = vandq_s64(masknot.s64x2, aview.s64x2);
+  ret.f32x4      = vreinterpretq_f32_s64(vorrq_s64(aview.s64x2,bview.s64x2));  
+  return ret; 
+}
 
 
 
