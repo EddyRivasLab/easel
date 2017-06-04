@@ -164,6 +164,32 @@ esl_sse_rightshift_int16(__m128i a, __m128i neginfmask)
   return _mm_or_si128( _mm_slli_si128(a, 2), neginfmask);
 }
 
+/* Function:  esl_sse_rightshiftz_float()
+ * Synopsis:  Shift float vector elements to the right, shifting zero on.
+ *
+ * Purpose:   Same as <esl_sse_rightshift_int8()> but for floats,
+ *            and the value that is shifted on is a zero.
+ */
+static inline __m128 
+esl_sse_rightshiftz_float(__m128 a)
+{
+  // Tricky. IEEE754 representation of zero is all 0 bits, so shift alone suffices.
+  return (__m128) _mm_slli_si128( (__m128i) a, 4);
+}
+
+/* Function:  esl_sse_leftshiftz_float()
+ * Synopsis:  Shift float vector elements to the left, shifting zero on.
+ *
+ * Purpose:   Same as <esl_sse_rightshift_float()> but left: <[ a0 a1 a2
+ *            a3 ]> becomes <[ a1 a2 a3 0 ]>. Used in Backwards.
+ */
+static inline __m128
+esl_sse_leftshiftz_float(__m128 a)
+{
+  // Same trick. IEEE754 representation of zero is all 0 bits.
+  return (__m128) _mm_srli_si128( (__m128i) a, 4);
+}
+
 /* Function:  esl_sse_rightshift_ps()
  * Synopsis:  Shift vector elements to the right.
  *
@@ -172,6 +198,8 @@ esl_sse_rightshift_int16(__m128i a, __m128i neginfmask)
  *            i.e. shift the values in <a> to the
  *            right, and load the first value of 
  *            <b> into the first slot.
+ *
+ * Note:      used in Infernal.
  */
 static inline __m128 
 esl_sse_rightshift_ps(__m128 a, __m128 b)
@@ -187,6 +215,8 @@ esl_sse_rightshift_ps(__m128 a, __m128 b)
  *            i.e. shift the values in <a> to the
  *            left and load the first value of 
  *            <b> into the first slot.
+ *
+ * Note:      used in Infernal.
  */
 static inline __m128
 esl_sse_leftshift_ps(__m128 a, __m128 b)
