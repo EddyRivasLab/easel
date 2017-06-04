@@ -125,6 +125,45 @@ esl_sse_hsum_ps(__m128 a, float *ret_sum)
  * 3. Inlined functions: left, right shift
  *****************************************************************/
 
+/* Function:  esl_sse_rightshift_int8()
+ * Synopsis:  Shift int8 vector elements to the right.
+ * Incept:    SRE, Sun Jun  4 09:52:45 2017
+ *
+ * Purpose:   Given an int8 vector <{ a0 .. a16}>, and a mask <{-inf,
+ *            0*15 }> with the desired value of -inf in slot 0
+ *            (and zeros elsewhere), return <{ -inf, a0..a14 }>;
+ *            i.e. shift the values in <a> to the right, while
+ *            shifting $-\infty$ on.
+ *            
+ *            By our convention, "right" and "left" refer to memory
+ *            order (low addresses on the left). On a little-endian
+ *            (x86) architecture, this is a left shift in the hardware
+ *            register.
+ *            
+ *            This can be used both for signed (epi8) and unsigned
+ *            (epu8) int8 vectors.
+ *            
+ * Xref:      HMMER's simdvec.md: on our left/right convention.
+ */
+static inline __m128i
+esl_sse_rightshift_int8(__m128i a, __m128i neginfmask)
+{
+  return _mm_or_si128(_mm_slli_si128(a, 1), neginfmask);
+}
+
+
+/* Function:  esl_sse_rightshift_int16()
+ * Synopsis:  Shift int16 vector elements to the right.
+ * Incept:    SRE, Sun Jun  4 10:12:24 2017 [Gary Jules, Mad World]
+ *
+ * Purpose:   Same as <esl_sse_rightshift_int8()> but for int16.
+ */
+static inline __m128i
+esl_sse_rightshift_int16(__m128i a, __m128i neginfmask)
+{
+  return _mm_or_si128( _mm_slli_si128(a, 2), neginfmask);
+}
+
 /* Function:  esl_sse_rightshift_ps()
  * Synopsis:  Shift vector elements to the right.
  *

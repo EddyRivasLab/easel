@@ -14,8 +14,7 @@
  *    1. Data structures for ARM/Intel intrinsics compatibility
  *    2. Function declarations for esl_neon
  *    3. Inlined functions: horizontal max, sum
- *
- *    3. Inlined utilities for float vectors (4 floats in esl_neon_128f_t)
+ *    4. Inlined utilities for float vectors (4 floats in esl_neon_128f_t)
  *    4. Inlined utilities for epu8 vectors (16 uchars in esl_neon_128i_t)
  *  
  */
