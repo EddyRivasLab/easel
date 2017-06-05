@@ -155,7 +155,7 @@ static inline __m256
 esl_avx_leftshiftz_float(__m256 v)
 {
   //permute result has vector[255:128] in low 128 bits, 0 in high 128
-  return ((__m256) _mm256_alignr_epi8(_mm256_permute2x128_si256((__m256i) v, (__m256i) v, 0x81), v, 4));  
+  return ((__m256) _mm256_alignr_epi8(_mm256_permute2x128_si256((__m256i) v, (__m256i) v, 0x81), (__m256i) v, 4));  
 }
 
 

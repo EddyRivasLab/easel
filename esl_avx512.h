@@ -147,7 +147,7 @@ esl_avx512_rightshift_int16(__m512i v, __m512i neginfmask)
 static inline __m512 
 esl_avx512_rightshiftz_float(__m512 v)
 {
-  return ((__m512) _mm512_alignr_epi8((__m512i) v, _mm512_maskz_shuffle_i32x4(0xfff0, v, v, 0x90), 12));
+  return ((__m512) _mm512_alignr_epi8((__m512i) v, _mm512_maskz_shuffle_i32x4(0xfff0, (__m512i) v, (__m512i) v, 0x90), 12));
 }
 
 /* Function:  esl_avx512_leftshiftz_float()
@@ -158,7 +158,7 @@ esl_avx512_rightshiftz_float(__m512 v)
 static inline __m512 
 esl_avx512_leftshiftz_float(__m512 v)
 {
-  return ((__m512) _mm512_alignr_epi8( _mm512_maskz_shuffle_i32x4(0x0fff, v, v, 0x39), v, 4));
+  return ((__m512) _mm512_alignr_epi8( _mm512_maskz_shuffle_i32x4(0x0fff, (__m512i) v, (__m512i) v, 0x39), (__m512i) v, 4));
 }
 #endif //eslAVX512_INCLUDED
 #endif //eslENABLE_AVX512
