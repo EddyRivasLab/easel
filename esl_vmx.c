@@ -410,7 +410,7 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
   if (verbose) {
     printf("Average [max] logf() relative error in %d odds trials:  %13.8g  [%13.8g]\n", N, avgerr1, maxerr1);
     printf("Average [max] expf() relative error in %d odds trials:  %13.8g  [%13.8g]\n", N, avgerr2, maxerr2);
-    printf("(random seed : %ld)\n", esl_randomness_GetSeed(r));
+    printf("(random seed : %f)\n", esl_randomness_GetSeed(r));
   }
 }
 #endif /*eslVMX_TESTDRIVE*/
