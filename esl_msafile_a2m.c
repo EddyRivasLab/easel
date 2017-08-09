@@ -321,7 +321,7 @@ esl_msafile_a2m_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
       } 
     else 
       {
-	if (this_ncons != ncons) ESL_XFAIL(eslEFORMAT, afp->errmsg, "unexpected # of consensus residues, didn't match previous seq(s)");
+	if (this_ncons != ncons) ESL_XFAIL(eslEFORMAT, afp->errmsg, "unexpected # of consensus residues, didn't match previous seq(s). (Do you have an O residue?)");
 	for (cpos = 0; cpos <= ncons; cpos++) 
 	  nins[cpos]      = ESL_MAX(nins[cpos], this_nins[cpos]);
       }
