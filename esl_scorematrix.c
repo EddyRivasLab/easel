@@ -1089,7 +1089,7 @@ esl_scorematrix_Read(ESL_FILEPARSER *efp, const ESL_ALPHABET *abc, ESL_SCOREMATR
 	}
       if ((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslEOL)  ESL_XFAIL(eslEFORMAT, efp->errbuf, "Too many fields on line");
     }
-  if ((status = esl_fileparser_NextLine(efp)) != eslEOF) ESL_XFAIL(eslEFORMAT, efp->errbuf, "Too many lines in file");
+  if ((status = esl_fileparser_NextLine(efp)) != eslEOF) ESL_XFAIL(eslEFORMAT, efp->errbuf, "Too many lines in file. (Make sure it's square & symmetric. E.g. use NUC.4.4 not NUC.4.2)");
   
 
   /* Annotate the score matrix */
@@ -1965,12 +1965,12 @@ utest_ReadWrite(ESL_ALPHABET *abc, ESL_SCOREMATRIX *S)
   ESL_SCOREMATRIX *S2  = NULL;
   ESL_FILEPARSER  *efp = NULL;
   
-  if (esl_tmpfile_named(tmpfile, &fp)          != eslOK) esl_fatal("failed to open tmp file");
-  if (esl_scorematrix_Write(fp, S)                     != eslOK) esl_fatal("failed to write test matrix");
+  if (esl_tmpfile_named(tmpfile, &fp)  != eslOK) esl_fatal("failed to open tmp file");
+  if (esl_scorematrix_Write(fp, S)     != eslOK) esl_fatal("failed to write test matrix");
   fclose(fp);
 
   if (esl_fileparser_Open(tmpfile, NULL, &efp) != eslOK) esl_fatal("failed to open tmpfile containing BLOSUM62 matrix");
-  if (esl_scorematrix_Read(efp, abc, &S2)              != eslOK) esl_fatal("failed to read tmpfile containing BLOSUM62 matrix");
+  if (esl_scorematrix_Read(efp, abc, &S2)      != eslOK) esl_fatal("failed to read tmpfile containing BLOSUM62 matrix");
   if (esl_scorematrix_Compare(S, S2)           != eslOK) esl_fatal("the two test matrices aren't identical");
   
   remove(tmpfile); 
@@ -2204,14 +2204,28 @@ main(int argc, char **argv)
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_fileparser.h"
+#include "esl_getopts.h"
 #include "esl_dmatrix.h"
 #include "esl_vectorops.h"
 #include "esl_scorematrix.h"
 
-int main(int argc, char **argv)
+static ESL_OPTIONS options[] = {
+  /* name             type          default  env  range    toggles          reqs incomp  help                                       docgroup*/
+  { "-h",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,             NULL, NULL, "show brief help on version and usage",        0 },
+  { "--dna",       eslARG_NONE,       FALSE,  NULL, NULL,  "--dna,--amino",  NULL, NULL, "use DNA alphabet",                            0 },
+  { "--amino",     eslARG_NONE,      "TRUE",  NULL, NULL,  "--dna,--amino",  NULL, NULL, "use protein alphabet",                        0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options] <mxfile>";
+static char banner[] = "example of using easel scorematrix routines";
+
+
+int 
+main(int argc, char **argv)
 {
-  char            *scorefile = argv[1];
-  ESL_ALPHABET    *abc       = esl_alphabet_Create(eslAMINO);
+  ESL_GETOPTS     *go        = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
+  char            *scorefile = esl_opt_GetArg(go, 1);
+  ESL_ALPHABET    *abc       = NULL;
   ESL_FILEPARSER  *efp       = NULL;
   ESL_SCOREMATRIX *S         = NULL;
   ESL_DMATRIX     *P1        = NULL; /* implicit probability basis, bg unknown */
@@ -2221,9 +2235,12 @@ int main(int argc, char **argv)
   double           lambda, D, E;
   int              vstatus;
 
-  /* Input an amino acid score matrix from a file. */
-  if ( esl_fileparser_Open(scorefile, NULL, &efp) != eslOK) esl_fatal("failed to open score file %s", scorefile);
-  if ( esl_scorematrix_Read(efp, abc, &S)         != eslOK) esl_fatal("failed to read matrix from %s", scorefile);
+  if      (esl_opt_GetBoolean(go, "--dna"))   abc = esl_alphabet_Create(eslDNA);
+  else if (esl_opt_GetBoolean(go, "--amino")) abc = esl_alphabet_Create(eslAMINO);
+
+  /* Input a score matrix from a file. */
+  if ( esl_fileparser_Open(scorefile, NULL, &efp) != eslOK) esl_fatal("failed to open score file %s",         scorefile);
+  if ( esl_scorematrix_Read(efp, abc, &S)         != eslOK) esl_fatal("failed to read matrix from %s:\n  %s", scorefile, efp->errbuf);
   esl_fileparser_Close(efp);
 
   /* Try to reverse engineer it to get implicit probabilistic model. This may fail! */
@@ -2284,6 +2301,7 @@ int main(int argc, char **argv)
   esl_dmatrix_Destroy(P1);  esl_dmatrix_Destroy(P2);
   esl_scorematrix_Destroy(S);
   esl_alphabet_Destroy(abc);
+  esl_getopts_Destroy(go);
   return 0;
 }
 /*::cexcerpt::scorematrix_example::end::*/
