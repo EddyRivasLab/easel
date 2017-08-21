@@ -353,6 +353,22 @@ esl_threads_CPUCount(int *ret_ncpu)
 }
 
 
+/* Function:  esl_threads_GetCPUCount()
+ * Synopsis:  Returns the number of CPU cores on machine.
+ * Incept:    SRE, Mon Aug 21 08:52:29 2017
+ *
+ * Purpose:   Identical to <esl_threads_CPUCount()>, except
+ *            it directly returns the result.
+ */
+int
+esl_threads_GetCPUCount(void)
+{
+  static int ncpu = -1;                         // so we only make system calls once.
+  if (ncpu == -1) esl_threads_CPUCount(&ncpu);
+  return ncpu;
+}
+
+
 /*****************************************************************
  * 3. Example
  *****************************************************************/
