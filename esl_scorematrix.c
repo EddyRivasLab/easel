@@ -735,6 +735,30 @@ struct esl_scorematrix_nt_preload_s {
   int   matrix[eslNTDIM][eslNTDIM];
 };
 
+/* "DNA1" matrix
+ * 
+ * Travis Wheeler created the "DNA1" custom matrix for nhmmer. It's
+ * derived from the DNA prior (see <p7_prior_CreateNucleic()>), by
+ * computing mean posterior joint probabilities p_ij for a single
+ * observed count of each residue, assuming uniform background, and
+ * symmetricizing the result by taking means; then calling
+ * <esl_scorematrix_SetFromProbs()> with lambda = 0.02.
+ * 
+ * The p_ij matrix was:
+ *         A     C     G     T 
+ *      0.143 0.033 0.037 0.037  A
+ *      0.033 0.136 0.029 0.044  C
+ *      0.037 0.029 0.157 0.034  G
+ *      0.037 0.044 0.034 0.136  T
+ * 
+ * Travis estimated the DNA prior from a subset of Rfam 10.0 seed
+ * alignments, based on a procedure from Eric Nawrocki: remove
+ * columns with >50% gaps, collect weighted counts, and estimate
+ * a four-component Dirichlet mixture.
+ * 
+ * [xref email from Travis 8/21/2017]
+ * 
+ */
 static const struct esl_scorematrix_nt_preload_s ESL_SCOREMATRIX_NT_PRELOADS[] = {
   { "DNA1", {
     /*   A    C    G    T    -    R    Y    M    K    S    W    H    B    V    D    N    *    ~ */
