@@ -90,7 +90,7 @@ fi
 # From them, AC_INIT automatically derives one more:
 #     PACKAGE_STRING    <package> <version>, e.g. "Easel 0.44"
 # Then we define some of our own:
-#     EASEL_DATE        release date: e.g. "January 2017"
+#     EASEL_DATE        release date: e.g. "August 2017"
 #     EASEL_COPYRIGHT   one-line copyright string
 #     EASEL_LICENSE     one-line license string
 #     EASEL_URL         URL home for Easel.
@@ -104,7 +104,7 @@ fi
 #     EASEL_VERSION    e.g. "1.9a"
 #
 
-EASEL_DATE="January 2017"
+EASEL_DATE="August 2017"
 EASEL_COPYRIGHT="Copyright (C) 2017 Howard Hughes Medical Institute"
 EASEL_LICENSE="Freely distributed under the BSD open source license."
 EASEL_VERSION=$PACKAGE_VERSION
