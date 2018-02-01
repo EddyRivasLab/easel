@@ -1665,7 +1665,7 @@ read_dna(ESL_SQFILE *sqfp, ESL_SQ *sq)
   int      ssize;
   int      n;
 
-  char    *ptr;
+  unsigned char *ptr;
   void    *t;
 
   unsigned char c;
@@ -1695,10 +1695,10 @@ read_dna(ESL_SQFILE *sqfp, ESL_SQ *sq)
   /* figure out if the sequence is in digital mode or not */
   if (sq->dsq != NULL) {
     text = FALSE;
-    ptr = (char *)sq->dsq + 1;
+    ptr = (unsigned char *) sq->dsq + 1;
   } else {
     text = TRUE;
-    ptr = sq->seq;
+    ptr = (unsigned char *) sq->seq;
   }
 
   for (inx = 0; inx < ssize; ++inx) {
@@ -1742,7 +1742,7 @@ read_dna(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
   /* skip past the count and start processing the abmiguity table */
   ssize = ncbi->seq_apos - sq->doff + 4;
-  ptr = (text) ? sq->seq : (char *)sq->dsq + 1;
+  ptr = (text) ? (unsigned char *)sq->seq : (unsigned char *)sq->dsq + 1;
 
   while (ssize < size) {
     /* get the ambiguity character */
@@ -1810,8 +1810,7 @@ read_nres_amino(ESL_SQFILE *sqfp, ESL_SQ *sq, int len, uint64_t *nres)
   int     off;
   int     size;
 
-  char   *ptr;
-
+  unsigned char   *ptr;
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
 
   if (ncbi->index >= ncbi->num_seq) return eslEOF;
@@ -1827,7 +1826,7 @@ read_nres_amino(ESL_SQFILE *sqfp, ESL_SQ *sq, int len, uint64_t *nres)
   }
 
   /* figure out if the sequence is in digital mode or not */
-  ptr = (sq->dsq != NULL) ? (char *)sq->dsq + 1 : sq->seq;
+  ptr = (sq->dsq != NULL) ? (unsigned char *)sq->dsq + 1 : (unsigned char *) sq->seq;
   ptr += sq->n;
 
   /* calculate where to start reading from */
@@ -1981,7 +1980,7 @@ read_nres_dna(ESL_SQFILE *sqfp, ESL_SQ *sq, int len, uint64_t *nres)
   int     ssize;
   int     n;
 
-  char   *ptr;
+  unsigned char   *ptr;
   void   *t;
 
   unsigned char c;
@@ -2035,10 +2034,10 @@ read_nres_dna(ESL_SQFILE *sqfp, ESL_SQ *sq, int len, uint64_t *nres)
   /* figure out if the sequence is in digital mode or not */
   if (sq->dsq != NULL) {
     text = FALSE;
-    ptr = (char *)sq->dsq + 1;
+    ptr = (unsigned char *)sq->dsq + 1;
   } else {
     text = TRUE;
-    ptr = sq->seq;
+    ptr = (unsigned char *)sq->seq;
   }
   ptr += sq->n;
 
