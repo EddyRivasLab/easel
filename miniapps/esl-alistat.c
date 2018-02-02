@@ -7,6 +7,8 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_arr2.h"
+#include "esl_arr3.h"
 #include "esl_getopts.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
@@ -84,8 +86,8 @@ main(int argc, char **argv)
 						* apos is the alignment position (0..msa->alen-1) that     
 						* is non-gap RF position rfpos+1 (for rfpos in 0..rflen-1) */
   int rflen = -1;                              /* nongap RF length */
-  char          errbuf[eslERRBUFSIZE];
-  int           status;		               /* easel return code               */
+  char        errbuf[eslERRBUFSIZE];
+  int         status;	
 
   /* optional output files */
   FILE *iinfofp  = NULL; /* output file for --iinfo */
@@ -173,6 +175,8 @@ main(int argc, char **argv)
       if ( (status = esl_msafile_Open(&abc, alifile, NULL, fmt, NULL, &afp)) != eslOK)
 	esl_msafile_OpenFailure(afp, status);
     }
+
+  
 
   /**************************************
    * Open optional output files, as nec *
@@ -356,11 +360,11 @@ main(int argc, char **argv)
       }
 
       esl_msa_Destroy(msa);
-      if(abc_ct != NULL)   { esl_Free2D((void **) abc_ct, alen);          abc_ct   = NULL; }
-      if(bp_ct != NULL)    { esl_Free3D((void ***) bp_ct, alen, abc->Kp); bp_ct    = NULL; }
-      if(pp_ct != NULL)    { esl_Free2D((void **) pp_ct, alen);           pp_ct    = NULL; }
-      if(i_am_rf != NULL)  { free(i_am_rf);                               i_am_rf  = NULL; }
-      if(rf2a_map != NULL) { free(rf2a_map);                              rf2a_map = NULL; }
+      esl_arr2_Destroy((void **)  abc_ct, alen);                    abc_ct   = NULL; 
+      esl_arr2_Destroy((void **)  pp_ct,  alen);                    pp_ct    = NULL; 
+      esl_arr3_Destroy((void ***) bp_ct,  alen, abc ? abc->Kp : 0); bp_ct    = NULL;
+      esl_free(i_am_rf);                                            i_am_rf  = NULL; 
+      esl_free(rf2a_map);                                           rf2a_map = NULL; 
     }
   
   /* If an msa read failed, we've dropped out to here with an informative status code. 
@@ -538,16 +542,16 @@ static int count_msa(ESL_MSA *msa, char *errbuf, int nali, int no_ambig, int use
   if (ret_bp_ct) *ret_bp_ct = bp_ct; /* we only allocated bp_ct if ret_bp_ct != NULL */
   if (ret_pp_ct) *ret_pp_ct = pp_ct; /* we only allocated pp_ct if ret_pp_ct != NULL */
 
-  if (ss_nopseudo) free(ss_nopseudo);
-  if (ct)          free(ct);
+  esl_free(ss_nopseudo);
+  esl_free(ct);
   return eslOK;
 
  ERROR:
-  if (abc_ct)      esl_Free2D((void **)  abc_ct, msa->alen);
-  if (bp_ct)       esl_Free3D((void ***) bp_ct,  msa->alen, msa->abc->Kp);
-  if (pp_ct)       esl_Free2D((void **)  pp_ct,  msa->alen);
-  if (ss_nopseudo) free(ss_nopseudo);
-  if (ct)          free(ct);
+  esl_arr2_Destroy((void **)  abc_ct, msa? msa->alen:0);
+  esl_arr3_Destroy((void ***) bp_ct,  msa? msa->alen:0, msa && msa->abc ? msa->abc->Kp: 0);
+  esl_arr2_Destroy((void **)  pp_ct,  msa? msa->alen:0);
+  esl_free(ss_nopseudo);
+  esl_free(ct);
 
   *ret_abc_ct = NULL;
   if (ret_bp_ct) *ret_bp_ct = NULL;

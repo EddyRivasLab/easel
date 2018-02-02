@@ -14,6 +14,8 @@
 #include <time.h>
 
 #include "easel.h"
+#include "esl_arr2.h"
+#include "esl_arr3.h"
 #include "esl_distance.h"
 #include "esl_dmatrix.h"
 #include "esl_fileparser.h"
@@ -1274,36 +1276,39 @@ main(int argc, char **argv)
     }
   }
 
-  if(abc_ct != NULL)  esl_Free2D((void **) abc_ct, msa->alen);
-  if(pp_ct != NULL)   esl_Free2D((void **) pp_ct, msa->alen);
-  if(bp_ct  != NULL)  esl_Free3D((void ***) bp_ct, msa->alen, abc->Kp);
-  if(spos_ct != NULL) free(spos_ct);
-  if(epos_ct != NULL) free(epos_ct);
-  if(srfoff_ct != NULL) free(srfoff_ct);
-  if(erfoff_ct != NULL) free(erfoff_ct);
-  if(span_ct != NULL) free(span_ct);
-  if(nseq_with_ins_ct != NULL) free(nseq_with_ins_ct);
-  if(per_seq_ins_ct != NULL) esl_Free2D((void **) per_seq_ins_ct, msa_nseq);
-  if(mask != NULL) free(mask);
-  if(date != NULL) free(date);
+  esl_arr2_Destroy((void **) abc_ct, msa? msa->alen:0);
+  esl_arr2_Destroy((void **) pp_ct,  msa? msa->alen:0);
+  esl_arr3_Destroy((void ***) bp_ct, msa? msa->alen:0, abc? abc->Kp: 0);
+  esl_arr2_Destroy((void **) per_seq_ins_ct, msa_nseq);
+
+  esl_free(spos_ct);
+  esl_free(epos_ct);
+  esl_free(srfoff_ct);
+  esl_free(erfoff_ct);
+  esl_free(span_ct);
+  esl_free(nseq_with_ins_ct);
+  esl_free(mask);
+  esl_free(date);
+  esl_free(hc_nbins);
+
   free_sspostscript(ps);
   esl_alphabet_Destroy(abc);
-  if (afp)  esl_msafile_Close(afp);
-  if (afp2) esl_msafile2_Close(afp2);
+  esl_msafile_Close(afp);
+  esl_msafile2_Close(afp2);
   esl_getopts_Destroy(go);
-  free(hc_nbins);
-  for(z = 0; z < NOC; z++) free(hc_onecell[z]);
-  free(hc_onecell);
-  for(z = 0; z < NRB_11_RH_SCHEME; z++) free(hc_scheme[RB_11_RH_SCHEME][z]);
-  for(z = 0; z < NRB_11_RL_SCHEME; z++) free(hc_scheme[RB_11_RL_SCHEME][z]);
-  for(z = 0; z < NRB_6_RH_SCHEME; z++) free(hc_scheme[RB_6_RH_SCHEME][z]);
-  for(z = 0; z < NRB_6_RL_SCHEME; z++) free(hc_scheme[RB_6_RL_SCHEME][z]);
-  for(z = 0; z < NRB_5_RH_SCHEME; z++) free(hc_scheme[RB_5_RH_SCHEME][z]);
-  for(z = 0; z < NRB_5_RL_SCHEME; z++) free(hc_scheme[RB_5_RL_SCHEME][z]);
-  for(z = 0; z < NRB_W5_OH_SCHEME; z++) free(hc_scheme[RB_W5_OH_SCHEME][z]);
-  for(z = 0; z < NSCHEMES; z++) { free(hc_scheme[z]); }
+
+  for(z = 0; z < NOC; z++) esl_free(hc_onecell[z]);
+  esl_free(hc_onecell);
+  for(z = 0; z < NRB_11_RH_SCHEME; z++) esl_free(hc_scheme[RB_11_RH_SCHEME][z]);
+  for(z = 0; z < NRB_11_RL_SCHEME; z++) esl_free(hc_scheme[RB_11_RL_SCHEME][z]);
+  for(z = 0; z < NRB_6_RH_SCHEME;  z++) esl_free(hc_scheme[RB_6_RH_SCHEME][z]);
+  for(z = 0; z < NRB_6_RL_SCHEME;  z++) esl_free(hc_scheme[RB_6_RL_SCHEME][z]);
+  for(z = 0; z < NRB_5_RH_SCHEME;  z++) esl_free(hc_scheme[RB_5_RH_SCHEME][z]);
+  for(z = 0; z < NRB_5_RL_SCHEME;  z++) esl_free(hc_scheme[RB_5_RL_SCHEME][z]);
+  for(z = 0; z < NRB_W5_OH_SCHEME; z++) esl_free(hc_scheme[RB_W5_OH_SCHEME][z]);
+  for(z = 0; z < NSCHEMES;         z++) { esl_free(hc_scheme[z]); }
   free(hc_scheme);
-  if(msa != NULL) esl_msa_Destroy(msa);
+  esl_msa_Destroy(msa);
   return 0;
 
   ERROR: 
@@ -4172,18 +4177,18 @@ int count_msa(const ESL_ALPHABET *abc, ESL_MSA *msa, char *errbuf, double ***ret
   *ret_epos_ct = epos_ct;
   if(ret_pp_ct != NULL) *ret_pp_ct = pp_ct; /* we only allocated pp_ct if ret_pp_ct != NULL */
 
-  if(tmp_dsq != NULL) free(tmp_dsq);
-  if(ss_nopseudo != NULL) free(ss_nopseudo);
-  if(ct != NULL) free(ct);
+  esl_free(tmp_dsq);
+  esl_free(ss_nopseudo);
+  esl_free(ct);
   return eslOK;
 
  ERROR:
-  if(abc_ct != NULL)  esl_Free2D((void **) abc_ct, msa->alen);
-  if(pp_ct != NULL)   esl_Free2D((void **) pp_ct, msa->alen);
-  if(bp_ct  != NULL)  esl_Free3D((void ***) bp_ct, msa->alen, abc->Kp);
-  if(spos_ct != NULL) free(spos_ct);
-  if(epos_ct != NULL) free(epos_ct);
-  if(tmp_dsq != NULL) free(tmp_dsq);
+  esl_arr2_Destroy((void **)  abc_ct, msa? msa->alen:0);
+  esl_arr2_Destroy((void **)  pp_ct,  msa? msa->alen:0);
+  esl_arr3_Destroy((void ***) bp_ct,  msa? msa->alen:0, abc? abc->Kp:0);
+  esl_free(spos_ct);
+  esl_free(epos_ct);
+  esl_free(tmp_dsq);
   ESL_FAIL(status, errbuf, "Error, out of memory while counting important values in the msa.");
   return status; /* NEVERREACHED */
 }
@@ -6380,7 +6385,7 @@ get_insert_info_from_msa(const ESL_ALPHABET *abc, ESL_MSA *msa, int rflen, int *
   if(ret_nins_ct != NULL) *ret_nins_ct = nins_ct;
   else free(nins_ct);
   if(ret_per_seq_ins_ct != NULL) *ret_per_seq_ins_ct = per_seq_ins_ct;
-  else esl_Free2D((void **) per_seq_ins_ct, msa->nseq);
+  else esl_arr2_Destroy((void **) per_seq_ins_ct, msa->nseq);
 
   return;
 
@@ -6664,17 +6669,11 @@ get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *us
   }
   if(nseq_read != msa_nseq)  esl_fatal("Error reading insert file, expected to read info on %d seqs, but only found %d in the insert file %s\n", msa_nseq, nseq_read, ifile);      
 
-  if      (ret_nins_ct          != NULL) *ret_nins_ct = nins_ct;
-  else                                   free(nins_ct);
-  if      (ret_nseq_with_ins_ct != NULL) *ret_nseq_with_ins_ct = nseq_with_ins_ct;
-  else                                   free(nseq_with_ins_ct);
-  if      (ret_srfoff_ct        != NULL) *ret_srfoff_ct = srfoff_ct;
-  else if (srfoff_ct            != NULL) free(srfoff_ct);
-  if      (ret_erfoff_ct        != NULL) *ret_erfoff_ct = erfoff_ct;
-  else if (erfoff_ct            != NULL) free(erfoff_ct);
-  if      (ret_per_seq_ins_ct   != NULL) *ret_per_seq_ins_ct = per_seq_ins_ct;
-  else if (per_seq_ins_ct       != NULL) esl_Free2D((void **) per_seq_ins_ct, msa_nseq);
-
+  if      (ret_nins_ct)          *ret_nins_ct = nins_ct;                   else esl_free(nins_ct);
+  if      (ret_nseq_with_ins_ct) *ret_nseq_with_ins_ct = nseq_with_ins_ct; else esl_free(nseq_with_ins_ct);
+  if      (ret_srfoff_ct)        *ret_srfoff_ct = srfoff_ct;               else esl_free(srfoff_ct);
+  if      (ret_erfoff_ct)        *ret_erfoff_ct = erfoff_ct;               else esl_free(erfoff_ct);
+  if      (ret_per_seq_ins_ct)   *ret_per_seq_ins_ct = per_seq_ins_ct;     else esl_arr2_Destroy((void **) per_seq_ins_ct, msa_nseq);
   return;
 
  ERROR:

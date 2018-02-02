@@ -145,10 +145,13 @@ esl_keyhash_Sizeof(const ESL_KEYHASH *kh)
 {
   size_t n = 0;
 
-  n += sizeof(ESL_KEYHASH);
-  n += sizeof(int)  * kh->hashsize;
-  n += sizeof(int)  * kh->kalloc * 2;
-  n += sizeof(char) * kh->salloc;
+  if (kh)
+    {
+      n += sizeof(ESL_KEYHASH);
+      n += sizeof(int)  * kh->hashsize;
+      n += sizeof(int)  * kh->kalloc * 2;
+      n += sizeof(char) * kh->salloc;
+    }
   return n;
 }
 

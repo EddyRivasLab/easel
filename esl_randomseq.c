@@ -23,6 +23,7 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_arr2.h"
 #include "esl_random.h"
 #include "esl_randomseq.h"
 
@@ -433,13 +434,13 @@ esl_rsq_CShuffleDP(ESL_RANDOMNESS *r, const char *s, char *shuffled)
   
   /* Free and return.
    */
-  esl_Free2D((void **) E, 26);
+  esl_arr2_Destroy((void **) E, 26);
   free(nE);
   free(iE);
   return eslOK;
 
  ERROR:
-  esl_Free2D((void **) E, 26);
+  esl_arr2_Destroy((void **) E, 26);
   if (nE != NULL) free(nE);
   if (iE != NULL) free(iE);
   return status;
@@ -1040,14 +1041,14 @@ esl_rsq_XShuffleDP(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ 
   if (x != sf)   ESL_XEXCEPTION(eslEINCONCEIVABLE, "hey, you didn't end on s_f.");
   if (i != L+1)  ESL_XEXCEPTION(eslEINCONCEIVABLE, "hey, i (%d) overran L+1 (%d).", i, L+1);
   
-  esl_Free2D((void **) E, K);
+  esl_arr2_Destroy((void **) E, K);
   free(nE);
   free(iE);
   free(Z);
   return eslOK;
 
  ERROR:
-  esl_Free2D((void **) E, K);
+  esl_arr2_Destroy((void **) E, K);
   if (nE != NULL) free(nE);
   if (iE != NULL) free(iE);
   if (Z  != NULL) free(Z);
@@ -1329,12 +1330,12 @@ esl_rsq_XMarkov1(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *m
   markoved[0]   = eslDSQ_SENTINEL;
   markoved[L+1] = eslDSQ_SENTINEL;
 
-  esl_Free2D((void**)p, K);
+  esl_arr2_Destroy((void**)p, K);
   free(p0);
   return eslOK;
 
  ERROR:
-  esl_Free2D((void**)p, K);
+  esl_arr2_Destroy((void**)p, K);
   if (p0 != NULL) free(p0);
   return status;
 }
@@ -1511,7 +1512,7 @@ composition_allocate(int K, int **ret_mono, int ***ret_di)
   return eslOK;
 
  ERROR:
-  esl_Free2D((void **) di, K);
+  esl_arr2_Destroy((void **) di, K);
   if (mono != NULL) free(mono);
   *ret_mono = NULL;
   *ret_di   = NULL;
@@ -1647,8 +1648,8 @@ utest_CShufflers(ESL_RANDOMNESS *r, int L, char *alphabet, int K)
   free(p);
   free(m1);
   free(m2);
-  esl_Free2D((void **) di1, 26);
-  esl_Free2D((void **) di2, 26);
+  esl_arr2_Destroy((void **) di1, 26);
+  esl_arr2_Destroy((void **) di2, 26);
   return;
   
  ERROR:
@@ -1746,8 +1747,8 @@ utest_CMarkovs(ESL_RANDOMNESS *r, int L, char *alphabet)
   free(p);
   free(m1);
   free(m2);
-  esl_Free2D((void **) di1, 26);
-  esl_Free2D((void **) di2, 26);
+  esl_arr2_Destroy((void **) di1, 26);
+  esl_arr2_Destroy((void **) di2, 26);
   return;
   
  ERROR:
@@ -1858,8 +1859,8 @@ utest_XShufflers(ESL_RANDOMNESS *r, int L, int K)
   free(p);
   free(m1);
   free(m2);
-  esl_Free2D((void **) di1, K);
-  esl_Free2D((void **) di2, K);
+  esl_arr2_Destroy((void **) di1, K);
+  esl_arr2_Destroy((void **) di2, K);
   return;
   
  ERROR:
@@ -1951,8 +1952,8 @@ utest_XMarkovs(ESL_RANDOMNESS *r, int L, int K)
   free(p);
   free(m1);
   free(m2);
-  esl_Free2D((void **) di1, K);
-  esl_Free2D((void **) di2, K);
+  esl_arr2_Destroy((void **) di1, K);
+  esl_arr2_Destroy((void **) di2, K);
   return;
   
  ERROR:
@@ -1989,7 +1990,7 @@ utest_markov1_bug(ESL_RANDOMNESS *r)
     if (xcomposition(testdsq, L, 4, mono, di)   != eslOK) esl_fatal(logmsg);
     if (mono[0] + mono[3] != L)                           esl_fatal(logmsg);
   }
-  esl_Free2D((void **) di, 4);
+  esl_arr2_Destroy((void **) di, 4);
   free(mono);
 
   if (composition_allocate(26, &mono, &di) != eslOK) esl_fatal(logmsg);
@@ -1998,7 +1999,7 @@ utest_markov1_bug(ESL_RANDOMNESS *r)
     if (composition(seq, L, mono, di)      != eslOK) esl_fatal(logmsg);
     if (mono[0] + mono['T'-'A'] != L)                esl_fatal(logmsg);
   }
-  esl_Free2D((void **) di, 26);
+  esl_arr2_Destroy((void **) di, 26);
   free(mono);
   free(seq);
   free(dsq);

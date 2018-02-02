@@ -96,7 +96,8 @@ endif
 HDRS = 	easel.h\
 	esl_alloc.h\
 	esl_alphabet.h\
-	esl_vmx.h\
+	esl_arr2.h\
+	esl_arr3.h\
 	esl_avx.h\
 	esl_avx512.h\
 	esl_buffer.h\
@@ -162,6 +163,7 @@ HDRS = 	easel.h\
 	esl_threads.h\
 	esl_tree.h\
 	esl_vectorops.h\
+	esl_vmx.h\
 	esl_weibull.h\
 	esl_workqueue.h\
 	esl_wuss.h
@@ -169,6 +171,8 @@ HDRS = 	easel.h\
 OBJS =	easel.o\
 	esl_alloc.o\
 	esl_alphabet.o\
+	esl_arr2.o\
+	esl_arr3.o\
 	esl_buffer.o\
 	esl_cluster.o\
 	esl_composition.o\

@@ -25,6 +25,8 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"	/* digital alphabet                                                   */
+#include "esl_arr2.h"
+#include "esl_arr3.h"
 #include "esl_keyhash.h"	/* string hashes, for mapping unique seq names                        */
 #include "esl_msa.h"		/* ESL_MSA structure                                                  */
 #include "esl_msafile.h"	/* preferred msafile interface, inc. fmt codes shared w/ ESL_MSAFILE2 */
@@ -633,7 +635,7 @@ esl_msafile2_ReadInfoPfam(ESL_MSAFILE2 *afp, FILE *listfp, ESL_ALPHABET *abc, in
     if (msa->pp_cons != NULL)     maxgc = ESL_MAX(maxgc, 7); /* 7 == strlen("PP_cons") */
   }
   /* same as for maxgc, but now for maxgf */
-  if(ret_msa != NULL && opt_maxgf != NULL) { 
+  if(ret_msa  != NULL && opt_maxgf != NULL) { 
     for(i = 0; i < msa->ngf; i++) maxgf = ESL_MAX(maxgf, strlen(msa->gf_tag[i])); 
     if (msa->name != NULL) maxgf = ESL_MAX(maxgf, 2); /* 2 == strlen("ID") */
     if (msa->desc != NULL) maxgf = ESL_MAX(maxgf, 2); /* 2 == strlen("DE") */
@@ -647,7 +649,7 @@ esl_msafile2_ReadInfoPfam(ESL_MSAFILE2 *afp, FILE *listfp, ESL_ALPHABET *abc, in
   if (ss_nopseudo)   free(ss_nopseudo);
   if (a2rf_map)      free(a2rf_map);
 
-  if (ret_msa)       *ret_msa       = msa;       else if (msa)      esl_msa_Destroy(msa);
+  if (ret_msa)       *ret_msa       = msa;       else esl_msa_Destroy(msa);
   if (opt_nseq)      *opt_nseq      = nseq; 
   if (opt_alen)      *opt_alen      = alen;
   if (opt_ngs)       *opt_ngs       = ngs;
@@ -655,26 +657,26 @@ esl_msafile2_ReadInfoPfam(ESL_MSAFILE2 *afp, FILE *listfp, ESL_ALPHABET *abc, in
   if (opt_maxgf)     *opt_maxgf     = maxgf;
   if (opt_maxgc)     *opt_maxgc     = maxgc;
   if (opt_maxgr)     *opt_maxgr     = maxgr;
-  if (opt_abc_ct)    *opt_abc_ct    = abc_ct;    else if (abc_ct)    esl_Free2D((void **) abc_ct, alen);
-  if (opt_pp_ct)     *opt_pp_ct     = pp_ct;     else if (pp_ct)     esl_Free2D((void **) pp_ct, alen);
-  if (opt_bp_ct)     *opt_bp_ct     = bp_ct;     else if (bp_ct)     esl_Free3D((void ***) bp_ct, known_alen, abc->Kp);
-  if (opt_spos_ct)   *opt_spos_ct   = spos_ct;   else if (spos_ct)   free(spos_ct);
-  if (opt_epos_ct)   *opt_epos_ct   = epos_ct;   else if (epos_ct)   free(epos_ct);
+  if (opt_abc_ct)    *opt_abc_ct    = abc_ct;    else esl_arr2_Destroy((void **) abc_ct, alen);
+  if (opt_pp_ct)     *opt_pp_ct     = pp_ct;     else esl_arr2_Destroy((void **) pp_ct, alen);
+  if (opt_bp_ct)     *opt_bp_ct     = bp_ct;     else esl_arr3_Destroy((void ***) bp_ct, known_alen, abc ? abc->Kp : 0);
+  if (opt_spos_ct)   *opt_spos_ct   = spos_ct;   else esl_free(spos_ct);
+  if (opt_epos_ct)   *opt_epos_ct   = epos_ct;   else esl_free(epos_ct);
   return eslOK;
 
  ERROR:
-  if (first_seqname)  free(first_seqname);
-  if (tmp_dsq)        free(tmp_dsq);
-  if (ct)             free(ct);
-  if (ss_nopseudo)    free(ss_nopseudo);
-  if (a2rf_map)       free(a2rf_map);
+  esl_free(first_seqname);
+  esl_free(tmp_dsq);
+  esl_free(ct);
+  esl_free(ss_nopseudo);
+  esl_free(a2rf_map);
 
-  if (msa)            esl_msa_Destroy(msa);
-  if (pp_ct)          esl_Free2D((void **)  pp_ct,  alen);
-  if (abc_ct)         esl_Free2D((void **)  abc_ct, alen);
-  if (bp_ct)          esl_Free3D((void ***) bp_ct,  known_alen, abc->Kp);
-  if (spos_ct)        free(spos_ct);
-  if (epos_ct)        free(epos_ct);
+  esl_msa_Destroy(msa);
+  esl_arr2_Destroy((void **)  pp_ct,  alen);
+  esl_arr2_Destroy((void **)  abc_ct, alen);
+  esl_arr3_Destroy((void ***) bp_ct,  known_alen, abc ? abc->Kp : 0);
+  esl_free(spos_ct);
+  esl_free(epos_ct);
 
   if (ret_msa)       *ret_msa       = NULL;
   if (opt_nseq)      *opt_nseq      = 0;

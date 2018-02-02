@@ -63,9 +63,9 @@ typedef struct {
   char  *mm;        /* model mask, or NULL;   [0..alen-1], even in digital mode             */
   char **sqacc;     /* accession numbers for sequences i                                    */
   char **sqdesc;    /* description lines for sequences i                                    */
-  char **ss;        /* per-seq secondary structures, or NULL                                */
-  char **sa;        /* per-seq surface accessibilities, or NULL                             */
-  char **pp;        /* posterior prob per residue, or NULL                                  */
+  char **ss;        /* per-seq secondary structures, or NULL    (string, \0-term)           */
+  char **sa;        /* per-seq surface accessibilities, or NULL (string, \0-term)           */
+  char **pp;        /* posterior prob per residue, or NULL.     (string, \0-term)           */
   float  cutoff[eslMSA_NCUTS];  /* NC/TC/GA cutoffs propagated to Pfam/Rfam                 */
   int    cutset[eslMSA_NCUTS];  /* TRUE if a cutoff is set; else FALSE                      */
   /*::cexcerpt::msa_optional::end::*/

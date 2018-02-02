@@ -327,6 +327,22 @@ esl_fatal(const char *format, ...)
  * 2. Memory allocation/deallocation conventions.
  *****************************************************************/
 
+/* Function:  esl_free()
+ * Synopsis:  free(), while allowing ptr to be NULL.
+ * Incept:    SRE, Fri Nov  3 17:12:01 2017
+ *
+ * Purpose:   Easel uses a convention of initializing ptrs to be NULL
+ *            before allocating them. When cleaning up after errors, a
+ *            routine can check for non-NULL ptrs to know what to
+ *            free(). Easel code is slightly cleaner if we have a
+ *            free() that no-ops on NULL ptrs.
+ */
+void
+esl_free(void *p)
+{
+  if (p) free(p);
+}
+
 /* Function:  esl_Free2D()
  *
  * Purpose:   Free a 2D pointer array <p>, where first dimension is
@@ -335,6 +351,8 @@ esl_fatal(const char *format, ...)
  *            sparse arrays.
  *
  * Returns:   void.
+ *
+ * DEPRECATED. Replace with esl_arr2_Destroy()
  */
 void
 esl_Free2D(void **p, int dim1)
@@ -356,6 +374,8 @@ esl_Free2D(void **p, int dim1)
  *            pointers being NULL, to allow sparse arrays.
  *
  * Returns:   void.
+ *
+ * DEPRECATED. Replace with esl_arr3_Destroy()
  */
 void
 esl_Free3D(void ***p, int dim1, int dim2)
