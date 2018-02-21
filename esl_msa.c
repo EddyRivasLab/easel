@@ -1,4 +1,4 @@
-/* Multiple sequence alignment file i/o.
+/* Multiple sequence alignments.
  *    
  * Contents:   
  *    1. The <ESL_MSA> object
@@ -22,6 +22,8 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_arr2.h"
+#include "esl_arr3.h"
 #include "esl_keyhash.h"
 #include "esl_mem.h"
 #include "esl_random.h"
@@ -422,6 +424,75 @@ esl_msa_Clone(const ESL_MSA *msa)
 }
 
 
+/* Function:  esl_msa_Sizeof()
+ * Synopsis:  Returns approximate size of an ESL_MSA, in bytes
+ * Incept:    SRE, Thu Nov  2 11:17:18 2017
+ *
+ * Purpose:   Returns the approximate size of an <ESL_MSA>, in
+ *            bytes. Approximate, because it counts used data size
+ *            (the size of the alignment) rather than alloced size
+ *            (the actual memory required by the structure),
+ *            and the structure may be overallocated (e.g.  by
+ *            <esl_msa_Expand()>.) That is, returns the minimum
+ *            size required to store the data.
+ *            
+ *            (We may want to distinguish between true allocated
+ *            size versus minimum size in the future.)
+ */
+size_t
+esl_msa_Sizeof(ESL_MSA *msa)
+{
+  size_t  n = 0;
+
+  n += sizeof(ESL_MSA);
+
+  n += esl_arr2_SSizeof(msa->sqname, msa->nseq);
+  n += sizeof(double) * msa->nseq;  // wgt
+  
+  if (msa->aseq)
+    n += esl_arr2_SSizeof(msa->aseq,   msa->nseq);
+  else if (msa->ax)
+    {
+      n += sizeof(ESL_DSQ *) * msa->nseq;  
+      n += sizeof(ESL_DSQ)   * msa->nseq * (msa->alen + 2);
+    }
+  
+  if (msa->name)    n += sizeof(char) * (1 + strlen(msa->name));
+  if (msa->desc)    n += sizeof(char) * (1 + strlen(msa->desc));
+  if (msa->acc)     n += sizeof(char) * (1 + strlen(msa->acc));
+  if (msa->au)      n += sizeof(char) * (1 + strlen(msa->au));
+
+  if (msa->ss_cons) n += sizeof(char) * msa->alen;
+  if (msa->sa_cons) n += sizeof(char) * msa->alen;
+  if (msa->pp_cons) n += sizeof(char) * msa->alen;
+  if (msa->rf)      n += sizeof(char) * msa->alen;
+  if (msa->mm)      n += sizeof(char) * msa->alen;
+
+  n += esl_arr2_SSizeof(msa->sqacc,  msa->nseq);
+  n += esl_arr2_SSizeof(msa->sqdesc, msa->nseq);
+  n += esl_arr2_SSizeof(msa->ss,     msa->nseq);
+  n += esl_arr2_SSizeof(msa->sa,     msa->nseq);
+  n += esl_arr2_SSizeof(msa->pp,     msa->nseq);
+
+  n += esl_arr2_SSizeof(msa->comment, msa->ncomment);
+  n += esl_arr2_SSizeof(msa->gf_tag,  msa->ngf);
+  n += esl_arr2_SSizeof(msa->gf,      msa->ngf);
+  n += esl_arr2_SSizeof(msa->gs_tag,  msa->ngs);
+  n += esl_arr3_SSizeof(msa->gs,      msa->ngs, msa->nseq);
+  n += esl_arr2_SSizeof(msa->gc_tag,  msa->ngc);
+  n += esl_arr2_SSizeof(msa->gc,      msa->ngc);
+  n += esl_arr2_SSizeof(msa->gr_tag,  msa->ngr);
+  n += esl_arr3_SSizeof(msa->gr,      msa->ngr, msa->nseq);
+  
+  n += esl_keyhash_Sizeof(msa->index);
+  n += esl_keyhash_Sizeof(msa->gs_idx);
+  n += esl_keyhash_Sizeof(msa->gc_idx);
+  n += esl_keyhash_Sizeof(msa->gr_idx);
+
+  return n;
+}
+
+
 /* Function:  esl_msa_Destroy()
  * Synopsis:  Frees an <ESL_MSA>.
  *
@@ -434,15 +505,15 @@ esl_msa_Destroy(ESL_MSA *msa)
 {
   if (msa == NULL) return;
 
-  if (msa->aseq)  esl_Free2D((void **) msa->aseq, msa->nseq);
-  if (msa->ax)    esl_Free2D((void **) msa->ax, msa->nseq);
+  esl_arr2_Destroy((void **) msa->aseq, msa->nseq);
+  esl_arr2_Destroy((void **) msa->ax, msa->nseq);
 
-  esl_Free2D((void **) msa->sqname, msa->nseq);
-  esl_Free2D((void **) msa->sqacc,  msa->nseq);
-  esl_Free2D((void **) msa->sqdesc, msa->nseq);
-  esl_Free2D((void **) msa->ss,     msa->nseq);
-  esl_Free2D((void **) msa->sa,     msa->nseq);
-  esl_Free2D((void **) msa->pp,     msa->nseq);
+  esl_arr2_Destroy((void **) msa->sqname, msa->nseq);
+  esl_arr2_Destroy((void **) msa->sqacc,  msa->nseq);
+  esl_arr2_Destroy((void **) msa->sqdesc, msa->nseq);
+  esl_arr2_Destroy((void **) msa->ss,     msa->nseq);
+  esl_arr2_Destroy((void **) msa->sa,     msa->nseq);
+  esl_arr2_Destroy((void **) msa->pp,     msa->nseq);
 
   if (msa->sqlen   != NULL) free(msa->sqlen);
   if (msa->wgt     != NULL) free(msa->wgt);
@@ -460,16 +531,16 @@ esl_msa_Destroy(ESL_MSA *msa)
   if (msa->salen   != NULL) free(msa->salen);
   if (msa->pplen   != NULL) free(msa->pplen);  
 
-  esl_Free2D((void **) msa->comment, msa->ncomment);
-  esl_Free2D((void **) msa->gf_tag,  msa->ngf);
-  esl_Free2D((void **) msa->gf,      msa->ngf);
+  esl_arr2_Destroy((void **) msa->comment, msa->ncomment);
+  esl_arr2_Destroy((void **) msa->gf_tag,  msa->ngf);
+  esl_arr2_Destroy((void **) msa->gf,      msa->ngf);
 
-  esl_Free2D((void **) msa->gs_tag,  msa->ngs);
-  esl_Free3D((void ***)msa->gs,      msa->ngs, msa->nseq);
-  esl_Free2D((void **) msa->gc_tag,  msa->ngc);
-  esl_Free2D((void **) msa->gc,      msa->ngc);
-  esl_Free2D((void **) msa->gr_tag,  msa->ngr);
-  esl_Free3D((void ***)msa->gr,      msa->ngr, msa->nseq);
+  esl_arr2_Destroy((void **) msa->gs_tag,  msa->ngs);
+  esl_arr3_Destroy((void ***)msa->gs,      msa->ngs, msa->nseq);
+  esl_arr2_Destroy((void **) msa->gc_tag,  msa->ngc);
+  esl_arr2_Destroy((void **) msa->gc,      msa->ngc);
+  esl_arr2_Destroy((void **) msa->gr_tag,  msa->ngr);
+  esl_arr3_Destroy((void ***)msa->gr,      msa->ngr, msa->nseq);
 
   esl_keyhash_Destroy(msa->index);
   esl_keyhash_Destroy(msa->gs_idx);
@@ -3310,6 +3381,23 @@ utest_Create(void)
 }
 
 static void
+utest_Sizeof(ESL_RANDOMNESS *rng)
+{
+  const char    msg[] = "utest_Sizeof() failed";
+  ESL_ALPHABET *abc   = esl_alphabet_Create(eslAMINO);
+  ESL_MSA      *msa   = NULL;
+  int           nseq  = 100;
+  int           alen  = 200;
+  size_t        n     = 0;
+  
+  if (esl_msa_Sample(rng, abc, nseq, alen, &msa) != eslOK) esl_fatal(msg);
+  if ((n = esl_msa_Sizeof(msa))                  <= 0)     esl_fatal(msg);
+
+  esl_msa_Destroy(msa);
+  esl_alphabet_Destroy(abc);
+}
+
+static void
 utest_Destroy(void)
 {
   ESL_ALPHABET *abc = NULL;
@@ -3723,6 +3811,7 @@ main(int argc, char **argv)
   /* Unit tests
    */
   utest_Create();
+  utest_Sizeof(rng);
   utest_Destroy();
   utest_Expand();
   utest_SequenceSubset(msa);

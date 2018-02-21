@@ -10,6 +10,7 @@
 #include <limits.h>
 
 #include "easel.h"
+#include "esl_arr2.h"
 #include "esl_distance.h"
 #include "esl_dmatrix.h"
 #include "esl_fileparser.h"
@@ -684,11 +685,11 @@ main(int argc, char **argv)
 	}
 
 	/* Clean up for this msa */
-	if(msa      != NULL) { esl_msa_Destroy(msa);                    msa      = NULL; }
-	if(abc_ct   != NULL) { esl_Free2D((void **) abc_ct, msa->alen); abc_ct   = NULL; }
-	if(pp_ct    != NULL) { esl_Free2D((void **) pp_ct, msa->alen);  pp_ct    = NULL; }
-	if(i_am_rf  != NULL) { free(i_am_rf);                           i_am_rf  = NULL; }
-	if(rf2a_map != NULL) { free(rf2a_map);                          rf2a_map = NULL; }
+        esl_arr2_Destroy((void **) abc_ct, msa? msa->alen:0);  abc_ct   = NULL; 
+        esl_arr2_Destroy((void **) pp_ct,  msa? msa->alen:0);  pp_ct    = NULL; 
+	esl_msa_Destroy(msa);                                  msa      = NULL; 
+	esl_free(i_am_rf);                                     i_am_rf  = NULL; 
+	esl_free(rf2a_map);                                    rf2a_map = NULL; 
       }	/* end loop over msa's */
     if (nali   == 0) esl_fatal("No alignments found in file %s\n", alifile);
   } /* end of 'if (! esl_opt_IsOn(go, "--small"))' */

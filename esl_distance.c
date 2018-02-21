@@ -1414,6 +1414,7 @@ utest_XJukesCantorMx(ESL_ALPHABET *abc, char **as, ESL_DSQ **ax, int N)
 #ifdef eslDISTANCE_TESTDRIVE
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_arr2.h"
 #include "esl_dmatrix.h"
 #include "esl_getopts.h"
 #include "esl_random.h"
@@ -1505,9 +1506,9 @@ main(int argc, char **argv)
 
 
   esl_randomness_Destroy(r);
-  esl_Free2D((void **) as, N);
   esl_alphabet_Destroy(abc);
-  esl_Free2D((void **) ax, N);
+  esl_arr2_Destroy((void **) as, N);
+  esl_arr2_Destroy((void **) ax, N);
   return eslOK;
 
  ERROR:

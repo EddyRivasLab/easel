@@ -1781,6 +1781,7 @@ esl_fwrite_offset(FILE *fp, off_t offset)
  *****************************************************************/
 #ifdef eslSSI_TESTDRIVE
 
+#include "esl_arr2.h"
 #include "esl_getopts.h"
 #include "esl_sq.h"
 #include "esl_sqio.h"
@@ -1868,10 +1869,10 @@ ssi_testdata_destroy(struct ssi_testdata *td)
 {
   int j;
   for (j = 0; j < td->nfiles; j++) remove(td->sqfile[j]);
-  esl_Free2D((void **) td->sqfile,  td->nfiles);
-  esl_Free2D((void **) td->seqname, td->nseq*td->nfiles);
-  esl_Free2D((void **) td->seqdesc, td->nseq*td->nfiles);
-  esl_Free2D((void **) td->seq,     td->nseq*td->nfiles);
+  esl_arr2_Destroy((void **) td->sqfile,  td->nfiles);
+  esl_arr2_Destroy((void **) td->seqname, td->nseq*td->nfiles);
+  esl_arr2_Destroy((void **) td->seqdesc, td->nseq*td->nfiles);
+  esl_arr2_Destroy((void **) td->seq,     td->nseq*td->nfiles);
   free(td->seqlen);
   free(td);
 }
