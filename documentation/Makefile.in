@@ -173,16 +173,16 @@ clean:
 	if test "x${srcdir}" != "x."; then \
 	   for texfile in ${TEXFILES}; do \
 	      if (test -L $$texfile); then \
-	         rm $$texfile ;\
+	         rm -f $$texfile ;\
 	      fi ;\
 	   done ;\
 	   if (test -L figures); then \
-	      rm figures ;\
+	      rm -f figures ;\
 	   fi ;\
 	fi
 	for module in ${MODULES}; do \
 	   if (test -L $$module.tex); then \
-	     rm $$module.tex ;\
+	     rm -f $$module.tex ;\
 	   fi ;\
 	done
 	-rm -f symlinks.stamp autodoc.stamp cexcerpt.stamp apitables.stamp
@@ -195,6 +195,9 @@ clean:
 	-rm -f main.log main.out main.pdf main.aux main.toc 
 	-rm -f main.bbl main.blg main.brf
 	-rm -f typography.log typography.aux typography.out
+ifndef V
+	@echo '     ' CLEAN documentation
+endif
 
 distclean: clean
 	-rm -f Makefile
