@@ -28,11 +28,15 @@
 #   9. checks for structures
 #  10. checks for compiler characteristics
 #  11. checks for library functions
-#  11. checks for system services
-#  12. AC_CONFIG_FILES
-#  13. AC_OUTPUT
+#  12. checks for system services
+#  13. AC_CONFIG_FILES
+#  14. AC_OUTPUT
 #
 # Order obeys autoconf manual, "standard configure.ac layout".
+#
+# To update config.guess and config.sub from GNU:
+#    wget -O config.guess 'http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD'
+#    wget -O config.sub   'http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=HEAD'
 #
 # Use full 3-arg form of AC_DEFINE() macros. autoheader chokes if you
 # don't.  We don't use autoheader (we only use autoconf, out of the
@@ -521,15 +525,45 @@ AC_SYS_LARGEFILE
 #################################################################
 # 13. Write out esl_config.h header and the Makefiles
 #################################################################
+
+# Easel Makefiles
+AC_CONFIG_FILES([ \
+ Makefile               \
+ miniapps/Makefile      \
+ testsuite/Makefile     \
+ documentation/Makefile \
+ ])
+
+# Substitutions in Easel man pages:
+# EASEL_VERSION, EASEL_DATE, EASEL_COPYRIGHT, EASEL_LICENSE, EASEL_URL
+AC_CONFIG_FILES([ \
+  miniapps/esl-afetch.man      \
+  miniapps/esl-alimanip.man    \
+  miniapps/esl-alimap.man      \
+  miniapps/esl-alimask.man     \
+  miniapps/esl-alimerge.man    \
+  miniapps/esl-alipid.man      \
+  miniapps/esl-alirev.man      \
+  miniapps/esl-alistat.man     \
+  miniapps/esl-compalign.man   \
+  miniapps/esl-compstruct.man  \
+  miniapps/esl-construct.man   \
+  miniapps/esl-histplot.man    \
+  miniapps/esl-mask.man        \
+  miniapps/esl-reformat.man    \
+  miniapps/esl-selectn.man     \
+  miniapps/esl-seqrange.man    \
+  miniapps/esl-seqstat.man     \
+  miniapps/esl-sfetch.man      \
+  miniapps/esl-shuffle.man     \
+  miniapps/esl-ssdraw.man      \
+  miniapps/esl-translate.man   \
+  miniapps/esl-weight.man      \
+ ])
+
 AC_CONFIG_HEADERS([decoy_config.h])   # This keeps gnu 'autoheader' from overwriting our esl_config.h.in
 AC_CONFIG_HEADERS([esl_config.h])
-AC_CONFIG_FILES([miniapps/Makefile])
-AC_CONFIG_FILES([testsuite/Makefile])
-AC_CONFIG_FILES([Makefile])
-if test -e "LICENSE.sh.in"; then
-  AC_CONFIG_FILES(LICENSE.sh)
-fi
-AC_CONFIG_FILES([documentation/Makefile])
+
 
 
 #################################################################
@@ -561,5 +595,5 @@ Vector implementations enabled:
            vmx: $enable_vmx
 
 Do 'make' to build Easel.
-Do 'make check' to run self-tests.
+Then (optionally) do 'make check' to run self-tests.
 "

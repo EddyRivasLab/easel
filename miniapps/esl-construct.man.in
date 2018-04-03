@@ -1,4 +1,4 @@
-.TH "esl-construct" 1 "@EASEL_DATE@" "Easel @PACKAGE_VERSION@" "Easel miniapps"
+.TH "esl-construct" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
 .TP 
@@ -171,9 +171,23 @@ With -l, only list sequences that have more than
 .I <n>
 basepairs that conflict with the consensus structure to the list file.
 
+
+.SH SEE ALSO
+
+.nf
+@EASEL_URL@
+.fi
+
+.SH COPYRIGHT
+
+.nf 
+@EASEL_COPYRIGHT@
+@EASEL_LICENSE@
+.fi 
+
 .SH AUTHOR
 
-Easel and its documentation are @EASEL_COPYRIGHT@.
-@EASEL_LICENSE@.
-See COPYING in the source code distribution for more details.
-The Easel home page is: @EASEL_URL@
+.nf
+http://eddylab.org
+.fi
+

@@ -25,6 +25,7 @@ contributors include:
 
    Free Software Foundation, Inc.    configure	
    (various authors)                 autoconf macros in m4/
+   FreeBSD 		             easel.c::esl_strsep()
    Stephen Moshier                   esl_sse.c,esl_vmx.c   
    Julien Pommier                    esl_sse.c,esl_vmx.c   
    Sun Microsystems, Inc.            esl_stats.c::esl_erfc()

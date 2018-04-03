@@ -50,7 +50,6 @@ PROGS = esl-afetch\
 	esl-alipid\
 	esl-alirev\
 	esl-alistat\
-	esl-cluster\
 	esl-compalign\
 	esl-compstruct\
 	esl-construct\
@@ -90,14 +89,20 @@ check:  ${PROGS}
 ${PROGS}: % : %.c ../libeasel.a 
 	${QUIET_GEN}${CC} ${CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ $< ${LIBS}
 
-install:
+install: ${PROGS} 
 	for file in ${PROGS}; do \
 	   ${INSTALL} -m 0755 $$file ${DESTDIR}${bindir}/ ;\
+	done
+	for file in ${PROGS}; do \
+	   ${INSTALL} -m 0644 $$file.man ${DESTDIR}${man1dir}/$${file}${man1ext} ;\
 	done
 
 uninstall:
 	for file in $(PROGS); do \
 	   rm ${DESTDIR}${bindir}/$$file ;\
+	done
+	for file in ${PROGS}; do \
+	   rm ${DESTDIR}${man1dir}/$${file}${man1ext} ;\
 	done
 
 clean:
@@ -115,6 +120,7 @@ endif
 
 distclean: clean
 	-rm -f ${PROGS}
+	-rm -f *.man
 	-rm -f Makefile
 
 

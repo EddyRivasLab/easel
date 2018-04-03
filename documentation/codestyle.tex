@@ -257,9 +257,6 @@ stuff a developer needs to be aware of.
     verbatim into the documentation.
   & \emcode{cexcerpt} \\ \\
 
-\ccode{@}\itcode{keyword}\ccode{@}
-  & Configuration variable substitution
-  & \emcode{sedition} \\ \\
 \hline
 \end{tabular}
 \caption{{\bfseries Summary of special syntax in Easel C comments.}}
@@ -335,35 +332,6 @@ and \ccode{.h} files, and places them in individual files in a
 temporary \ccode{cexcerpts/} directory, from where they are included
 in the main \LaTeX documentation.
 
-
-%%%%
-\subsubsection{configuration variable substitution (@@)}
-%%%%
-
-When we build a distribution package, the \ccode{@LICENSE@} tag is
-replaced with by the appropriate copyright and license text by our
-\prog{sedition} program. The command line appears in
-\ccode{Makefile.in} in its \ccode{make dist}; it directs
-\prog{sedition} to replace \ccode{@LICENSE@} tags with the contents of
-the \ccode{LICENSE.tag} file (which is itself constructed
-automatically at \ccode{make dist} time).
-
-For example, in distribution code this comment block something like:
-
-\begin{cchunk}
-/*****************************************************************
- * Easel - a library of C functions for biological sequence analysis
- * Version 0.44; January 2017
- * Copyright (C) 2017 Howard Hughes Medical Institute
- * Other copyrights also apply. See the COPYRIGHT file for a full list.
- *
- * Easel is distributed under the 3-Clause BSD License. 
- * See the LICENSE file for more details.
- *****************************************************************/
-\end{cchunk}
-
-Autogenerating these license tags allows us to package distributions
-under other licenses without having to edit every source file.
 
 
 %%%%%%%%%%%%%%%%

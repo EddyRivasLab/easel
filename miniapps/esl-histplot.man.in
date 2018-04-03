@@ -1,4 +1,4 @@
-.TH "esl-histplot" 1 "@EASEL_DATE@" "Easel @PACKAGE_VERSION@" "Easel miniapps"
+.TH "esl-histplot" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
 .TP 
@@ -64,17 +64,26 @@ instead of stdout.
 
 
 
+.SH SEE ALSO
 
+.nf
+@EASEL_URL@
+.fi
 
-.SH EXPERT OPTIONS
+.SH COPYRIGHT
 
-None.
-
-
+.nf 
+@EASEL_COPYRIGHT@
+@EASEL_LICENSE@
+.fi 
 
 .SH AUTHOR
 
-Easel and its documentation are @EASEL_COPYRIGHT@.
-@EASEL_LICENSE@.
-See COPYING in the source code distribution for more details.
-The Easel home page is: @EASEL_URL@
+.nf
+http://eddylab.org
+.fi
+
+
+
+
+
