@@ -46,6 +46,7 @@ AC_DEFUN([ESL_AVX512],[
     esl_avx512_try_flags="none,-mavx512f -mavx512dq -mavx512bw,-xCORE-AVX512,-march=skylake-avx512"
   fi
 
+  save_CFLAGS=$CFLAGS
   for esl_avx512_cflags in $esl_avx512_try_flags; do 
     case $esl_avx512_cflags in 
       none) CFLAGS=$save_CFLAGS;;
