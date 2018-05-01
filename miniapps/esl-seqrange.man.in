@@ -1,23 +1,20 @@
-.TH "esl-seqrange" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "esl\-seqrange" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
-.TP
-esl-seqrange - determine a range of sequences for one of many parallel processes.
+esl\-seqrange \- determine a range of sequences for one of many parallel processes
 
 .SH SYNOPSIS
-
-.TP
-.B esl-sfetch
-.I [options]
+.B esl\-sfetch
+[\fIoptions\fR]
 .I seqfile
 .I procidx
 .I nproc
 
 .SH DESCRIPTION
 
-.pp
-.B esl-seqrange
-reads an indexed 
+.PP
+.B esl\-seqrange
+reads an SSI-indexed 
 .I seqfile
 and determines the range of sequence indices in that file that process
 number 
@@ -25,19 +22,21 @@ number
 out of
 .I nproc
 total processes should operate on during a parallel processing of 
-.I seqfile.
+.IR seqfile .
 
-.pp
+.PP
 The 
 .I seqfile 
 must be indexed first using 
-.B esl-sfetch --index <seqfile>.
+.B esl\-sfetch \-\-index
+.IR seqfile .
 This creates an SSI index file
-.I <seqfile>.ssi.
+.IR seqfile .ssi.
 An SSI file is required in order for
-.B esl-seqrange
+.B esl\-seqrange
 to work.
 
+.PP
 Sequence index ranges are calculated using a simple rule: the number
 of sequences for each process should be identical, or as close as
 possible to identical, across all processes. The lengths of the sequences
@@ -46,18 +45,38 @@ are not considered (even though they probably should be).
 .SH OPTIONS
 
 .TP
-.B -h
+.B \-h
 Print brief help; includes version number and summary of
 all options, including expert options.
 
 .TP
-.BI --informat " <s>"
-Specify that the sequence file is in format
-.I <s>,
-where 
+.BI \-\-informat " <s>"
+Assert that input
+.I seqfile
+is in format
+.IR <s> ,
+bypassing format autodetection.
+Common choices for 
 .I <s> 
-may be FASTA, GenBank, EMBL, UniProt, or DDBJ.  This string
-is case-insensitive ("genbank" or "GenBank" both work, for example).
+include:
+.BR fasta ,
+.BR embl ,
+.BR genbank.
+Alignment formats also work;
+common choices include:
+.BR stockholm , 
+.BR a2m ,
+.BR afa ,
+.BR psiblast ,
+.BR clustal ,
+.BR phylip .
+For more information, and for codes for some less common formats,
+see main documentation.
+The string
+.I <s>
+is case-insensitive (\fBfasta\fR or \fBFASTA\fR both work).
+
+
 
 .SH SEE ALSO
 

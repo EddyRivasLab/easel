@@ -1,32 +1,29 @@
-.TH "esl-alirev" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "esl\-alirev" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
-.TP
-esl-alirev - reverse complement a multiple alignment 
+esl\-alirev \- reverse complement a multiple alignment 
 
 
 .SH SYNOPSIS
-
-.B esl-alirev
-.I [options]
+.B esl\-alirev
+[\fIoptions\fR]
 .I msafile
 
 
 .SH DESCRIPTION
 
-.pp
-.B esl-alirev
+.PP
+.B esl\-alirev
 reads the multiple alignment in
 .I msafile
-and outputs its reverse complement to 
-.I stdout.
+and outputs its reverse complement to stdout.
 
-.pp
+.PP
 An example of where you might need to do this is when you've
 downloaded a chunk of multiway genomic alignment from one of the
 genome browsers, but your RNA of interest is on the opposite strand.
 
-.pp
+.PP
 Any per-column and per-residue annotation lines are reversed as well,
 including Stockholm format and old SELEX format annotations.
 Annotations that Easel recognizes as secondary structure annotation (a
@@ -35,28 +32,19 @@ be "reverse complemented" to preserve proper bracketing orders: for
 example, ...<<<...>>> is reverse complemented to <<<...>>>..., not
 simply reversed to >>>...<<<..., which would be wrong.
 
-.pp
+.PP
 If
 .I msafile 
-is - (a single dash), alignment input is read from 
-.I stdin.
+is \- (a single dash), alignment input is read from stdin.
 
-.pp 
-The
-.I msafile
-may be in any of several formats.
-The format is autodetected by default.
-See the
-.B --informat
-option to assert an input format.
 
-.pp 
+.PP
 By default the output alignment is written in the same format as the
 input alignment. See the
-.B --outformat
+.B \-\-outformat
 option to use a different output format.
 
-.pp
+.PP
 Because the alignment is parsed into Easel's digital internal
 representation, the output alignment may differ in certain details
 from the original alignment; these details should be inconsequential
@@ -64,21 +52,21 @@ but may catch your eye. One is that if you have a reference annotation
 line, Easel's output will put consensus residues in upper case,
 nonconsensus (inserted) residues in lower case. Another is that the
 headers for some formats, such as Clustal format, are written with an
-arbitrary version number -- so you may find yourself revcomping an
+arbitrary version number - so you may find yourself revcomping an
 alignment in "MUSCLE (3.7) multiple sequence alignment" format and it
 could come out claiming to be a "CLUSTAL 2.1 multiple sequence
 alignment", just because Easel writes all of its Clustal format
 alignment files with that header.
 
-.pp
+.PP
 The
 .I msafile
 must contain nucleic acid sequences (DNA or RNA).
 The alphabet will be autodetected by default.
 See the
-.B --dna
+.B \-\-dna
 or
-.B --rna 
+.B \-\-rna 
 options to assert an alphabet.
 
 
@@ -86,34 +74,59 @@ options to assert an alphabet.
 .SH OPTIONS
 
 .TP
-.B -h 
+.B \-h 
 Print brief help;  includes version number and summary of
 all options, including expert options.
 
 .TP
-.BI --informat " <s>"
-Specify that the input alignment is in 
+.BI \-\-informat " <s>"
+Assert that input
+.I msafile
+is in alignment format
+.IR <s> ,
+bypassing format autodetection.
+Common choices for 
+.I <s> 
+include:
+.BR stockholm , 
+.BR a2m ,
+.BR afa ,
+.BR psiblast ,
+.BR clustal ,
+.BR phylip .
+For more information, and for codes for some less common formats,
+see main documentation.
+The string
 .I <s>
-format. Valid format strings include 
-"stockholm", "pfam", "a2m", "phylip", "phylips", 
-"psiblast", "selex", "afa", "clustal", and "clustallike".
+is case-insensitive (\fBa2m\fR or \fBA2M\fR both work).
 
 .TP
-.BI --outformat " <s>"
-Write the output alignment in 
+.BI \-\-outformat " <s>"
+Write the output alignment in alignment format
+.IR <s> .
+Common choices for 
+.I <s> 
+include:
+.BR stockholm , 
+.BR a2m ,
+.BR afa ,
+.BR psiblast ,
+.BR clustal ,
+.BR phylip .
+The string
 .I <s>
-format. Valid format strings include 
-"stockholm", "pfam", "a2m", "phylip", "phylips", 
-"psiblast", "selex", "afa", "clustal", and "clustallike".
+is case-insensitive (\fBa2m\fR or \fBA2M\fR both work).
+Default is to use same format as the input
+.IR msafile .
 
 .TP 
-.B --dna
+.B \-\-dna
 Assert that the 
 .I msafile 
 contains DNA sequences. 
 
 .TP 
-.B --rna
+.B \-\-rna
 Assert that the 
 .I msafile 
 contains RNA sequences. 

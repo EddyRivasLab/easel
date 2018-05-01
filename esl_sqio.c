@@ -709,16 +709,15 @@ esl_sqio_IsAlignment(int fmt)
 int
 esl_sqio_EncodeFormat(char *fmtstring)
 {
-  if (strcasecmp(fmtstring, "daemon")    == 0) return eslSQFILE_DAEMON;
-  if (strcasecmp(fmtstring, "ddbj")      == 0) return eslSQFILE_DDBJ;
-  if (strcasecmp(fmtstring, "embl")      == 0) return eslSQFILE_EMBL;
   if (strcasecmp(fmtstring, "fasta")     == 0) return eslSQFILE_FASTA;
-  if (strcasecmp(fmtstring, "fmindex")   == 0) return eslSQFILE_FMINDEX;
+  if (strcasecmp(fmtstring, "embl")      == 0) return eslSQFILE_EMBL;
   if (strcasecmp(fmtstring, "genbank")   == 0) return eslSQFILE_GENBANK;
-  if (strcasecmp(fmtstring, "hmmpgmd")   == 0) return eslSQFILE_HMMPGMD;
-  if (strcasecmp(fmtstring, "ncbi")      == 0) return eslSQFILE_NCBI;
+  if (strcasecmp(fmtstring, "ddbj")      == 0) return eslSQFILE_DDBJ;
   if (strcasecmp(fmtstring, "uniprot")   == 0) return eslSQFILE_UNIPROT;
-
+  if (strcasecmp(fmtstring, "ncbi")      == 0) return eslSQFILE_NCBI;
+  if (strcasecmp(fmtstring, "daemon")    == 0) return eslSQFILE_DAEMON;
+  if (strcasecmp(fmtstring, "hmmpgmd")   == 0) return eslSQFILE_HMMPGMD;
+  if (strcasecmp(fmtstring, "fmindex")   == 0) return eslSQFILE_FMINDEX;
   return esl_msafile_EncodeFormat(fmtstring);
 }
 
@@ -741,9 +740,10 @@ esl_sqio_DecodeFormat(int fmt)
   case eslSQFILE_GENBANK:    return "GenBank";
   case eslSQFILE_DDBJ:       return "DDBJ";
   case eslSQFILE_UNIPROT:    return "UniProt";
+  case eslSQFILE_NCBI:       return "NCBI";
   case eslSQFILE_DAEMON:     return "daemon";
   case eslSQFILE_HMMPGMD:    return "hmmpgmd";
-  case eslSQFILE_NCBI:       return "NCBI";
+  case eslSQFILE_FMINDEX:    return "fmindex";
   default:                   break;
   }
   esl_exception(eslEINVAL, FALSE, __FILE__, __LINE__,  "no such sqio format code %d", fmt);

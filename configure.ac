@@ -71,7 +71,7 @@ m4_include([m4/ax_pthread.m4])
 ################################################################
 # 2. AC_INIT
 ################################################################
-AC_INIT(Easel, 0.44rc1, sean@eddylab.org, easel)
+AC_INIT(Easel, 0.44, sean@eddylab.org, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
 # remember if the user is overriding CFLAGS
@@ -108,7 +108,7 @@ fi
 #     EASEL_VERSION    e.g. "1.9a"
 #
 
-EASEL_DATE="March 2018"
+EASEL_DATE="April 2018"
 EASEL_COPYRIGHT="Copyright (C) 2018 Howard Hughes Medical Institute"
 EASEL_LICENSE="Freely distributed under the BSD open source license."
 EASEL_VERSION=$PACKAGE_VERSION

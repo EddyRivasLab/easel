@@ -1,19 +1,18 @@
-.TH "esl-alipid" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "esl\-alipid" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
-.TP
-esl-alipid - calculate pairwise percent identities for all sequence pairs in an MSA
+esl\-alipid \- calculate pairwise percent identities for all sequence pairs in an MSA
 
 .SH SYNOPSIS
-
-.B esl-alipid
-.I [options]
+.B esl\-alipid
+[\fIoptions\fR]
 .I msafile
+
 
 .SH DESCRIPTION
 
-.pp
-.B esl-alistat 
+.PP
+.B esl\-alistat 
 calculates the pairwise percent identity of each sequence pair in
 in the MSA(s) in 
 .I msafile.
@@ -29,34 +28,13 @@ and
 is the denominator used for the calculation: the
 shorter of the two (unaligned) sequence lengths.
 
-.pp
+.PP
 If
 .I msafile 
-is - (a single dash), alignment input is read from 
-.I stdin.
+is \- (a single dash), alignment input is read from 
+stdin.
 
-.pp 
-The
-.I msafile
-may be in any of several formats.
-The format is autodetected by default.
-See the
-.B --informat
-option to assert an input format.
-
-.pp
-The 
-.I msafile
-must contain either protein or DNA/RNA sequences. 
-The nucleic or amino alphabet will be autodetected by default.
-See the
-.B --amino,
-.B --dna,
-or
-.B --rna 
-options to assert an alphabet.
-
-.pp
+.PP
 Only canonical residues are counted toward
 .I <nid> 
 and 
@@ -66,32 +44,46 @@ Degenerate residue codes are not counted.
 .SH OPTIONS
 
 .TP
-.B -h 
+.B \-h 
 Print brief help;  includes version number and summary of
 all options, including expert options.
 
 .TP
-.BI --informat " <s>"
-Specify that the input alignment is in 
+.BI \-\-informat " <s>"
+Assert that input
+.I msafile
+is in alignment format
+.IR <s> ,
+bypassing format autodetection.
+Common choices for 
+.I <s> 
+include:
+.BR stockholm , 
+.BR a2m ,
+.BR afa ,
+.BR psiblast ,
+.BR clustal ,
+.BR phylip .
+For more information, and for codes for some less common formats,
+see main documentation.
+The string
 .I <s>
-format. Valid format strings include 
-"stockholm", "pfam", "a2m", "phylip", "phylips", 
-"psiblast", "selex", "afa", "clustal", and "clustallike".
+is case-insensitive (\fBa2m\fR or \fBA2M\fR both work).
 
 .TP
-.B --amino
+.B \-\-amino
 Assert that the 
 .I msafile 
 contains protein sequences. 
 
 .TP 
-.B --dna
+.B \-\-dna
 Assert that the 
 .I msafile 
 contains DNA sequences. 
 
 .TP 
-.B --rna
+.B \-\-rna
 Assert that the 
 .I msafile 
 contains RNA sequences. 

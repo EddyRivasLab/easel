@@ -654,7 +654,10 @@ esl_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESL_MSAFILE_FMTDAT
   else // if we haven't guessed so far, try selex.
     {				/* selex parser can handle psiblast too */
       if      (fmt_bysuffix == eslMSAFILE_SELEX) *ret_fmtcode = eslMSAFILE_SELEX;
-      else if (msafile_check_selex(bf) == eslOK) *ret_fmtcode = eslMSAFILE_SELEX;
+      else if (msafile_check_selex(bf) == eslOK) {
+	if (fmt_bysuffix == eslMSAFILE_PSIBLAST) *ret_fmtcode = eslMSAFILE_PSIBLAST;
+	else                                     *ret_fmtcode = eslMSAFILE_SELEX;
+      }
       else    ESL_XFAIL(eslENOFORMAT, errbuf, "couldn't guess alignment input format - doesn't even look like selex");
     }
 
@@ -717,13 +720,13 @@ esl_msafile_EncodeFormat(char *fmtstring)
   if (strcasecmp(fmtstring, "stockholm")   == 0) return eslMSAFILE_STOCKHOLM;
   if (strcasecmp(fmtstring, "pfam")        == 0) return eslMSAFILE_PFAM;
   if (strcasecmp(fmtstring, "a2m")         == 0) return eslMSAFILE_A2M;
-  if (strcasecmp(fmtstring, "phylip")      == 0) return eslMSAFILE_PHYLIP;
-  if (strcasecmp(fmtstring, "phylips")     == 0) return eslMSAFILE_PHYLIPS;
   if (strcasecmp(fmtstring, "psiblast")    == 0) return eslMSAFILE_PSIBLAST;
   if (strcasecmp(fmtstring, "selex")       == 0) return eslMSAFILE_SELEX;
   if (strcasecmp(fmtstring, "afa")         == 0) return eslMSAFILE_AFA;
   if (strcasecmp(fmtstring, "clustal")     == 0) return eslMSAFILE_CLUSTAL;
   if (strcasecmp(fmtstring, "clustallike") == 0) return eslMSAFILE_CLUSTALLIKE;
+  if (strcasecmp(fmtstring, "phylip")      == 0) return eslMSAFILE_PHYLIP;
+  if (strcasecmp(fmtstring, "phylips")     == 0) return eslMSAFILE_PHYLIPS;
   return eslMSAFILE_UNKNOWN;
 }
 

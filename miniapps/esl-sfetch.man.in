@@ -1,92 +1,71 @@
-.TH "esl-sfetch" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "esl\-sfetch" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
-.TP
-esl-sfetch - retrieve (sub-)sequences from a sequence file
+esl\-sfetch \- retrieve (sub-)sequences from a sequence file
 
 .SH SYNOPSIS
 
-.TP
-Single sequence retrieval:
-.B esl-sfetch
-.I [options]
-.I seqfile
-.I key
+.nf
+\fBesl\-sfetch\fR [\fIoptions\fR] \fIseqfile key\fR
+  (retrieve a single sequence by key)
 
-.TP
-Single subsequence retrieval:
-.B esl-sfetch -c
-.I <from>..<to>
-.I seqfile
-.I key
+\fBesl\-sfetch \-c \fIfrom\fB..\fIto \fR[\fIoptions\fR]\fI seqfile key\fR
+  (retrieve a single subsequence by key and coords)
 
-.TP
-Multiple sequence retrieval:
-.B esl-sfetch -f
-.I [options]
-.I seqfile
-.I keyfile
+\fBesl\-sfetch \-f \fR[\fIoptions\fR] \fIseqfile keyfile\fR
+  (retrieve multiple sequences using a file of keys)
 
-.TP
-Multiple subsequence retrieval:
-.B esl-sfetch -Cf 
-.I [options]
-.I seqfile
-.I subseq-coord-file
+\fBesl\-sfetch \-Cf \fR[\fIoptions\fR] \fIseqfile subseq\-coord\-file\fR
+  (retrieve multiple subsequences using file of keys and coords)
 
-.TP
-Indexing a sequence file for retrieval:
-.B esl-afetch --index
-.I msafile
+\fBesl\-afetch \-\-index\fI msafile\fR
+  (index a sequence file for retrievals)
+.fi
 
 
 .SH DESCRIPTION
 
-.pp
-.B esl-sfetch
+.PP
+.B esl\-sfetch
 retrieves one or more sequences or subsequences from
-.I seqfile.
+.IR seqfile .
 
-.pp
+.PP
 The 
 .I seqfile 
-should be indexed first using 
-.B esl-sfetch --index <seqfile>.
+must be indexed using
+\fBesl\-sfetch \-\-index\fI seqfile\fR.
 This creates an SSI index file
-.I <seqfile>.ssi.
-An SSI file is not necessary, but it greatly accelerates
-retrieval.
+.IR seqfile .ssi.
 
-.pp
+.PP
 To retrieve a single complete sequence, do
-.B esl-sfetch <seqfile> <key>
+\fBesl\-sfetch\fI seqfile key\fR,
 where 
 .I key
 is the name or accession of the desired sequence.
 
-.pp
+.PP
 To retrieve a single subsequence rather than a complete
 sequence, use the 
-.I -c start-end
-option to provide start and end coordinates. The start
-and end coordinates are provided as one string, separated
-by any nonnumeric, nonwhitespace character or characters you like;
-for example, 
-.I -c 23..100
-, 
-.I -c 23/100
-, or
-.I -c 23-100
-all work. To retrieve a suffix of a subsequence, you
-can omit the 
+\fB\-c \fIstart\fR..\fIend\fR
+option to provide
+.I start
+and
 .I end
-; for example,
-.I -c 23:
-would work.
+coordinates. The
+.I start
+and
+.I end
+coordinates are provided as one string, separated
+by any nonnumeric, nonwhitespace character or characters you like;
+see the
+.B \-c
+option below for more details.
 
-.pp
+.PP
 To retrieve more than one complete sequence at once, you may use the 
-.I -f
+.B \-f
 option, and the second command line argument will specify the
 name of a 
 .I keyfile
@@ -94,98 +73,72 @@ that contains a list of names or accessions, one per line; the first
 whitespace-delimited field on each line of this file is parsed as the
 name/accession.
 
-.pp
+.PP
 To retrieve more than one subsequence at once, use the
-.I -C
+.B \-C
 option in addition to
-.I -f
-, and now the second argument is parsed as a list of subsequence
-coordinate lines, with each line containing at least four
-whitespace-delimited fields: 
-.I new_name
-.I from
-.I to 
-.I name/accession.
-For each such line, sequence
-.I name/accession
-is found, a subsequence
-.I from..to is extracted,
-and the subsequence is renamed 
-.I new_name 
-before being output. 
+.BR \-f ,
+and now the second argument is parsed as a list of subsequence
+coordinate lines. See the
+.B \-C
+option below for more details, including the format of these lines.
 
  
-.pp
+.PP
 In DNA/RNA files, you may extract (sub-)sequences in reverse complement
 orientation in two different ways: either by providing a 
 .I from
 coordinate that is greater than 
-.I to, 
+.IR to , 
 or by providing the 
-.I -r
+.I \-r
 option.
 
-.pp
-The sequence file may be in any of several different common unaligned
-sequence formats including FASTA, GenBank, EMBL, UniProt, or DDBJ. It
-may also be an alignment file, in Stockholm format for example. By
-default the file format is autodetected. The 
-.I --informat <s> 
-option allows you to specify the format and override
-autodetection. This
-option may be useful for making 
-.B esl-sfetch 
-more robust, because format autodetection may fail on unusual files.
-
-.pp
+.PP
 When the
-.I -f 
+.B \-f 
 option is used to do multiple (sub-)sequence retrieval, the file
-argument may be - (a single dash), in which case the list of
+argument may be \- (a single dash), in which case the list of
 names/accessions (or subsequence coordinate lines) is read from
 standard input. However, because a standard input stream can't be SSI indexed,
-(sub-)sequence retrieval from 
-.I stdin
-may be slow.
+(sub-)sequence retrieval from stdin may be slow.
 
 
 .SH OPTIONS
 
 .TP
-.B -h
+.B \-h
 Print brief help; includes version number and summary of
 all options, including expert options.
 
 .TP
-.BI -c " <coords>"
+.BI \-c " coords"
 Retrieve a subsequence with start and end coordinates specified by the 
-.I <coords>
+.I coords
 string. This string consists of start 
 and end coordinates separated
 by any nonnumeric, nonwhitespace character or characters you like;
 for example, 
-.I -c 23..100
-, 
-.I -c 23/100
-, or
-.I -c 23-100
+\fB\-c 23..100\fR,
+\fB\-c 23/100\fR, or
+\fB\-c 23\-100\fR
 all work. To retrieve a suffix of a subsequence, you
 can omit the 
 .I end
 ; for example,
-.I -c 23:
+.B \-c 23:
 would work.
 To specify reverse complement (for DNA/RNA sequence),
-specify 
-.I <from> 
+you can specify 
+.I from
 greater than
-.I <to>;
+.IR to ;
 for example,
-.I -c 100..23
+.B \-c 100..23
 retrieves the reverse complement strand from 100 to 23.
 
 .TP
-.B -f
+.B \-f
 Interpret the second argument as a 
 .I keyfile
 instead of as just one
@@ -194,93 +147,114 @@ The first whitespace-limited field on each line of
 .I keyfile
 is interpreted as a name or accession to be fetched.
 This option doesn't work with the
-.B --index
+.B \-\-index
 option.  Any other fields on a line after the first one are
 ignored. Blank lines and lines beginning with # are ignored.
 
 .TP
-.BI -o " <f>"
+.BI \-o " <f>"
 Output retrieved sequences to a file 
 .I <f>
-instead of to
-.I stdout.
+instead of to stdout.
 
 
 .TP
-.BI -n " <s>"
+.BI \-n " <s>"
 Rename the retrieved (sub-)sequence 
-.I <s>.
-This is incompatible with the
-.I -f
-option.
+.IR <s> .
+Incompatible with 
+.BR \-f .
 
 .TP
-.B -r
-Reverse complement the retrieved (sub-)sequence. This only works for
+.B \-r
+Reverse complement the retrieved (sub-)sequence. Only accepted for
 DNA/RNA sequences.
 
 .TP
-.B -C
+.B \-C
 Multiple subsequence retrieval mode, with 
-.I -f
+.B \-f
 option (required). Specifies that the second command line argument
 is to be parsed as a subsequence coordinate file, consisting of
 lines containing four whitespace-delimited fields:
-.I new_name
-.I from
-.I to 
-.I name/accession.
+.IR new_name ,
+.IR from ,
+.IR to ,
+.IR name/accession .
 For each such line, sequence
 .I name/accession
 is found, a subsequence
-.I from..to is extracted,
+\fIfrom\fR..\fIto\fR is extracted,
 and the subsequence is renamed 
 .I new_name 
 before being output. 
 Any other fields after the first four are ignored. Blank lines
-and lines beginning in # are ignored.
+and lines beginning with # are ignored.
 
 
 .TP
-.B -O
+.B \-O
 Output retrieved sequence to a file named
-.I <key>.
+.IR key .
 This is a convenience for saving some typing:
 instead of 
-.B esl-sfetch -o SRPA_HUMAN swissprot SRPA_HUMAN
+.nf
+  \fB% esl\-sfetch \-o SRPA_HUMAN swissprot SRPA_HUMAN\fI
+.fi
 you can just type
-.B esl-sfetch -O swissprot SRPA_HUMAN.
+.nf 
+  \fB% esl\-sfetch \-O swissprot SRPA_HUMAN
+.fi
 The
-.B -O 
+.B \-O 
 option only works if you're retrieving a
 single alignment; it is incompatible with 
-.B -f.
+.BR \-f .
 
 .TP
-.B --index
+.B \-\-index
 Instead of retrieving a
 .I key,
 the special command
-.B esl-afetch --index
-.I msafile
+.B esl\-sfetch \-\-index
+.I seqfile
 produces an SSI index of the names and accessions
 of the alignments in
 the 
-.I msafile.
+.I seqfile.
 Indexing should be done once on the
-.I msafile
+.I seqfile
 to prepare it for all future fetches.
+
 
 .SH EXPERT OPTIONS
 
 .TP
-.BI --informat " <s>"
-Specify that the sequence file is in format
-.I <s>,
-where 
+.BI \-\-informat " <s>"
+Assert that 
+.I seqfile
+is in format
+.IR <s> ,
+bypassing format autodetection.
+Common choices for 
 .I <s> 
-may be FASTA, GenBank, EMBL, UniProt, DDBJ, or Stockholm.  This string
-is case-insensitive ("genbank" or "GenBank" both work, for example).
+include:
+.BR fasta ,
+.BR embl ,
+.BR genbank.
+Alignment formats also work;
+common choices include:
+.BR stockholm , 
+.BR a2m ,
+.BR afa ,
+.BR psiblast ,
+.BR clustal ,
+.BR phylip .
+For more information, and for codes for some less common formats,
+see main documentation.
+The string
+.I <s>
+is case-insensitive (\fBfasta\fR or \fBFASTA\fR both work).
 
 
 
