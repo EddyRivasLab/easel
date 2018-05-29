@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>   // one of the utests uses alarm() to catch an infinite loop bug
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -1751,12 +1752,12 @@ buffer_countline(ESL_BUFFER *bf, esl_pos_t *opt_nc, esl_pos_t *opt_nskip)
   if (bf->pos == bf->n) { status = eslEOF; goto ERROR; } /* normal EOF */
 
   nc = 0;
-  do {
+  do { // Make sure that a complete input line is loaded in buf, up to a newline or EOF.
+    if ( nc && bf->mem[bf->pos+nc-1] == '\r') nc--;  // see iss#23. If \r was last char, back up so esl_memnewline can see \r\n
     if ((status = esl_memnewline(bf->mem + bf->pos + nc, bf->n - bf->pos - nc, &nc2, &nterm)) != eslOK && status != eslEOD) goto ERROR;
-    nc += nc2;
-    if (nc2 && bf->mem[bf->pos+nc-1] == '\r') nc--; /* handle case where we've only read up to \r of a \r\n newline */
-    if (nterm) break;
-    if (( status = buffer_refill(bf, nc+nterm)) != eslOK && status != eslEOF) goto ERROR;
+    nc += nc2;  
+    if (nterm) break;  // esl_memnewline found \n or \r\n. 
+    if (( status = buffer_refill(bf, nc)) != eslOK && status != eslEOF) goto ERROR; // only returns EOF if no data left in buf at all (pos==n)
   } while (bf->n - bf->pos > nc);
       
   /* EOF check. If we get here with status == eslEOF, nc = nterm = 0,
@@ -2722,6 +2723,41 @@ utest_OpenPipe(const char *tmpfile, int nlines)
 }
 
 
+/* utest_halfnewline()
+ * Tests for issue #23: esl_buffer hangs when input ends in \r
+ * [xref SRE:H5/62]
+ */
+static void alarm_handler(int signum) { esl_fatal("utest_halfnewline() timed out and failed"); }
+
+static void
+utest_halfnewline(void)
+{
+  char        msg[] = "utest_halfnewline() failed";
+  ESL_BUFFER *bf    = NULL;
+  char        s[]   = "xxx\r";  // bug manifested when \r is the last char of a file.
+  char       *p     = NULL;
+  esl_pos_t   n     = 0;  
+  int         status;
+  
+  signal(SIGALRM, alarm_handler); // the bug is an infinite loop in esl_buffer_GetLine(), so we use an alarm signal to trap it.
+  alarm(1);                       // this utest will self destruct in one second...
+
+  if ( (status = esl_buffer_OpenMem(s, strlen(s), &bf)) != eslOK)  esl_fatal(msg);
+  if ( (status = esl_buffer_GetLine(bf, &p, &n))        != eslOK)  esl_fatal(msg);
+  if ( n != strlen(s))                                             esl_fatal(msg);
+  if ( strncmp(p, s, n) != 0)                                      esl_fatal(msg);  // a lone \r is a char, not a newline, per current esl_memnewline() spec
+  if ( (status = esl_buffer_GetLine(bf, &p, &n))        != eslEOF) esl_fatal(msg);  //   (perhaps that should change)
+  if ( n != 0)                                                     esl_fatal(msg);
+  if ( p != NULL)                                                  esl_fatal(msg);
+
+  esl_buffer_Close(bf);
+  alarm(0);                  // removes self-destruct alarm
+  signal(SIGALRM, SIG_DFL);  // deletes self-destruct handler
+  return;
+}
+       
+
+
 #endif /* eslBUFFER_TESTDRIVE */
 
 /*****************************************************************
@@ -2779,6 +2815,8 @@ main(int argc, char **argv)
 
   utest_SetOffset (tmpfile, nlines);
   utest_Read();
+
+  utest_halfnewline();
 
   nbuftypes  = 7;
   ntesttypes = 8;
