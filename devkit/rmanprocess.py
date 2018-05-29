@@ -42,7 +42,7 @@ for line in f:
                 break
         m = re.match(r'(\S+)\s*\\?-\s*(.+)$', line)
         if m:
-            print(r'\section{{\monob{{{0}}} - {1}}}'.format(m.group(1), m.group(2)))
+            print(r'\section{{\texorpdfstring{{\monob{{{0}}}}}{{{0}}} - {1}}}'.format(m.group(1), m.group(2)))
         else:
             print("Error: no progname/description line found");
             sys.exit(1)
