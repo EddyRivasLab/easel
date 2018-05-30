@@ -33,6 +33,12 @@ contributors include:
    Henry Spencer, U. of Toronto      esl_regexp.c
    David Wheeler                     easel.c::esl_tmpfile()
 
+Easel development is supported in part by the National Human Genome
+Research Institute of the US National Institutes of Health under grant
+number R01HG009116. The content is solely the responsibility of the
+authors and does not necessarily represent the official views of the
+National Institutes of Health.
+
 The Easel library is open source. It is freely distributed under the
 terms of a standard BSD (Berkeley Software Distribution) license:
 
@@ -64,3 +70,5 @@ terms of a standard BSD (Berkeley Software Distribution) license:
    STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
    OF THE POSSIBILITY OF SUCH DAMAGE.
+
+

@@ -279,12 +279,12 @@ when the
 or
 .B \-\-rf\-is\-mask
 options are used can be saved to output files using the options
-\fB\-\-fmask\-rf\fI <f>\fR,
-\fB\-\-fmask\-all\fI <f>\fR,
-\fB\-\-gmask\-rf\fI <f>\fR,
-\fB\-\-gmask\-all\fI <f>\fR,
-\fB\-\-pmask\-rf\fI <f>\fR, and 
-\fB\-\-pmask\-all\fI <f>\fR.
+\fB\-\-fmask\-rf\fR\fI <f>\fR,
+\fB\-\-fmask\-all\fR\fI <f>\fR,
+\fB\-\-gmask\-rf\fR\fI <f>\fR,
+\fB\-\-gmask\-all\fR\fI <f>\fR,
+\fB\-\-pmask\-rf\fR\fI <f>\fR, and 
+\fB\-\-pmask\-all\fR\fI <f>\fR.
 In all cases, 
 .I <f> 
 will contain a single line, a bit vector of length
@@ -493,7 +493,7 @@ specify that a column is kept (included by mask) if the
 fraction of sequences with a non-gap residue in that column with a 
 posterior probability of at least 
 .I <y>
-(from \fB\-\-pthresh\fI <y>\fR) is
+(from \fB\-\-pthresh\fR\fI <y>\fR) is
 .I <x>
 or greater. All other columns are removed (excluded by mask).
 By default 
@@ -506,7 +506,7 @@ With
 .BR \-p ,
 specify that a column is kept (included by mask) if 
 .I <x>
-(from \fB\-\-pfract \fI<x>\fR)
+(from \fB\-\-pfract \fR\fI<x>\fR)
 fraction of sequences with a non-gap residue in that column have a 
 posterior probability of at least 
 .IR <y> . 

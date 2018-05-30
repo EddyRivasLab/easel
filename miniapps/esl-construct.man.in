@@ -46,8 +46,8 @@ using any of the following options:
 .BR \-x ,
 .BR \-r ,
 .BR \-c ,
-\fB\-\-indi \fI<s>\fR,
-\fB\-\-ffreq \fI<x>\fR,
+\fB\-\-indi \fR\fI<s>\fR,
+\fB\-\-ffreq \fR\fI<x>\fR,
 .BR \-\-fmin .
 These are described below. All of these options require the 
 .BI \-o " <f>"
@@ -122,7 +122,7 @@ option.
 .TP
 .B \-\-rfindi
 With 
-\fB\-\-indi \fI<s>\fR, 
+\fB\-\-indi \fR\fI<s>\fR, 
 set the reference annotation (#=GC RF) as the sequence named
 .BR <s> .
 

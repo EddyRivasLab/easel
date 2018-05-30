@@ -12,7 +12,7 @@ esl\-afetch \- retrieve alignments from a multi-MSA database
 \fBesl\-afetch \-f\fR [\fIoptions\fR] \fImsafile keyfile\fR
   (multiple MSA retrieval, from a file of keys)
 
-\fBesl\-afetch \-\-index \fImsafile\fR
+\fBesl\-afetch \-\-index \fR\fImsafile\fR
   (index an MSA file for retrieval)
 
 .SH DESCRIPTION

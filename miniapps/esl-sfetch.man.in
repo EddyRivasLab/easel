@@ -9,7 +9,7 @@ esl\-sfetch \- retrieve (sub-)sequences from a sequence file
 \fBesl\-sfetch\fR [\fIoptions\fR] \fIseqfile key\fR
   (retrieve a single sequence by key)
 
-\fBesl\-sfetch \-c \fIfrom\fB..\fIto \fR[\fIoptions\fR]\fI seqfile key\fR
+\fBesl\-sfetch \-c \fR\fIfrom\fR\fB..\fR\fIto \fR[\fIoptions\fR]\fI seqfile key\fR
   (retrieve a single subsequence by key and coords)
 
 \fBesl\-sfetch \-f \fR[\fIoptions\fR] \fIseqfile keyfile\fR
@@ -18,7 +18,7 @@ esl\-sfetch \- retrieve (sub-)sequences from a sequence file
 \fBesl\-sfetch \-Cf \fR[\fIoptions\fR] \fIseqfile subseq\-coord\-file\fR
   (retrieve multiple subsequences using file of keys and coords)
 
-\fBesl\-afetch \-\-index\fI msafile\fR
+\fBesl\-afetch \-\-index\fR\fI msafile\fR
   (index a sequence file for retrievals)
 .fi
 
@@ -34,13 +34,13 @@ retrieves one or more sequences or subsequences from
 The 
 .I seqfile 
 must be indexed using
-\fBesl\-sfetch \-\-index\fI seqfile\fR.
+\fBesl\-sfetch \-\-index\fR\fI seqfile\fR.
 This creates an SSI index file
 .IR seqfile .ssi.
 
 .PP
 To retrieve a single complete sequence, do
-\fBesl\-sfetch\fI seqfile key\fR,
+\fBesl\-sfetch\fR\fI seqfile key\fR,
 where 
 .I key
 is the name or accession of the desired sequence.
@@ -48,7 +48,7 @@ is the name or accession of the desired sequence.
 .PP
 To retrieve a single subsequence rather than a complete
 sequence, use the 
-\fB\-c \fIstart\fR..\fIend\fR
+\fB\-c \fR\fIstart\fR..\fIend\fR
 option to provide
 .I start
 and
@@ -199,7 +199,7 @@ Output retrieved sequence to a file named
 This is a convenience for saving some typing:
 instead of 
 .nf
-  \fB% esl\-sfetch \-o SRPA_HUMAN swissprot SRPA_HUMAN\fI
+  \fB% esl\-sfetch \-o SRPA_HUMAN swissprot SRPA_HUMAN
 .fi
 you can just type
 .nf 

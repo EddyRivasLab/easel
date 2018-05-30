@@ -17,7 +17,7 @@ calculates individual sequence weights for each alignment in
 and outputs a new 
 multiple sequence alignment file in Stockholm format with
 the weights annotated in Stockholm-format 
-\fB#=GS \fIseqname\fB WT \fIweight\fR
+\fB#=GS \fR\fIseqname\fR\fB WT \fR\fIweight\fR
 lines.
 The default weighting algorithm is the Gerstein/Sonnhammer/Chothia
 algorithm.
