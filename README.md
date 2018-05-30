@@ -24,7 +24,6 @@ To participate in Easel development, visit us at
 ```bash
     % git clone https://github.com/EddyRivasLab/easel
     % cd easel
-    % git checkout develop
     % autoconf
 ```
 
@@ -41,10 +40,6 @@ and to test:
    % make check
 ```   
     
-
-
-------------------------------------------------------------------
-Sean Eddy | HHMI | Harvard University | http://eddylab.org
 
 
 
