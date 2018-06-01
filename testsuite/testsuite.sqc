@@ -46,7 +46,7 @@
 1 exercise randomseq-utest    @esl_randomseq_utest@
 1 exercise ratematrix-utest   @esl_ratematrix_utest@
 1 exercise recorder-utest     @esl_recorder_utest@
-1 exercise red_black-utest     @esl_red_black_utest@
+1 exercise red_black-utest    @esl_red_black_utest@
 1 exercise regexp-utest       @esl_regexp_utest@
 1 exercise rootfinder-utest   @esl_rootfinder_utest@
 1 exercise scorematrix-utest  @esl_scorematrix_utest@
@@ -100,6 +100,7 @@
 ################################################################
 
 3 valgrind alphabet-utest     @esl_alphabet_utest@
+3 valgrind buffer-utest       @esl_buffer_utest@      # fails for valgrind <=3.6.1, known valgrind bug #258294 on OS/X; I use valgrind >=3.10.0
 3 valgrind cluster-utest      @esl_cluster_utest@
 3 valgrind dirichlet-utest    @esl_dirichlet_utest@
 3 valgrind distance-utest     @esl_distance_utest@
@@ -146,10 +147,7 @@
 3 valgrind weibull-utest      @esl_weibull_utest@
 3 valgrind wuss-utest         @esl_wuss_utest@
 
-###  esl_buffer_utest exercises valgrind bug #258294 on OSX
-###  still open in valgrind 3.6.1 (Feb 2011)
-###  reinstate the test when valgrind updates
-# 3 valgrind buffer-utest       @esl_buffer_utest@
+
 
 
 
