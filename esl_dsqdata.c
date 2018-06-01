@@ -1453,7 +1453,7 @@ static void
 utest_readwrite(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc)
 {
   char               msg[]         = "esl_dsqdata :: readwrite unit test failed";
-  char               tmpfile[32]   = "esltmpXXXXXX";
+  char               tmpfile[16]   = "esltmpXXXXXX";
   char               basename[32];
   ESL_SQ           **sqarr         = NULL;
   FILE              *tmpfp         = NULL;
