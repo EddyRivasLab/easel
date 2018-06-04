@@ -1855,9 +1855,10 @@ buffer_counttok(ESL_BUFFER *bf, const char *sep, esl_pos_t *ret_nc)
     if ( (status = buffer_refill(bf, nc)) != eslOK && status != eslEOF) goto ERROR;
   } while (bf->n - bf->pos > nc);
 
-  if (bf->mem[bf->pos+nc] == '\n' && bf->mem[bf->pos+nc-1] == '\r') { nc--; }
+  // check for \r\n newline, but beware, bf->pos+nc can be off edge of bf->mem, if input ends with token.
+  if (bf->pos+nc < bf->n && bf->mem[bf->pos+nc] == '\n' && bf->mem[bf->pos+nc-1] == '\r') { nc--; }
 
-  /* bf->mem[bf->pos+nc] now sitting on the first char that's in sep, or a newline char */
+  /* if still in input, bf->mem[bf->pos+nc] now sitting on the first char that's in sep, or a newline char */
   *ret_nc = nc;
   return eslOK;
 
