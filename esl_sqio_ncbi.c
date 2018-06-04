@@ -1185,7 +1185,7 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 	  else
 	  { /* DNA, not an alignment.  Might be really long sequences */
 
-		  /*this variable is used instead of the MAX_RESIDUE_COUNT macro because impl_dummy may require shorter sequences to fit in memory*/
+          /*this variable was used instead of the MAX_RESIDUE_COUNT macro because old H3 impl_dummy could've required shorter sequences to fit in memory*/
           if (max_residues < 0)
             max_residues = MAX_RESIDUE_COUNT;
 
