@@ -100,7 +100,8 @@
 ################################################################
 
 3 valgrind alphabet-utest     @esl_alphabet_utest@
-3 valgrind buffer-utest       @esl_buffer_utest@      # fails for valgrind <=3.6.1, known valgrind bug #258294 on OS/X; I use valgrind >=3.10.0
+3 valgrind buffer-utest       @esl_buffer_utest@
+#    (buffer_utest fails for valgrind <=3.6.1, known valgrind bug #258294 on OS/X; I use valgrind >=3.10.0)
 3 valgrind cluster-utest      @esl_cluster_utest@
 3 valgrind dirichlet-utest    @esl_dirichlet_utest@
 3 valgrind distance-utest     @esl_distance_utest@
