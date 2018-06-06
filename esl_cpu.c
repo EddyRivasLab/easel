@@ -25,11 +25,14 @@
 #include "esl_cpu.h"
 
 /* declarations of static functions that come in section (2)  */
-#if defined(eslENABLE_SSE) || defined(eslENABLE_AVX) || defined(eslENABLE_AVX512)
+#if defined(eslENABLE_SSE) || defined(eslENABLE_SSE4) || defined(eslENABLE_AVX) || defined(eslENABLE_AVX512)
 static void cpu_run_id(uint32_t eax, uint32_t ecx, uint32_t *abcd);
 #endif
 #ifdef eslENABLE_SSE
 static int  cpu_has_sse(void);
+#endif
+#ifdef eslENABLE_SSE4
+static int  cpu_has_sse4(void);
 #endif
 #ifdef eslENABLE_AVX
 static int  cpu_check_xcr0_ymm(void);
@@ -45,12 +48,12 @@ static int  cpu_has_avx512(void);
  *****************************************************************/
 
 /* Function:  esl_cpu_has_sse()
- * Synopsis:  Check if processor supports x86 SSE/SSE2/SSE4.1
+ * Synopsis:  Check if processor supports x86 SSE/SSE2
  * Incept:    SRE, Wed Feb  1 09:19:11 2017
  *
  * Purpose:   Returns TRUE if our code has an available SSE vector
  *            implementation compiled in, and the processor we're
- *            running on can support it (i.e. has SSE+SSE2+SSE4.1).
+ *            running on can support it (i.e. has SSE+SSE2).
  *            Else returns FALSE.
  * 
  * Note:      Although these use static flags, they are thread-safe.  
@@ -67,6 +70,29 @@ esl_cpu_has_sse(void)
   if (sse_support < 0)
     sse_support = cpu_has_sse();
   return sse_support;
+#else
+  return 0;
+#endif
+}
+
+
+/* Function:  esl_cpu_has_sse4()
+ * Synopsis:  Check if processor supports x86 <= SSE4.1
+ * Incept:    SRE, Wed Jun  6 11:49:46 2018 [OdjBox, Otto Croy]
+ *
+ * Purpose:   Returns TRUE if our code has an available SSE4 vector
+ *            implementation compiled in, and the processor we're
+ *            running on can support it (i.e. has SSE+SSE2+SSE4.1).
+ *            Else returns FALSE.
+ */
+int
+esl_cpu_has_sse4(void)
+{
+#ifdef eslENABLE_SSE4
+  static int sse4_support = -1;
+  if (sse4_support < 0)
+    sse4_support = cpu_has_sse4();
+  return sse4_support;
 #else
   return 0;
 #endif
@@ -137,6 +163,9 @@ esl_cpu_Get(void)
 #ifdef eslENABLE_AVX
   if (esl_cpu_has_avx())    return "AVX";
 #endif
+#ifdef eslENABLE_SSE4
+  if (esl_cpu_has_sse4())   return "SSE4";
+#endif
 #ifdef eslENABLE_SSE
   if (esl_cpu_has_sse())    return "SSE";
 #endif
@@ -156,7 +185,7 @@ esl_cpu_Get(void)
  * 2. Internal code used in x86 vector code checks
  *****************************************************************/
 
-#if defined(eslENABLE_SSE) || defined(eslENABLE_AVX) || defined(eslENABLE_AVX512)
+#if defined(eslENABLE_SSE) || defined(eslENABLE_SSE4) || defined(eslENABLE_AVX) || defined(eslENABLE_AVX512)
 /* cpu_run_id()
  *
  * Bit flags in EAX (and maybe ECX) registers specify the information
@@ -185,7 +214,7 @@ cpu_run_id(uint32_t eax, uint32_t ecx, uint32_t *abcd)
   abcd[0] = eax; abcd[1] = ebx; abcd[2] = ecx; abcd[3] = edx;
 #endif // ! _MSC_VER
 }     
-#endif // eslENABLE_SSE | eslENABLE_AVX | eslENABLE_AVX512
+#endif // eslENABLE_SSE | eslENABLE_SSE4 | eslENABLE_AVX | eslENABLE_AVX512
 
 
 
@@ -245,11 +274,32 @@ cpu_check_xcr0_zmm(void)
 #ifdef eslENABLE_SSE
 /* cpu_has_sse()
  * 
- * Test whether processor supports SSE/SSE2/SSE4.1 instructions.
- * Note that Easel's "SSE" vector code means SSE+SSE2+SSE4.1.
+ * Test whether processor supports SSE/SSE2 instructions.
+ * Note that Easel's "SSE" vector code means SSE+SSE2.
  */
 static int
 cpu_has_sse(void)
+{
+  uint32_t abcd[4];
+  uint32_t sse2_mask =  (1 << 25) |  // edx: SSE
+                        (1 << 26);   //      SSE2
+
+  cpu_run_id( 1, 0, abcd );
+  if ( (abcd[3] & sse2_mask)  != sse2_mask)  // edx check
+    return 0;
+  return 1;
+}
+#endif // eslENABLE_SSE
+
+
+#ifdef eslENABLE_SSE4
+/* cpu_has_sse4()
+ * 
+ * Test whether processor supports SSE/SSE2/SSE4.1 instructions.
+ * Note that Easel's "SSE4" vector code means SSE+SSE2+SSE4.1.
+ */
+static int
+cpu_has_sse4(void)
 {
   uint32_t abcd[4];
   uint32_t sse2_mask =  (1 << 25) |  // edx: SSE
@@ -262,7 +312,7 @@ cpu_has_sse(void)
     return 0;
   return 1;
 }
-#endif // eslENABLE_SSE
+#endif // eslENABLE_SSE4
 
 
 
@@ -363,8 +413,9 @@ utest_consistency(void)
 {
   char msg[] = "utest_consistency() failed";
 
-  if (esl_cpu_has_avx512() && ! esl_cpu_has_avx()) esl_fatal(msg);
-  if (esl_cpu_has_avx()    && ! esl_cpu_has_sse()) esl_fatal(msg);
+  if (esl_cpu_has_avx512() && ! esl_cpu_has_avx())  esl_fatal(msg);
+  if (esl_cpu_has_avx()    && ! esl_cpu_has_sse4()) esl_fatal(msg);
+  if (esl_cpu_has_sse4()   && ! esl_cpu_has_sse())  esl_fatal(msg);
 }
 
 #endif // eslCPU_TESTDRIVE
@@ -402,6 +453,7 @@ int
 main(int argc, char **argv)
 {
   printf("your cpu supports our SSE code    : %s\n",  esl_cpu_has_sse()    ? "yes" : "no");
+  printf("               ...our SSE4 code   : %s\n",  esl_cpu_has_sse4()   ? "yes" : "no");
   printf("               ...our AVX code    : %s\n",  esl_cpu_has_avx()    ? "yes" : "no");
   printf("               ...our AVX512 code : %s\n",  esl_cpu_has_avx512() ? "yes" : "no");
   printf("Our dispatchers will choose       : %s\n",  esl_cpu_Get());

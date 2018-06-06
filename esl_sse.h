@@ -2,6 +2,10 @@
  *
  * This header file, unusually, provides many complete function
  * implementations so they can be inlined by the compiler.
+ *
+ * esl_sse supports both our SSE implementations and our SSE4
+ * implementations. In a plain "SSE" (i.e. SSE/SSE2, e.g. HMMER3),
+ * SSE4.1-dependent code is ifdef'ed out.
  * 
  * Contents:
  *    1. Function declarations for esl_sse.c
@@ -13,7 +17,7 @@
 #ifndef eslSSE_INCLUDED
 #define eslSSE_INCLUDED
 #include "esl_config.h"
-#ifdef eslENABLE_SSE
+#if defined(eslENABLE_SSE) || defined(eslENABLE_SSE4)
 
 #include "easel.h"
 
@@ -48,8 +52,10 @@ esl_sse_hmax_epu8(__m128i a)
   return (uint8_t) _mm_extract_epi16(a, 0);   /* only low-order 8 bits set; so _epi16 or _epi8 equiv; _epi8 is SSE4.1 */
 }
 
+#ifdef eslENABLE_SSE4
 /* Function:  esl_sse_hmax_epi8()
  * Synopsis:  Return max of 16 int8_t elements in epi8 vector.
+ * (SSE4.1)
  */
 static inline int8_t
 esl_sse_hmax_epi8(__m128i a)
@@ -60,6 +66,7 @@ esl_sse_hmax_epi8(__m128i a)
   a  = _mm_max_epi8(a, _mm_srli_epi16     (a, 8));
   return (int8_t) _mm_cvtsi128_si32(a);
 }
+#endif
 
 /* Function:  esl_sse_hmax_epi16()
  * Synopsis:  Return max of 16 int16_t elements in epi16 vector.
@@ -309,6 +316,6 @@ esl_sse_select_ps(__m128 a, __m128 b, __m128 mask)
 }
 
 
-#endif /*eslENABLE_SSE*/
+#endif /*eslENABLE_SSE || eslENABLE_SSE4 */
 #endif /*eslSSE_INCLUDED*/
 

@@ -12,7 +12,7 @@
  *
  * This code is conditionally compiled, only when <eslENABLE_VMX> was
  * set in <esl_config.h> by the configure script, and that will only
- * happen on ARM platforms. When <eslENABLE_SSE> is not set, we
+ * happen on ARM platforms. When <eslENABLE_VMX> is not set, we
  * include some dummy code to silence compiler and ranlib warnings
  * about empty translation units and no symbols, and dummy drivers
  *     
