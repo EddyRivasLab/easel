@@ -6,7 +6,6 @@
 # Example:  ./esl-afetch.itest.pl ./esl-afetch        foo
 #
 # SRE, Fri Nov 11 09:16:49 2011
-# SVN $Id$
 
 $esl_afetch = shift;
 $tmppfx     = shift;

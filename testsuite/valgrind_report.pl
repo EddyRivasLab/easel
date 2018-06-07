@@ -103,5 +103,3 @@ if ($nleaking == 0) {
 
 
 # SRE, Fri Mar  2 08:37:48 2007 [Janelia]
-# SVN $Id$
-# SVN $URL$

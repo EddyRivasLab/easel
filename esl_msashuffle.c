@@ -10,13 +10,11 @@
 #include <string.h>
 
 #include "easel.h"
-#ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
-#endif
 #include "esl_msa.h"
-#include "esl_msashuffle.h"
 #include "esl_random.h"
 
+#include "esl_msashuffle.h"
 
 /*****************************************************************
  * 1. Randomizing MSAs by column.
@@ -74,7 +72,6 @@ esl_msashuffle_Shuffle(ESL_RANDOMNESS *r, ESL_MSA *msa, ESL_MSA *shuf)
 	    }
 	}
     }
-#ifdef eslAUGMENT_ALPHABET
   else 
     {
       ESL_DSQ x;
@@ -99,7 +96,6 @@ esl_msashuffle_Shuffle(ESL_RANDOMNESS *r, ESL_MSA *msa, ESL_MSA *shuf)
 	    }
 	}
     }
-#endif /*eslAUGMENT_ALPHABET*/
 
   return eslOK;
 }
@@ -153,7 +149,6 @@ esl_msashuffle_Bootstrap(ESL_RANDOMNESS *r, ESL_MSA *msa, ESL_MSA *bootsample)
       for (i = 0; i < msa->nseq; i++)
 	bootsample->aseq[i][msa->alen] = '\0';
     }
-#ifdef eslAUGMENT_ALPHABET
   else
     {
       for (i = 0; i < msa->nseq; i++)
@@ -169,7 +164,6 @@ esl_msashuffle_Bootstrap(ESL_RANDOMNESS *r, ESL_MSA *msa, ESL_MSA *bootsample)
       for (i = 0; i < msa->nseq; i++)
 	bootsample->ax[i][msa->alen+1] = eslDSQ_SENTINEL;
     }
-#endif /*eslAUGMENT_ALPHABET*/
 
   return eslOK;
 }
@@ -202,9 +196,7 @@ esl_msashuffle_PermuteSequenceOrder(ESL_RANDOMNESS *r, ESL_MSA *msa)
       i = esl_rnd_Roll(r, N);	/* idx = 0..N-1 */
       
       if ( ! (msa->flags & eslMSA_DIGITAL)) { tmp = msa->aseq[i]; msa->aseq[i] = msa->aseq[N-1]; msa->aseq[N-1] = tmp; }
-#ifdef eslAUGMENT_ALPHABET
       else 	                            { tmp = msa->ax[i];   msa->ax[i]   = msa->ax[N-1];   msa->ax[N-1]   = tmp; }
-#endif
       tmp    = msa->sqname[i]; msa->sqname[i] = msa->sqname[N-1]; msa->sqname[N-1] = tmp;
       tmpwgt = msa->wgt[i];    msa->wgt[i]    = msa->wgt[N-1];    msa->wgt[N-1]    = tmpwgt;
 
@@ -237,7 +229,7 @@ esl_msashuffle_PermuteSequenceOrder(ESL_RANDOMNESS *r, ESL_MSA *msa)
 /*****************************************************************
  * 3. Shuffling pairwise (QRNA) alignments
  *****************************************************************/ 
-#ifdef eslAUGMENT_ALPHABET
+
 /* Function: esl_msashuffle_XQRNA()
  * Synopsis: Gap-preserving column shuffle of a digital pairwise alignment.
  * Incept:   SRE, Tue Jan 22 09:09:52 2008 [Market Street Cafe, Leesburg]
@@ -428,7 +420,6 @@ esl_msashuffle_CQRNA(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, char *x, char *y, cha
   if (ycol  != NULL) free(ycol);
   return status;
 }
-#endif /*eslAUGMENT_ALPHABET*/
 
 
 /*****************************************************************
@@ -509,6 +500,3 @@ main(int argc, char **argv)
 }
 #endif
 
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

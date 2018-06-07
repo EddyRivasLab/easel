@@ -1,8 +1,6 @@
 /* Regular expression matching on strings.
  * 
  * SRE, Sun Jan  2 10:52:34 2005 [Zaragoza]
- * SVN $Id$
- * SVN $URL$
  ******************************************************************
  * The regexp module is a wrapper around a modified version of Henry
  * Spencer's regex library. Spencer's copyright notice appears below,
@@ -14,6 +12,7 @@
  */    
 #ifndef eslREGEXP_INCLUDED
 #define eslREGEXP_INCLUDED
+#include "esl_config.h"
 
 /* ESL_REGEXP_NSUB specifies the maximum number of () expressions
  * in a regexp. The whole regexp counts as one, so 16 allows for 
@@ -68,6 +67,4 @@ extern int   esl_regexp_SubmatchCoords(ESL_REGEXP *machine, char *origin, int el
 extern int   esl_regexp_ParseCoordString(const char *cstring, uint32_t *ret_start, uint32_t *ret_end);
 
 #endif /*eslREGEXP_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
+

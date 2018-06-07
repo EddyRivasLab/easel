@@ -2,6 +2,7 @@
  */
 #ifndef eslSTATS_INCLUDED
 #define eslSTATS_INCLUDED
+#include "esl_config.h"
 
 #include "easel.h"
 
@@ -134,9 +135,4 @@ extern int esl_stats_LinearRegression(const double *x, const double *y, const do
 #endif
 
 #endif /*eslSTATS_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
+

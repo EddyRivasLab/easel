@@ -6,7 +6,6 @@
  *   3. Unit tests.
  *   4. Test driver.
  *   5. Example.
- *   6. Copyright and license information.
  *   
  * This module is responsible for i/o of both eslMSAFILE_CLUSTAL and
  * eslMSAFILE_CLUSTALLIKE alignment formats.
@@ -19,18 +18,15 @@
 #include <ctype.h>
 
 #include "easel.h"
-#ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
-#endif
 #include "esl_mem.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
+
 #include "esl_msafile_clustal.h"
 
 static int make_text_consensus_line(const ESL_MSA *msa, char **ret_consline);
-#ifdef eslAUGMENT_ALPHABET
 static int make_digital_consensus_line(const ESL_MSA *msa, char **ret_consline);
-#endif
 
 /*****************************************************************
  *# 1. API for reading/writing Clustal and Clustal-like formats
@@ -49,14 +45,13 @@ esl_msafile_clustal_SetInmap(ESL_MSAFILE *afp)
 {
   int sym;
 
-#ifdef eslAUGMENT_ALPHABET
   if (afp->abc)
     {
       for (sym = 0; sym < 128; sym++) 
 	afp->inmap[sym] = afp->abc->inmap[sym];
       afp->inmap[0] = esl_abc_XGetUnknown(afp->abc);
     }
-#endif
+
   if (! afp->abc)
     {
       for (sym = 1; sym < 128; sym++) 
@@ -212,9 +207,7 @@ esl_msafile_clustal_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 
   afp->errmsg[0] = '\0';
   
-#ifdef eslAUGMENT_ALPHABET
   if (afp->abc   &&  (msa = esl_msa_CreateDigital(afp->abc, 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
-#endif
   if (! afp->abc &&  (msa = esl_msa_Create(                 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
 
   /* skip leading blank lines in file */
@@ -237,11 +230,15 @@ esl_msafile_clustal_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   do { 		/* afp->line, afp->n is now the first line of a block... */
     idx = 0;
     do {
-      for (pos = 0;     pos < n; pos++) if (! isspace(p[pos])) break;  name_start = pos; 
-      for (pos = pos+1; pos < n; pos++) if (  isspace(p[pos])) break;  name_len   = pos - name_start;
-      for (pos = pos+1; pos < n; pos++) if (! isspace(p[pos])) break;  seq_start  = pos;      
+      for (pos = 0;     pos < n; pos++) if (! isspace(p[pos])) break;  
+      name_start = pos; 
+      for (pos = pos+1; pos < n; pos++) if (  isspace(p[pos])) break;  
+      name_len   = pos - name_start;
+      for (pos = pos+1; pos < n; pos++) if (! isspace(p[pos])) break;  
+      seq_start  = pos;      
       if (pos >= n) ESL_XFAIL(eslEFORMAT, afp->errmsg, "invalid alignment line");
-      for (pos = pos+1; pos < n; pos++) if (  isspace(p[pos])) break;  seq_len    = pos - seq_start; /* expect one block; ignore trailing stuff, inc. optional coords */
+      for (pos = pos+1; pos < n; pos++) if (  isspace(p[pos])) break;  
+      seq_len    = pos - seq_start; /* expect one block; ignore trailing stuff, inc. optional coords */
 
       if (idx == 0) {
 	block_seq_start = seq_start;
@@ -264,9 +261,7 @@ esl_msafile_clustal_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 
       /* Append the sequence. */
       cur_alen = alen;
-#ifdef eslAUGMENT_ALPHABET
       if (msa->abc)    { status = esl_abc_dsqcat(afp->inmap, &(msa->ax[idx]),   &(cur_alen), p+seq_start, seq_len); }
-#endif
       if (! msa->abc)  { status = esl_strmapcat (afp->inmap, &(msa->aseq[idx]), &(cur_alen), p+seq_start, seq_len); }
       if      (status == eslEINVAL)    ESL_XFAIL(eslEFORMAT, afp->errmsg, "one or more invalid sequence characters");
       else if (status != eslOK)        goto ERROR;
@@ -360,11 +355,8 @@ esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa, int fmt)
     }
 
   /* Make a CLUSTAL-like consensus line */
-#ifdef eslAUGMENT_ALPHABET 
-  //  if (msa->abc &&  (status = make_digital_consensus_line(msa, &consline)) != eslOK) goto ERROR;
-  if (msa->abc &&  (status = make_digital_consensus_line(msa, &consline)) != eslOK) goto ERROR;
-#endif
-  if (! msa->abc && (status = make_text_consensus_line(msa, &consline))   != eslOK) goto ERROR;
+  if (  msa->abc && (status = make_digital_consensus_line(msa, &consline)) != eslOK) goto ERROR;
+  if (! msa->abc && (status = make_text_consensus_line   (msa, &consline)) != eslOK) goto ERROR;
 
   /* The magic header */
   if      (fmt == eslMSAFILE_CLUSTAL)     { if (fprintf(fp, "CLUSTAL 2.1 multiple sequence alignment\n")               < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "clustal msa write failed");  }
@@ -376,9 +368,7 @@ esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa, int fmt)
       if (fprintf(fp, "\n") < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "clustal msa write failed"); 
       for (i = 0; i < msa->nseq; i++)
 	{
-#ifdef eslAUGMENT_ALPHABET 
 	  if (msa->abc)   esl_abc_TextizeN(msa->abc, msa->ax[i]+apos+1, cpl, buf);
-#endif
 	  if (! msa->abc) strncpy(buf, msa->aseq[i]+apos, cpl);
 	  if (fprintf(fp, "%-*s %s\n", maxnamelen, msa->sqname[i], buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "clustal msa write failed"); 
 	}
@@ -509,7 +499,6 @@ make_text_consensus_line(const ESL_MSA *msa, char **ret_consline)
  * Exactly the same as make_text_consensus_line(), except for
  * digital mode <msa>.
  */
-#ifdef eslAUGMENT_ALPHABET
 static int
 matches_group_digital(ESL_ALPHABET *abc, uint32_t v, char *group)
 {
@@ -594,9 +583,6 @@ make_digital_consensus_line(const ESL_MSA *msa, char **ret_consline)
   *ret_consline = NULL;
   return eslOK;
 }
-
-
-#endif /*eslAUGMENT_ALPHABET*/
 /*-------------- end, internal clustal routines -----------------*/
 
 
@@ -1070,6 +1056,3 @@ main(int argc, char **argv)
 #endif /*eslMSAFILE_CLUSTAL_EXAMPLE2*/
 /*--------------------- end of example --------------------------*/
 
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

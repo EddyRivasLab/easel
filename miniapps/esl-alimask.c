@@ -7,6 +7,7 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_arr2.h"
 #include "esl_fileparser.h"
 #include "esl_getopts.h"
 #include "esl_msa.h"
@@ -602,21 +603,22 @@ main(int argc, char **argv)
   }
 
   /* Clean up, normal return */
-  if (rf2a_map)      free(rf2a_map);
-  if (useme_mfile)   free(useme_mfile);
-  if (useme_g)       free(useme_g);
-  if (useme_pp)      free(useme_pp);
-  if (useme_final)   free(useme_final);
-  if (i_am_rf)       free(i_am_rf);
-  if (i_am_eligible) free(i_am_eligible);
-  if (pp_ct)         esl_Free2D((void **) pp_ct,  orig_alen);
-  if (abc_ct)        esl_Free2D((void **) abc_ct, orig_alen);
-  if (gap_ct)        free(gap_ct);
-  if (msa)           esl_msa_Destroy(msa);
-  if (abc)           esl_alphabet_Destroy(abc);
-  if (w)             esl_stopwatch_Destroy(w);
-  if (afp)           esl_msafile_Close(afp);
-  if (afp2)          esl_msafile2_Close(afp2);
+  esl_free(rf2a_map);
+  esl_free(useme_mfile);
+  esl_free(useme_g);
+  esl_free(useme_pp);
+  esl_free(useme_final);
+  esl_free(i_am_rf);
+  esl_free(i_am_eligible);
+  esl_free(gap_ct);
+
+  esl_arr2_Destroy((void **) pp_ct,  orig_alen);
+  esl_arr2_Destroy((void **) abc_ct, orig_alen);
+  esl_msa_Destroy(msa);
+  esl_alphabet_Destroy(abc);
+  esl_stopwatch_Destroy(w);
+  esl_msafile_Close(afp);
+  esl_msafile2_Close(afp2);
   esl_getopts_Destroy(go);
   return 0;
 
@@ -1207,6 +1209,4 @@ parse_coord_string(const char *cstring, uint32_t *ret_start, uint32_t *ret_end)
   return eslOK;
 }
 
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
+

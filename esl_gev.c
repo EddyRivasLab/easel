@@ -4,11 +4,10 @@
  *    1. Evaluating densities and distributions
  *    2. Generic API routines: for general interface w/ histogram module
  *    3. Dumping plots to files
- *    4. Sampling (requires augmentation w/ random module)
+ *    4. Sampling
  *    5. ML fitting to complete or censored data
  *    6. Stats driver
  *    7. Example
- *    8. Copyright and license information
  *    
  * Xref:
  *    STL9/118, 2005/0712-easel-gev-impl. Verified against evd package in R.
@@ -42,15 +41,13 @@
 #include <float.h>
 
 #include "easel.h"
+#include "esl_minimizer.h"
+#include "esl_random.h"
 #include "esl_stats.h"
+
 #include "esl_gev.h"
 
-#ifdef eslAUGMENT_RANDOM
-#include "esl_random.h"
-#endif
-#ifdef eslAUGMENT_MINIMIZER
-#include "esl_minimizer.h"
-#endif
+
 
 /****************************************************************************
  * 1. Evaluating densities and distributions
@@ -328,9 +325,8 @@ esl_gev_Plot(FILE *fp, double mu, double lambda, double alpha,
 
 
 /****************************************************************************
- * 4. Sampling (requires augmentation w/ random module)
+ * 4. Sampling
  ****************************************************************************/ 
-#ifdef eslAUGMENT_RANDOM
 /* Function:  esl_gev_Sample()
  *
  * Purpose:   Sample a GEV-distributed random variate,
@@ -343,7 +339,6 @@ esl_gev_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double alpha)
   p = esl_rnd_UniformPositive(r); 
   return esl_gev_invcdf(p, mu, lambda, alpha);
 } 
-#endif /*eslAUGMENT_RANDOM*/
 /*--------------------------- end sampling ---------------------------------*/
 
 
@@ -352,7 +347,7 @@ esl_gev_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double alpha)
 /****************************************************************************
  * 5. ML fitting to complete or censored data
  ****************************************************************************/ 
-#ifdef eslAUGMENT_MINIMIZER
+
 /* Easel's conjugate gradient descent code allows a single void ptr to
  * point to any necessary fixed data, so we put everything into one
  * structure:
@@ -625,7 +620,6 @@ esl_gev_FitCensored(double *x, int n, int z, double phi,
 
   return (fitting_engine(&data, ret_mu, ret_lambda, ret_alpha));
 }
-#endif /*eslAUGMENT_MINIMIZER*/
 /*--------------------------- end fitting ----------------------------------*/
 
 
@@ -635,17 +629,7 @@ esl_gev_FitCensored(double *x, int n, int z, double phi,
 /****************************************************************************
  * 6. Stats driver
  ****************************************************************************/ 
-
 #ifdef eslGEV_STATS
-/* compile: 
-     gcc -g -Wall -I. -o stats -DeslGEV_STATS -DeslAUGMENT_RANDOM\
-       -DeslAUGMENT_MINIMIZER esl_gev.c esl_random.c esl_minimizer.c\
-       esl_vectorops.c easel.c -lm
- * run:     ./stats <test#>...
- * e.g. 
- *          ./stats 1 2 3
- * would run tests 1, 2, 3.
- */
 #include <stdio.h>
 #include <math.h>
 #include "easel.h"
@@ -932,12 +916,6 @@ stats_fittest(FILE *fp, int ntrials, int n, double mu, double lambda, double alp
  *****************************************************************/
 #ifdef eslGEV_EXAMPLE
 /*::cexcerpt::gev_example::begin::*/
-/* compile: 
-     gcc -g -Wall -I. -o example -DeslGEV_EXAMPLE -DeslAUGMENT_RANDOM\
-       -DeslAUGMENT_MINIMIZER esl_gev.c esl_random.c esl_minimizer.c\
-       esl_vectorops.c easel.c -lm
- * run:     ./example
- */
 #include <stdio.h>
 #include "easel.h"
 #include "esl_random.h"
@@ -987,10 +965,3 @@ main(int argc, char **argv)
 /*::cexcerpt::gev_example::end::*/
 #endif /*eslGEV_EXAMPLE*/
 
-
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

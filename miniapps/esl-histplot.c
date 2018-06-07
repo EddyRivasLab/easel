@@ -1,7 +1,6 @@
 /* esl-histplot  - collate data into a histogram and output xmgrace datafile.
  *                  
  * SRE, Tue Feb 21 14:18:05 2006                  
- * SVN $Id$
  */
 
 /* Wish list

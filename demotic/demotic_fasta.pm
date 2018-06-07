@@ -3,7 +3,6 @@
 #    Parses fasta or ssearch output, stores extracted information in convenient vars.
 #    SRE, Wed Jun 25 13:41:41 2003
 #
-#  SVN $Id$
 ############################################################################
 
 package demotic_fasta;

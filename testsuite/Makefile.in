@@ -4,10 +4,9 @@ VPATH      = @srcdir@ @top_srcdir@
 SHELL      = /bin/sh
 
 CC         = @CC@
-CFLAGS     = @CFLAGS@ @PTHREAD_CFLAGS@ @PIC_FLAGS@
+CFLAGS     = @CFLAGS@ @PTHREAD_CFLAGS@ 
 CPPFLAGS   = @CPPFLAGS@
 LDFLAGS    = @LDFLAGS@
-SIMDFLAGS  = @SIMD_CFLAGS@
 DEFS       = @DEFS@
 LIBS       = @LIBGSL@ @LIBS@ -lm
 MPILIBS    = @MPILIBS@
@@ -22,7 +21,7 @@ ifndef V
 	QUIET_AR      = @echo '    ' AR $@;
 	QUIET_SUBDIR0 = +@subdir=
 	QUIET_SUBDIR1 = ; echo '    ' SUBDIR  $$subdir; \
-		        ${MAKE} -C $$subdir
+		        ${MAKE} -s -C $$subdir
 endif
 
 .PHONY: check dcheck clean distclean
@@ -60,11 +59,12 @@ clean:
 	-rm -f esltmp??????
 	-rm -f *.o *~ 
 	-rm -f ${PROGS} 
+ifndef V
+	@echo '     ' CLEAN testsuite
+endif
+
 
 distclean: clean
 	-rm -f coverage.report valgrind.report utest.report
-	rm Makefile
+	-rm -f Makefile
 
-################################################################
-# @LICENSE@
-################################################################

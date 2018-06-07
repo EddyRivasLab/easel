@@ -2,10 +2,10 @@
  * 
  * Contents:
  *   1. Text version of the ESL_SQ object.
- *   2. Digitized version of the ESL_SQ object.     [with <alphabet>]
+ *   2. Digitized version of the ESL_SQ object.     
  *   3. Other functions that operate on sequences.
- *   4. Getting single sequences from MSAs.         [with <msa>]
- *   5. Debugging, development tools                [with <random>, <randomseq>]
+ *   4. Getting single sequences from MSAs.         
+ *   5. Debugging, development tools                
  *   6. Internal functions.
  *   7. Unit tests.
  *   8. Test driver.
@@ -19,19 +19,12 @@
 #include <ctype.h>
 
 #include "easel.h"
+#include "esl_alphabet.h"	
+#include "esl_msa.h"		
+#include "esl_random.h"   
+#include "esl_randomseq.h"
 #include "esl_sq.h"
 #include "esl_vectorops.h"
-
-#ifdef eslAUGMENT_ALPHABET
-#include "esl_alphabet.h"	/* alphabet adds digital sequences */
-#endif 
-#ifdef eslAUGMENT_MSA
-#include "esl_msa.h"		/* msa adds ability to extract sq from an MSA  */
-#endif
-#if defined eslAUGMENT_RANDOM && defined eslAUGMENT_RANDOMSEQ
-#include "esl_random.h"         /* random, randomseq add ability to sample random sq objects for unit tests */
-#include "esl_randomseq.h"
-#endif
 
 
 /* Shared parts of text/digital creation functions (defined in "internal functions" section) */
@@ -311,7 +304,6 @@ esl_sq_Copy(const ESL_SQ *src, ESL_SQ *dst)
       for (x = 0; x < src->nxr; x++) 
 	if (src->xr[x] != NULL) strcpy(dst->xr[x], src->xr[x]);
     }
-#ifdef eslAUGMENT_ALPHABET
   else if (src->seq != NULL && dst->dsq != NULL) /* text to digital */
     {
       if ((status = esl_abc_Digitize(dst->abc, src->seq, dst->dsq)) != eslOK) goto ERROR;      
@@ -341,7 +333,7 @@ esl_sq_Copy(const ESL_SQ *src, ESL_SQ *dst)
       for (x = 0; x < src->nxr; x++) 
 	if (src->xr[x] != NULL) { strcpy(dst->xr[x]+1, src->xr[x]+1); dst->xr[x][0] = '\0'; }
     }
-#endif
+
    
   for (x = 0; x < src->nxr; x++) 
     if (src->xr_tag[x] != NULL) strcpy(dst->xr_tag[x], src->xr_tag[x]);
@@ -397,11 +389,9 @@ esl_sq_Compare(ESL_SQ *sq1, ESL_SQ *sq2)
   if        (sq1->seq != NULL && sq2->seq != NULL) {
     if (strcmp(sq1->seq, sq2->seq) != 0)     return eslFAIL;
   } 
-#ifdef eslAUGMENT_ALPHABET
   else if (sq1->dsq != NULL && sq2->dsq != NULL) {
     if (memcmp(sq1->dsq, sq2->dsq, sizeof(ESL_DSQ) * (sq1->n+2)) != 0) return eslFAIL;
   }
-#endif
   else return eslFAIL;
 
   /* Coordinate comparison */
@@ -432,9 +422,7 @@ esl_sq_Compare(ESL_SQ *sq1, ESL_SQ *sq2)
   }
   
   /* alphabet comparison */
-#ifdef eslAUGMENT_ALPHABET  
   if (sq1->abc != NULL && (sq1->abc->type != sq2->abc->type)) return eslFAIL;
-#endif
   return eslOK;
 }  
 
@@ -630,7 +618,6 @@ esl_sq_BlockGrowTo(ESL_SQ_BLOCK *sqblock, int newsize, int do_digital, const ESL
 }
 
 
-#ifdef eslAUGMENT_ALPHABET
 
 /* Function:  esl_sq_CreateDigitalBlock()
  * Synopsis:  Create a new block of empty <ESL_SQ> in digital mode.
@@ -663,9 +650,6 @@ esl_sq_CreateDigitalBlock(int count, const ESL_ALPHABET *abc)
 
   return block;
 }
-
-#endif /* eslAUGMENT_ALPHABET */
-
 /*--------------- end of ESL_SQ object functions ----------------*/
 
 
@@ -674,7 +658,6 @@ esl_sq_CreateDigitalBlock(int count, const ESL_ALPHABET *abc)
 /*****************************************************************
  *# 2. Digitized version of the <ESL_SQ> object. (Requires <alphabet>)
  *****************************************************************/
-#ifdef eslAUGMENT_ALPHABET
 
 /* Function:  esl_sq_CreateDigital()
  * Synopsis:  Create a new, empty <ESL_SQ> in digital mode.
@@ -990,8 +973,6 @@ esl_sq_ConvertDegen2X(ESL_SQ *sq)
   return esl_abc_ConvertDegen2X(sq->abc, sq->dsq);
 }
 
-
-#endif /*eslAUGMENT_ALPHABET*/
 /*---------- end of digitized ESL_SQ object functions -----------*/
 
 
@@ -1270,6 +1251,7 @@ esl_sq_FormatDesc(ESL_SQ *sq, const char *desc, ...)
 
   va_start(argp, desc);
   va_copy(argp2, argp);
+  
   if ((n = vsnprintf(sq->desc, sq->dalloc, desc, argp)) >= sq->dalloc)
     {
       ESL_RALLOC(sq->desc, tmp, sizeof(char) * (n+1)); 
@@ -1430,7 +1412,6 @@ esl_sq_CAddResidue(ESL_SQ *sq, char c)
   return eslOK;
 }
 
-#ifdef eslAUGMENT_ALPHABET
 /* Function:  esl_sq_XAddResidue()
  * Synopsis:  Add one residue (or terminal sentinel) to digital seq.
  * Incept:    SRE, Wed Jan 10 08:23:23 2007 [Janelia]
@@ -1457,7 +1438,6 @@ esl_sq_XAddResidue(ESL_SQ *sq, ESL_DSQ x)
   if (x != eslDSQ_SENTINEL) sq->n++;
   return eslOK;
 }
-#endif /* eslAUGMENT_ALPHABET */
 
 
 /* Function:  esl_sq_ReverseComplement()
@@ -1559,12 +1539,10 @@ esl_sq_ReverseComplement(ESL_SQ *sq)
       for (i = 0; i < sq->n / 2; i++)
 	ESL_SWAP(sq->seq[i], sq->seq[sq->n-i-1], char);
     }
-#ifdef eslAUGMENT_ALPHABET
   else
     {
       if ((status = esl_abc_revcomp(sq->abc, sq->dsq, sq->n)) != eslOK) goto ERROR;
     }
-#endif /*eslAUGMENT_ALPHABET*/
 
   ESL_SWAP(sq->start, sq->end, int64_t);
   /* revcomp invalidates any secondary structure annotation */
@@ -1613,7 +1591,6 @@ esl_sq_Checksum(const ESL_SQ *sq, uint32_t *ret_checksum)
 	  val ^= (val >>  6);
 	}
     }
-#ifdef eslAUGMENT_ALPHABET
   else
     {
       for (pos = 1; pos <= sq->n; pos++)
@@ -1623,7 +1600,6 @@ esl_sq_Checksum(const ESL_SQ *sq, uint32_t *ret_checksum)
 	  val ^= (val >>  6);
 	}
     }
-#endif
 
   val += (val <<  3);
   val ^= (val >> 11);
@@ -1666,7 +1642,6 @@ esl_sq_CountResidues(const ESL_SQ *sq, int start, int L, float *f)
       if(! esl_abc_CIsGap(sq->abc, sq->seq[i])) // ignore gap characters
         esl_abc_FCount(sq->abc, f, sq->abc->inmap[(int) sq->seq[i]], 1.);
     }
-#ifdef eslAUGMENT_ALPHABET
   } else  { /* digital sequence; 0 is a sentinel       */
     if (start<1 || start+L>sq->n+1)
       return eslERANGE; //range out of sequence bounds
@@ -1675,7 +1650,6 @@ esl_sq_CountResidues(const ESL_SQ *sq, int start, int L, float *f)
       if(! esl_abc_XIsGap(sq->abc, sq->dsq[i])) // ignore gap characters
         esl_abc_FCount(sq->abc, f, sq->dsq[i], 1.);
     }
-#endif
   }
 
   return eslOK;
@@ -1690,7 +1664,6 @@ esl_sq_CountResidues(const ESL_SQ *sq, int start, int L, float *f)
 /*****************************************************************
  *# 4. Getting single sequences from MSAs  (requires <msa>)
  *****************************************************************/
-#ifdef eslAUGMENT_MSA
 
 /* Function:  esl_sq_GetFromMSA()
  * Synopsis:  Get a single sequence from an MSA.
@@ -1788,7 +1761,6 @@ esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
       }
       esl_strdealign(sq->seq, sq->seq, gapchars, &(sq->n)); /* sq->n gets set as side effect */
      }
-#ifdef eslAUGMENT_ALPHABET
   else
     {
       esl_abc_dsqcpy(msa->ax[which], msa->alen, sq->dsq);
@@ -1810,7 +1782,6 @@ esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
       }
       esl_abc_XDealign(sq->abc, sq->dsq,  sq->dsq, &(sq->n)); /* sq->n gets set as side effect */
   }
-#endif /*eslAUGMENT_ALPHABET*/
   
   /* This is a complete sequence; set bookkeeping accordingly */
   sq->start  = 1;
@@ -1917,7 +1888,6 @@ esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq)
       }
       esl_strdealign(sq->seq, sq->seq, gapchars, &(sq->n));
     }
-#ifdef eslAUGMENT_ALPHABET
   else				/* digital mode MSA to digital mode sequence */
     {
       if ((sq = esl_sq_CreateDigitalFrom(msa->abc, msa->sqname[which], msa->ax[which], msa->alen, desc, acc, ss)) == NULL) goto ERROR; 
@@ -1928,12 +1898,17 @@ esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq)
 	ESL_ALLOC(sq->xr,     sizeof(char *) * sq->nxr); for (x = 0; x < sq->nxr; x ++) sq->xr[x] = NULL;
 	for (x = 0; x < sq->nxr; x ++) {
 	  if (xr[x] != NULL) {
-	    if (sq->xr[x] == NULL) {
-	      ESL_ALLOC(sq->xr[x], sizeof(char) * (sq->n+2));
-	      sq->xr[x][0] = '\0';
-	      strcpy(sq->xr[x]+1, xr[x]);
-	    }
-	    else strcpy(sq->xr[x]+1, xr[x]); sq->xr[x][0] = '\0'; 	    
+	    if (sq->xr[x] == NULL) 
+              {
+                ESL_ALLOC(sq->xr[x], sizeof(char) * (sq->n+2));
+                sq->xr[x][0] = '\0';
+                strcpy(sq->xr[x]+1, xr[x]);
+              }
+	    else 
+              {
+                strcpy(sq->xr[x]+1, xr[x]); 
+                sq->xr[x][0] = '\0'; 	    
+              }
 	    esl_abc_CDealign(sq->abc, sq->xr[x]+1, sq->dsq, NULL);
 	  }
 	  if (xr_tag[x] != NULL) {
@@ -1944,7 +1919,6 @@ esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq)
       }
       esl_abc_XDealign(sq->abc, sq->dsq,  sq->dsq, &(sq->n));
     }
-#endif
 
   if ((status = esl_sq_SetSource(sq, msa->name)) != eslOK) goto ERROR;
 
@@ -1962,21 +1936,20 @@ esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq)
   
  ERROR:
   if (msa->ngr > 0) {
-    if (xr_tag != NULL) free(xr_tag); if (xr != NULL) free(xr);
+    if (xr_tag) free(xr_tag); 
+    if (xr)     free(xr);
   }  
   esl_sq_Destroy(sq);
   *ret_sq = NULL;
   return eslEMEM;
 }
-#endif /*eslAUGMENT_MSA*/
 /*---------------- end,  sequences from MSAs --------------------*/
 
 
 
 /*****************************************************************
- *# 5. Debugging/development tools [with <random> and <randomseq>]
+ *# 5. Debugging/development tools 
  *****************************************************************/
-#if defined eslAUGMENT_RANDOM && defined eslAUGMENT_RANDOMSEQ
 
 /* Function:  esl_sq_Sample()
  * Synopsis:  Sample a random, ugly <ESL_SQ> for test purposes.
@@ -2024,9 +1997,7 @@ esl_sq_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int maxL, ESL_SQ **ret_sq)
   if (! sq)
     {
       if (abc == NULL) { if (( sq = esl_sq_Create())           == NULL) { status = eslEMEM; goto ERROR; } }
-#ifdef eslAUGMENT_ALPHABET
       else             { if (( sq = esl_sq_CreateDigital(abc)) == NULL) { status = eslEMEM; goto ERROR; } }
-#endif /*eslAUGMENT_ALPHABET*/
     }
     
   /* Name */
@@ -2064,9 +2035,7 @@ esl_sq_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int maxL, ESL_SQ **ret_sq)
   n = esl_rnd_Roll(rng, maxL+1);                                             //0..maxL; 0 len seqs happen
   esl_sq_GrowTo(sq, n);
   if (abc == NULL) esl_rsq_Sample(rng, eslRSQ_SAMPLE_ALPHA, n, &(sq->seq));
-#ifdef eslAUGMENT_ALPHABET
   else             esl_rsq_SampleDirty(rng, abc, NULL, n, sq->dsq);         // "dirty" = with ambig residues
-#endif /*eslAUGMENT_ALPHABET*/
   esl_sq_SetCoordComplete(sq, n);
 
   free(buf);
@@ -2078,8 +2047,6 @@ esl_sq_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int maxL, ESL_SQ **ret_sq)
   if (!(*ret_sq) && sq)  esl_sq_Destroy(sq);
   return status;
 }
-#endif /*eslAUGMENT_RANDOM && eslAUGMENT_RANDOMSEQ */
-
 
 
 /*****************************************************************
@@ -2418,7 +2385,6 @@ utest_Format(ESL_RANDOMNESS *r)
 } 
 
 
-#ifdef eslAUGMENT_ALPHABET
 static void
 utest_CreateDigital()
 {
@@ -2471,7 +2437,6 @@ utest_CreateDigital()
   esl_sq_Destroy(sq2);
   esl_sq_Destroy(sq3);
 }
-#endif /*eslAUGMENT_ALPHABET*/
 
 /* write_msa_with_seqmarkups()
  * Write a good MSA with sequence markups to a tmpfile in Stockholm format.
@@ -2522,11 +2487,10 @@ utest_ExtraResMarkups()
   esl_msafile_Open(&abc, tmpfile, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp1);  
   esl_msafile_stockholm_Read(afp1, &msa1);  
 
-  sq = esl_sq_CreateDigital(abc);
-  if (esl_sq_GetFromMSA(msa1, 0, sq) != eslOK) esl_fatal(msg); esl_sq_Reuse(sq);
-  if (esl_sq_GetFromMSA(msa1, 1, sq) != eslOK) esl_fatal(msg); esl_sq_Reuse(sq);
-  if (esl_sq_GetFromMSA(msa1, 2, sq) != eslOK) esl_fatal(msg); esl_sq_Reuse(sq);
-  if (esl_sq_GetFromMSA(msa1, 5, sq) != eslOK) esl_fatal(msg); 
+  sq = esl_sq_CreateDigital(abc);  if (esl_sq_GetFromMSA(msa1, 0, sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Reuse(sq);                if (esl_sq_GetFromMSA(msa1, 1, sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Reuse(sq);                if (esl_sq_GetFromMSA(msa1, 2, sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Reuse(sq);                if (esl_sq_GetFromMSA(msa1, 5, sq) != eslOK) esl_fatal(msg); 
 
   /* test of sq_Copy */
   sq1 = esl_sq_Create();
@@ -2535,28 +2499,27 @@ utest_ExtraResMarkups()
   esl_sq_Copy(sq, sq2);
   esl_sq_Destroy(sq1);
   esl_sq_Destroy(sq2);
-  esl_sq_Destroy(sq);
-  
-  if (esl_sq_FetchFromMSA(msa1, 0, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
-  if (esl_sq_FetchFromMSA(msa1, 1, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
-  if (esl_sq_FetchFromMSA(msa1, 2, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
-  if (esl_sq_FetchFromMSA(msa1, 5, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
 
-  
+  esl_sq_Destroy(sq);  if (esl_sq_FetchFromMSA(msa1, 0, &sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Destroy(sq);  if (esl_sq_FetchFromMSA(msa1, 1, &sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Destroy(sq);  if (esl_sq_FetchFromMSA(msa1, 2, &sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Destroy(sq);  if (esl_sq_FetchFromMSA(msa1, 5, &sq) != eslOK) esl_fatal(msg);
+  esl_sq_Destroy(sq);
+
   /* Text msa to text sq */
   esl_msafile_Open(NULL, tmpfile, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp2);  
   esl_msafile_stockholm_Read(afp2, &msa2);  
   
-  sq = esl_sq_Create();
-  if (esl_sq_GetFromMSA(msa2, 0, sq) != eslOK) esl_fatal(msg); esl_sq_Reuse(sq);
-  if (esl_sq_GetFromMSA(msa2, 1, sq) != eslOK) esl_fatal(msg); esl_sq_Reuse(sq);
-  if (esl_sq_GetFromMSA(msa2, 2, sq) != eslOK) esl_fatal(msg); esl_sq_Reuse(sq);
-  if (esl_sq_GetFromMSA(msa2, 5, sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
-  
-  if (esl_sq_FetchFromMSA(msa2, 0, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
-  if (esl_sq_FetchFromMSA(msa2, 1, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
-  if (esl_sq_FetchFromMSA(msa2, 2, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
-  if (esl_sq_FetchFromMSA(msa2, 5, &sq) != eslOK) esl_fatal(msg); 
+  sq = esl_sq_Create();  if (esl_sq_GetFromMSA(msa2, 0, sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Reuse(sq);      if (esl_sq_GetFromMSA(msa2, 1, sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Reuse(sq);      if (esl_sq_GetFromMSA(msa2, 2, sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Reuse(sq);      if (esl_sq_GetFromMSA(msa2, 5, sq) != eslOK) esl_fatal(msg); 
+
+  esl_sq_Destroy(sq);    if (esl_sq_FetchFromMSA(msa2, 0, &sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Destroy(sq);    if (esl_sq_FetchFromMSA(msa2, 1, &sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Destroy(sq);    if (esl_sq_FetchFromMSA(msa2, 2, &sq) != eslOK) esl_fatal(msg); 
+  esl_sq_Destroy(sq);    if (esl_sq_FetchFromMSA(msa2, 5, &sq) != eslOK) esl_fatal(msg); 
+
   /* test of sq_Copy */
   sq1 = esl_sq_Create();
   sq2 = esl_sq_CreateDigital(abc);
@@ -2603,7 +2566,6 @@ utest_CountResidues()
   if (cnts[3] != 2)  esl_fatal(msg);
 
 
-#ifdef eslAUGMENT_ALPHABET
   esl_sq_Digitize(abc, sq);
   esl_vec_FSet (cnts, abc->K, 0);
   esl_sq_CountResidues(sq, 1, sq->n, cnts);
@@ -2611,7 +2573,6 @@ utest_CountResidues()
   if (cnts[1] != 3)  esl_fatal(msg);
   if (cnts[2] != 3)  esl_fatal(msg);
   if (cnts[3] != 2)  esl_fatal(msg);
-#endif
 
   free(cnts);
   esl_sq_Destroy(sq);
@@ -2673,9 +2634,7 @@ main(int argc, char **argv)
   utest_Format(r);
   utest_CountResidues();
 
-#ifdef eslAUGMENT_ALPHABET
   utest_CreateDigital();
-#endif
 
   utest_ExtraResMarkups();
 
@@ -2747,10 +2706,6 @@ int main(void)
 
 #ifdef eslSQ_EXAMPLE2
 /*::cexcerpt::sq_example2::begin::*/
-/* compile: gcc -g -Wall -I. -o example -DeslSQ_EXAMPLE2\
-            -DeslAUGMENT_ALPHABET esl_sq.c esl_alphabet.c easel.c
- * run:     ./example
- */
 #include <stdio.h>
 #include <string.h>
 #include "easel.h"

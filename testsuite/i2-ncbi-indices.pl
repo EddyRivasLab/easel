@@ -11,8 +11,6 @@
 # Example: ./i2-ncbi-indices . . tmp
 #
 # SRE, Tue Feb  2 12:43:04 2010 [Janelia]
-# SVN $Id$ 
-#
 
 
 # This idiom (as opposed to just "use foo;") allows you to gracefully

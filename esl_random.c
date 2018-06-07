@@ -10,7 +10,6 @@
  *  7. Unit tests.
  *  8. Test driver.
  *  9. Example.
- * 10. Copyright and license information.
  *  
  * See http://csrc.nist.gov/rng/ for the NIST random number
  * generation test suite.
@@ -1268,12 +1267,5 @@ main(int argc, char **argv)
 /*::cexcerpt::random_example::end::*/
 #endif /*eslRANDOM_EXAMPLE*/
 
-
-/*****************************************************************
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
 
 

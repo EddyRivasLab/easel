@@ -165,10 +165,8 @@ included first. It contains platform-independent configuration code
 that may affect even the standard library header files. Standard
 headers like \ccode{stdio.h} come next, then Easel's main header
 \ccode{easel.h}; then headers of any other Easel modules this module
-depends on; then any headers for modules this module can be augmented
-with, surrounded by appropriate \ccode{\#ifdef}'s; then the module's
-own header. For example, the \ccode{\#include}'s in the
-\eslmod{buffer} module look like:
+depends on, then the module's own header. For example, the
+\ccode{\#include}'s in the \eslmod{buffer} module look like:
 
 \input{cexcerpts/include_example}
 
@@ -197,13 +195,8 @@ the following, in this order:
   destroying the object that this module implements.
 
 \item[\textbf{The rest of the API.}]
-  Everything else that is part of the API for this module in its
-  baseline (unaugmented) form. This might be split across multiple
-  sections.
-
-\item[\textbf{Augmented API, if any.}]
-  Any functions that are only available with one or more augmentations
-  are split out into one or more separate sections. 
+  Everything else that is part of the API for this module.
+  This might be split across multiple sections.
 
 \item[\textbf{Debugging/dev code.}]
   Most objects can be validated or dumped to an output stream
@@ -228,14 +221,6 @@ the following, in this order:
 \item [\textbf{Examples.}]
   All modules have at least one \ccode{main()} showing an example of
   how to use the main features of the module.
-
-\item [\textbf{Copyright/license information.}]  Each file ends with a
-  \ccode{@LICENSE@} tag. This placeholder is automatically replaced by
-  the correct license statement at packaging time. This gives us the
-  ability to package specially licensed versions, in addition to the
-  usual open source version. Automatically generated Subversion
-  \ccode{SVN \$Id\$} and \ccode{SVN \$URL\$} information often appears
-  here too.
 
 \end{description}
 
@@ -272,13 +257,6 @@ stuff a developer needs to be aware of.
     verbatim into the documentation.
   & \emcode{cexcerpt} \\ \\
 
-\ccode{ \$}\itcode{keyword}\ccode{\$} 
-  & Subversion keyword substitutions
-  & \emcode{svn} \\ \\
-
-\ccode{@}\itcode{keyword}\ccode{@}
-  & Configuration variable substitution
-  & \emcode{sedition} \\ \\
 \hline
 \end{tabular}
 \caption{{\bfseries Summary of special syntax in Easel C comments.}}
@@ -354,74 +332,6 @@ and \ccode{.h} files, and places them in individual files in a
 temporary \ccode{cexcerpts/} directory, from where they are included
 in the main \LaTeX documentation.
 
-%%%%
-\subsubsection{subversion keyword substitution (\$\$)}
-%%%%
-
-Comment lines containing Subversion \ccode{Id} and \ccode{URL}
-keywords appear in the table of contents section:
-
-\begin{cchunk}
- * SVN $Id: esl_buffer.c 662 2011-02-22 16:33:08Z eddys $
- * SVN $URL: https://svn.janelia.org/eddylab/eddys/easel/trunk/esl_buffer.c $
-\end{cchunk}
-
-These started out as
-\begin{cchunk}
- * SVN $Id$
- * SVN $URL$
-\end{cchunk}
-
-and their contents get substituted by Subversion, our revision control
-system.
-
-If you add a new file to Easel and it has Subversion keywords in it,
-you have to manually activate keyword substitution. 
-
-\user{svn propset svn:keywords "Id URL" }\itbfcode{myfile}
-
-%%%%
-\subsubsection{configuration variable substitution (@@)}
-%%%%
-
-At the bottom of every source file is a comment block:
-
-\begin{cchunk}
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
-\end{cchunk}
-
-When we build a distribution package, the \ccode{@LICENSE@} tag is
-replaced with by the appropriate copyright and license text by our
-\prog{sedition} program. The command line appears in
-\ccode{Makefile.in} in its \ccode{make dist}; it directs
-\prog{sedition} to replace \ccode{@LICENSE@} tags with the contents of
-the \ccode{LICENSE.tag} file (which is itself constructed
-automatically at \ccode{make dist} time).
-
-For example, the standard Easel release uses the Janelia Software
-License (functionally identical to the BSDL), so in distribution code
-this comment block something like:
-
-\begin{cchunk}
-/*****************************************************************
- * Easel - a library of C functions for biological sequence analysis
- * Version 0.42; February 2011
- * Copyright (C) 2011 Howard Hughes Medical Institute
- * Other copyrights also apply. See the COPYRIGHT file for a full list.
- *
- * Easel is distributed under the Janelia Farm Software License, a BSD
- * license. See the LICENSE file for more details.
- *****************************************************************/
-\end{cchunk}
-
-Autogenerating these license tags allows us to package distributions
-under other licenses without having to edit every source file.
-
-\ccode{@LICENSE@} is the only configuration variable that Easel
-\ccode{.c} or \ccode{.h} files currently use. It's possible we would
-add others in the future.
 
 
 %%%%%%%%%%%%%%%%
@@ -942,6 +852,8 @@ fill data into it. It does not necessarily mean that the object
 contains valid data.
 
 \begin{sreapi}
+
+
 \hypertarget{ifc:Create} 
 {\item[\_Create(n)]}
 
@@ -950,8 +862,13 @@ size information as arguments (there often aren't any), and it returns a
 pointer to the newly allocated object. If an (optional) number of
 elements \ccode{n} is provided, this specifies the number of elements
 that the object is going to contain (for a fixed-size object) or the
-initial allocation size (for a resizable object). In the event of any
-failure, the a \ccode{\_Create} procedure throws \ccode{NULL}.
+initial allocation size (for a resizable object). In the event of an
+allocation failure, a \ccode{\_Create} procedure throws \ccode{NULL}.
+
+(If any error other than an allocation failure can happen, you should
+use \ccode{\_Build()} instead. A caller is allowed to assume that a
+\ccode{NULL} return from \ccode{\_Create()} is equivalent to
+\ccode{eslEMEM}.)
 
 The internals of some resizeable objects have an \ccode{nredline}
 parameter that controls an additional memory management rule. These
@@ -970,6 +887,21 @@ At least one module (\ccode{esl\_tree}) allows for creating either a
 fixed-size or a resizeable object; in this case, there is a
 \ccode{\_CreateGrowable()} call for the resizeable version.
 
+
+
+
+\hypertarget{ifc:Build} 
+{\item[\_Build()]}
+
+A \ccode{\_Build()} interface is the same as \ccode{\_Create()}, but
+instead of returning a pointer to the new object, we return an Easel
+error code, and the new object is returned through a \ccode{*ret\_obj}
+argument.
+
+
+
+
+
 \hypertarget{ifc:Destroy} 
 {\item[\_Destroy(obj)]}
 A \ccode{\_Destroy()} interface takes an object pointer as an
@@ -985,6 +917,9 @@ For example:
    sq = esl_sq_Create();
    esl_sq_Destroy(sq);
 \end{cchunk}
+
+
+
 
 %%%%%%%%%%%%%%%%
   \subsubsection{opening and closing input streams}
@@ -1077,7 +1012,7 @@ Creates and returns a pointer to a partial, dependent copy of
 \ccode{obj}. Shadow creation arises in multithreading, when threads
 can share some but not all internal object data. A shadow keeps
 constant data as pointers to the original object.  The object needs to
-know whether it is a shadow or not, so that <_Destroy()> works
+know whether it is a shadow or not, so that <\_Destroy()> works
 properly on both the original and its shadows.
 
 \end{sreapi}
@@ -1466,9 +1401,6 @@ Unit tests should attempt to deliberately generate exceptions and
 failures, and test that the appropriate error code is returned.  Unit
 tests must temporarily register a nonfatal error handler when testing
 exceptions. 
-
-Unit tests should test all possible combinations of augmentations that
-may affect a function.
 
 Every function, procedure, and macro in the exposed API shall be
 tested by one or more unit tests. The unit tests aim for complete code

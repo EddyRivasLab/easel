@@ -27,18 +27,20 @@
  *   8. Test driver
  *   9. Examples
  */
-
-#include "easel.h"
-#include "esl_alphabet.h"
-#include "esl_dsqdata.h"
-#include "esl_random.h"
-#include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_config.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 #include <pthread.h>
+
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_random.h"
+#include "esl_sq.h"
+#include "esl_sqio.h"
+
+#include "esl_dsqdata.h"
 
 static ESL_DSQDATA_CHUNK *dsqdata_chunk_Create (ESL_DSQDATA *dd);
 static void               dsqdata_chunk_Destroy(ESL_DSQDATA_CHUNK *chu);
@@ -80,32 +82,34 @@ static uint32_t eslDSQDATA_MAGIC_V1SWAP = 0xb1d1d3c4; //  ... as above, but byte
  *            <basename>.dsqi, the metadata file <basename>.dsqm, and
  *            the sequence file <basename>.dsqs.
  *            
- *            <byp_abc> provides a way to either tell <dsqdata> to
- *            expect a specific alphabet in the <basename> database
- *            (and return a normal failure on a mismatch), or, when
- *            the alphabet remains unknown, to figure out the alphabet
- *            in <basename> is and allocate and return a new alphabet.
- *            <byp_abc> uses a partial Easel "bypass" idiom for this:
- *            if <*byp_abc> is NULL, we allocate and return a new
- *            alphabet; if <*byp_abc> is a ptr to an existing
- *            alphabet, we use it for validation. That is,
+ *            Reading digital sequence data requires a digital
+ *            alphabet.  You can either provide one (in which case we
+ *            validate that it matches the alphabet used by the
+ *            dsqdata) or, as a convenience, <esl_dsqdata_Open()> can
+ *            create one for you. Either way, you pass a pointer to an
+ *            <ESL_ALPHABET> structure <abc>, in <byp_abc>.  <byp_abc>
+ *            uses a partial Easel "bypass" idiom: if <*byp_abc> is
+ *            NULL, we allocate and return a new alphabet; if
+ *            <*byp_abc> is a ptr to an existing alphabet, we use it
+ *            for validation. That is, you have two choices:
  *                
  *            \begin{cchunk}
- *                abc = NULL;
+ *                ESL_ALPHABET *abc = NULL;
  *                esl_dsqdata_Open(&abc, basename...)
  *                // <abc> is now the alphabet of <basename>; 
- *                // you're responsible for Destroy'ing it
+ *                // now you're responsible for Destroy'ing it
  *            \end{cchunk}
  *                
  *            or:
+ *
  *            \begin{cchunk}
- *                abc = esl_alphabet_Create(eslAMINO);
+ *                ESL_ALPHABET *abc = esl_alphabet_Create(eslAMINO);
  *                status = esl_dsqdata_Open(&abc, basename);
  *                // if status == eslEINCOMPAT, alphabet in basename 
  *                // doesn't match caller's expectation
  *            \end{cchunk}
  *
- * Args:      byp_abc    : optional alphabet hint; pass &abc or NULL.
+ * Args:      byp_abc    : expected or created alphabet; pass &abc, abc=NULL or abc=expected alphabet
  *            basename   : data are in files <basename> and <basename.dsq[ism]>
  *            nconsumers : number of consumer threads caller is going to Read() with
  *            ret_dd     : RETURN : the new ESL_DSQDATA object.
@@ -124,6 +128,8 @@ static uint32_t eslDSQDATA_MAGIC_V1SWAP = 0xb1d1d3c4; //  ... as above, but byte
  *            an error state, and <dd->errbuf> is a user-directed
  *            error message that the caller can relay to the user. Other
  *            than the <errbuf>, the rest of the contents are undefined.
+ *            
+ *            Caller is responsible for destroying <*byp_abc>.
  *
  * Throws:    <eslEMEM> on allocation error.
  *            <eslESYS> on system call failure.
@@ -144,7 +150,8 @@ esl_dsqdata_Open(ESL_ALPHABET **byp_abc, char *basename, int nconsumers, ESL_DSQ
   char         buf[4096];
   int          status;
   
-  ESL_DASSERT1(( nconsumers > 0 ));
+  ESL_DASSERT1(( nconsumers > 0   ));
+  ESL_DASSERT1(( byp_abc  != NULL ));  // either *byp_abc == NULL or *byp_abc = the caller's expected alphabet.
   
   ESL_ALLOC(dd, sizeof(ESL_DSQDATA));
   dd->stubfp          = NULL;
@@ -152,6 +159,7 @@ esl_dsqdata_Open(ESL_ALPHABET **byp_abc, char *basename, int nconsumers, ESL_DSQ
   dd->sfp             = NULL;
   dd->mfp             = NULL;
   dd->abc_r           = *byp_abc;        // This may be NULL; if so, we create it later.
+
   dd->magic           = 0;
   dd->uniquetag       = 0;
   dd->flags           = 0;
@@ -262,6 +270,7 @@ esl_dsqdata_Open(ESL_ALPHABET **byp_abc, char *basename, int nconsumers, ESL_DSQ
 
   /* Create the loader and unpacker threads.
    */
+
   if ( pthread_mutex_init(&dd->loader_outbox_mutex,      NULL) != 0) ESL_XEXCEPTION(eslESYS, "pthread_mutex_init() failed");    dd->lom_c = TRUE;
   if ( pthread_mutex_init(&dd->unpacker_outbox_mutex,    NULL) != 0) ESL_XEXCEPTION(eslESYS, "pthread_mutex_init() failed");    dd->uom_c = TRUE;
   if ( pthread_mutex_init(&dd->recycling_mutex,          NULL) != 0) ESL_XEXCEPTION(eslESYS, "pthread_mutex_init() failed");    dd->rm_c  = TRUE;
@@ -274,7 +283,7 @@ esl_dsqdata_Open(ESL_ALPHABET **byp_abc, char *basename, int nconsumers, ESL_DSQ
   
   if ( pthread_create(&dd->unpacker_t, NULL, dsqdata_unpacker_thread, dd) != 0) ESL_XEXCEPTION(eslESYS, "pthread_create() failed");  dd->ut_c = TRUE;
   if ( pthread_create(&dd->loader_t,   NULL, dsqdata_loader_thread,   dd) != 0) ESL_XEXCEPTION(eslESYS, "pthread_create() failed");  dd->lt_c = TRUE;
-
+ 
   *ret_dd  = dd;
   *byp_abc = dd->abc_r;     // If caller provided <*byp_abc> this is a no-op, because we set abc_r = *byp_abc.
   return eslOK;             //  .. otherwise we're passing the created <abc> back to caller, caller's
@@ -294,6 +303,7 @@ esl_dsqdata_Open(ESL_ALPHABET **byp_abc, char *basename, int nconsumers, ESL_DSQ
       return status;
     }
 }
+
 
 
 /* Function:  esl_dsqdata_Read()
@@ -1071,7 +1081,7 @@ dsqdata_unpack_chunk(ESL_DSQDATA_CHUNK *chu, int do_pack5)
   i            = 0;
   r            = 0;
   pos          = 0;
-  chu->smem[0] = eslDSQ_SENTINEL;
+  chu->smem[0] = eslDSQ_SENTINEL;  // This initialization is why <smem> needs to be unsigned.
   while (pos < chu->pn)
     {
       chu->dsq[i] = (ESL_DSQ *) chu->smem + r;
@@ -1083,6 +1093,7 @@ dsqdata_unpack_chunk(ESL_DSQDATA_CHUNK *chu, int do_pack5)
       chu->L[i] = L;
       i++;
     }
+
   ESL_DASSERT1(( pos == chu->pn ));  // we should've unpacked exactly pn packets,
   ESL_DASSERT1((   i == chu->N ));   //  .. and exactly N sequences.
   return eslOK;
@@ -1442,7 +1453,7 @@ static void
 utest_readwrite(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc)
 {
   char               msg[]         = "esl_dsqdata :: readwrite unit test failed";
-  char               tmpfile[32]   = "esltmpXXXXXX";
+  char               tmpfile[16]   = "esltmpXXXXXX";
   char               basename[32];
   ESL_SQ           **sqarr         = NULL;
   FILE              *tmpfp         = NULL;

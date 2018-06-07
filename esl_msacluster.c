@@ -7,10 +7,6 @@
  *    4. Unit tests
  *    5. Test driver
  *    6. Example
- *    7. Copyright and license.
- * 
- *  Augmentations:
- *    eslAUGMENT_ALPHABET:  adds support for digital MSAs
  *  
  * (Wondering why isn't this just part of the cluster or MSA modules?
  * esl_cluster itself is a core module, dependent only on easel. MSA
@@ -21,12 +17,11 @@
 #include "esl_config.h"
 
 #include "easel.h"
+#include "esl_alphabet.h"
 #include "esl_cluster.h"
 #include "esl_distance.h"
 #include "esl_msa.h"
-#ifdef eslAUGMENT_ALPHABET
-#include "esl_alphabet.h"
-#endif
+
 #include "esl_msacluster.h"
 
 /* These functions are going to get defined in an internal regression 
@@ -35,28 +30,22 @@
 #if defined(eslMSACLUSTER_REGRESSION) || defined(eslMSAWEIGHT_REGRESSION)
 #include <ctype.h>
 static double squid_distance(char *s1, char *s2);
-#ifdef eslAUGMENT_ALPHABET
 static double squid_xdistance(ESL_ALPHABET *a, ESL_DSQ *x1, ESL_DSQ *x2);
-#endif
 #endif
 
 /* These functions will define linkage between a pair of text or
  *  digital aseq's: 
  */
 static int msacluster_clinkage(const void *v1, const void *v2, const void *p, int *ret_link);
-#ifdef eslAUGMENT_ALPHABET
 static int msacluster_xlinkage(const void *v1, const void *v2, const void *p, int *ret_link);
-#endif
 
 /* In digital mode, we'll need to pass the clustering routine two parameters -
  * %id threshold and alphabet ptr - so make a structure that bundles them.
  */
-#ifdef eslAUGMENT_ALPHABET
 struct msa_param_s {
   double        maxid;
   ESL_ALPHABET *abc;
 };
-#endif
 
 
 /*****************************************************************
@@ -127,9 +116,7 @@ esl_msacluster_SingleLinkage(const ESL_MSA *msa, double maxid,
   int  *nin        = NULL;
   int   nc;
   int   i;
-#ifdef eslAUGMENT_ALPHABET
   struct msa_param_s param;
-#endif
 
   /* Allocations */
   ESL_ALLOC(workspace,  sizeof(int) * msa->nseq * 2);
@@ -140,7 +127,6 @@ esl_msacluster_SingleLinkage(const ESL_MSA *msa, double maxid,
     status = esl_cluster_SingleLinkage((void *) msa->aseq, (size_t) msa->nseq, sizeof(char *),
 				       msacluster_clinkage, (void *) &maxid, 
 				       workspace, assignment, &nc);
-#ifdef eslAUGMENT_ALPHABET
   else {
     param.maxid = maxid;
     param.abc   = msa->abc;
@@ -148,7 +134,6 @@ esl_msacluster_SingleLinkage(const ESL_MSA *msa, double maxid,
 				       msacluster_xlinkage, (void *) &param, 
 				       workspace, assignment, &nc);
   }
-#endif
   if (status != eslOK) goto ERROR;
 
 
@@ -205,7 +190,6 @@ msacluster_clinkage(const void *v1, const void *v2, const void *p, int *ret_link
 }
   
 /* Definition of % id linkage in digital aligned seqs (>= maxid) */
-#ifdef eslAUGMENT_ALPHABET
 static int
 msacluster_xlinkage(const void *v1, const void *v2, const void *p, int *ret_link)
 {
@@ -224,9 +208,6 @@ msacluster_xlinkage(const void *v1, const void *v2, const void *p, int *ret_link
   *ret_link = (pid >= param->maxid ? TRUE : FALSE); 
   return status;
 }
-#endif
-
-
 
 
 /*****************************************************************
@@ -252,7 +233,6 @@ squid_distance(char *s1, char *s2)
     }
   return (valid > 0 ? ((double) diff / (double) valid) : 0.0);
 }
-#ifdef eslAUGMENT_ALPHABET
 static double
 squid_xdistance(ESL_ALPHABET *a, ESL_DSQ *x1, ESL_DSQ *x2)
 {
@@ -267,7 +247,6 @@ squid_xdistance(ESL_ALPHABET *a, ESL_DSQ *x1, ESL_DSQ *x2)
     }
   return (valid > 0 ? ((double) diff / (double) valid) : 0.0);
 }
-#endif
 #endif /* eslMSACLUSTER_REGRESSION || eslMSAWEIGHT_REGRESSION */
 
 
@@ -420,11 +399,3 @@ main(int argc, char **argv)
 /*::cexcerpt::msacluster_example::end::*/
 #endif /*eslMSACLUSTER_EXAMPLE*/
 /*------------------------ end of example -----------------------*/
-
-
-
-
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
-

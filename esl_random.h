@@ -2,6 +2,7 @@
  */
 #ifndef eslRANDOM_INCLUDED
 #define eslRANDOM_INCLUDED
+#include "esl_config.h"
 
 #include <stdint.h>
 
@@ -17,7 +18,8 @@ typedef struct {
 } ESL_RANDOMNESS;
 
 /* esl_rnd_Roll(a) chooses a uniformly distributed integer
- * in the range 0..a-1, given an initialized ESL_RANDOMNESS r.
+ * in the range 0..a-1, given an initialized ESL_RANDOMNESS r,
+ * for a > 0.
  */
 #define esl_rnd_Roll(r, a)    ((int) (esl_random(r) * (a)))
 
@@ -44,7 +46,7 @@ extern int esl_randomness_Dump(FILE *fp, ESL_RANDOMNESS *r);
 extern double esl_rnd_UniformPositive(ESL_RANDOMNESS *r);
 extern double esl_rnd_Gaussian (ESL_RANDOMNESS *rng, double mean, double stddev);
 extern double esl_rnd_Gamma    (ESL_RANDOMNESS *rng, double a);
-extern void   esl_rnd_Dirichlet(ESL_RANDOMNESS *rng, const double *alpha, int K, double *p);
+extern void   esl_rnd_Dirichlet(ESL_RANDOMNESS *rng, const double *alpha, int K, double *p);  // Pass alpha=NULL if you just want a uniform draw.
 extern void   esl_rnd_mem      (ESL_RANDOMNESS *rng, void *buf, int n);
 
 /* 5. Multinomial sampling from discrete probability n-vectors.
@@ -56,6 +58,3 @@ extern int    esl_rnd_FChooseCDF(ESL_RANDOMNESS *r, const float  *cdf, int N);
 
 
 #endif /*eslRANDOM_INCLUDED*/
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

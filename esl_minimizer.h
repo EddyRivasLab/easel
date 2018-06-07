@@ -1,11 +1,10 @@
 /* Multidimensional optimization by conjugate gradient descent.
  * 
  * SRE, Wed Jun 22 09:53:05 2005
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslMINIMIZER_INCLUDED
 #define eslMINIMIZER_INCLUDED
+#include "esl_config.h"
 
 #define MAXITERATIONS 100
 
@@ -24,6 +23,3 @@ extern int esl_min_ConjugateGradientDescent(double *x, double *u, int n,
 					    void *prm, double tol, double *wrk, double *ret_fx);
 
 #endif /*eslMINIMIZER_INCLUDED*/
-/*****************************************************************  
- * @LICENSE@
- *****************************************************************/

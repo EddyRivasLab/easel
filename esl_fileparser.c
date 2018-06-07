@@ -6,7 +6,6 @@
  *    3. Unit tests.
  *    4. Test driver.
  *    5. Examples.
- *    6. Copyright/license information.
  */
 #include "esl_config.h"
 
@@ -275,8 +274,8 @@ esl_fileparser_NextLine(ESL_FILEPARSER *efp)
 
   while ((status = nextline(efp)) == eslOK) 
     {
-      while (efp->s != '\0' && isspace(*(efp->s))) efp->s++;
-      if    (*efp->s != '\0' && *efp->s != efp->commentchar) break;
+      while (*(efp->s) != '\0' && isspace(*(efp->s))) efp->s++;
+      if    (*(efp->s) != '\0' && *efp->s != efp->commentchar) break;
     } 
   if (status == eslEOF) return status;
   if (status != eslOK)  ESL_FAIL(status, efp->errbuf, "nextline() failed");
@@ -356,9 +355,9 @@ esl_fileparser_NextLinePeeked(ESL_FILEPARSER *efp, char *prefix, int plen)
   memcpy(efp->buf, prefix, plen);
   efp->s = efp->buf;
 
-  while (efp->s != '\0' && isspace(*(efp->s))) efp->s++;
-  if    (*efp->s != '\0' && *efp->s != efp->commentchar) return eslOK;
-  else                                                   return esl_fileparser_NextLine(efp);
+  while (*(efp->s) != '\0' && isspace(*(efp->s))) efp->s++;
+  if    (*(efp->s) != '\0' && *efp->s != efp->commentchar) return eslOK;
+  else                                                     return esl_fileparser_NextLine(efp);
 
  ERROR:
   return status;
@@ -792,14 +791,4 @@ main(int argc, char **argv)
 #endif /*eslFILEPARSER_EXAMPLE*/
 
 
-
-
-
-
-/*****************************************************************
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
 

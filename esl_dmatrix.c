@@ -15,7 +15,6 @@
  *   9. Unit tests
  *  10. Test driver
  *  11. Examples
- *  12. Copyright and license 
  *
  * To do:
  *   - eventually probably want additional matrix types
@@ -1585,9 +1584,4 @@ int main(void)
 
 
 
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/
+

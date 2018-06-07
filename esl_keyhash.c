@@ -9,8 +9,6 @@
  *    5. Unit tests.
  *    6. Test driver.
  *    7. Example.
- *    8. Copyright and license information.
- * 
  */
 #include "esl_config.h"
 
@@ -21,6 +19,7 @@
 
 #include "easel.h"
 #include "esl_mem.h"
+
 #include "esl_keyhash.h"
 
 static ESL_KEYHASH *keyhash_create(uint32_t hashsize, int init_key_alloc, int init_string_alloc);
@@ -146,10 +145,13 @@ esl_keyhash_Sizeof(const ESL_KEYHASH *kh)
 {
   size_t n = 0;
 
-  n += sizeof(ESL_KEYHASH);
-  n += sizeof(int)  * kh->hashsize;
-  n += sizeof(int)  * kh->kalloc * 2;
-  n += sizeof(char) * kh->salloc;
+  if (kh)
+    {
+      n += sizeof(ESL_KEYHASH);
+      n += sizeof(int)  * kh->hashsize;
+      n += sizeof(int)  * kh->kalloc * 2;
+      n += sizeof(char) * kh->salloc;
+    }
   return n;
 }
 
@@ -843,11 +845,3 @@ main(int argc, char **argv)
 /*::cexcerpt::keyhash_example::end::*/
 #endif /*eslKEYHASH_EXAMPLE*/
 /*----------------------- end, example --------------------------*/
-
-
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

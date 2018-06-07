@@ -13,7 +13,6 @@
  *   9. Unit tests.
  *  10. Test driver.
  *  11. Example program.
- *  12. License and copyright.
  */
 #include "esl_config.h"
 
@@ -27,9 +26,9 @@
 #include "esl_fileparser.h"
 #include "esl_rootfinder.h"
 #include "esl_ratematrix.h"
-#include "esl_scorematrix.h"
 #include "esl_vectorops.h"
 
+#include "esl_scorematrix.h"
 
 /*****************************************************************
  *# 1. The ESL_SCOREMATRIX object
@@ -736,6 +735,30 @@ struct esl_scorematrix_nt_preload_s {
   int   matrix[eslNTDIM][eslNTDIM];
 };
 
+/* "DNA1" matrix
+ * 
+ * Travis Wheeler created the "DNA1" custom matrix for nhmmer. It's
+ * derived from the DNA prior (see <p7_prior_CreateNucleic()>), by
+ * computing mean posterior joint probabilities p_ij for a single
+ * observed count of each residue, assuming uniform background, and
+ * symmetricizing the result by taking means; then calling
+ * <esl_scorematrix_SetFromProbs()> with lambda = 0.02.
+ * 
+ * The p_ij matrix was:
+ *         A     C     G     T 
+ *      0.143 0.033 0.037 0.037  A
+ *      0.033 0.136 0.029 0.044  C
+ *      0.037 0.029 0.157 0.034  G
+ *      0.037 0.044 0.034 0.136  T
+ * 
+ * Travis estimated the DNA prior from a subset of Rfam 10.0 seed
+ * alignments, based on a procedure from Eric Nawrocki: remove
+ * columns with >50% gaps, collect weighted counts, and estimate
+ * a four-component Dirichlet mixture.
+ * 
+ * [xref email from Travis 8/21/2017]
+ * 
+ */
 static const struct esl_scorematrix_nt_preload_s ESL_SCOREMATRIX_NT_PRELOADS[] = {
   { "DNA1", {
     /*   A    C    G    T    -    R    Y    M    K    S    W    H    B    V    D    N    *    ~ */
@@ -1090,7 +1113,7 @@ esl_scorematrix_Read(ESL_FILEPARSER *efp, const ESL_ALPHABET *abc, ESL_SCOREMATR
 	}
       if ((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslEOL)  ESL_XFAIL(eslEFORMAT, efp->errbuf, "Too many fields on line");
     }
-  if ((status = esl_fileparser_NextLine(efp)) != eslEOF) ESL_XFAIL(eslEFORMAT, efp->errbuf, "Too many lines in file");
+  if ((status = esl_fileparser_NextLine(efp)) != eslEOF) ESL_XFAIL(eslEFORMAT, efp->errbuf, "Too many lines in file. (Make sure it's square & symmetric. E.g. use NUC.4.4 not NUC.4.2)");
   
 
   /* Annotate the score matrix */
@@ -1956,7 +1979,7 @@ main(int argc, char **argv)
  *****************************************************************/
 
 #ifdef eslSCOREMATRIX_TESTDRIVE
-#include <esl_dirichlet.h>
+#include "esl_dirichlet.h"
 
 static void
 utest_ReadWrite(ESL_ALPHABET *abc, ESL_SCOREMATRIX *S)
@@ -1966,12 +1989,12 @@ utest_ReadWrite(ESL_ALPHABET *abc, ESL_SCOREMATRIX *S)
   ESL_SCOREMATRIX *S2  = NULL;
   ESL_FILEPARSER  *efp = NULL;
   
-  if (esl_tmpfile_named(tmpfile, &fp)          != eslOK) esl_fatal("failed to open tmp file");
-  if (esl_scorematrix_Write(fp, S)                     != eslOK) esl_fatal("failed to write test matrix");
+  if (esl_tmpfile_named(tmpfile, &fp)  != eslOK) esl_fatal("failed to open tmp file");
+  if (esl_scorematrix_Write(fp, S)     != eslOK) esl_fatal("failed to write test matrix");
   fclose(fp);
 
   if (esl_fileparser_Open(tmpfile, NULL, &efp) != eslOK) esl_fatal("failed to open tmpfile containing BLOSUM62 matrix");
-  if (esl_scorematrix_Read(efp, abc, &S2)              != eslOK) esl_fatal("failed to read tmpfile containing BLOSUM62 matrix");
+  if (esl_scorematrix_Read(efp, abc, &S2)      != eslOK) esl_fatal("failed to read tmpfile containing BLOSUM62 matrix");
   if (esl_scorematrix_Compare(S, S2)           != eslOK) esl_fatal("the two test matrices aren't identical");
   
   remove(tmpfile); 
@@ -2205,14 +2228,28 @@ main(int argc, char **argv)
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_fileparser.h"
+#include "esl_getopts.h"
 #include "esl_dmatrix.h"
 #include "esl_vectorops.h"
 #include "esl_scorematrix.h"
 
-int main(int argc, char **argv)
+static ESL_OPTIONS options[] = {
+  /* name             type          default  env  range    toggles          reqs incomp  help                                       docgroup*/
+  { "-h",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,             NULL, NULL, "show brief help on version and usage",        0 },
+  { "--dna",       eslARG_NONE,       FALSE,  NULL, NULL,  "--dna,--amino",  NULL, NULL, "use DNA alphabet",                            0 },
+  { "--amino",     eslARG_NONE,      "TRUE",  NULL, NULL,  "--dna,--amino",  NULL, NULL, "use protein alphabet",                        0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options] <mxfile>";
+static char banner[] = "example of using easel scorematrix routines";
+
+
+int 
+main(int argc, char **argv)
 {
-  char            *scorefile = argv[1];
-  ESL_ALPHABET    *abc       = esl_alphabet_Create(eslAMINO);
+  ESL_GETOPTS     *go        = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
+  char            *scorefile = esl_opt_GetArg(go, 1);
+  ESL_ALPHABET    *abc       = NULL;
   ESL_FILEPARSER  *efp       = NULL;
   ESL_SCOREMATRIX *S         = NULL;
   ESL_DMATRIX     *P1        = NULL; /* implicit probability basis, bg unknown */
@@ -2222,9 +2259,12 @@ int main(int argc, char **argv)
   double           lambda, D, E;
   int              vstatus;
 
-  /* Input an amino acid score matrix from a file. */
-  if ( esl_fileparser_Open(scorefile, NULL, &efp) != eslOK) esl_fatal("failed to open score file %s", scorefile);
-  if ( esl_scorematrix_Read(efp, abc, &S)         != eslOK) esl_fatal("failed to read matrix from %s", scorefile);
+  if      (esl_opt_GetBoolean(go, "--dna"))   abc = esl_alphabet_Create(eslDNA);
+  else if (esl_opt_GetBoolean(go, "--amino")) abc = esl_alphabet_Create(eslAMINO);
+
+  /* Input a score matrix from a file. */
+  if ( esl_fileparser_Open(scorefile, NULL, &efp) != eslOK) esl_fatal("failed to open score file %s",         scorefile);
+  if ( esl_scorematrix_Read(efp, abc, &S)         != eslOK) esl_fatal("failed to read matrix from %s:\n  %s", scorefile, efp->errbuf);
   esl_fileparser_Close(efp);
 
   /* Try to reverse engineer it to get implicit probabilistic model. This may fail! */
@@ -2285,15 +2325,8 @@ int main(int argc, char **argv)
   esl_dmatrix_Destroy(P1);  esl_dmatrix_Destroy(P2);
   esl_scorematrix_Destroy(S);
   esl_alphabet_Destroy(abc);
+  esl_getopts_Destroy(go);
   return 0;
 }
 /*::cexcerpt::scorematrix_example::end::*/
 #endif /*eslSCOREMATRIX_EXAMPLE*/
-
-
-/*****************************************************************
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/ 

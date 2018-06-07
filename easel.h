@@ -10,14 +10,12 @@
  *   4. Macros implementing Easel debugging output conventions
  *   5. Defined constants
  *   6. Basic support for Easel digitized biosequences
- *   7. Miscellaneous
- *   8. Void declarations of missing augmentations
+ *   7. Using optional compiler attributes
+ *   8. Miscellaneous
  *   9. API declarations of easel.c
- *  10. Copyright and license.
  */
 #ifndef eslEASEL_INCLUDED
 #define eslEASEL_INCLUDED
-
 #include "esl_config.h"
 
 #include <stdlib.h>
@@ -309,7 +307,7 @@
  *****************************************************************/
 
 /* Most of this support is in the alphabet module, but we externalize 
- * some into the easel foundation because ESL_INMAP is used in unaugmented
+ * some into the easel foundation because ESL_INMAP is used in 
  * sqio, msa modules.
  * 
  * A digital sequence residue (ESL_DSQ) is an unsigned 8-bit type
@@ -340,7 +338,47 @@ typedef uint8_t ESL_DSQ;
 
 
 /*****************************************************************
- * 7. Miscellaneous.
+ * 7. Using optional compiler attributes
+ *****************************************************************/
+/* It's convenient to be able to use some optional features of
+ * gcc-like compilers, especially when developing, but we have to be
+ * able to make these features vanish when the compiler doesn't
+ * support them.
+ */
+
+/* ESL_ATTRIBUTE_NORETURN
+ *    Static analyzers (like clang's) may need to be clued in when
+ *    a function cannot return: fatal error handlers, for example.
+ *    gcc-like compilers support the __attribute__((__noreturn__))
+ *    extension on function declarations. Functions that don't return 
+ *    are declared like:
+ *        extern void fatal(char *msg, ...) ESL_ATTRIBUTE_NORETURN;
+ */
+#ifdef  HAVE_FUNC_ATTRIBUTE_NORETURN
+#define ESL_ATTRIBUTE_NORETURN __attribute__((__noreturn__))
+#else
+#define ESL_ATTRIBUTE_NORETURN
+#endif
+
+/* ESL_ATTRIBUTE_FORMAT
+ *    For printf()-like functions with a variable number of arguments
+ *    corresponding to a format string, a compiler is generally unable
+ *    to check that the args match the format. gcc-like compilers
+ *    allow declaring a "format" attribute to enable typechecking of
+ *    printf-like functions. The arguments are printf, <string_idx>,
+ *    <first-to-check>. For example:
+ *      extern void my_printf(FILE *fp, char *s, ...) ESL_ATTRIBUTE_FORMAT(printf, 2, 3);
+ */
+#ifdef HAVE_FUNC_ATTRIBUTE_FORMAT
+#define ESL_ATTRIBUTE_FORMAT(type,idx,first) __attribute__((format(type,idx,first)))
+#else
+#define ESL_ATTRIBUTE_FORMAT(type,idx,first)
+#endif
+
+
+
+/*****************************************************************
+ * 8. Miscellaneous.
  *****************************************************************/
 /* A placeholder for helping w/ portability of filenames/paths.
  * I think, but have not tested, that:
@@ -385,36 +423,6 @@ static inline float esl_log2f(float x) { return (x == 0.0 ? -eslINFINITY : eslCO
 typedef int64_t esl_pos_t;
 
 
-/* ESL_ANALYZER_NORETURN
- *    adds some optional support for clang static analysis. 
- *    The static analyzer sometimes needs to be clued in when a
- *    function cannot return: fatal error handlers, for example.
- *    clang, gcc, and other gcc-like compilers support the __attribute__
- *    extension on function declarations. We detect this support
- *    at compile-time in the configure script. Functions that
- *    don't return are declared like:
- *       extern void fatal(char *msg, ...) ESL_ANALYZER_NORETURN;    
- */
-#ifndef ESL_ANALYZER_NORETURN
-#ifdef  HAVE_FUNC_ATTRIBUTE_NORETURN
-#define ESL_ANALYZER_NORETURN __attribute__((__noreturn__))
-#else
-#define ESL_ANALYZER_NORETURN
-#endif
-#endif
-
-
-
-
-/*****************************************************************
- * 8. Void declarations of missing augmentations
- *****************************************************************/
-#ifndef eslAUGMENT_ALPHABET
-typedef void ESL_ALPHABET;
-#endif
-#ifndef eslAUGMENT_KEYHASH
-typedef void ESL_KEYHASH;
-#endif
 
 /*****************************************************************
  * 9. The API declarations for easel.c
@@ -427,9 +435,10 @@ extern void esl_exception(int errcode, int use_errno, char *sourcefile, int sour
 extern void esl_exception_SetHandler(esl_exception_handler_f);
 extern void esl_exception_ResetDefaultHandler(void);
 extern void esl_nonfatal_handler(int errcode, int use_errno, char *sourcefile, int sourceline, char *format, va_list argp);
-extern void esl_fatal(const char *format, ...) ESL_ANALYZER_NORETURN;
+extern void esl_fatal(const char *format, ...) ESL_ATTRIBUTE_NORETURN;
 
 /* 2. Memory allocation/deallocation conventions. */
+extern void esl_free(void *p);
 extern void esl_Free2D(void  **p, int dim1);
 extern void esl_Free3D(void ***p, int dim1, int dim2);
 
@@ -458,6 +467,10 @@ extern int  esl_strcmp(const char *s1, const char *s2);
 extern int  esl_strcasecmp(const char *s1, const char *s2);
 #define strcasecmp esl_strcasecmp
 #endif
+#endif
+#ifndef HAVE_STRSEP
+extern char *esl_strsep(char **stringp, const char *delim);
+#define strsep     esl_strsep
 #endif
 
 /* 6. Additional string functions, esl_str*() */
@@ -490,9 +503,3 @@ extern int  esl_CCompare(char *s1, char *s2);
 #endif /*eslEASEL_INCLUDED*/
 
 
-/*****************************************************************
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

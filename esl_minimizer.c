@@ -10,6 +10,7 @@
 
 #include "easel.h"
 #include "esl_vectorops.h"
+
 #include "esl_minimizer.h"
 
 /* Return the negative gradient at a point, determined 
@@ -640,15 +641,3 @@ main(int argc, char **argv)
 }
 /*::cexcerpt::minimizer_example::end::*/
 #endif /*eslMINIMIZER_EXAMPLE*/
-
-
-
-
-
-
-/*****************************************************************  
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

@@ -12,7 +12,6 @@
  *    9. Unit tests.
  *   10. Test driver.
  *   11. Examples. 
- *   12. Copyright and license. 
  */
 #include "esl_config.h"
 
@@ -37,7 +36,7 @@
 #endif
 
 #include "easel.h"
-
+#include <syslog.h>
 
 /*****************************************************************
  * 1. Exception and fatal error handling.
@@ -65,12 +64,22 @@ static esl_exception_handler_f esl_exception_handler = NULL;
 void
 esl_fail(char *errbuf, const char *format, ...)
 {
-  if (format) {
-    va_list ap;
-    va_start(ap, format);
-    if (errbuf) vsnprintf(errbuf, eslERRBUFSIZE, format, ap);
-    va_end(ap);
-  }
+  if (format)
+    {
+      va_list ap;
+      /* Check whether we are running as a daemon so we can do the
+       * right thing about logging instead of printing errors 
+       */
+      if (getppid() != 1)
+	{ // we aren't running as a daemon, so print the error normally
+	  va_start(ap, format);
+	  if (errbuf) vsnprintf(errbuf, eslERRBUFSIZE, format, ap);
+	  va_end(ap);
+	}
+      else vsyslog(LOG_ERR, format, ap); // SRE: TODO: check this.
+                                         // looks wrong. I think it needs va_start(), va_end().
+                                         // also see two more occurrences, below.
+    }
 }
 
 
@@ -125,7 +134,8 @@ esl_exception(int errcode, int use_errno, char *sourcefile, int sourceline, char
 #endif
 
   if (esl_exception_handler != NULL) 
-    {
+    { // If the custom exception handler tries to print to stderr/stdout, the error may get eaten if we're running as a daemon
+      // Not sure how to prevent that, since we can't control what custom handlers get written.
       va_start(argp, format);
       (*esl_exception_handler)(errcode, use_errno, sourcefile, sourceline, format, argp);
       va_end(argp);
@@ -133,13 +143,19 @@ esl_exception(int errcode, int use_errno, char *sourcefile, int sourceline, char
     } 
   else 
     {
-      fprintf(stderr, "Fatal exception (source file %s, line %d):\n", sourcefile, sourceline);
-      va_start(argp, format);
-      vfprintf(stderr, format, argp);
-      va_end(argp);
-      fprintf(stderr, "\n");
-      if (use_errno && errno) perror("system error");
-      fflush(stderr);
+      /* Check whether we are running as a daemon so we can do the right thing about logging instead of printing errors */
+      if (getppid() != 1)
+	{ // we're not running as a daemon, so print the error normally
+	  fprintf(stderr, "Fatal exception (source file %s, line %d):\n", sourcefile, sourceline);
+	  va_start(argp, format);
+	  vfprintf(stderr, format, argp);
+	  va_end(argp);
+	  fprintf(stderr, "\n");
+	  if (use_errno && errno) perror("system error");
+	  fflush(stderr);
+	}  
+      else vsyslog(LOG_ERR, format, argp);
+
 #ifdef HAVE_MPI
       MPI_Initialized(&mpiflag);                 /* we're assuming we can do this, even in a corrupted, dying process...? */
       if (mpiflag) MPI_Abort(MPI_COMM_WORLD, 1);
@@ -280,12 +296,16 @@ esl_fatal(const char *format, ...)
 #ifdef HAVE_MPI
   int mpiflag;
 #endif
-
-  va_start(argp, format);
-  vfprintf(stderr, format, argp);
-  va_end(argp);
-  fprintf(stderr, "\n");
-  fflush(stderr);
+  /* Check whether we are running as a daemon so we can do the right thing about logging instead of printing errors */
+  if (getppid() != 1)
+    { // we're not running as a daemon, so print the error normally
+      va_start(argp, format);
+      vfprintf(stderr, format, argp);
+      va_end(argp);
+      fprintf(stderr, "\n");
+      fflush(stderr);
+    } 
+  else vsyslog(LOG_ERR, format, argp);
 
 #ifdef HAVE_MPI
   MPI_Initialized(&mpiflag);
@@ -302,6 +322,22 @@ esl_fatal(const char *format, ...)
  * 2. Memory allocation/deallocation conventions.
  *****************************************************************/
 
+/* Function:  esl_free()
+ * Synopsis:  free(), while allowing ptr to be NULL.
+ * Incept:    SRE, Fri Nov  3 17:12:01 2017
+ *
+ * Purpose:   Easel uses a convention of initializing ptrs to be NULL
+ *            before allocating them. When cleaning up after errors, a
+ *            routine can check for non-NULL ptrs to know what to
+ *            free(). Easel code is slightly cleaner if we have a
+ *            free() that no-ops on NULL ptrs.
+ */
+void
+esl_free(void *p)
+{
+  if (p) free(p);
+}
+
 /* Function:  esl_Free2D()
  *
  * Purpose:   Free a 2D pointer array <p>, where first dimension is
@@ -310,6 +346,8 @@ esl_fatal(const char *format, ...)
  *            sparse arrays.
  *
  * Returns:   void.
+ *
+ * DEPRECATED. Replace with esl_arr2_Destroy()
  */
 void
 esl_Free2D(void **p, int dim1)
@@ -331,6 +369,8 @@ esl_Free2D(void **p, int dim1)
  *            pointers being NULL, to allow sparse arrays.
  *
  * Returns:   void.
+ *
+ * DEPRECATED. Replace with esl_arr3_Destroy()
  */
 void
 esl_Free3D(void ***p, int dim1, int dim2)
@@ -1212,6 +1252,85 @@ esl_strcasecmp(const char *s1, const char *s2)
   return 0;  /* else, a case-insensitive match. */
 }
 #endif /* ! HAVE_STRCASECMP */
+
+
+#ifndef HAVE_STRSEP
+/* Function:  esl_strsep()
+ * Synopsis:  Separate strings.
+ * Incept:    Contributed by Sebastien Jaenick, July 2016.
+ *
+ * Purpose:   Portable replacement for strsep(). Solaris, for example,
+ *            does not have it.
+ *
+ *            Get next token from string *stringp, where tokens are
+ *            possibly-empty strings separated by characters from
+ *            delim.
+ *
+ *            Writes NULs into the string at *stringp to end tokens.
+ *            delim need not remain constant from call to call.  On
+ *            return, *stringp points past the last NUL written (if
+ *            there might be further tokens), or is NULL (if there are
+ *            definitely no more tokens).
+ *
+ *            If *stringp is NULL, strsep returns NULL.
+ *
+ * Note: 
+ *     Taken from FreeBSD, under BSD open source license:
+ *
+ *     Copyright (c) 1990, 1993
+ *     The Regents of the University of California.  All rights reserved.
+ *
+ *     Redistribution and use in source and binary forms, with or without
+ *     modification, are permitted provided that the following conditions
+ *     are met:
+ *     1. Redistributions of source code must retain the above copyright
+ *        notice, this list of conditions and the following disclaimer.
+ *     2. Redistributions in binary form must reproduce the above copyright
+ *        notice, this list of conditions and the following disclaimer in the
+ *        documentation and/or other materials provided with the distribution.
+ *     4. Neither the name of the University nor the names of its contributors
+ *        may be used to endorse or promote products derived from this software
+ *        without specific prior written permission.
+ *
+ *     THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ *     ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ *     IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ *     ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ *     FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ *     DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ *     OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ *     HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *     LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ *     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ *     SUCH DAMAGE.
+ */
+char *
+esl_strsep(char **stringp, const char *delim)
+{
+  const char *spanp;
+  char       *s;
+  int         c, sc;
+  char       *tok;
+
+  if ((s = *stringp) == NULL)
+    return NULL;
+  for (tok = s;;) {
+    c = *s++;
+    spanp = delim;
+    do {
+      if ((sc = *spanp++) == c) {
+	if (c == 0)
+	  s = NULL;
+	else
+	  s[-1] = 0;
+	*stringp = s;
+	return tok;
+      }
+    } while (sc != 0);
+  }
+  /* NOTREACHED */
+}
+#endif
 /*------------- end, portable drop-in replacements --------------*/
 
 
@@ -1403,16 +1522,12 @@ esl_str_GetMaxWidth(char **s, int n)
  *
  * Purpose:   Returns TRUE if <filename> exists and is readable, else FALSE.
  *     
- * Note:      Testing a read-only fopen() is the only portable ANSI C     
- *            I'm aware of. We could also use a POSIX func here, since
- *            we have a ESL_POSIX_AUGMENTATION flag in the code.
- *            
  * Xref:      squid's FileExists().
  */
 int
 esl_FileExists(const char *filename)
 {
-#if defined _POSIX_VERSION
+#ifdef _POSIX_VERSION
   struct stat fileinfo;
   if (stat(filename, &fileinfo) != 0) return FALSE;
   if (! (fileinfo.st_mode & S_IRUSR)) return FALSE;
@@ -2308,7 +2423,7 @@ int main(void)
   esl_tmpfile(tmpfile1, &fp);
   fprintf(fp, "Hello world!\n");
   rewind(fp);
-  fgets(buf, 256, fp);
+  if (fgets(buf, 256, fp) == NULL) esl_fatal("bad fread()");
   printf("first temp file says: %s\n", buf);
   fclose(fp);
 
@@ -2319,7 +2434,7 @@ int main(void)
   fclose(fp);		/* tmpfile2 now exists on disk and can be closed/reopened */
 
   fp = fopen(tmpfile2, "r");
-  fgets(buf, 256, fp);
+  if (fgets(buf, 256, fp) == NULL) esl_fatal("bad fread()");
   printf("second temp file says: %s\n", buf);
   fclose(fp);
   remove(tmpfile2);	/* disk file cleanup necessary with this version. */
@@ -2330,9 +2445,3 @@ int main(void)
 #endif /*eslEASEL_EXAMPLE*/
 
 
-/*****************************************************************
- * @LICENSE@
- * 
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/  

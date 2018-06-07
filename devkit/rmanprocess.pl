@@ -16,7 +16,6 @@
 # 
 # 
 # SRE, Mon May 25 11:06:58 1998
-# SVN $Id: rmanprocess.pl 1531 2005-12-13 20:53:46Z eddy $
 
 while (<>)
 {

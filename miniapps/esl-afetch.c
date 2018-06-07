@@ -209,7 +209,7 @@ create_ssi_index(ESL_GETOPTS *go, ESL_MSAFILE *afp)
     }
   
   if (esl_newssi_Write(ns) != eslOK) 
-    esl_fatal("Failed to write keys to ssi file %s\n", ssifile);
+    esl_fatal("\nFailed to write keys to ssi file %s:\n  %s", ssifile, ns->errbuf);
 
   printf("done.\n");
 
@@ -368,6 +368,3 @@ regurgitate_one_stockholm_entry(FILE *ofp, ESL_MSAFILE *afp)
 }
   
 
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/

@@ -2,7 +2,6 @@
  * 
  * From squid's sfetch and ffetch
  * SRE, Mon Mar 31 16:12:50 2008 [Janelia] 
- * SVN $Id$
  */
 #include "esl_config.h"
 
@@ -259,7 +258,8 @@ create_ssi_index(ESL_GETOPTS *go, ESL_SQFILE *sqfp)
   }
 
   /* Save the SSI file to disk */
-  if (esl_newssi_Write(ns) != eslOK)  esl_fatal("Failed to write keys to ssi file %s\n", ssifile);
+  if (esl_newssi_Write(ns) != eslOK)  
+    esl_fatal("\nFailed to write keys to ssi file %s:\n  %s", ssifile, ns->errbuf);
 
   /* Done - output and exit. */
   printf("done.\n");
@@ -473,7 +473,7 @@ onefetch_subseq(ESL_GETOPTS *go, FILE *ofp, ESL_SQFILE *sqfp, char *newname, cha
   if (esl_sqio_FetchSubseq(sqfp, key, start, end, sq) != eslOK) esl_fatal(esl_sqfile_GetErrorBuf(sqfp));
 
   if      (newname != NULL) esl_sq_SetName(sq, newname);
-  else                      esl_sq_FormatName(sq, "%s/%d-%d", key, given_start, (given_end == 0) ? sq->L : given_end);
+  else                      esl_sq_FormatName(sq, "%s/%u-%" PRId64, key, given_start, (given_end == 0) ? sq->L : given_end);
 
   /* Two ways we might have been asked to revcomp: by coord, or by -r option */
   /* (If both happen, they'll cancel each other out) */

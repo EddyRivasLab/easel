@@ -6,7 +6,6 @@
 # Example:   ./esl-shuffle.itest.pl ./esl-shuffle        foo
 #
 # SRE, Tue Nov 10 17:27:22 2009
-# SVN $Id$
 
 $eslshuffle = shift;
 $tmppfx     = shift;

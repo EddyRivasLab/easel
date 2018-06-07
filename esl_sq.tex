@@ -30,7 +30,7 @@ it's a simple mode that's easy to start using.
 Alternatively, a sequence may be in \esldef{digital mode}. In digital
 mode, sequences are predigested and encoded into \Easel's internal
 format, which makes many sequence routines more robust, efficient, and
-powerful. Digital mode requires \eslmod{alphabet} augmentation.
+powerful.
 
 In addition to storing a complete sequence, an \ccode{ESL\_SQ} is
 designed to be used in three other situations:
@@ -71,9 +71,9 @@ sequence, rather than creating and destroying a lot of objects.
 A sequence object can also store an optional secondary structure
 annotation line for the sequence, one character per residue.
 
-When augmented with \eslmod{msa}, an interface to the \ccode{ESL\_MSA}
-multiple alignment object provides the ability to extract single
-unaligned sequences from a multiple alignment.
+An interface to the \ccode{ESL\_MSA} multiple alignment object
+provides the ability to extract single unaligned sequences from a
+multiple alignment.
 
 You would often use the \eslmod{sq} module in conjunction with
 \eslmod{sqio}, which provides the ability to read and write

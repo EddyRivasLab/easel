@@ -398,7 +398,7 @@ main(int argc, char **argv)
         if ( outfmt == eslSQFILE_HMMPGMD ) {
           fprintf(mapfp, "%d %s %s\n", idx+1, sq->name?sq->name:"", sq->desc?sq->desc:"");
           esl_sq_FormatName(sq, "%d 1", idx+1);
-          esl_sq_FormatDesc(sq, "");
+          esl_sq_SetDesc   (sq, "");
         } else {
           if (rename) esl_sq_FormatName(sq, "%s.%d", rename, idx+1);
         }
@@ -942,7 +942,5 @@ parse_replace_string(const char *rstring, char **ret_from, char **ret_to)
 }
 
 
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
+
 

@@ -1,7 +1,6 @@
 /* Mask sequences in a sequence flatfile.
  * 
  * SRE, Sat Oct 31 09:58:56 2009 [Janelia]
- * SVN $Id$
  */
 #include "esl_config.h"
 

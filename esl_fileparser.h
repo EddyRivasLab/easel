@@ -2,6 +2,7 @@
  */
 #ifndef eslFILEPARSER_INCLUDED
 #define eslFILEPARSER_INCLUDED
+#include "esl_config.h"
 
 #include <stdio.h>
 #include "easel.h"
@@ -36,6 +37,4 @@ extern void esl_fileparser_Destroy         (ESL_FILEPARSER *efp);
 extern void esl_fileparser_Close           (ESL_FILEPARSER *efp);
 
 #endif /*eslFILEPARSER_INCLUDED */
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
+

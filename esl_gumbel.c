@@ -4,15 +4,14 @@
  *   1. Routines for evaluating densities and distributions
  *   2. Generic API routines: for general interface w/ histogram module
  *   3. Dumping plots to files
- *   4. Sampling (augmentation: random module)
+ *   4. Sampling
  *   5. ML fitting to complete data
  *   6. ML fitting to censored data  (x_i >= phi; z known)
- *   7. ML fitting to truncated data (x_i >= phi; z unknown) (augmentation: minimizer)
+ *   7. ML fitting to truncated data (x_i >= phi; z unknown) 
  *   8. Stats driver
  *   9. Unit tests
  *  10. Test driver
  *  11. Example
- *  12. Copyright and license information
  * 
  * To-do:
  *   - ML fitting routines will be prone to over/underfitting 
@@ -29,15 +28,12 @@
 #include <float.h>
 
 #include "easel.h"
+#include "esl_minimizer.h"
+#include "esl_random.h"
 #include "esl_stats.h"
 #include "esl_vectorops.h"
+
 #include "esl_gumbel.h"
-#ifdef eslAUGMENT_RANDOM
-#include "esl_random.h"
-#endif
-#ifdef eslAUGMENT_MINIMIZER
-#include "esl_minimizer.h"
-#endif
 
 /*****************************************************************
  * 1. Routines for evaluating densities and distributions
@@ -298,10 +294,9 @@ esl_gumbel_Plot(FILE *fp, double mu, double lambda,
 
 
 /*****************************************************************
- * 4. Routines for sampling (requires augmentation w/ random module)
+ * 4. Routines for sampling
  *****************************************************************/ 
 
-#ifdef eslAUGMENT_RANDOM
 /* Function:  esl_gumbel_Sample()
  * Synopsis:  Return a Gumbel-distributed random sample $x$.
  *
@@ -315,8 +310,6 @@ esl_gumbel_Sample(ESL_RANDOMNESS *r, double mu, double lambda)
   p = esl_rnd_UniformPositive(r); 
   return esl_gumbel_invcdf(p, mu, lambda);
 } 
-#endif /*eslAUGMENT_RANDOM*/
-
 /*------------------------ end of sampling --------------------------------*/
 
 
@@ -807,9 +800,9 @@ esl_gumbel_FitCensoredLoc(double *x, int n, int z, double phi, double lambda,
 
 
 /*****************************************************************
- * 7. Maximum likelihood fitting to truncated data (x_i >= phi and z unknown) (requires minimizer augmentation)
+ * 7. Maximum likelihood fitting to truncated data (x_i >= phi and z unknown) 
  *****************************************************************/ 
-#ifdef eslAUGMENT_MINIMIZER
+
 /* Easel's conjugate gradient descent code allows a single void ptr to
  * point to any necessary fixed data, so we'll put everything into one
  * structure:
@@ -1019,7 +1012,6 @@ esl_gumbel_FitTruncated(double *x, int n, double phi, double *ret_mu, double *re
   *ret_lambda = 0.0;
   return status;
 }
-#endif /*eslAUGMENT_MINIMIZER*/
 /*------------------------ end of fitting --------------------------------*/
 
 /*****************************************************************
@@ -1119,7 +1111,6 @@ main(int argc, char **argv)
 
   /* Fitting to simulated truncated datasets
    */
-#ifdef eslAUGMENT_MINIMIZER
   if (do_truncated) {
     for (exp = 0; exp < nexps; exp++)
       {
@@ -1139,7 +1130,6 @@ main(int argc, char **argv)
 	printf("\n");
       }
   }
-#endif /*eslAUGMENT_MINIMIZER*/
 
   /* Fitting mu given lambda 
    */
@@ -1229,11 +1219,9 @@ utest_fitting(ESL_RANDOMNESS *rng)
   /* Truncated fitting.
    * Don't tolerate more than 5% error in mu, 8% in lambda.
    */
-#ifdef eslAUGMENT_MINIMIZER
   if ((status = esl_gumbel_FitTruncated(x, n, phi, &mu, &lambda)) != eslOK) esl_fatal(msg);
   if (fabs((mu     - pmu)    /pmu)     > 0.05) esl_fatal(msg);
   if (fabs((lambda - plambda)/plambda) > 0.08) esl_fatal(msg);
-#endif /*eslAUGMENT_MINIMIZER*/
   
   free(x);
   return;
@@ -1359,9 +1347,6 @@ main(int argc, char **argv)
  *****************************************************************/ 
 #ifdef eslGUMBEL_EXAMPLE
 /*::cexcerpt::gumbel_example::begin::*/
-/* compile: gcc -g -Wall -I. -o example -DeslGUMBEL_EXAMPLE -DeslAUGMENT_RANDOM esl_gumbel.c esl_random.c esl_vectorops.c easel.c -lm
- * run:     ./example
- */
 #include <stdio.h>
 #include "easel.h"
 #include "esl_random.h"
@@ -1411,10 +1396,3 @@ main(int argc, char **argv)
 
 
 
-
-/*****************************************************************
- * @LICENSE@
- *
- * SVN $Id$
- * SVN $URL$
- *****************************************************************/

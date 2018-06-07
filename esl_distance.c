@@ -2,16 +2,14 @@
  *
  * Contents:
  *    1. Pairwise distances for aligned text sequences.
- *    2. Pairwise distances for aligned digital seqs.       [alphabet]
- *    3. Distance matrices for aligned text sequences.      [dmatrix]
- *    4. Distance matrices for aligned digital sequences.   [alphabet,dmatrix]
- *    5. Average pairwise identity for multiple alignments. [alphabet,random]
+ *    2. Pairwise distances for aligned digital seqs.      
+ *    3. Distance matrices for aligned text sequences.     
+ *    4. Distance matrices for aligned digital sequences.  
+ *    5. Average pairwise identity for multiple alignments.
  *    6. Private (static) functions.
  *    7. Unit tests.
  *    8. Test driver.
  *    9. Example.
- *   10. Copyright notice and license.
- *    
  */
 #include "esl_config.h"
 
@@ -20,15 +18,10 @@
 #include <math.h>
 
 #include "easel.h"
-#ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
-#endif
-#ifdef eslAUGMENT_DMATRIX
 #include "esl_dmatrix.h"
-#endif
-#ifdef eslAUGMENT_RANDOM
 #include "esl_random.h"
-#endif
+
 #include "esl_distance.h"
 
 /* Forward declaration of our static functions.
@@ -247,9 +240,8 @@ esl_dst_CJukesCantor(int K, const char *as1, const char *as2,
 
 
 /*****************************************************************
- * 2. Pairwise distances for aligned digitized sequences. [alphabet]
+ * 2. Pairwise distances for aligned digitized sequences. 
  *****************************************************************/
-#ifdef eslAUGMENT_ALPHABET
 
 /* Function:  esl_dst_XPairId()
  * Synopsis:  Pairwise identity of two aligned digital seqs.
@@ -433,7 +425,7 @@ esl_dst_XJukesCantor(const ESL_ALPHABET *abc, const ESL_DSQ *ax, const ESL_DSQ *
   return status;
 }
 
-#endif /*eslAUGMENT_ALPHABET*/
+
 /*---------- end pairwise distances, digital seqs --------------*/
 
 
@@ -442,7 +434,6 @@ esl_dst_XJukesCantor(const ESL_ALPHABET *abc, const ESL_DSQ *ax, const ESL_DSQ *
 /*****************************************************************
  * 3. Distance matrices for aligned text sequences.
  *****************************************************************/
-#ifdef eslAUGMENT_DMATRIX
 
 /* Function:  esl_dst_CPairIdMx()
  * Synopsis:  NxN identity matrix for N aligned text sequences.
@@ -621,8 +612,6 @@ esl_dst_CJukesCantorMx(int K, char **aseq, int nseq,
   if (opt_V != NULL) *opt_V = NULL;
   return status;
 }
-
-#endif /*eslAUGMENT_DMATRIX*/
 /*----------- end, distance matrices for aligned text seqs ---------*/
 
 
@@ -631,8 +620,6 @@ esl_dst_CJukesCantorMx(int K, char **aseq, int nseq,
 /*****************************************************************
  * 4. Distance matrices for aligned digital sequences.
  *****************************************************************/
-#if defined(eslAUGMENT_ALPHABET) && defined(eslAUGMENT_DMATRIX)
-
 
 /* Function:  esl_dst_XPairIdMx()
  * Synopsis:  NxN identity matrix for N aligned digital seqs.
@@ -809,7 +796,6 @@ esl_dst_XJukesCantorMx(const ESL_ALPHABET *abc, ESL_DSQ **ax, int nseq,
   if (opt_V != NULL) *opt_V = NULL;
   return status;
 }
-#endif /*eslAUGMENT_ALPHABET && eslAUGMENT_DMATRIX*/
 /*------- end, distance matrices for digital alignments ---------*/
 
 
@@ -818,7 +804,6 @@ esl_dst_XJukesCantorMx(const ESL_ALPHABET *abc, ESL_DSQ **ax, int nseq,
  * 5. Average pairwise identity for multiple alignments
  *****************************************************************/
 
-#ifdef eslAUGMENT_RANDOM
 /* Function:  esl_dst_CAverageId()
  * Synopsis:  Calculate avg identity for multiple alignment
  * Incept:    SRE, Fri May 18 15:02:38 2007 [Janelia]
@@ -871,7 +856,7 @@ esl_dst_CAverageId(char **as, int N, int max_comparisons, double *ret_id)
   /* If nseq is large, calculate average over a stochastic sample. */
   else				
     {
-      ESL_RANDOMNESS *r = esl_randomness_Create(0);
+      ESL_RANDOMNESS *r = esl_randomness_Create(42);  /* fixed seed, suppress stochastic variation */
       for (n = 0; n < max_comparisons; n++)
 	{
 	  do { i = esl_rnd_Roll(r, N); j = esl_rnd_Roll(r, N); } while (j == i); /* make sure j != i */
@@ -938,7 +923,7 @@ esl_dst_CAverageMatch(char **as, int N, int max_comparisons, double *ret_match)
   /* If nseq is large, calculate average over a stochastic sample. */
   else				
     {
-      ESL_RANDOMNESS *r = esl_randomness_Create(0);
+      ESL_RANDOMNESS *r = esl_randomness_Create(42); /* fixed seed, suppress stochastic variation */
       for (n = 0; n < max_comparisons; n++)
 	{
 	  do { i = esl_rnd_Roll(r, N); j = esl_rnd_Roll(r, N); } while (j == i); /* make sure j != i */
@@ -953,9 +938,6 @@ esl_dst_CAverageMatch(char **as, int N, int max_comparisons, double *ret_match)
   return eslOK;
 }
 
-#endif /* eslAUGMENT_RANDOM */
-
-#if defined(eslAUGMENT_RANDOM) && defined(eslAUGMENT_ALPHABET)
 /* Function:  esl_dst_XAverageId()
  * Synopsis:  Calculate avg identity for digital MSA 
  * Incept:    SRE, Fri May 18 15:19:14 2007 [Janelia]
@@ -1012,7 +994,7 @@ esl_dst_XAverageId(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_compari
   /* If nseq is large, calculate average over a stochastic sample. */
   else				
     {
-      ESL_RANDOMNESS *r = esl_randomness_Create(0);
+      ESL_RANDOMNESS *r = esl_randomness_Create(42);  /* fixed seed, suppress stochastic variation */
       for (n = 0; n < max_comparisons; n++)
 	{
 	  do { i = esl_rnd_Roll(r, N); j = esl_rnd_Roll(r, N); } while (j == i); /* make sure j != i */
@@ -1083,7 +1065,7 @@ esl_dst_XAverageMatch(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_comp
   /* If nseq is large, calculate average over a stochastic sample. */
   else				
     {
-      ESL_RANDOMNESS *r = esl_randomness_Create(0);
+      ESL_RANDOMNESS *r = esl_randomness_Create(42);  /* fixed seed, suppress stochastic variation */
       for (n = 0; n < max_comparisons; n++)
 	{
 	  do { i = esl_rnd_Roll(r, N); j = esl_rnd_Roll(r, N); } while (j == i); /* make sure j != i */
@@ -1098,7 +1080,6 @@ esl_dst_XAverageMatch(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_comp
   return eslOK;
 }
 
-#endif /* eslAUGMENT_RANDOM && eslAUGMENT_ALPHABET */
 
 
 
@@ -1238,7 +1219,6 @@ utest_CJukesCantor(int K, char **as, int N)
   return eslOK;
 }
 
-#ifdef eslAUGMENT_ALPHABET
 static int 
 utest_XPairId(ESL_ALPHABET *abc, char **as, ESL_DSQ **ax, int N)
 {
@@ -1305,12 +1285,8 @@ utest_XJukesCantor(ESL_ALPHABET *abc, char **as, ESL_DSQ **ax, int N)
   /* API should accept NULL for return values */
   if (esl_dst_XJukesCantor(abc, ax[0], ax[0], NULL, NULL) != eslOK) abort();  
   return eslOK;
-
 }
-#endif /*eslAUGMENT_ALPHABET*/
 
-
-#ifdef eslAUGMENT_DMATRIX
 static int 
 utest_CPairIdMx(char **as, int N)
 {
@@ -1367,10 +1343,7 @@ utest_CJukesCantorMx(int K, char **as, int N)
   esl_dmatrix_Destroy(V);
   return eslOK;
 }
-#endif /*eslAUGMENT_DMATRIX*/
 
-#if defined (eslAUGMENT_ALPHABET) && defined (eslAUGMENT_DMATRIX)
- 
 static int 
 utest_XPairIdMx(ESL_ALPHABET *abc, char **as, ESL_DSQ **ax, int N)
 {
@@ -1429,10 +1402,8 @@ utest_XJukesCantorMx(ESL_ALPHABET *abc, char **as, ESL_DSQ **ax, int N)
   esl_dmatrix_Destroy(V2);
   return eslOK;
 }
-#endif /*eslAUGMENT_ALPHABET && eslAUGMENT_DMATRIX*/
-
-/*------------------ end of unit tests --------------------------*/
 #endif /* eslDISTANCE_TESTDRIVE */
+/*------------------ end of unit tests --------------------------*/
 
 
 
@@ -1440,38 +1411,16 @@ utest_XJukesCantorMx(ESL_ALPHABET *abc, char **as, ESL_DSQ **ax, int N)
  * 8. Test driver.
  *****************************************************************/ 
 
-/* 
-   gcc -g -Wall -o testdriver -I. -DeslDISTANCE_TESTDRIVE esl_distance.c esl_getopts.c esl_random.c easel.c -lm
-
-   gcc -g -Wall -o testdriver -I. -DeslDISTANCE_TESTDRIVE\
-     -DeslAUGMENT_ALPHABET \
-     esl_distance.c esl_getopts.c esl_random.c \
-     esl_alphabet.c easel.c -lm
-
-   gcc -g -Wall -o testdriver -I. -DeslDISTANCE_TESTDRIVE\
-     -DeslAUGMENT_DMATRIX \
-     esl_distance.c esl_getopts.c esl_random.c \
-     esl_dmatrix.c easel.c -lm
-
-   gcc -g -Wall -o testdriver -I. -DeslDISTANCE_TESTDRIVE\
-     -DeslALPHABET -DeslAUGMENT_DMATRIX \
-     esl_distance.c esl_getopts.c esl_random.c \
-     esl_alphabet.c esl_dmatrix.c easel.c -lm
-
-   gcc -g -Wall -o testdriver -I. -L. -DeslDISTANCE_TESTDRIVE esl_distance.c -leasel -lm
- */
 #ifdef eslDISTANCE_TESTDRIVE
 #include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_arr2.h"
+#include "esl_dmatrix.h"
 #include "esl_getopts.h"
 #include "esl_random.h"
 #include "esl_randomseq.h"
+
 #include "esl_distance.h"
-#ifdef eslAUGMENT_ALPHABET
-#include "esl_alphabet.h"
-#endif
-#ifdef eslAUGMENT_DMATRIX
-#include "esl_dmatrix.h"
-#endif
 
 static ESL_OPTIONS options[] = {
   /* name        type       def   env  range toggles reqs incomp help                       docgroup*/
@@ -1493,11 +1442,9 @@ main(int argc, char **argv)
   int seed;
   int i,j;
   int status;
-  double p[4];			/* ACGT probabilities */
-#ifdef eslAUGMENT_ALPHABET
-  ESL_DSQ      **ax = NULL;		/* digitized alignment                  */
+  double p[4];			/// ACGT probabilities 
+  ESL_DSQ      **ax = NULL;	// digitized alignment                  
   ESL_ALPHABET *abc = NULL;
-#endif
 
   /* Process command line
    */
@@ -1539,42 +1486,29 @@ main(int argc, char **argv)
   for (i = 3; i < N; i++)
     esl_rsq_IID(r, "ACGT", p, 4, L, as[i]);
 
-#ifdef eslAUGMENT_ALPHABET
   abc = esl_alphabet_Create(eslDNA);
   ESL_ALLOC(ax, sizeof(ESL_DSQ *) * N);
   for (i = 0; i < N; i++) 
     esl_abc_CreateDsq(abc, as[i], &(ax[i]));
-#endif /*eslAUGMENT_ALPHABET*/
-
 
   /* Unit tests
    */
   if (utest_CPairId(as, N)               != eslOK) return eslFAIL;
   if (utest_CJukesCantor(4, as, N)       != eslOK) return eslFAIL;
-
-#ifdef eslAUGMENT_ALPHABET
   if (utest_XPairId(abc, as, ax, N)      != eslOK) return eslFAIL;
   if (utest_XJukesCantor(abc, as, ax, N) != eslOK) return eslFAIL;
-#endif /*eslAUGMENT_ALPHABET*/
-
-#ifdef eslAUGMENT_DMATRIX
   if (utest_CPairIdMx(as, N)             != eslOK) return eslFAIL;
   if (utest_CDiffMx(as, N)               != eslOK) return eslFAIL;
   if (utest_CJukesCantorMx(4, as, N)     != eslOK) return eslFAIL;
-#endif /* eslAUGMENT_DMATRIX*/
-
-#if defined (eslAUGMENT_ALPHABET) && defined (eslAUGMENT_DMATRIX)
   if (utest_XPairIdMx(abc, as, ax, N)       != eslOK) return eslFAIL;
   if (utest_XDiffMx(abc, as, ax, N)         != eslOK) return eslFAIL;
   if (utest_XJukesCantorMx(abc, as, ax, N)  != eslOK) return eslFAIL;
-#endif
+
 
   esl_randomness_Destroy(r);
-  esl_Free2D((void **) as, N);
-#ifdef eslAUGMENT_ALPHABET
   esl_alphabet_Destroy(abc);
-  esl_Free2D((void **) ax, N);
-#endif
+  esl_arr2_Destroy((void **) as, N);
+  esl_arr2_Destroy((void **) ax, N);
   return eslOK;
 
  ERROR:
@@ -1640,9 +1574,5 @@ int main(int argc, char **argv)
 /*::cexcerpt::distance_example::end::*/
 #endif /*eslDISTANCE_EXAMPLE*/
 
-
-/*****************************************************************
- * @LICENSE@
- *****************************************************************/
 
 
