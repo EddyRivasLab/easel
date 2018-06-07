@@ -10,7 +10,7 @@
  *    7. Internal routines for EMBL format (including UniProt, TrEMBL)
  *    8. Internal routines for GenBank format
  *    9. Internal routines for FASTA format
- *   10. Internal routines for DAEMON format
+ *   10. Internal routines for daemon format
  *   11. Internal routines for HMMPGMD format
  * 
  * This module shares remote evolutionary homology with Don Gilbert's
@@ -89,7 +89,7 @@ static int  header_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int  skip_fasta  (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int  end_fasta   (ESL_SQFILE *sqfp, ESL_SQ *sq);
 
-/* DAEMON format */
+/* daemon format */
 static void config_daemon(ESL_SQFILE *sqfp);
 static void inmap_daemon (ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap);
 static int  end_daemon   (ESL_SQFILE *sqfp, ESL_SQ *sq);
@@ -3152,7 +3152,7 @@ esl_sqascii_WriteFasta(FILE *fp, ESL_SQ *sq, int save_offsets)
 /*------------------- end of FASTA i/o ---------------------------*/
 
 /*****************************************************************
- *#  10. Internal routines for DAEMON format
+ *#  10. Internal routines for daemon format
  *****************************************************************/
 
 /* Special case FASTA format where each sequence is terminated with "//".
@@ -3212,7 +3212,7 @@ end_daemon(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
-  if (ascii->nc < 3) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Whoops, DAEMON input stream is corrupted");
+  if (ascii->nc < 3) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Whoops, daemon input stream is corrupted");
 
   c =  ascii->buf[ascii->bpos++];
   if (c != '/') ESL_FAIL(eslEFORMAT, ascii->errbuf, "Line %" PRId64 ": did not find // terminator at end of seq record", ascii->linenumber);
@@ -3338,7 +3338,7 @@ esl_sqascii_Parse(char *buf, int size, ESL_SQ *sq, int format)
 
   return eslOK;
 }
-/*-------------------- end of DAEMON ----------------------------*/
+/*-------------------- end of daemon ----------------------------*/
 
 /*****************************************************************
  *# 11. Internal routines for HMMPGMD format

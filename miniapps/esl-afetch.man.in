@@ -1,34 +1,23 @@
-.TH "esl-afetch" 1 "@RELEASEDATE@" "@PACKAGE@ @RELEASE@" "@PACKAGE@ Manual"
+.TH "esl\-afetch" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
-.TP
-esl-afetch - retrieve alignments from a multi-MSA database
+esl\-afetch \- retrieve alignments from a multi-MSA database
 
 .SH SYNOPSIS
 
-.TP
-Single MSA retrieval:
-.B esl-afetch
-.I [options]
-.I msafile
-.I key
+.nf
+\fBesl\-afetch\fR [\fIoptions\fR] \fImsafile key\fR
+  (single MSA retrieval)
 
-.TP
-Multiple MSA retrieval:
-.B esl-afetch -f
-.I [options]
-.I msafile
-.I keyfile
+\fBesl\-afetch \-f\fR [\fIoptions\fR] \fImsafile keyfile\fR
+  (multiple MSA retrieval, from a file of keys)
 
-.TP
-Indexing an MSA file for retrieval:
-.B esl-afetch --index
-.I msafile
-
+\fBesl\-afetch \-\-index \fR\fImsafile\fR
+  (index an MSA file for retrieval)
 
 .SH DESCRIPTION
 
-.B esl-afetch
+.B esl\-afetch
 retrieves the alignment named
 .I key
 from an alignment database in file
@@ -44,18 +33,19 @@ number (AC).
 
 .PP
 Alternatively, 
-.B esl-afetch -f
+.B esl\-afetch \-f
 provides the ability to fetch many alignments at once.
 The 
-.I -f 
-option has it interpret the second argument as a <keyfile>, a
-file consisting of one name or accession per line.
+.B \-f 
+option has it interpret the second argument as a
+.IR keyfile ,
+a file consisting of one name or accession per line.
 
 .PP
 The
 .I msafile
 should first be SSI indexed with
-.B esl-afetch --index
+.B esl\-afetch \-\-index
 for efficient retrieval. An SSI index is
 not required, but without one alignment retrieval may
 be painfully slow.
@@ -63,52 +53,55 @@ be painfully slow.
 .SH OPTIONS
 
 .TP
-.B -h
+.B \-h
 Print brief help; includes version number and summary of
 all options, including expert options.
 
 .TP
-.B -f
+.B \-f
 Interpret the second argument as a 
 .I keyfile
 instead of as just one
-.I key. 
+.IR key . 
 The
 .I keyfile
 contains one name or accession per line.
 This option doesn't work with the
-.B --index
+.B \-\-index
 option.
 
 
 .TP
-.BI -o " <f>"
+.BI \-o " <f>"
 Output retrieved alignments to a file 
 .I <f>
-instead of to
-.I stdout.
+instead of to stdout.
 
 .TP
-.BI -O
+.BI \-O
 Output retrieved alignment to a file named
-.I <key>.
+.IR key .
 This is a convenience for saving some typing:
 instead of 
-.B esl-afetch -o RRM_1 msafile RRM_1
+.nf
+ \fB% esl\-afetch \-o RRM_1 msafile RRM_1\fR
+.fi
 you can just type
-.B esl-afetch -O msafile RRM_1.
+.nf
+ \fB% esl\-afetch \-O msafile RRM_1\fR
+.fi
 The
-.B -O 
+.B \-O 
 option only works if you're retrieving a
 single alignment; it is incompatible with 
-.B -f.
+.B \-f.
 
 .TP
-.B --index
+.B \-\-index
 Instead of retrieving a
 .I key,
 the special command
-.B esl-afetch --index
+.B esl\-afetch \-\-index
 .I msafile
 produces an SSI index of the names and accessions
 of the alignments in
@@ -119,10 +112,22 @@ Indexing should be done once on the
 to prepare it for all future fetches.
 
 
+.SH SEE ALSO
+
+.nf
+@EASEL_URL@
+.fi
+
+.SH COPYRIGHT
+
+.nf 
+@EASEL_COPYRIGHT@
+@EASEL_LICENSE@
+.fi 
 
 .SH AUTHOR
 
-Easel and its documentation are @EASEL_COPYRIGHT@.
-@EASEL_LICENSE@.
-See COPYING in the source code distribution for more details.
-The Easel home page is: @EASEL_URL@
+.nf
+http://eddylab.org
+.fi
+

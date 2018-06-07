@@ -1,72 +1,69 @@
-.TH "esl-translate" 1  "@RELEASEDATE@" "@PACKAGE@ @RELEASE@" "@PACKAGE@ Manual"
+.TH "esl\-translate" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
-.TP
-esl-translate - translate DNA sequence in six frames into individual ORFs
+esl\-translate \- translate DNA sequence in six frames into individual ORFs
 
 .SH SYNOPSIS
-.B esl-translate
-.I [options]
+.B esl\-translate
+[\fIoptions\fR]
 .I seqfile
 
 
 .SH DESCRIPTION
 
-.pp
+.PP
 Given a 
 .I seqfile 
 containing DNA or RNA sequences,
-.B esl-translate
+.B esl\-translate
 outputs a six-frame translation of them as individual open reading
 frames in FASTA format.
 
-.pp
+.PP
 By default, only open reading frames greater than 20aa are reported. 
 This minimum ORF length can be changed with the
-.I -l 
+.B \-l 
 option.
 
-.pp
+.PP
 By default, no specific initiation codon is required, and any amino acid can start an open reading frame.
-This is because
-.I esl-translate
+This is so
+.B esl\-translate
 may be used on sequence fragments, eukaryotic genes with introns, or other
 cases where we
 do not want to assume that ORFs are complete coding regions.
 This behavior can be changed. With the 
-.I -m 
+.B \-m 
 option, ORFs start with an initiator AUG Met. With the
-.I -M
+.B \-M
 option, ORFs start with any of the initiation codons allowed by the
 genetic code. For example, the "standard" code (NCBI transl_table 1) 
 allows AUG, CUG, and UUG as initiators. When
-.I -m
+.B \-m
 or
-.I -M
+.B \-M
 are used, an initiator is always translated to Met (even if the initiator
 is something like UUG or CUG that doesn't encode Met as an elongator).
 
-.pp
+.PP
 If
 .I seqfile
-is - (a single dash), input is read from the stdin pipe. This
+is \- (a single dash), input is read from the stdin pipe. This
 (combined
 with the output being a standard FASTA file) allows
-.B esl-translate 
+.B esl\-translate 
 to be used in command line incantations.
 If
 .I seqfile
 ends in .gz, it is assumed to be a gzip-compressed file, and 
 Easel will try to read it as a stream from
-.B gunzip -c.
+\fBgunzip \-c\fR.
 
 
 
 .SH OUTPUT FORMAT
 
-.pp
-
-
+.PP
 The output FASTA name/description line contains information about the
 source and coordinates of each ORF. Each ORF is named 
 .B orf1,
@@ -76,11 +73,12 @@ FASTA name/desc line contains 4 additional fields, followed by the
 description of the source sequence:
 
 .TP
-.B source=<s>
-<s> is the name of the source DNA/RNA sequence.
+\fBsource\fR=\fI<s>\fR
+.I <s>
+is the name of the source DNA/RNA sequence.
 
 .TP
-.B coords=<start>..<end>
+\fBcoords\fR=\fIstart\fR..\fIend\fR
 Coords, 1..L, for the translated ORF in a source DNA sequence of
 length L. If start is greater than end, the ORF is on the bottom
 (reverse complement) strand. The start is the first nucleotide of the
@@ -89,11 +87,11 @@ stop codon is not included in the coordinates (unlike in CDS
 annotation in GenBank, for example.)
 
 .TP
-.B length=<n>
+\fBlength\fR=\fI<n>\fR
 Length of the ORF in amino acids.
 
 .TP
-.B frame=<n>
+\fBframe\fR=\fI<n>\fR
 Which frame the ORF is in. Frames 1..3 are the top strand; 4..6 are the
 bottom strand. Frame 1 starts at nucleotide 1. Frame 4 starts at
 nucleotide L.
@@ -102,10 +100,10 @@ nucleotide L.
 
 .SH ALTERNATIVE GENETIC CODES
 
-.pp
+.PP
 By default, the "standard" genetic code is used (NCBI transl_table 1). 
 Any NCBI genetic code transl_table can be selected with the
-.I -c 
+.B \-c 
 option, as follows:
 
 .TP 
@@ -173,7 +171,7 @@ at a link titled
 
 .SH IUPAC DEGENERACY CODES IN DNA 
 
-.pp
+.PP
 DNA sequences may contain IUPAC degeneracy codes, such as N, R, Y,
 etc. If all codons consistent with a degenerate codon translate to the
 same amino acid (or to a stop), that translation is done; otherwise,
@@ -182,14 +180,14 @@ are stops). For example, in the standard code, UAR translates to *
 (stop), GGN translates to G (glycine), NNN translates to X, and UGR
 translates to X (it could be either a UGA stop or a UGG Trp).
 
-.pp
+.PP
 Degenerate initiation codons are handled essentially the same. If all
 codons consistent with the degenerate codon are legal initiators, then
 the codon is allowed to initiate a new ORF. Stop codons are never
 a legal initiator (not only with 
-.I -m 
+.B \-m 
 or
-.I -M
+.B \-M
 but also with the default of allowing any amino acid to initiate),
 so degenerate codons consistent with a stop cannot be initiators.
 For example, NNN cannot initiate an ORF, nor can UGR -- even
@@ -198,7 +196,7 @@ long stretches of N's as long ORFs of X's, which is probably a
 feature, given the prevalence of artificial runs of N's in genome 
 sequence assemblies.
 
-.pp
+.PP
 Degenerate DNA codons are not translated to degenerate amino acids
 other than X, even when that is possible. For example, SAR and MUH
 are decoded as X, not Z (Q|E) and J (I|L). The extra complexity
@@ -208,15 +206,15 @@ needed for a degenerate to degenerate translation doesn't seem worthwhile.
 .SH OPTIONS
 
 .TP
-.B -h
+.B \-h
 Print brief help. Includes version number and summary of all options. 
 Also includes a list of the available
 NCBI transl_tables and their numerical codes, for the
-.I -c 
+.B \-c 
 option.
 
 .TP
-.BI -c " <id>"
+.BI \-c " <id>"
 Choose alternative genetic code 
 .I <id>
 where 
@@ -224,17 +222,17 @@ where
 is the numerical code of one of the NCBI transl_tables.
 
 .TP
-.BI -l " <n>"
+.BI \-l " <n>"
 Set the minimum reported ORF length to 
 .I <n>
 aa.
 
 .TP
-.B -m
+.B \-m
 Require ORFs to start with an initiator codon AUG (Met).
 
 .TP
-.B -M
+.B \-M
 Require ORFs to start with an initiator codon, as specified by the
 allowed initiator codons in the NCBI transl_table. In the default
 Standard code, AUG, CUG, and UUG are allowed as initiators. An 
@@ -242,52 +240,75 @@ initiation codon is always translated as Met, even if it does not
 normally encode Met as an elongator.
 
 .TP
-.B -W
+.B \-W
 Use a memory-efficient windowed sequence reader.
 The default is to read entire DNA sequences into memory, which
 may become memory limited for some very large eukaryotic chromosomes.
 The windowed reader cannot 
 reverse complement a nonrewindable input stream, so 
 either
-.I <seqfile>
+.I seqfile
 must be a file,
 or you must use
-.I --watson
+.I \-\-watson
 to limit translation to the top strand.
 
 
 .TP
-.BI --informat " <s>"
-Assert that the input 
-.I <seqfile>
-is in 
+.BI \-\-informat " <s>"
+Assert that input
+.I seqfile
+is in format
+.IR <s> ,
+bypassing format autodetection.
+Common choices for 
 .I <s> 
-format. Valid formats include 
-FASTA, GenBank, EMBL, Uniprot, DDBJ, Stockholm, Clustal, and Phylip.
-.I <s> 
-is case-insensitive but must be a complete format name; for example,
-.BI --informat " fasta"
-or
-.BI --informat " embl"
-work.
+include:
+.BR fasta ,
+.BR embl ,
+.BR genbank.
+Alignment formats also work;
+common choices include:
+.BR stockholm , 
+.BR a2m ,
+.BR afa ,
+.BR psiblast ,
+.BR clustal ,
+.BR phylip .
+For more information, and for codes for some less common formats,
+see main documentation.
+The string
+.I <s>
+is case-insensitive (\fBfasta\fR or \fBFASTA\fR both work).
+
 
 .TP
-.B --watson
+.B \-\-watson
 Only translate the top strand.
 
 .TP
-.B --crick
+.B \-\-crick
 Only translate the bottom strand.
 
 
+
+
+
+.SH SEE ALSO
+
+.nf
+@EASEL_URL@
+.fi
+
+.SH COPYRIGHT
+
+.nf 
+@EASEL_COPYRIGHT@
+@EASEL_LICENSE@
+.fi 
+
 .SH AUTHOR
 
-Easel and its documentation are @EASEL_COPYRIGHT@.
-@EASEL_LICENSE@.
-See COPYING in the source code distribution for more details.
-The Easel home page is: @EASEL_URL@
-
-
-
-
-
+.nf
+http://eddylab.org
+.fi

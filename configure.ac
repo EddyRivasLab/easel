@@ -28,11 +28,15 @@
 #   9. checks for structures
 #  10. checks for compiler characteristics
 #  11. checks for library functions
-#  11. checks for system services
-#  12. AC_CONFIG_FILES
-#  13. AC_OUTPUT
+#  12. checks for system services
+#  13. AC_CONFIG_FILES
+#  14. AC_OUTPUT
 #
 # Order obeys autoconf manual, "standard configure.ac layout".
+#
+# To update config.guess and config.sub from GNU:
+#    wget -O config.guess 'http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD'
+#    wget -O config.sub   'http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=HEAD'
 #
 # Use full 3-arg form of AC_DEFINE() macros. autoheader chokes if you
 # don't.  We don't use autoheader (we only use autoconf, out of the
@@ -55,6 +59,7 @@ m4_include([m4/ax_check_compile_flag.m4])
 m4_include([m4/ax_gcc_func_attribute.m4])
 
 m4_include([m4/esl_sse.m4])
+m4_include([m4/esl_sse4.m4])
 m4_include([m4/esl_avx.m4])
 m4_include([m4/esl_avx512.m4])
 m4_include([m4/esl_neon.m4])
@@ -90,7 +95,7 @@ fi
 # From them, AC_INIT automatically derives one more:
 #     PACKAGE_STRING    <package> <version>, e.g. "Easel 0.44"
 # Then we define some of our own:
-#     EASEL_DATE        release date: e.g. "January 2017"
+#     EASEL_DATE        release date: e.g. "August 2017"
 #     EASEL_COPYRIGHT   one-line copyright string
 #     EASEL_LICENSE     one-line license string
 #     EASEL_URL         URL home for Easel.
@@ -104,8 +109,8 @@ fi
 #     EASEL_VERSION    e.g. "1.9a"
 #
 
-EASEL_DATE="January 2017"
-EASEL_COPYRIGHT="Copyright (C) 2017 Howard Hughes Medical Institute"
+EASEL_DATE="June 2018"
+EASEL_COPYRIGHT="Copyright (C) 2018 Howard Hughes Medical Institute"
 EASEL_LICENSE="Freely distributed under the BSD open source license."
 EASEL_VERSION=$PACKAGE_VERSION
 EASEL_URL="http://bioeasel.org/"
@@ -164,6 +169,7 @@ AC_ARG_ENABLE(gcov,    [AS_HELP_STRING([--enable-gcov],    [compile for code cov
 AC_ARG_ENABLE(gprof,   [AS_HELP_STRING([--enable-gprof],   [compile for gcc code profiling])],          enable_gprof=$enableval,   enable_gprof=no)
 
 AC_ARG_ENABLE(sse,     [AS_HELP_STRING([--enable-sse],     [enable our SSE vector code])],              enable_sse=$enableval,     enable_sse=check)
+AC_ARG_ENABLE(sse4,    [AS_HELP_STRING([--enable-sse4],    [enable our SSE4 vector code])],             enable_sse4=$enableval,    enable_sse4=check)
 AC_ARG_ENABLE(avx,     [AS_HELP_STRING([--enable-avx],     [enable our AVX vector code])],              enable_avx=$enableval,     enable_avx=check)
 AC_ARG_ENABLE(avx512,  [AS_HELP_STRING([--enable-avx512],  [enable our AVX-512 vector code])],          enable_avx512=$enableval,  enable_avx512=check)
 AC_ARG_ENABLE(neon,    [AS_HELP_STRING([--enable-neon],    [enable our NEON vector code])] ,            enable_neon=$enableval,    enable_neon=check)
@@ -245,13 +251,15 @@ fi
 
 # Support for vector implementations (xref SRE:H3/28)
 #
-# We only worry about compile time here: do the compiler and linker
-# support an instruction set. A program must also check at runtime
-# that its processor supports the instruction set.
+# We only worry about compile time here: i.e. do the compiler and
+# linker support an instruction set. A program should also check at
+# runtime that its processor supports the instruction set, using code
+# in esl_cpu.
 #
-# Our SSE implementations require SSE+SSE2+SSE4.1;
-#     AVX implementations require AVX+AVX2;
-#     AVX-512 requires the F, ER, and BW subsets.
+# Our "SSE" implementations require <=SSE2;
+#     "SSE4" requires <= SSE4.1;
+#     "AVX"  requires <= AVX2;
+#     "AVX512" requires the F, ER, and BW subsets.
 #
 # If we were explicitly told to enable one ($enable_foo="yes") and we
 # can't, fail with an error. 
@@ -270,7 +278,7 @@ fi
 #
 if test "$enable_sse" = "yes" || test "$enable_sse" = "check"; then
   ESL_SSE([
-    AC_DEFINE(eslENABLE_SSE, 1, [Set to enable the SSE vector implementation])
+    AC_DEFINE(eslENABLE_SSE, 1, [Set to enable SSE vector implementations])
     SSE_CFLAGS=$esl_sse_cflags
     AC_SUBST(SSE_CFLAGS)
     enable_sse=yes
@@ -282,9 +290,23 @@ if test "$enable_sse" = "yes" || test "$enable_sse" = "check"; then
     ])
 fi
 
+if test "$enable_sse4" = "yes" || test "$enable_sse4" = "check"; then
+  ESL_SSE4([
+    AC_DEFINE(eslENABLE_SSE4, 1, [Set to enable SSE4 vector implementations])
+    SSE4_CFLAGS=$esl_sse4_cflags
+    AC_SUBST(SSE4_CFLAGS)
+    enable_sse4=yes
+    ],[
+    if test "$enable_sse4" = "yes"; then
+      AC_MSG_FAILURE([Unable to compile SSE4. Try another compiler, or --disable-sse4])
+    fi
+    enable_sse4=no
+    ])
+fi
+
 if test "$enable_avx" = "yes" || test "$enable_avx" = "check"; then
   ESL_AVX([
-    AC_DEFINE(eslENABLE_AVX, 1, [Set to enable the AVX vector implementation])
+    AC_DEFINE(eslENABLE_AVX, 1, [Set to enable AVX vector implementations])
     AVX_CFLAGS=$esl_avx_cflags
     AC_SUBST(AVX_CFLAGS)
     enable_avx=yes
@@ -298,7 +320,7 @@ fi
 
 if test "$enable_avx512" = "yes" || test "$enable_avx512" = "check"; then
   ESL_AVX512([
-    AC_DEFINE(eslENABLE_AVX512, 1, [Set to enable the AVX-512 vector implementation])
+    AC_DEFINE(eslENABLE_AVX512, 1, [Set to enable AVX-512 vector implementations])
     AVX512_CFLAGS=$esl_avx512_cflags
     AC_SUBST(AVX512_CFLAGS)
     enable_avx512=yes
@@ -312,7 +334,7 @@ fi
 
 if test "$enable_neon" = "yes" || test "$enable_neon" = "check"; then
   ESL_NEON([
-    AC_DEFINE(eslENABLE_NEON, 1, [Set to enable the ARM NEON vector implementation])
+    AC_DEFINE(eslENABLE_NEON, 1, [Set to enable ARM NEON vector implementations])
     AS_VAR_IF([esl_have_neon_aarch64],[yes],[AC_DEFINE(eslHAVE_NEON_AARCH64, 1, [Set to enable the ARM AARCH64 version of NEON])])
     NEON_CFLAGS=$esl_neon_cflags
     AC_SUBST(NEON_CFLAGS)
@@ -327,7 +349,7 @@ fi
 
 if test "$enable_vmx" = "yes" || test "$enable_vmx" = "check"; then
   ESL_VMX([
-    AC_DEFINE(eslENABLE_VMX, 1, [Set to enable the Altivec/VMX vector implementation])
+    AC_DEFINE(eslENABLE_VMX, 1, [Set to enable Altivec/VMX vector implementations])
     VMX_CFLAGS=$esl_vmx_cflags
     AC_SUBST(VMX_CFLAGS)
     enable_vmx=yes
@@ -347,7 +369,7 @@ fi
 # algorithms underflow to zero by design.
 #
 esl_save_cflags="$CFLAGS"
-CFLAGS="$CFLAGS $SSE_CFLAGS"
+CFLAGS="$CFLAGS $SSE_CFLAGS $SSE4_CFLAGS"
 
 AC_MSG_CHECKING([whether flush-to-zero (FTZ) is supported])
 AC_COMPILE_IFELSE(
@@ -521,15 +543,45 @@ AC_SYS_LARGEFILE
 #################################################################
 # 13. Write out esl_config.h header and the Makefiles
 #################################################################
+
+# Easel Makefiles
+AC_CONFIG_FILES([ \
+ Makefile               \
+ miniapps/Makefile      \
+ testsuite/Makefile     \
+ documentation/Makefile \
+ ])
+
+# Substitutions in Easel man pages:
+# EASEL_VERSION, EASEL_DATE, EASEL_COPYRIGHT, EASEL_LICENSE, EASEL_URL
+AC_CONFIG_FILES([ \
+  miniapps/esl-afetch.man      \
+  miniapps/esl-alimanip.man    \
+  miniapps/esl-alimap.man      \
+  miniapps/esl-alimask.man     \
+  miniapps/esl-alimerge.man    \
+  miniapps/esl-alipid.man      \
+  miniapps/esl-alirev.man      \
+  miniapps/esl-alistat.man     \
+  miniapps/esl-compalign.man   \
+  miniapps/esl-compstruct.man  \
+  miniapps/esl-construct.man   \
+  miniapps/esl-histplot.man    \
+  miniapps/esl-mask.man        \
+  miniapps/esl-reformat.man    \
+  miniapps/esl-selectn.man     \
+  miniapps/esl-seqrange.man    \
+  miniapps/esl-seqstat.man     \
+  miniapps/esl-sfetch.man      \
+  miniapps/esl-shuffle.man     \
+  miniapps/esl-ssdraw.man      \
+  miniapps/esl-translate.man   \
+  miniapps/esl-weight.man      \
+ ])
+
 AC_CONFIG_HEADERS([decoy_config.h])   # This keeps gnu 'autoheader' from overwriting our esl_config.h.in
 AC_CONFIG_HEADERS([esl_config.h])
-AC_CONFIG_FILES([miniapps/Makefile])
-AC_CONFIG_FILES([testsuite/Makefile])
-AC_CONFIG_FILES([Makefile])
-if test -e "LICENSE.sh.in"; then
-  AC_CONFIG_FILES(LICENSE.sh)
-fi
-AC_CONFIG_FILES([documentation/Makefile])
+
 
 
 #################################################################
@@ -548,6 +600,7 @@ Compiler:
         CFLAGS= $CFLAGS
 PTHREAD_CFLAGS= $PTHREAD_CFLAGS
     SSE_CFLAGS= $SSE_CFLAGS
+   SSE4_CFLAGS= $SSE4_CFLAGS
     AVX_CFLAGS= $AVX_CFLAGS
  AVX512_CFLAGS= $AVX512_CFLAGS
    NEON_CFLAGS= $NEON_CFLAGS
@@ -555,11 +608,12 @@ PTHREAD_CFLAGS= $PTHREAD_CFLAGS
 
 Vector implementations enabled:
            sse: $enable_sse
+          sse4: $enable_sse4
            avx: $enable_avx
         avx512: $enable_avx512
           neon: $enable_neon
            vmx: $enable_vmx
 
 Do 'make' to build Easel.
-Do 'make check' to run self-tests.
+Then (optionally) do 'make check' to run self-tests.
 "

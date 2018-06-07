@@ -1,19 +1,17 @@
-.TH "esl-alimanip" 1  "@RELEASEDATE@" "@PACKAGE@ @RELEASE@" "@PACKAGE@ Manual"
+.TH "esl\-alimanip" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
-.TP
-esl-alimanip - manipulate a multiple sequence alignment
+esl\-alimanip \- manipulate a multiple sequence alignment
 
 .SH SYNOPSIS
 
-.B esl-alimanip
-.I [options]
+.B esl\-alimanip
+[\fIoptions\fR]
 .I msafile
 
 .SH DESCRIPTION
 
-.pp
-.B esl-alimanip
+.B esl\-alimanip
 can manipulate the multiple sequence alignment(s) in 
 .I msafile
 in various ways. Options exist to remove
@@ -21,97 +19,121 @@ specific sequences, reorder sequences, designate reference columns
 using Stockholm "#=GC RF" markup, and add annotation that numbers
 columns. 
 
+.PP
 The alignments can be of protein or DNA/RNA sequences. All alignments
 in the same 
 .I msafile
 must be either protein or DNA/RNA. The alphabet will be autodetected
 unless one of the options 
-.I --amino,
-.I --dna,
+.B \-\-amino,
+.B \-\-dna,
 or 
-.I --rna 
+.B \-\-rna 
 are given. 
+
+
 
 .SH OPTIONS
 
 .TP
-.B -h 
+.B \-h 
 Print brief help;  includes version number and summary of
 all options, including expert options.
 
 .TP
-.BI -o " <f>"
+.BI \-o " <f>"
 Save the resulting, modified alignment in Stockholm format to a file
 .I <f>.
 The default is to write it to standard output.
 
 .TP 
-.BI --informat " <s>"
-Specify that the input alignment be format 
-.I <s>.
-At preset, the only valid choices for 
+.BI \-\-informat " <s>"
+Assert that 
+.I msafile
+is in alignment format
+.IR <s> ,
+bypassing format autodetection.
+Common choices for 
 .I <s> 
-are: 'stockholm', 'pfam', and 'afa'. 'pfam' is a special
-case of Stockholm format in which each sequence is placed on a single
-line, instead of being interleaved; 'afa' is aligned FASTA. By default
-alignments are assumed to be in Stockholm format (either interleaved
-or Pfam).
+include:
+.BR stockholm , 
+.BR a2m ,
+.BR afa ,
+.BR psiblast ,
+.BR clustal ,
+.BR phylip .
+For more information, and for codes for some less common formats,
+see main documentation.
+The string
+.I <s>
+is case-insensitive (\fBa2m\fR or \fBA2M\fR both work).
+
 
 .TP 
-.BI --outformat " <s>"
-Specify that the output alignment be format 
-.I <s>.
-Choices for 
+.BI \-\-outformat " <s>"
+Write the output in alignment format
+.IR <s> .
+Common choices for 
 .I <s> 
-are: 'stockholm', 'pfam', 'a2m', 'psiblast', 'afa'. 
-By default the alignment is output in interleaved Stockholm format.
+include:
+.BR stockholm , 
+.BR a2m ,
+.BR afa ,
+.BR psiblast ,
+.BR clustal ,
+.BR phylip .
+The string
+.I <s>
+is case-insensitive (\fBa2m\fR or \fBA2M\fR both work).
+Default is
+.BR stockholm .
 
 .TP
-.B --devhelp
+.B \-\-devhelp
 Print help, as with  
-.B "-h",
+.B \-h,
 but also include undocumented developer options. These options are not
 listed below, are under development or experimental, and are not
 guaranteed to even work correctly. Use developer options at your own
 risk. The only resources for understanding what they actually do are
 the brief one-line description printed when
-.B "--devhelp"
+.B \-\-devhelp
 is enabled, and the source code.
 
 .SH EXPERT OPTIONS
 
 .TP 
-.BI --lnfract " <x>"
+.BI \-\-lnfract " <x>"
 Remove any sequences with length less than 
 .I <x>
 fraction the length of the median length sequence in the alignment.
 
 .TP 
-.BI --lxfract " <x>"
+.BI \-\-lxfract " <x>"
 Remove any sequences with length more than 
 .I <x>
 fraction the length of the median length sequence in the alignment.
 
 .TP 
-.BI --lmin " <n>"
+.BI \-\-lmin " <n>"
 Remove any sequences with length less than 
 .I <n>
 residues.
 
 .TP 
-.BI --lmax " <n>"
+.BI \-\-lmax " <n>"
 Remove any sequences with length more than 
 .I <n>
 residues.
 
 .TP 
-.BI --rfnfract " <x>"
+.BI \-\-rfnfract " <x>"
 Remove any sequences with nongap RF length less than 
 .I <x>
 fraction the nongap RF length of the alignment.
 
 .TP 
-.BI --detrunc " <n>"
+.BI \-\-detrunc " <n>"
 Remove any sequences that have all gaps in the first 
 .I <n>
 non-gap #=GC RF columns or the last 
@@ -119,13 +141,13 @@ non-gap #=GC RF columns or the last
 non-gap #=GC RF columns.
 
 .TP 
-.BI --xambig " <n>"
+.BI \-\-xambig " <n>"
 Remove any sequences that has more than
 .I <n>
 ambiguous (degenerate) residues.
 
 .TP 
-.BI --seq-r " <f>"
+.BI \-\-seq\-r " <f>"
 Remove any sequences with names listed in file 
 .I <f>.
 Sequence names listed in 
@@ -134,7 +156,7 @@ can be separated by tabs, new lines, or spaces.
 The file must be in Stockholm format for this option to work. 
 
 .TP 
-.BI --seq-k " <f>"
+.BI \-\-seq\-k " <f>"
 Keep only sequences with names listed in file 
 .I <f>.
 Sequence names listed in 
@@ -146,65 +168,65 @@ they appeared in
 but the order from 
 .I <f> 
 will be used if the 
-.B --k-reorder
+.B \-\-k\-reorder
 option is enabled.
 The file must be in Stockholm format for this option to work. 
 
 .TP 
-.BI --small
+.B \-\-small
 With
-.B --seq-k 
+.B \-\-seq\-k 
 or
-.B --seq-r,
+.B \-\-seq\-r,
 operate in small memory mode. 
 The alignment(s) will not be stored in memory, thus
-.B --seq-k 
+.B \-\-seq\-k 
 and
-.B --seq-r
+.B \-\-seq\-r
 will be able to work on very large alignments regardless
 of the amount of available RAM.
 The alignment file must be in Pfam
 format and 
-.BI --informat " pfam"
+.B \-\-informat pfam
 and one of
-.B --amino,
-.B --dna,
+.B \-\-amino,
+.B \-\-dna,
 or
-.B --rna
+.B \-\-rna
 must be given as well.
 
 .TP 
-.BI --k-reorder
+.B \-\-k\-reorder
 With
-.BI --seq-k " <f>",
+.BI \-\-seq\-k " <f>",
 reorder the kept sequences in the output alignment to the order
 from the list file
 .I <f>.
 
 .TP 
-.BI --seq-ins " <n>"
+.BI \-\-seq\-ins " <n>"
 Keep only sequences that have at least 1 inserted residue after 
 nongap RF position 
 .I <n>.
 
 .TP 
-.BI --seq-ni " <n>"
+.BI \-\-seq\-ni " <n>"
 With 
-.B --seq-ins
+.B \-\-seq\-ins
 require at least 
 .I <n> 
 inserted residues in a sequence for it to be kept.
 
 .TP 
-.BI --seq-xi " <n>"
+.BI \-\-seq\-xi " <n>"
 With 
-.B --seq-ins
+.B \-\-seq\-ins
 allow at most
 .I <n> 
 inserted residues in a sequence for it to be kept.
 
 .TP 
-.BI --trim " <f>"
+.BI \-\-trim " <f>"
 File 
 .I <f>
 is an unaligned FASTA file containing truncated versions of each
@@ -216,19 +238,19 @@ in
 If the alignment output format is Stockholm (the default output
 format), all per-column (GC) and per-residue (GR) annotation will be
 removed from the alignment when
-.B --trim
+.B \-\-trim
 is used. However, if 
-.B --t-keeprf 
+.B \-\-t\-keeprf 
 is also used, the reference annotation (GC RF) will be kept.
 
 .TP 
-.B --t-keeprf
+.B \-\-t\-keeprf
 Specify that the 'trimmed' alignment maintain the original
 reference (GC RF) annotation. Only works in combination with 
-.B --trim.
+.B \-\-trim.
 
 .TP 
-.BI --minpp " <x>"
+.BI \-\-minpp " <x>"
 Replace all residues in the alignments for which the posterior
 probability annotation (#=GR PP) is less than 
 .I <x>
@@ -238,7 +260,7 @@ gaps.
 must be greater than 0.0 and less than or equal to 0.95.
 
 .TP 
-.BI --tree " <f>"
+.BI \-\-tree " <f>"
 Reorder sequences by tree order. 
 Perform single linkage clustering on the sequences in the alignment
 based on sequence identity given the alignment to define a 'tree' 
@@ -248,18 +270,18 @@ tree is output in Newick format to
 .I <f>.
 
 .TP 
-.BI --reorder " <f>"
+.BI \-\-reorder " <f>"
 Reorder sequences to the order listed in file 
 .I <f>.
 Each sequence in the alignment must be listed in 
 .I <f>.
 Use
-.B --k-reorder
+.B \-\-k\-reorder
 to reorder only a subset of sequences to a subset alignment file. 
 The file must be in Stockholm format for this option to work. 
 
 .TP 
-.BI --mask2rf " <f>"
+.BI \-\-mask2rf " <f>"
 Read in the 'mask' file 
 .I <f>
 and use it to define new #=GC RF annotation for the 
@@ -280,65 +302,82 @@ existing RF annotation, all gap RF characters will remain gaps and
 nongap RF characters will be redefined as above.
 
 .TP 
-.BI --m-keeprf
+.BI \-\-m\-keeprf
 With 
-.B --mask2rf,
+.B \-\-mask2rf,
 do not overwrite existing nongap RF characters that are included by
 the input mask as 'x', leave them as the character they are.
 
 .TP 
-.BI --num-all 
+.BI \-\-num\-all 
 Add annotation to the alignment numbering all of the columns in the
 alignment. 
 
 .TP 
-.BI --num-rf 
+.BI \-\-num\-rf 
 Add annotation to the alignment numbering the non-gap (non '.') #=GC
 RF columns of the alignment. 
 
 .TP 
-.BI --rm-gc " <s>"
+.BI \-\-rm\-gc " <s>"
 Remove certain types of #=GC annotation from the alignment. 
 .I "<s>" 
-must be either "RF", "SS_cons", "SA_cons", or "PP_cons",
-at present.
+must be one of:
+.BR RF ,
+.BR SS_cons ,
+.BR SA_cons ,
+.BR PP_cons .
 
 .TP 
-.BI --sindi 
+.BI \-\-sindi 
 Annotate individual secondary structures for each sequence by imposing
 the consensus secondary structure defined by the #=GC SS_cons
 annotation. 
 
 .TP 
-.BI --post2pp 
+.BI \-\-post2pp 
 Update Infernal's cmalign 0.72-1.0.2 posterior probability "POST"
 annotation to "PP" annotation, which is read by other miniapps,
 including 
-.B esl-alimask
+.B esl\-alimask
 and 
-.B esl-alistat.
+.B esl\-alistat.
 
 .TP
-.B --amino
+.B \-\-amino
 Assert that the 
 .I msafile 
 contains protein sequences. 
 
 .TP 
-.B --dna
+.B \-\-dna
 Assert that the 
 .I msafile 
 contains DNA sequences. 
 
 .TP 
-.B --rna
+.B \-\-rna
 Assert that the 
 .I msafile 
 contains RNA sequences. 
 
+
+
+.SH SEE ALSO
+
+.nf
+@EASEL_URL@
+.fi
+
+.SH COPYRIGHT
+
+.nf 
+@EASEL_COPYRIGHT@
+@EASEL_LICENSE@
+.fi 
+
 .SH AUTHOR
 
-Easel and its documentation are @EASEL_COPYRIGHT@.
-@EASEL_LICENSE@.
-See COPYING in the source code distribution for more details.
-The Easel home page is: @EASEL_URL@
+.nf
+http://eddylab.org
+.fi

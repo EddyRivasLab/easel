@@ -23,6 +23,7 @@
 
 /* Optional parallel implementation support */
 #undef eslENABLE_SSE
+#undef eslENABLE_SSE4
 #undef eslENABLE_AVX
 #undef eslENABLE_AVX512
 #undef eslENABLE_NEON

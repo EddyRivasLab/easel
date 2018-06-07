@@ -82,12 +82,13 @@ INSTALL  = @INSTALL@
 QUIET_SUBDIR0 = +${MAKE} -C #space separator after -c
 QUIET_SUBDIR1 =
 ifndef V
+	QUIET         = @
 	QUIET_CC      = @echo '    ' CC $@;
 	QUIET_GEN     = @echo '    ' GEN $@;
 	QUIET_AR      = @echo '    ' AR $@;
 	QUIET_SUBDIR0 = +@subdir=
 	QUIET_SUBDIR1 = ; echo '    ' SUBDIR  $$subdir; \
-		        ${MAKE} -C $$subdir
+		        ${MAKE} -s -C $$subdir
 endif
 
 
@@ -505,6 +506,10 @@ check:  ${ALL_UTESTS} .FORCE
 	${QUIET_SUBDIR0}miniapps  ${QUIET_SUBDIR1} check
 	${QUIET_SUBDIR0}testsuite ${QUIET_SUBDIR1} check
 
+# `make dcheck`: run developer testsuite, save output in testsuite/dcheck.report
+dcheck:
+	${QUIET_SUBDIR0}testsuite   ${QUIET_SUBDIR1} dcheck
+
 pdf:
 	${QUIET_SUBDIR0}documentation ${QUIET_SUBDIR1} pdf
 
@@ -585,120 +590,54 @@ ${ALL_EXAMPLES}: libeasel.a
 
 
 
-# install:   installs libeasel.a in ${libdir}/
-#            installs Easel headers in ${includedir}/
-#            installs miniapp binaries in ${bindir}/
+# install:   miniapp binaries in ${bindir}/
+#            - we don't install headers or libeasel.a; we never use it that way.
+#              instead, easel is included as a subdir of hmmer, infernal projects)
+#            - always verbose, no quiet beautification
 #
 install:
 	${INSTALL} -d ${DESTDIR}${bindir}
-	${INSTALL} -d ${DESTDIR}${libdir}
-	${INSTALL} -d ${DESTDIR}${includedir}
-	${INSTALL} -m 0644 libeasel.a ${DESTDIR}${libdir}/
-	for file in ${HDRS}; do\
-	   ${INSTALL} -m 0644 ${srcdir}/$$file ${DESTDIR}${includedir}/ ;\
-	done
-	${INSTALL} -m 0644 esl_config.h ${DESTDIR}${includedir}/
-	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} install
+	${INSTALL} -d ${DESTDIR}${man1dir}
+	${MAKE} -C miniapps install
 
-# "make uninstall" reverses the steps of "make install"
-#
 uninstall:
-	-rm -f ${DESTDIR}${libdir}/libeasel.a
-	for file in ${HDRS}; do\
-	   rm -f ${DESTDIR}${includedir}/$$file;\
-	done
-	rm -f ${DESTDIR}${includedir}/esl_config.h
-	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} uninstall
+	${MAKE} -C miniapps uninstall
+
 
 # "make clean" removes almost everything except configuration files
 #
 clean:
-#Use 'ifneq' instead of 'test -e' because the '+@' in QUIET_SUBDIR0 can't
-#be passed to the shell. Note that ifneq breaks if indented.
-ifneq (,$(wildcard ./documentation/.))
 	${QUIET_SUBDIR0}documentation ${QUIET_SUBDIR1} clean
-endif
 	${QUIET_SUBDIR0}testsuite     ${QUIET_SUBDIR1} clean
 	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} clean
-	-rm -f ${ALL_OBJS} libeasel.a
-	-rm -f ${ALL_UTESTS} ${ALL_BENCHMARKS} ${ALL_EXAMPLES} ${ALL_EXPERIMENTS}
-	-rm -f *~ TAGS
-	-rm -f *.gcno *.gcda *.gcov
-	-rm -f cscope.out
-	-rm -f core.[0-9]*
-	-rm -f esltmp??????
-	-rm -f config.log config.status
-	for prog in ${ALL_UTESTS} ${ALL_BENCHMARKS} ${ALL_EXAMPLES} ${ALL_EXPERIMENTS}; do\
+	${QUIET}-rm -f ${ALL_OBJS} libeasel.a
+	${QUIET}-rm -f ${ALL_UTESTS} ${ALL_BENCHMARKS} ${ALL_EXAMPLES} ${ALL_EXPERIMENTS}
+	${QUIET}-rm -f *~ TAGS
+	${QUIET}-rm -f *.gcno *.gcda *.gcov
+	${QUIET}-rm -f cscope.out
+	${QUIET}-rm -f core.[0-9]*
+	${QUIET}-rm -f esltmp??????
+	${QUIET}-rm -f config.log config.status
+	${QUIET}for prog in ${ALL_UTESTS} ${ALL_BENCHMARKS} ${ALL_EXAMPLES} ${ALL_EXPERIMENTS}; do\
 	   if test -d $$prog.dSYM; then rm -rf $$prog.dSYM; fi;\
 	done
-
-
-distclean: clean
-#See above for explanation of 'ifneq' usage
-ifneq (,$(wildcard ./documentation/.))
-	${QUIET_SUBDIR0}documentation ${QUIET_SUBDIR1} distclean
+ifndef V
+	@echo '     ' CLEAN easel
 endif
+
+
+distclean:  clean
+	${QUIET_SUBDIR0}documentation ${QUIET_SUBDIR1} distclean
 	${QUIET_SUBDIR0}testsuite     ${QUIET_SUBDIR1} distclean
 	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} distclean
-	-rm esl_config.h decoy_config.h
-	-rm -rf autom4te.cache
-	-rm LICENSE.sh
-	-rm Makefile
+	${QUIET}-rm -f esl_config.h decoy_config.h
+	${QUIET}-rm -rf autom4te.cache
+	${QUIET}-rm -f Makefile
 
 gitclean:  distclean
-	-rm configure
+	${QUIET}-rm -f configure
 
 
-# 'make REPOSITORY=... dist' : create a new distribution tarball
-#
-dist:
-# Make sure we pointed the make dist to a subversion repository
-	@if test x${REPOSITORY} = 'x'; then\
-	  echo "REPOSITORY isn't set; use make REPOSITORY=... dist";\
-	  exit 1;\
-	fi
-# Delete any old versions of the same release
-	@if test -d ../${BASENAME}-${RELEASE};        then rm -rf ../${BASENAME}-${RELEASE};        fi
-	@if test -e ../${BASENAME}-${RELEASE}.tar;    then rm -f  ../${BASENAME}-${RELEASE}.tar;    fi
-	@if test -e ../${BASENAME}-${RELEASE}.tar.Z;  then rm -f  ../${BASENAME}-${RELEASE}.tar.Z;  fi
-	@if test -e ../${BASENAME}-${RELEASE}.tar.gz; then rm -f  ../${BASENAME}-${RELEASE}.tar.gz; fi
-# Export the release from Subversion control
-	svn export ${REPOSITORY} ../${BASENAME}-${RELEASE}
-# Make the configure script from configure.ac
-	(cd ../${BASENAME}-${RELEASE};  autoconf)
-# We'll need some basic Makefiles
-	(cd ../${BASENAME}-${RELEASE}/; ./configure)
-# Set file permissions.
-	find ../${BASENAME}-${RELEASE} -type f -exec chmod +r {} \;
-# Compile the PDF documentation and move it to top level dir
-	(cd ../${BASENAME}-${RELEASE}/documentation/; make pdf)
-	mv ../${BASENAME}-${RELEASE}/documentation/current.pdf  ../${BASENAME}-${RELEASE}/Userguide.pdf
-# Attach license stamps by replacing LICENSE keyword everywhere
-	find ../${BASENAME}-${RELEASE} -type f -exec devkit/sedition-pp LICENSE LICENSE.tag {} \;
-# Other keyword replacements
-	devkit/sedition RELEASE ${RELEASE} RELEASEDATE ${RELEASEDATE} COPYRIGHT ${COPYRIGHT} ../${BASENAME}-${RELEASE}/00README
-	devkit/sedition RELEASE ${RELEASE}                                                   ../${BASENAME}-${RELEASE}/INSTALL
-# Cleanup
-	(cd ../${BASENAME}-${RELEASE}/; make implode)
-	(cd ../${BASENAME}-${RELEASE}/; make distclean)
-# Packaging
-	(cd ..;	tar cvf ${BASENAME}-${RELEASE}.tar ${BASENAME}-${RELEASE})
-	(cd ..; ${COMPRESS} ${BASENAME}-${RELEASE}.tar)
-
-
-
-# `make dcheck`: run developer testsuite, save output in testsuite/dcheck.report
-dcheck:
-	${QUIET_SUBDIR0}testsuite   ${QUIET_SUBDIR1} dcheck
-
-# The "implode" target is used when we've got Easel as a subdirectory
-# of a larger project, like Infernal or HMMER, and we're building a
-# distribution for that larger project. We remove any "personal
-# information" from Easel. Eventually that'd include our bug tracking,
-# for instance, but right now there's nothing to do.
-implode:
-	-rm -f 00CHECKLIST
-	-rm -f LICENSE.tag
 
 TAGS:
 	./makeTAGS.sh

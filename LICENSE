@@ -1,22 +1,21 @@
 Easel - a library of C functions for biological sequence analysis
-
-@EASEL_COPYRIGHT@
-Copyright (C) 2004-2017 Sean R. Eddy
-Copyright (C) 2004-2017 Howard Hughes Medical Institute
-Copyright (C) 2015-2017 President and Fellows of Harvard College
+Copyright (C) 2004-2018 Sean R. Eddy
+Copyright (C) 2004-2018 Howard Hughes Medical Institute
+Copyright (C) 2015-2018 President and Fellows of Harvard College
 Copyright (C) 2004-2006 Washington University School of Medicine
+-------------------------------------------------------------------
 
 Easel's code includes contributions from members of the Eddy/Rivas
 laboratory at Harvard University, the HMMER and Infernal development
 teams, and other colleagues, including:
 
-   Tyler Camp        University of Texas, Austin
-   Nick Carter       HHMI | Harvard University
-   Michael Farrar    Deceased, 2010
-   Graeme Mitchison  Cambridge University
-   Eric Nawrocki     National Center for Biotechnology Information (NCBI)
-   Elena Rivas       Harvard University
-   Travis Wheeler    University of Montana
+   Tyler Camp        
+   Nick Carter       
+   Michael Farrar    
+   Graeme Mitchison  
+   Eric Nawrocki     
+   Elena Rivas       
+   Travis Wheeler    
 
 Easel also includes copyrighted and licensed code that we have
 incorporated from other sources and authors, as noted in the
@@ -25,13 +24,19 @@ contributors include:
 
    Free Software Foundation, Inc.    configure	
    (various authors)                 autoconf macros in m4/
+   FreeBSD 		             easel.c::esl_strsep()
    Stephen Moshier                   esl_sse.c,esl_vmx.c   
    Julien Pommier                    esl_sse.c,esl_vmx.c   
    Sun Microsystems, Inc.            esl_stats.c::esl_erfc()
-   David Robert Nadeau               espl_stopwatch.c
+   David Robert Nadeau               esl_stopwatch.c
    Henry Spencer, U. of Toronto      esl_regexp.c
    David Wheeler                     easel.c::esl_tmpfile()
 
+Easel development is supported in part by the National Human Genome
+Research Institute of the US National Institutes of Health under grant
+number R01HG009116. The content is solely the responsibility of the
+authors and does not necessarily represent the official views of the
+National Institutes of Health.
 
 The Easel library is open source. It is freely distributed under the
 terms of a standard BSD (Berkeley Software Distribution) license:
@@ -64,3 +69,5 @@ terms of a standard BSD (Berkeley Software Distribution) license:
    STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
    OF THE POSSIBILITY OF SUCH DAMAGE.
+
+

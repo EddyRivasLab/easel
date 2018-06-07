@@ -64,22 +64,22 @@ static esl_exception_handler_f esl_exception_handler = NULL;
 void
 esl_fail(char *errbuf, const char *format, ...)
 {
-  if (format) {
-    va_list ap;
-    /* Check whether we are running as a daemon so we can do the right thing about logging instead of printing errors */
-    int parent_pid;
-    parent_pid = getppid();
-
-    if(parent_pid != 1){ // we aren't running as a daemon, so print the error normally
-
-    va_start(ap, format);
-    if (errbuf) vsnprintf(errbuf, eslERRBUFSIZE, format, ap);
-    va_end(ap);
+  if (format)
+    {
+      va_list ap;
+      /* Check whether we are running as a daemon so we can do the
+       * right thing about logging instead of printing errors 
+       */
+      if (getppid() != 1)
+	{ // we aren't running as a daemon, so print the error normally
+	  va_start(ap, format);
+	  if (errbuf) vsnprintf(errbuf, eslERRBUFSIZE, format, ap);
+	  va_end(ap);
+	}
+      else vsyslog(LOG_ERR, format, ap); // SRE: TODO: check this.
+                                         // looks wrong. I think it needs va_start(), va_end().
+                                         // also see two more occurrences, below.
     }
-    else { // we are, so log the error instead of printing it
-       vsyslog(LOG_ERR, format, ap);
-    }
-  }
 }
 
 
@@ -143,21 +143,18 @@ esl_exception(int errcode, int use_errno, char *sourcefile, int sourceline, char
     } 
   else 
     {
-        /* Check whether we are running as a daemon so we can do the right thing about logging instead of printing errors */
-      int parent_pid;
-      parent_pid = getppid();
-      if(parent_pid != 1){ // we're not running as a daemon, so print the error normally
-        fprintf(stderr, "Fatal exception (source file %s, line %d):\n", sourcefile, sourceline);
-        va_start(argp, format);
-        vfprintf(stderr, format, argp);
-        va_end(argp);
-        fprintf(stderr, "\n");
-        if (use_errno && errno) perror("system error");
-        fflush(stderr);
-      }  
-      else { // we are, so log the error instead of printing it
-        vsyslog(LOG_ERR, format, argp);
-      }
+      /* Check whether we are running as a daemon so we can do the right thing about logging instead of printing errors */
+      if (getppid() != 1)
+	{ // we're not running as a daemon, so print the error normally
+	  fprintf(stderr, "Fatal exception (source file %s, line %d):\n", sourcefile, sourceline);
+	  va_start(argp, format);
+	  vfprintf(stderr, format, argp);
+	  va_end(argp);
+	  fprintf(stderr, "\n");
+	  if (use_errno && errno) perror("system error");
+	  fflush(stderr);
+	}  
+      else vsyslog(LOG_ERR, format, argp);
 
 #ifdef HAVE_MPI
       MPI_Initialized(&mpiflag);                 /* we're assuming we can do this, even in a corrupted, dying process...? */
@@ -300,18 +297,16 @@ esl_fatal(const char *format, ...)
   int mpiflag;
 #endif
   /* Check whether we are running as a daemon so we can do the right thing about logging instead of printing errors */
-  int parent_pid;
-  parent_pid = getppid();
-  if(parent_pid != 1){ // we're not running as a daemon, so print the error normally
-    va_start(argp, format);
-    vfprintf(stderr, format, argp);
-    va_end(argp);
-    fprintf(stderr, "\n");
-    fflush(stderr);
-  } 
-  else { // we are, so log the error instead of printing it
-       vsyslog(LOG_ERR, format, argp);
-  }
+  if (getppid() != 1)
+    { // we're not running as a daemon, so print the error normally
+      va_start(argp, format);
+      vfprintf(stderr, format, argp);
+      va_end(argp);
+      fprintf(stderr, "\n");
+      fflush(stderr);
+    } 
+  else vsyslog(LOG_ERR, format, argp);
+
 #ifdef HAVE_MPI
   MPI_Initialized(&mpiflag);
   if (mpiflag) MPI_Abort(MPI_COMM_WORLD, 1);

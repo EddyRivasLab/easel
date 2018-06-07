@@ -10,12 +10,13 @@
  *     
  *****************************************************************
  *
- * This code is conditionally compiled, only when <eslENABLE_SSE> was
- * set in <esl_config.h> by the configure script, and that will only
- * happen on x86 platforms. When <eslENABLE_SSE> is not set, we
- * include some dummy code to silence compiler and ranlib warnings
- * about empty translation units and no symbols, and dummy drivers
- * that do nothing but declare success.
+ * This code is conditionally compiled, only when <eslENABLE_SSE> or
+ * <eslENABLE_SSE4> was set in <esl_config.h> by the configure script,
+ * and that will only happen on x86 platforms. When neither
+ * <eslENABLE_SSE> nor <eslENABLE_SSE4> are set, we include some dummy
+ * code to silence compiler and ranlib warnings about empty
+ * translation units and no symbols, and dummy drivers that do nothing
+ * but declare success.
  *
  *****************************************************************
  * Credits:
@@ -29,7 +30,7 @@
  * information is appended at the end of the file.
  */
 #include "esl_config.h"
-#ifdef eslENABLE_SSE
+#if defined(eslENABLE_SSE) || defined(eslENABLE_SSE4)
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -489,6 +490,7 @@ utest_hmax_epu8(ESL_RANDOMNESS *rng)
 static void
 utest_hmax_epi8(ESL_RANDOMNESS *rng)
 {
+#ifdef eslENABLE_SSE4    // no-op if eslENABLE_SSE only
   union { __m128i v; int8_t x[16]; } u;
   int8_t r1, r2;
   int    i,z;
@@ -504,8 +506,8 @@ utest_hmax_epi8(ESL_RANDOMNESS *rng)
       r2 = esl_sse_hmax_epi8(u.v);
       if (r1 != r2) esl_fatal("hmax_epi8 utest failed");
     }
+#endif // eslENABLE_SSE4
 }
-
 
 static void
 utest_hmax_epi16(ESL_RANDOMNESS *rng)
@@ -625,7 +627,7 @@ main(int argc, char **argv)
 
 
 
-#else // ! eslENABLE_SSE
+#else // ! (eslENABLE_SSE || eslENABLE_SSE4)
 
 /* If we don't have SSE compiled in, provide some nothingness to:
  *   a. prevent Mac OS/X ranlib from bitching about .o file that "has no symbols" 
@@ -636,7 +638,7 @@ void esl_sse_silence_hack(void) { return; }
 #if defined eslSSE_TESTDRIVE || eslSSE_EXAMPLE || eslSSE_BENCHMARK
 int main(void) { return 0; }
 #endif
-#endif // eslENABLE_SSE or not
+#endif // (eslENABLE_SSE || eslENABLE_SSE4) or not
 
 
 

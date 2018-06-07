@@ -1,23 +1,24 @@
 # ESL_SSE([ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND])
 #
 # Check whether compiler supports features we need in our SSE
-# implementations (including SSE2, SSE4.1).
+# implementations. HMMER3 is an example.
 #
 # We call this "SSE" in the generic sense of the lab's vector
-# implementations in Easel, HMMER, Infernal, etc; but more precisely,
-# we checking for everything up to SSE4.1 intrinsic support.
+# implementations in Easel, HMMER, Infernal, etc. More precisely, what
+# we call "SSE" means support for <=SSE2, and what we call "SSE4"
+# means support for <=SSE4.1.
 #
 # Tries to compile and link a test program using the current CC,
 # CFLAGS, and (optionally) any SSE_CFLAGS passed by the user. If no
 # SSE_CFLAGS are provided, then we try to determine them, by trying
-# nothing (i.e. the compiler deals with SSE intrinsics by default),
-# then trying -msse4.1.
+# nothing (i.e. most compilers now deal with SSE intrinsics by
+# default), then trying -msse2.
 # 
 # Sets $esl_have_sse = yes | no
 # Sets $esl_sse_cflags to any needed CFLAGS, such as -msse4.1
 # 
 # A typical ACTION-IF-FOUND might be:
-#      AC_DEFINE(HAVE_SSE)
+#      AC_DEFINE(eslENABLE_SSE)
 #      SSE_CFLAGS=$esl_sse_cflags
 #      AC_SUBST(SSE_CFLAGS)
 #
@@ -32,7 +33,7 @@ AC_DEFUN([ESL_SSE], [
   if test "x$SSE_CFLAGS" != x; then 
     esl_sse_try_flags=$SSE_CFLAGS
   else
-    esl_sse_try_flags="none -msse4.1"
+    esl_sse_try_flags="none -msse2"
   fi
 
   save_CFLAGS=$CFLAGS
@@ -47,12 +48,11 @@ AC_DEFUN([ESL_SSE], [
 #include <x86intrin.h>
 #include <stdint.h>
 int stub_sse(void) {
-__m128i v1 = _mm_set1_epi8(-42);
-__m128i v2 = _mm_set1_epi8(-86);
-union { __m128i v; int8_t x[16]; } v3;
-v3.v = _mm_adds_epi8(v1, v2);
-v2   = _mm_max_epi8(v1, v1);
-return (int) -v3.x[0];
+__m128i v1 = _mm_set1_epi32(42);
+__m128i v2 = _mm_set1_epi32(86);
+union { __m128i v; int32_t x[4]; } v3;
+v3.v = _mm_add_epi32(v1, v2);
+return (int) v3.x[0];
 }
 int main(void) { if (stub_sse() != 128) return 1; else return 0; }
   ]])], [ esl_have_sse=yes; break; ], [])

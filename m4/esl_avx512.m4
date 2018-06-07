@@ -1,9 +1,9 @@
 # ESL_AVX512([ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND])
 #
-# Checks whether compiler supports features we need in our AVX-512
+# Checks whether compiler supports features we need in our AVX512
 # implementations.
 #
-# We call this "AVX-512" in the generic sense of the lab's vector
+# We call this "AVX512" in the generic sense of the lab's vector
 # implementations in Easel, HMMER, Infernal, etc; more precisely,
 # we're checking for AVX-512 Foundation, Double/Quadword, and
 # Byte/Word instruction subsets. Xeon Phi200 "Knights Landing" does

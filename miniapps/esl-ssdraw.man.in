@@ -1,21 +1,19 @@
-.TH "esl-ssdraw" 1  "@RELEASEDATE@" "@PACKAGE@ @RELEASE@" "@PACKAGE@ Manual"
+.TH "esl\-ssdraw" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
-.TP
-esl-ssdraw - create postscript secondary structure diagrams
+esl\-ssdraw \- create postscript secondary structure diagrams
 
 .SH SYNOPSIS
-
-.B esl-ssdraw
-.I [options]
+.B esl\-ssdraw
+[\fIoptions\fR]
 .I msafile
 .I postscript_template
 .I postscript_output_file
 
 .SH DESCRIPTION
 
-.pp
-.B esl-ssdraw
+.PP
+.B esl\-ssdraw
 reads an existing template consensus secondary structure diagram from
 .I postscript_template
 and creates new postscript diagrams including the template structure
@@ -26,26 +24,29 @@ or some of the aligned sequences can be drawn separately, with
 nucleotides or posterior probabilities mapped onto the corresponding
 positions of the consensus structure.
 
+.PP
 The alignment must be in Stockholm format with per-column reference
 annotation (#=GC RF). The sequences in the alignment must be RNA or
 DNA sequences. The
-.B postscript_template
+.I postscript_template
 file must contain one page that includes <rflen> consensus nucleotides
 (positions), where <rflen> is the number of nongap characters in the
 reference (RF) annotation of the first alignment in
-.B msafile.
+.IR msafile .
 The specific format required in the 
-.B postscript_template
+.I postscript_template
 is described below in the INPUT section.
 Postscript diagrams will only be created for the first alignment in
-.B msafile. 
+.IR msafile . 
+
 
 .SH OUTPUT
 
+.PP
 By default (if run with zero command line options),
-.B esl-ssdraw
+.B esl\-ssdraw
 will create a six or seven page 
-.I postscript_output_file, 
+.IR postscript_output_file , 
 with each page displaying a different alignment statistic. These pages display
 the alignment consensus sequence, information content per position,
 mutual information per position, frequency of inserts per position,
@@ -53,50 +54,52 @@ average length of inserts per position, frequency of
 deletions (gaps) per position, and average posterior probability per
 position (if posterior probabilites exist in the alignment)
 If 
-.B -d 
+.B \-d 
 is enabled, all of these pages plus additional ones, such as
 individual sequences (see discussion of 
-.B.--indi 
+.B \-\-indi 
 below) will be drawn.
 These pages can be selected to be drawn individually by using 
 the command line options
-.B --cons,
-.B --info,
-.B --mutinfo,
-.B --ifreq,
-.B --iavglen,
-.B --dall,
+.BR \-\-cons ,
+.BR \-\-info ,
+.BR \-\-mutinfo ,
+.BR \-\-ifreq ,
+.BR \-\-iavglen ,
+.BR \-\-dall ,
 and
-.B --prob.
+.BR \-\-prob .
 The calculation of the statistics for each of these options is
 discussed below in the description for each option.
 Importantly, only so-called 'consensus' positions of the alignment
 will be drawn. A consensus position is one that is a nongap nucleotide in
 the 'reference' annotation of the Stockholm alignment (#=GC RF) read
 from
-.B msafile.
+.IR msafile .
 
+.PP
 By default, a consensus sequence for the input alignment will be
 calculated and displayed on the alignment statistic diagrams. The
 consensus sequence is defined as the most common nucleotide at each 
 consensus position of the alignment. The consensus sequence will not
 be displayed if the 
-.B --no-cnt
+.B \-\-no\-cnt
 option is used. The 
-.B --cthresh,
-.B --cambig, 
+.BR \-\-cthresh ,
+.BR \-\-cambig , 
 and 
-.B --athresh
+.B \-\-athresh
 options affect the definition of the consensus sequence as
 explained below in the descriptions for those options.
 
+.PP
 If the 
-.BI --tabfile " <f>"
+.BI \-\-tabfile " <f>"
 option is used, a tab-delimited text file 
 .I <f>
 will be created that includes per-position lists of the numerical
 values for each of the calculated statistics that were drawn to 
-.B postscript_output_file.
+.IR postscript_output_file .
 Comment lines in
 .I <f>
 are prefixed with a '#' character and explain the meaning of
@@ -104,42 +107,43 @@ each of the tab-delimited columns and how each of the statistics was
 calculated.
 
 If 
-.B --indi
+.B \-\-indi
 is used,
-.B esl-ssdraw
+.B esl\-ssdraw
 will create diagrams showing each sequence in the alignment on a
 separate page, with aligned nucleotides in their corresponding
 position in the structure diagram.  By default, basepaired nucleotides
 will be colored based on their basepair type: either Watson-Crick
 (A:U, U:A, C:G, or G:C), G:U or U:G, or non-canonical (the other ten
 possible basepairs). This coloring can be turned off with the
-.B --no-bp
+.B \-\-no\-bp
 option.
 Also by default, nucleotides that differ from the most common
 nucleotide at each aligned consensus position will be outlined. If
 the most common nucleotide occurs in more than 75% of sequences that
 do not have a gap at that position, the outline will be
 bold. Outlining can be turned off with the 
-.B --no-ol 
+.B \-\-no\-ol 
 option.
 
 .PP
 With 
-.B --indi,
+.BR \-\-indi ,
 if the alignment
 contains posterior probability annotation (#=GR PP), the 
-.B postscript_output_file
+.I postscript_output_file
 will contain an additional page for each sequence drawn with positions
 colored by the posterior probability of each aligned nucleotide.
 No posterior probability pages will be drawn if the 
-.B --no-pp
+.B \-\-no\-pp
 option is used. 
 
-.B esl-ssdraw
+.PP
+.B esl\-ssdraw
 can also be used to draw 'mask' diagrams which color positions of the
 structure one of two colors depending on if they are included or
 excluded by a mask. This is enabled with the 
-.BI --mask-col " <f>"
+.BI \-\-mask\-col " <f>"
 option. 
 .I <f> 
 must contain a single line of <rflen> characters, where <rflen> is the
@@ -150,103 +154,114 @@ indicates position <x> is included by the mask.
 A page comparing the overlap of the 
 .I <f> 
 mask from 
-.BI --mask-col
+.B \-\-mask\-col
 and another mask in 
 .I <f2> 
 will be created if the 
-.BI --mask-diff " <f2>" 
+.BI \-\-mask\-diff " <f2>" 
 option is used.
 
+.PP
 If the 
-.BI --mask " <f>"
+.BI \-\-mask " <f>"
 option is used, positions excluded by the mask in 
 .I <f>
 will be drawn differently (as open circles by default) than positions
 included by the mask. The style of the masked positions can be
 modified with the 
-.B --mask-u,
-.B --mask-x,
+.BR \-\-mask\-u ,
+.BR \-\-mask\-x ,
 and 
-.B --mask-a options. 
+.B \-\-mask\-a
+options. 
 
+.PP
 Finally, two different types of input files can be used to customize
 output diagrams using the
-.B --dfile
+.B \-\-dfile
 and
-.B --efile
+.B \-\-efile
 options, as described below.
+
+
 
 .SH INPUT
 
+.PP
 The 
-.B postscript_template_file
+.I postscript_template_file
 is a postscript file that must be in a very specific format in order for
-.B esl-ssdraw 
+.B esl\-ssdraw 
 to work. The specifics of the format, described below, are likely to change in future
 versions of 
-.B esl-ssdraw.
+.BR esl\-ssdraw .
 The 
-.B postscript_output_file
+.I postscript_output_file
 files generated by 
-.B esl-ssdraw
+.B esl\-ssdraw
 will not be valid 
-.B postscript_template_file
+.I postscript_template_file
 format (i.e. an output file from 
-.B esl-ssdraw
+.B esl\-ssdraw
 cannot be used as an 
-.B postscript_template_file
+.I postscript_template_file
 in a subsequent run of the program).
 
+.PP
 An example 
-.B postscript_template_file
-('trna-ssdraw.ps') is included with the Easel distribution in
+.I postscript_template_file
+('trna\-ssdraw.ps') is included with the Easel distribution in
 the 'testsuite/' subdirectory of the top-level 'easel' directory.
 
+.PP
 The
-.B postscript_template_file
+.I postscript_template_file
 is a valid postscript file. It includes postscript commands for
 drawing a secondary structure. The commands specify x and y
 coordinates for placing each nucleotide on the page. The 
-.B postscript_template_file
+.I postscript_template_file
 might also contain commands for drawing lines connecting basepaired
 positions and tick marks indicating every tenth position, though these
 are not required, as explained below. 
 
+.PP
 If you are unfamiliar with the postscript language, it may be useful
 for you to know that a postscript page is, by default, 612 points wide
 and 792 points tall.
 The (0,0) coordinate of a postscript
 file is at the bottom left corner of the page, (0,792) is the top left,
 (612,0) is the bottom right, and (612,792) is the top right. 
-.B esl-ssdraw
+.B esl\-ssdraw
 uses 8 point by 8 point cells for drawing positions of the consensus
 secondary structure. The 'scale' section of the
-.B postscript_template_file
+.I postscript_template_file
 allows for different 'zoom levels', as described below.
 Also, it is important to know that postscript lines beginning with '%'
 are considered comments and do not include postscript commands.
 
+.PP
 An 
-.B esl-ssdraw
-.B postscript_template_file
+.B esl\-ssdraw
+.I postscript_template_file
 contains n >= 1 pages, each specifying a consensus secondary structure
 diagram. Each page is delimited by a 'showpage' line in an 'ignore'
 section (as described below).
-.B esl-ssdraw
+.B esl\-ssdraw
 will read all pages of the 
-.B postscript_template_file
+.I postscript_template_file
 and then choose the appropriate one that corresponds with the
 alignment in 
-.B msafile 
+.I msafile 
 based on the consensus (nongap RF) length of the alignment. 
 For an alignment of consensus length <rflen>, the first
 page of
-.B postscript_template_file
+.I postscript_template_file
 that has a structure diagram with consensus length <rflen> will be used
 as the template structure for the alignment.
 
+.PP
 Each page of 
-.B postscript_template_file
+.I postscript_template_file
 contains blocks of text organized into seven different possible
 sections. Each section must begin with a single line '% begin
 <sectionname>' and end with a single line '% end <sectionname>' and
@@ -259,14 +274,16 @@ bpconnects'. The n >=1 lines in between the begin and end lines of
 each section must be in a specific format that differs for each
 section as described below.
 
+.PP
 Importantly, each page must end with an 'ignore' section that includes
 a single line 'showpage' between the begin and end lines. This
 lets 
-.B esl-ssdraw
+.B esl\-ssdraw
 know that a page has ended and another might follow.
 
+.PP
 Each page of a 
-.B postscript_template_file
+.I postscript_template_file
 must include a single 'modelname' section.
 This section  must include exactly one line in between its
 begin and end lines. This line must begin with a '%' character
@@ -276,8 +293,9 @@ as the model name and will appear on each page of
 in the header section. If the name is more than 16 characters, it will
 be truncated in the output.
 
+.PP
 Each page of a 
-.B postscript_template_file
+.I postscript_template_file
 must include a single 'legend' section.  This section must include
 exactly one line in between its begin and end lines. This line must be
 formatted as '% <d1> <f1> <f2> <d2> <f3>', where <d1> is an integer
@@ -288,14 +306,15 @@ consensus position <d1>; <d2> specifies the size of a cell in the
 legend and <f3> specifies how many extra points should be between the
 right hand edge of the legend and the end of the page. the offset of
 the right hand end of the legend . For example, the line '% 34
--40. -30. 12 0.' specfies that the legend be placed 40 points to the left
+\-40. \-30. 12 0.' specfies that the legend be placed 40 points to the left
 and 30 points below the 34th consensus position, that cells
 appearing in the legend be squares of size 12 points by 12 points, and
 that the right hand side of the legend flush against the right hand
 edge of the printable page. 
 
+.PP
 Each page of a 
-.B postscript_template_file
+.I postscript_template_file
 must include a single 'scale' section.  This section must include
 exactly one line in between its begin and end lines. This line must be
 formatted as '<f1> <f2> scale', where <f1> and <f2> are both positive
@@ -313,39 +332,42 @@ of about 0.6), and for smaller RNAs, a scale of more than 1.0 might be
 desirable (tRNA (about 70 nt) uses a scale of 1.7). The best way to
 determine the exact scale to use is trial and error.
 
+.PP
 Each page of a 
-.B postscript_template_file
+.I postscript_template_file
 can include n >= 0 'regurgitate' sections.
 These sections can include any number of lines. 
 The text in this section will not be parsed by
-.B esl-ssdraw
+.B esl\-ssdraw
 but will be included in each page of 
-.B postscript_output_file.
+.I postscript_output_file.
 The format of the lines in this section must therefore be valid
 postscript commands. An example of content that might be in a 
 regurgitate section are commands to draw lines and text annotating the
 anticodon on a tRNA secondary structure diagram.
 
+.PP
 Each page of a 
-.B postscript_template_file
+.I postscript_template_file
 must include at least 1 'ignore' section.
 One of these sections must include a single line that
 reads 'showpage'. This section should be placed at the end of each
 page of the template file.  
 Other ignore sections can include any number of lines. 
 The text in these section will not be parsed by
-.B esl-ssdraw
+.B esl\-ssdraw
 nor will it be included in each page of 
-.B postscript_output_file.
+.IR postscript_output_file .
 An ignore section can contain comments or postscript commands that
 draw features of the
-.B postscript_template_file
+.I postscript_template_file
 that are 
 unwanted in the 
-.B postscript_output_file.
+.IR postscript_output_file .
 
+.PP
 Each page of a 
-.B postscript_template_file
+.I postscript_template_file
 must include a single 'text nucleotides' section. This section must
 include exactly <rflen> lines, indicating that the consensus secondary
 structure has exactly <rflen> nucleotide positions. Each line must be of
@@ -355,12 +377,13 @@ specifying the location of the nucleotide on the page, they should be
 positive real numbers. The best way to determine what these
 coordinates should be is manually by trial and error, by inspecting
 the resulting structure as you add each nucleotide. Note that
-.B esl-ssdraw
+.B esl\-ssdraw
 will color an 8 point by 8 point cell for each position, so nucleotides
 should be placed about 8 points apart from each other.
 
+.PP
 Each page of a 
-.B postscript_template_file
+.I postscript_template_file
 may or may not include a single 'text positiontext' section. This section
 can include n >= 1 lines, each specifying text to be placed next to
 specific positions of the structure, for example, to number them.
@@ -372,53 +395,58 @@ manually by trial
 and error, by inspecting the resulting diagram as you add
 each line.
 
+.PP
 Each page of a 
-.B postscript_template_file
+.I postscript_template_file
 may or may not include a single 'lines positionticks' section. This section
 can include n >= 1 lines, each specifying the location of a tick mark
 on the diagram. Each line must be of
 the format '<x1> <y1> <x2> <y2> moveto show'. A tick mark (line of
 width 2.0) will be drawn from point (<x1>,<y1>) to point (<x2>,<y2>)
 on each page of
-.B postscript_output_file.
+.I postscript_output_file.
 Currently, the best way to determine what these coordinates should be
 is manually by trial and error, by inspecting the resulting diagram as
 you add each line.
 
+.PP
 Each page of a 
-.B postscript_template_file
+.I postscript_template_file
 may or may not include a single 'lines bpconnects' section. This section
 must include <nbp> lines, where <nbp> is the number of basepairs in
 the consensus structure of the input
-.B msafile
+.I msafile
 annotated as #=GC SS_cons. Each line should connect two basepaired
 positions in the consensus structure diagram.
 Each line must be of
 the format '<x1> <y1> <x2> <y2> moveto show'. A line
 will be drawn from point (<x1>,<y1>) to point (<x2>,<y2>)
 on each page of
-.B postscript_output_file.
+.I postscript_output_file.
 Currently, the best way to determine what these coordinates should be
 is manually by trial and error, by inspecting the resulting diagram as
 you add each line. 
 
+
+
 .SH REQUIRED MEMORY 
 
+.PP
 The memory required by 
-.B esl-ssdraw
+.B esl\-ssdraw
 will be equal to roughly the larger of 2 Mb and 
 the size of the first alignment in
-.B msafile.
+.IR msafile .
 If the 
-.B --small 
+.B \-\-small 
 option is used, the memory required will be independent of the
 alignment size. To use 
-.B --small
+.B \-\-small
 the alignment must be in Pfam format, a non-interleaved (1 line/seq)
 version of Stockholm format. 
 
 If the 
-.B --indi
+.B \-\-indi
 option is used,
 the required memory may exceed the
 size of the alignment by up to ten-fold, and the output
@@ -429,80 +457,80 @@ may be up to 50 times larger than the
 .SH OPTIONS
 
 .TP
-.B -h 
+.B \-h 
 Print brief help;  includes version number and summary of
 all options, including expert options.
 
 .TP
-.B -d 
+.B \-d 
 Draw the default set of alignment summary diagrams: consensus
 sequence, information content, mutual information, insert frequency,
 average insert length, deletion frequency, and average posterior
 probability (if posterior probability annotation exists in the
 alignment). These diagrams are also drawn by default (if zero command line
 options are used), but using the
-.B -d 
+.B \-d 
 option allows the user to add additional pages, such as individual
 aligned sequences with
-.B --indi.
+.BR \-\-indi .
 
 .TP 
-.BI --mask " <f>"
+.BI \-\-mask " <f>"
 Read the mask from file
-.I <f>,
+.IR <f> ,
 and draw positions differently in 
-.B postscript_output_file
+.I postscript_output_file
 depending on whether they are included or excluded by the mask.
 .I <f>
 must contain a single line of length <rflen> with only '0' and '1'
 characters. <rflen> is the number of nongap characters in the
 reference (#=GC RF) annotation of the first alignment in 
-.B msafile
+.I msafile
 A '0' at position <x> of the mask indicates position <x> is excluded
 by the mask, and a '1' indicates that position <x> is included by the mask.
 
 .TP 
-.B --small
+.B \-\-small
 Operate in memory saving mode. Without
-.B --indi,
+.BR \-\-indi ,
 required RAM will be independent of the
 size of the alignment in 
-.B msafile.
+.IR msafile .
 With
-.B --indi, 
+.BR \-\-indi , 
 the required RAM will be roughly ten times the size of the alignment
 in 
-.B msafile.
+.IR msafile .
 For 
-.B --small
+.B \-\-small
 to work, the alignment must be in
 Pfam Stockholm (non-interleaved 1 line/seq) format.
 
 .TP 
-.B --rf
+.B \-\-rf
 Add a page to 
-.B postscript_output_file 
+.I postscript_output_file 
 showing the reference sequence from the #=GC RF annotation in 
-.B msafile. 
+.I msafile. 
 By default, basepaired nucleotides will be colored based on what type of
 basepair they are. To turn this off, use
-.B --no-bp.
+.B \-\-no\-bp.
 This page is drawn by default (if zero command-line options are used).
 
 .TP 
-.B --info
+.B \-\-info
 Add a page to
-.B postscript_output_file
+.I postscript_output_file
 with consensus (nongap RF) positions colored based on their
 information content from the alignment. 
-Information content is calculated as 2.0 - H, where H = sum_x p_x
+Information content is calculated as 2.0 \- H, where H = sum_x p_x
 log_2 p_x for x in {A,C,G,U}. 
 This page is drawn by default (if zero command-line options are used).
 
 .TP 
-.B --mutinfo
+.B \-\-mutinfo
 Add a page to
-.B postscript_output_file
+.I postscript_output_file
 with basepaired consensus (nongap RF) positions colored based on the
 amount of mutual information they have in the alignment. Mutual
 information is sum_{x,y} p_{x,y} log_2 ((p_x * p_y) / p_{x,y}, where x
@@ -517,9 +545,9 @@ basepair are counted.
 This page is drawn by default (if zero command-line options are used).
 
 .TP 
-.B --ifreq
+.B \-\-ifreq
 Add a page to
-.B postscript_output_file
+.I postscript_output_file
 with each consensus (nongap RF) position colored based on the fraction of
 sequences that span each position that have at least 1 inserted
 nucleotide after the position. 
@@ -530,9 +558,9 @@ c >= a. This page is drawn by default (if zero command-line options
 are used).
 
 .TP 
-.B --iavglen
+.B \-\-iavglen
 Add a page to
-.B postscript_output_file
+.I postscript_output_file
 with each consensus (nongap RF) position colored based on average
 length of insertions that occur after it. The average is calculated as
 the total number of inserted nucleotides after position x, divided by the
@@ -540,17 +568,17 @@ number of sequences that have at least 1 inserted nucleotide after
 position x (so the minimum possible average insert length is 1.0).
 
 .TP 
-.B --dall
+.B \-\-dall
 Add a page to
-.B postscript_output_file
+.I postscript_output_file
 with each consensus (nongap RF) position colored based on the fraction of
 sequences that have a gap (delete) at the position.
 This page is drawn by default (if zero command-line options are used).
 
 .TP 
-.B --dint
+.B \-\-dint
 Add a page to
-.B postscript_output_file
+.I postscript_output_file
 with each consensus (nongap RF) position colored based on the fraction of
 sequences that have an internal gap (delete) at the position. An
 internal gap in a sequence is one that occurs after (5' of) the
@@ -559,9 +587,9 @@ sequence's first aligned nucleotide and after
 This page is drawn by default (if zero command-line options are used).
 
 .TP 
-.B --prob
+.B \-\-prob
 Add a page to
-.B postscript_output_file
+.I postscript_output_file
 with positions colored based on average posterior probability (PP). The alignment
 must contain #=GR PP annotation for all sequences. PP annotation is
 converted to numerical PP values as follows: '*' = 0.975, '9' =
@@ -570,9 +598,9 @@ converted to numerical PP values as follows: '*' = 0.975, '9' =
 This page is drawn by default (if zero command-line options are used).
 
 .TP 
-.B --span
+.B \-\-span
 Add a page to
-.B postscript_output_file
+.I postscript_output_file
 with consensus (nongap RF) positions colored based on the
 fraction of sequences that 'span' the position. 
 A sequence s spans consensus position x that is actual alignment
@@ -581,104 +609,110 @@ b <= a and at least one nongap nucleotide aligned to a consensus position
 c >= a. This page is drawn by default (if zero command-line options
 are used).
 
+
 .SH OPTIONS FOR DRAWING INDIVIDUAL ALIGNED SEQUENCES
 
 .TP 
-.B --indi
+.B \-\-indi
 Add a page displaying the aligned nucleotides in their corresponding
 consensus positions of the structure diagram for each aligned
 sequence in the alignment. 
 By default, basepaired nucleotides will be colored based on what type of
 basepair they are. To turn this off, use
-.B --no-bp.
+.B \-\-no\-bp.
 If posterior probability information (#=GR
 PP) exists in the alignment, one additional page per sequence will be
 drawn displaying the posterior probabilities.
 
 .TP
-.B -f
+.B \-f
 With 
-.B --indi,
+.BR \-\-indi ,
 force 
-.B esl-ssdraw
+.B esl\-ssdraw
 to create a diagram, even if it is predicted to be large (> 100 Mb).
 By default, if the predicted size exceeds 100 Mb, 
-.B esl-ssdraw
+.B esl\-ssdraw
 will fail with a warning. 
+
 
 .SH OPTIONS FOR OMITTING PARTS OF THE DIAGRAMS
 
 .TP
-.BI --no-leg
+.B \-\-no\-leg
 Omit the legend on all pages of 
-.B postscript_output_file.
+.IR postscript_output_file .
 
 .TP
-.BI --no-head
+.B \-\-no\-head
 Omit the header on all pages of 
-.B postscript_output_file.
+.IR postscript_output_file .
 
 .TP
-.BI --no-foot
+.B \-\-no\-foot
 Omit the footer on all pages of 
-.B postscript_output_file.
+.IR postscript_output_file .
+
+
 
 .SH OPTIONS FOR SIMPLE TWO-COLOR MASK DIAGRAMS
 
 .TP
-.B --mask-col 
+.B \-\-mask\-col 
 With
-.B --mask,
-.B postscript_output_file
+.BR \-\-mask ,
+.I postscript_output_file
 will contain exactly 1 page showing positions included by the mask as 
 black squares, and positions excluded as pink squares.
 
 .TP
-.BI --mask-diff " <f>"
+.BI \-\-mask\-diff " <f>"
 With
-.BI --mask  " <f2>"
+.BI \-\-mask  " <f2>"
 and
-.B mask-col,
-.B postscript_output_file
+.BR mask\-col ,
+.I postscript_output_file
 will contain one additional page comparing the mask from 
 .I <f>
 and the mask from
-.I <f2>.
+.IR <f2> .
 Positions will be colored based on whether they are included by one
 mask and not the other, excluded by both masks, and included by both
 masks.
 
+
 .SH EXPERT OPTIONS FOR CONTROLLING INDIVIDUAL SEQUENCE DIAGRAMS
 
 .TP
-.B --no-pp
+.B \-\-no\-pp
 When used in combination with 
-.B --indi,
+.BR \-\-indi ,
 do not draw posterior probability structure diagrams for each
 sequence, even if the alignment has PP annotation.
 
 .TP
-.B --no-bp
+.B \-\-no\-bp
 Do not color basepaired nucleotides based on their basepair type.
 
 .TP
-.B --no-ol
+.B \-\-no\-ol
 When used in combination with 
-.B --indi,
+.BR \-\-indi ,
 do not outline nucleotides that differ from the majority rule
 consensus nucleotide given the alignment.
 
 .TP
-.B --no-ntpp
+.B \-\-no\-ntpp
 When used in combination with 
-.B --indi,
+.BR \-\-indi ,
 do not draw nucleotides on the individual sequence posterior
 probability diagrams.
+
 
 .SH EXPERT OPTIONS RELATED TO CONSENSUS SEQUENCE DEFINITION
 
 .TP
-.B --no-cnt
+.B \-\-no\-cnt
 Do not draw consensus nucleotides on alignment statistic diagrams (such as
 information content diagrams). By default, the consensus nucleotide is
 defined as the most frequent nucleotide in the alignment at the
@@ -688,19 +722,19 @@ fraction of the aligned sequences (that do not contain a gap at the
 position) are capitalized. By default 
 .I <x>
 is 0.75, but can be changed with the 
-.BI --cthresh " <x>"
+.BI \-\-cthresh " <x>"
 option. 
 
 .TP
-.BI --cthresh " <x>"
+.BI \-\-cthresh " <x>"
 Specify the threshold for capitalizing consensus nucleotides defined by
 the majority rule (i.e. when 
-.B --cambig
+.B \-\-cambig
 is not enabled) as 
-.I <x>.
+.IR <x> .
 
 .TP
-.B --cambig
+.B \-\-cambig
 Change how consensus nucleotides are calculated from majority rule to
 the least ambiguous IUPAC nucleotide that represents at least
 .I <x>
@@ -708,46 +742,48 @@ fraction of the nongap nucleotides at each consensus position.
 By default 
 .I <x>
 is 0.9, but can be changed with the 
-.BI --athresh " <x>"
+.BI \-\-athresh " <x>"
 option. 
 
 .TP
-.BI --athresh " <x>"
+.BI \-\-athresh " <x>"
 With
-.B --cambig,
+.BR \-\-cambig ,
 specify the threshold for defining consensus nucleotides
 is the least ambiguous IUPAC nucleotide that represents at least
 .I <x>
 fraction of the nongap nucleotides at each position.
 
+
 .SH EXPERT OPTIONS CONTROLLING STYLE OF MASKING POSITIONS
 
 .TP
-.B --mask-u
+.B \-\-mask\-u
 With 
-.B --mask, 
+.BR \-\-mask ,
 change the style of masked columns to squares.
 
 .TP
-.B --mask-x
+.B \-\-mask\-x
 With 
-.B --mask, 
-change the style of masked columns to 'x's
+.BR \-\-mask , 
+change the style of masked columns to x's.
 
 .TP
-.B --mask-a
+.B \-\-mask\-a
 With 
-.B --mask
+.B \-\-mask
 and
-.B --mask-u
+.B \-\-mask\-u
 or
-.B --mask-x
-draw the alternative style of square or 'x' masks
+.B \-\-mask\-x
+draw the alternative style of square or 'x' masks.
+
 
 .SH EXPERT OPTIONS RELATED TO INPUT FILES
 
 .TP
-.BI --dfile " <f>"
+.BI \-\-dfile " <f>"
 Read the 'draw file'
 .I <f>
 which specifies numerical values for each consensus position in one or
@@ -785,14 +821,14 @@ single page. A draw file specifying <n> pages should include exactly
 <n> * (<rflen> + 4) lines.
 
 .TP
-.BI --efile " <f>"
+.BI \-\-efile " <f>"
 Read the 'expert draw file'
 .I <f>
 which specifies the colors and nucleotides to draw on each consensus
 position in one or more postscript pages. Unlike with the 
-.B --dfile
+.B \-\-dfile
 option, no legend will be drawn when
-.B --efile 
+.B \-\-efile 
 is used.
 For each page, the draw file must include <rflen> lines, each with four
 or five tab-delimited tokens. The first four tokens on line <x>
@@ -811,20 +847,36 @@ single page. A expert draw file specifying <n> pages should include exactly
 <n> * (<rflen> + 1) lines.
 
 .TP
-.BI --ifile " <f>"
+.BI \-\-ifile " <f>"
 Read insert information from the file
-.I <f>,
+.IR <f> ,
 which may have been created with INFERNAL's
-.B cmalign
+.BR cmalign (1)
 program. The insert information in 
-.B msafile
+.I msafile
 will be ignored and the information from
 .I <f>
 will supersede it. Inserts are columns that are gaps in the reference
 (#=GC RF) annotation. 
 
+
+
+
+.SH SEE ALSO
+
+.nf
+@EASEL_URL@
+.fi
+
+.SH COPYRIGHT
+
+.nf 
+@EASEL_COPYRIGHT@
+@EASEL_LICENSE@
+.fi 
+
 .SH AUTHOR
-Easel and its documentation are @EASEL_COPYRIGHT@.
-@EASEL_LICENSE@.
-See COPYING in the source code distribution for more details.
-The Easel home page is: @EASEL_URL@
+
+.nf
+http://eddylab.org
+.fi

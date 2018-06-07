@@ -1,42 +1,40 @@
-.TH "esl-histplot" 1 "@EASEL_DATE@" "Easel @PACKAGE_VERSION@" "Easel miniapps"
+.TH "esl\-histplot" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
-.TP 
-esl-histplot - collate data histogram, output xmgrace datafile
+esl\-histplot \- collate data histogram, output xmgrace datafile
 
 .SH SYNOPSIS
-.B esl-histplot
-.I [options]
+.B esl\-histplot
+[\fIoptions\fR]
 .I datafile
 
 
 .SH DESCRIPTION
 
-.B esl-histplot
+.PP
+.B esl\-histplot
 summarizes numerical data in the input file
 .I datafile.
 
-.pp
+.PP
 One real-numbered value is taken from each line of the input file. 
 Each line is split into whitespace-delimited fields, and one field
 is converted to data. By default this is the first field; this can be 
 changed by the 
-.I -f 
+.B \-f 
 option.
 
-.pp
+.PP
 Default output is a survival plot (Prob(value > x)) in xmgrace XY data
-format, to
-.B stdout.
+format, to stdout.
 Output may be directed to a file with the
-.I -o
+.B \-o
 option.
 
-.pp
+.PP
 If 
 .I datafile
-is "-", input lines are read from 
-.B stdin
+is \- (a single dash), input lines are read from stdin
 instead of opening a file.
 
 
@@ -45,36 +43,45 @@ instead of opening a file.
 .SH OPTIONS
 
 .TP
-.BI -f  " <n>"
+.BI \-f  " <n>"
 Read data from whitespace-delimited field 
 .I <n>
 on each line, instead of the first field.
 Fields are numbered starting from 1.
 
 .TP
-.B -h 
+.B \-h 
 Print brief help; includes version number and summary of
 all options, including expert options.
 
 .TP
-.BI -o  " <f>"
+.BI \-o  " <f>"
 Send output to file
 .I <f>
 instead of stdout.
 
 
 
+.SH SEE ALSO
 
+.nf
+@EASEL_URL@
+.fi
 
-.SH EXPERT OPTIONS
+.SH COPYRIGHT
 
-None.
-
-
+.nf 
+@EASEL_COPYRIGHT@
+@EASEL_LICENSE@
+.fi 
 
 .SH AUTHOR
 
-Easel and its documentation are @EASEL_COPYRIGHT@.
-@EASEL_LICENSE@.
-See COPYING in the source code distribution for more details.
-The Easel home page is: @EASEL_URL@
+.nf
+http://eddylab.org
+.fi
+
+
+
+
+

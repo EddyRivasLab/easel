@@ -1029,7 +1029,6 @@ esl_newssi_Write(ESL_NEWSSI *ns)
   if (ns->ssifp == NULL)
     ESL_EXCEPTION(eslEINVAL, "SSI data were already written.");
 
-
   /* We need fixed-width buffers to get our keys fwrite()'ten in their
    * full binary lengths; pkey->key (for instance) is not guaranteed
    * to be allocated for the final maximum plen. We use strncpy(), not
@@ -1038,7 +1037,7 @@ esl_newssi_Write(ESL_NEWSSI *ns)
    * write uninitialized bytes from these buffers.
    */
   ESL_ALLOC(fk,   sizeof(char) * ns->flen);
-  ESL_ALLOC(pk,   sizeof(char) * ns->plen);
+  ESL_ALLOC(pk,   ESL_MAX(1, sizeof(char) * ns->plen));
   if (ns->nsecondary > 0) ESL_ALLOC(sk, sizeof(char) * ns->slen);
 
   /* How big is the index? If it's going to be > 2GB, we better have
