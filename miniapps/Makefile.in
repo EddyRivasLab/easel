@@ -33,12 +33,13 @@ INSTALL     = @INSTALL@
 
 ## your compiler and compiler flags.
 #
-CC        = @CC@
-CFLAGS    = @CFLAGS@ @PTHREAD_CFLAGS@ 
-CPPFLAGS  = @CPPFLAGS@
-LDFLAGS   = @LDFLAGS@
-DEFS      = @DEFS@
-LIBS      = -leasel @LIBGSL@ @LIBS@ @PTHREAD_LIBS@ -lm
+CC             = @CC@
+CFLAGS         = @CFLAGS@
+PTHREAD_CFLAGS = @PTHREAD_CFLAGS@ 
+CPPFLAGS       = @CPPFLAGS@
+LDFLAGS        = @LDFLAGS@
+DEFS           = @DEFS@
+LIBS           = -leasel @LIBGSL@ @LIBS@ @PTHREAD_LIBS@ -lm
 
 ## list of the miniapps to compile.
 #
@@ -87,7 +88,7 @@ tests:  ${PROGS}
 check:  ${PROGS}
 
 ${PROGS}: % : %.c ../libeasel.a 
-	${QUIET_GEN}${CC} ${CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ $< ${LIBS}
+	${QUIET_GEN}${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ $< ${LIBS}
 
 install: ${PROGS} 
 	for file in ${PROGS}; do \
