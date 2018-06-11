@@ -72,7 +72,7 @@ m4_include([m4/ax_pthread.m4])
 ################################################################
 # 2. AC_INIT
 ################################################################
-AC_INIT(Easel, 0.45-dev, sean@eddylab.org, easel)
+AC_INIT(Easel, 0.45h, sean@eddylab.org, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
 # remember if the user is overriding CFLAGS
