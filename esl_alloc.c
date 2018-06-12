@@ -225,7 +225,9 @@ main(int argc, char **argv)
       else if (do_fresh_malloc) p[i] = malloc(size);
       else if (do_esl_alloc)    p[i] = alloc_aligned_fallback(size, V);
 #ifdef HAVE_POSIX_MEMALIGN      
-      else if (do_posix_memalign) (void) posix_memalign((void **) &(p[i]), V, size);
+      else if (do_posix_memalign) {
+	if (posix_memalign((void **) &(p[i]), V, size) != 0) esl_fatal("posix_memalign() failed");
+      }
 #endif
     }
   
@@ -238,7 +240,10 @@ main(int argc, char **argv)
           else if (do_fresh_malloc)   { free(p[i]);                        p[i] = malloc(size);                    }
           else if (do_esl_alloc)      { alloc_aligned_free_fallback(p[i]); p[i] = alloc_aligned_fallback(size, V); }
 #ifdef HAVE_POSIX_MEMALIGN      
-          else if (do_posix_memalign) { free(p[i]); (void) posix_memalign((void **) &(p[i]), V, size); }
+          else if (do_posix_memalign) {
+	    free(p[i]);
+	    if (posix_memalign((void **) &(p[i]), V, size) != 0) esl_fatal("posix_memalign failed");
+	  }
 #endif
         }
     }
