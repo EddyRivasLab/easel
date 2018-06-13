@@ -3,13 +3,14 @@ srcdir     = @srcdir@
 VPATH      = @srcdir@ @top_srcdir@
 SHELL      = /bin/sh
 
-CC         = @CC@
-CFLAGS     = @CFLAGS@ @PTHREAD_CFLAGS@ 
-CPPFLAGS   = @CPPFLAGS@
-LDFLAGS    = @LDFLAGS@
-DEFS       = @DEFS@
-LIBS       = @LIBGSL@ @LIBS@ -lm
-MPILIBS    = @MPILIBS@
+CC             = @CC@
+CFLAGS         = @CFLAGS@ 
+PTHREAD_CFLAGS = @PTHREAD_CFLAGS@ 
+CPPFLAGS       = @CPPFLAGS@
+LDFLAGS        = @LDFLAGS@
+DEFS           = @DEFS@
+LIBS           = @LIBGSL@ @LIBS@ -lm
+MPILIBS        = @MPILIBS@
 
 SQCLEVEL = 2
 

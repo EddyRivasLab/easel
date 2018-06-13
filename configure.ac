@@ -72,7 +72,7 @@ m4_include([m4/ax_pthread.m4])
 ################################################################
 # 2. AC_INIT
 ################################################################
-AC_INIT(Easel, 0.44, sean@eddylab.org, easel)
+AC_INIT(Easel, 0.45h, sean@eddylab.org, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
 # remember if the user is overriding CFLAGS
@@ -219,7 +219,7 @@ elif test "$enable_debugging" != "no"; then
    if test "$GCC" = "yes"; then
       CFLAGS="-g -Wall"
    fi
-else
+elif test "$esl_cflags_env_set" != "yes"; then
    CFLAGS="-O3"
 fi
 
