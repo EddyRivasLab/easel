@@ -632,6 +632,7 @@ esl_dataheader(FILE *fp, ...)
 /******************************************************************************
  * 4. Replacements for C library functions
  *  fgets()   ->  esl_fgets()     fgets() with dynamic allocation
+ *  printf()  ->  esl_printf()    printf() wrapped in our exception handling
  *  strdup()  ->  esl_strdup()    strdup() is not ANSI
  *  strcat()  ->  esl_strcat()    strcat() with dynamic allocation
  *  strtok()  ->  esl_strtok()    threadsafe strtok()
@@ -732,6 +733,77 @@ esl_fgets(char **buf, int *n, FILE *fp)
   *n   = 0;
   return status;
 }
+
+
+/* Function:  esl_fprintf()
+ * Synopsis:  fprintf() wrapped in our exception handling
+ * Incept:    SRE, Thu Jun 14 09:43:59 2018 
+ *
+ * Purpose:   <fprintf()> wrapped in Easel exception handling. See
+ *            <esl_printf()> for rationale.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEWRITE> on failure.
+ */
+int
+esl_fprintf(FILE *fp, const char *format, ...)
+{
+  if (fp && format)
+    {
+      va_list argp;
+      va_start(argp, format);
+      if ( vfprintf(fp, format, argp) < 0 ) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
+      va_end(argp);
+    }
+  return eslOK;
+}
+
+
+
+/* Function:  esl_printf()
+ * Synopsis:  printf() wrapped in our exception handling
+ * Incept:    SRE, Thu Jun 14 09:17:17 2018 
+ *
+ * Purpose:   <printf()> wrapped in Easel exception handling. 
+ *
+ *            Rarely and insidiously, <printf()> can fail -- for
+ *            example, when output is redirected to a file and a disk
+ *            fills up. Every <printf()> needs to guard against this,
+ *            else output could silently fail. It seems slightly
+ *            cleaner to use Easel's idiomatic:
+ *
+ *            ```
+ *               if ((status = esl_printf(...)) != eslOK) return status; // no cleanup
+ *               if ((status = esl_printf(...)) != eslOK) goto ERROR;    // with cleanup
+ *            ```
+ *
+ *            as opposed to having to invoke
+ *            <ESL_EXCEPTION_SYS(eslEWRITE, "write failed")> each
+ *            time.
+ *
+ * Returns:   <eslOK> on success. 
+ *
+ * Throws:    <eslEWRITE> on failure.
+ */
+int
+esl_printf(const char *format, ...)
+{
+  if (format)
+    {
+      va_list argp;
+      va_start(argp, format);
+      if ( vprintf(format, argp) < 0 ) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
+      va_end(argp);
+    }
+  return eslOK;
+}
+
+
+
+
+
+
 
 /* Function: esl_strdup()
  *

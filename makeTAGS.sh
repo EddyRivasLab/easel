@@ -1,6 +1,5 @@
 #! /bin/sh
 etags    configure.ac
-etags -a INSTALL
 etags -a LICENSE
 
 # Recursively add all .c, .h, .pl, *.tex, *.in
