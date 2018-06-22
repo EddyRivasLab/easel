@@ -407,15 +407,25 @@ cpu_has_avx512(void)
  * must support SSE. This isn't a strong test of anything, but since
  * we don't know anything about the processor we're running unit
  * testing on, it's hard to guarantee any stronger test.
+ * 
+ * #ifdef's are required, because Easel applications are allowed
+ * to define any subset of vector implementations they want;
+ * for example, H4 implements SSE4 but not SSE.
  */
 static void
 utest_consistency(void)
 {
   char msg[] = "utest_consistency() failed";
 
+#if defined (eslENABLE_AVX512) && defined (eslENABLE_AVX)
   if (esl_cpu_has_avx512() && ! esl_cpu_has_avx())  esl_fatal(msg);
+#endif
+#if defined (eslENABLE_AVX) && defined (eslENABLE_SSE4)
   if (esl_cpu_has_avx()    && ! esl_cpu_has_sse4()) esl_fatal(msg);
+#endif
+#if defined (eslENABLE_SSE4) && defined (eslENABLE_SSE)
   if (esl_cpu_has_sse4()   && ! esl_cpu_has_sse())  esl_fatal(msg);
+#endif
 }
 
 #endif // eslCPU_TESTDRIVE
