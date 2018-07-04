@@ -44,7 +44,4 @@ extern int            esl_mixdchlet_Validate(const ESL_MIXDCHLET *dchl, char *er
 extern int            esl_mixdchlet_Compare(const ESL_MIXDCHLET *d1, const ESL_MIXDCHLET *d2, double tol);
 extern int            esl_mixdchlet_Dump(FILE *fp, const ESL_MIXDCHLET *dchl);
 
-// SRE FIXME: I'm going to remove this.
-extern int esl_mixdchlet_PerfectBipartiteMatchExists(int **A, int N );
-
 #endif // eslMIXDCHLET_INCLUDED

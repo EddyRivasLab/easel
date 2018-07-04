@@ -399,10 +399,14 @@ brent(double *ori, double *dir, int n,
  *            wrk      - allocated 4xn-vector for workspace
  *            opt_fx   - optRETURN: f(x) at the minimum
  *
- * Returns:   <eslOK> on success.
+ * Returns:   <eslOK> on success. <x> contains the minimum, and <*opt_fx>,
+ *            if provided, contains f(x) at that minimum.
  *
- * Throws:    <eslENOHALT> if it fails to converge in MAXITERATIONS.
- *            <eslERANGE> if the minimum is not finite, which may
+ *            <eslENOHALT> if it fails to converge in max iterations,
+ *            but the final <x> and <*opt_fx> are still provided;
+ *            maybe they're good enough, caller can decide.
+ *
+ * Throws:    <eslERANGE> if the minimum is not finite, which may
  *            indicate a problem in the implementation or choice of <*func()>.
  *
  * Xref:      STL9/101.
@@ -413,6 +417,7 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
 				 void (*dfunc)(double *, int, void *, double *),
 				 void *prm, double tol, double *wrk, double *opt_fx)
 {
+  int    max_iterations = 100;
   double oldfx;
   double coeff;
   int    i, i1;
@@ -455,7 +460,7 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
     return eslOK;
   }
   
-  for (i = 0; i < MAXITERATIONS; i++)
+  for (i = 0; i < max_iterations; i++)
     {
 #if (eslDEBUGLEVEL >= 2)
       printf("\nCG iteration %d\n", i+1);
@@ -538,7 +543,7 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
     }
 
   if (opt_fx) *opt_fx = fx;
-  return (i == MAXITERATIONS ? eslENOHALT: eslOK);
+  return (i == max_iterations ? eslENOHALT: eslOK);
 }
 
 

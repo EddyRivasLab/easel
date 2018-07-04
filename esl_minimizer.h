@@ -6,8 +6,6 @@
 #define eslMINIMIZER_INCLUDED
 #include "esl_config.h"
 
-#define MAXITERATIONS 100
-
 extern int esl_min_Bracket(double *a, double *d, double *u, int n, 
 			   double (*func)(double *, int, void *), void *prm, 
 			   double *ret_fa,

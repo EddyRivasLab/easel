@@ -19,7 +19,7 @@
  * Synopsis:  Maximum bipartite matching algorithm.
  * Incept:    SRE, Tue 26 Jun 2018
  *
- * Purpose: Find a maximum match for a bipartite graph. For two sets,
+ * Purpose:   Find a maximum match for a bipartite graph. For two sets,
  *            one with <M> elements and the other with <N>, the <M> by
  *            <N> input adjacency matrix <A> defines $A_{ij} =$TRUE
  *            for allowed matches between the two sets, otherwise
@@ -140,6 +140,8 @@ esl_graph_MaxBipartiteMatch(int **A, int M, int N, int ***opt_G, int *ret_nedges
  *****************************************************************/
 #ifdef eslGRAPH_TESTDRIVE
 
+#include "esl_mixdchlet.h"
+
 /* utest_perfect()
  * 
  * Constructs a known <G0> as a perfect bipartite match, shuffled;
@@ -180,7 +182,6 @@ utest_perfect(ESL_RANDOMNESS *rng)
     }
 
   esl_graph_MaxBipartiteMatch(A, n, n, &G, &nedges);
-
   if (nedges != n) esl_fatal(msg);
   if (ntot <= n+1 && esl_mat_ICompare(G, G0, n, n) != eslOK) esl_fatal(msg);
 

@@ -8,11 +8,8 @@
  *   5. Debugging and development tools
  *   6. Unit tests
  *
- *
- * To-do:
- *   -  Fit*() functions should return eslEINVAL on n=0, eslENORESULT
- *      on failure due to small n. Compare esl_gumbel. xref J12/93.
- *      SRE, Wed Nov 27 11:18:12 2013
+ * See also: 
+ *   esl_dirichlet : simple Dirichlet densities
  */
 #include "esl_config.h"
 
@@ -326,10 +323,18 @@ mixdchlet_gradient(double *p, int np, void *dptr, double *dp)
  * Returns:   <eslOK> on success, <dchl> contains the fitted 
  *            mixture Dirichlet, and <*opt_nll> (if passed) contains the final NLL.
  *            
+ *            <eslEINVAL> if N < 1. (Caller needs to provide data, but
+ *            it's possible that an input file might not contain any,
+ *            and we want to make sure to bark about it.)
+ *            
+ *            <eslENORESULT> if the fit fails to converge in a reasonable
+ *            number of iterations (in <esl_min_ConjugateGradientDescent()>,
+ *            <max_iterations> is currently 100).
+ *            
  * Throws:    <eslEMEM> on allocation error, <dchl> is left in
  *            in its initial state, and <*opt_nll> (if passed) is -inf.
  *            
- *            <eslEINVAL> if <dchl> isn't a valid mixture Dirichlet.
+ *            <eslECORRUPT> if <dchl> isn't a valid mixture Dirichlet.
  */
 int
 esl_mixdchlet_Fit(double **c, int N, ESL_MIXDCHLET *dchl, double *opt_nll)
@@ -343,8 +348,9 @@ esl_mixdchlet_Fit(double **c, int N, ESL_MIXDCHLET *dchl, double *opt_nll)
   double  fx;
   int     status;
 
+  if (N < 1) return eslEINVAL;
 #if (eslDEBUGLEVEL >= 1)
-  if ( esl_mixdchlet_Validate(dchl, NULL) != eslOK) ESL_EXCEPTION(eslEINVAL, "initial mixture is invalid");
+  if ( esl_mixdchlet_Validate(dchl, NULL) != eslOK) ESL_EXCEPTION(eslECORRUPT, "initial mixture is invalid");
 #endif
   
   ESL_ALLOC(p,   sizeof(double) * nparam);       
@@ -365,8 +371,8 @@ esl_mixdchlet_Fit(double **c, int N, ESL_MIXDCHLET *dchl, double *opt_nll)
 					    &mixdchlet_nll, 
 					    &mixdchlet_gradient,
 					    (void *) (&data), tol, wrk, &fx);
-  if (status != eslOK && status != eslENOHALT) // eslENOHALT? settle for what we've got - it's probably pretty good
-    goto ERROR;
+  if      (status == eslENOHALT) { status = eslENORESULT; goto ERROR; } // fail to converge is returned as eslENORESULT
+  else if (status != eslOK) goto ERROR; // eslERANGE can also happen
 
   /* Convert the final parameter vector back */
   mixdchlet_unpack_paramvector(p, dchl);
@@ -682,88 +688,6 @@ esl_mixdchlet_Dump(FILE *fp, const ESL_MIXDCHLET *dchl)
   return eslOK;
 }
 
-/* Function:  esl_mixdchlet_PerfectBipartiteMatchExists()
- * Synopsis:  Given a 2D table representing presence of edges between vertices represented by
- * 			the rows and columns, test whether a perfect matching exists.
- * 			Note 1: this doesn't find a perfect matching, just checks if one exists.
- * 			Note 2: written as a private function for use by esl_mixdchlet_Compare
- * Incept:    TW, Fri Nov  6 14:23:23 EST 2009 [janelia]
- *
- * Args:      A      - 2-dimensional square table representing presence of edges between vertices
- *            N      - size of that table
- *
- * Returns:   <eslOK> if a perfect matching exists; <eslFAIL> otherwise.
- */
-int
-esl_mixdchlet_PerfectBipartiteMatchExists(int **A, int N ) 
-{
-  /*
-    Basic idea:
-    -Scan through the rows, and create a matching edge any time a row has only
-    one matching column (i.e. a single column with eslOK value)
-    * This is conservative: if the row isn't matched with this column, no perfect matching is possible.
-    -Repeat, this time scanning columns.
-    -Repeat  rows then columns - until no rows or columns are found with a single eslOK value.
-
-    -If a row or column is found with no possible matches, then no complete matching is possible.
-    -If a point is reached where all rows and all columns have more than one match, I'm pretty sure a
-    perfect matching is guaranteed.
-    - This is unproven; the intuition is that for any imperfect matching an augmenting path
-    should (I think) exist: it will contain an edge from one unmatched element to a matched
-    element, followed by the existing edge from that element to it's mate, followed by a 2nd
-    edge from that mate to another, and so on.
-
-    It's a O(n^3) algorithm, though it'll typically run fast in practice
-  */
-  int matched_row[N], matched_col[N];
-  esl_vec_ISet(matched_row, N, 0);
-  esl_vec_ISet(matched_col, N, 0);
-
-  int i,j;
-  int unassigned = N;
-  int do_row = 1; // otherwise, do_column
-  while (unassigned > 0) {
-    int changed = 0;
-
-    for (i=0; i<N; i++) {
-      int match_cnt = 0;
-      int match = -1;
-
-      if ( 1 == (do_row == 1 ? matched_row[i] : matched_col[i]) ) continue;
-
-      for (j=0; j<N; j++) {
-	if ( eslOK == (do_row == 1 ? A[i][j] : A[j][i] ) ) {
-	  match_cnt++;
-	  match = j;
-	}
-      }
-
-      if (match_cnt == 0) return eslFAIL;  // mixtures can't possibly match
-      if (match_cnt == 1) { // found a pair s.t. only this col can match this row within tol.
-	changed++;
-	if (do_row == 1  ) {
-	  matched_row[i] = matched_col[match] = 1;
-	  for (j=0; j<N; j++)
-	    A[j][match] = eslFAIL; // don't allow the matched col to match other rows, too.
-	} else {
-	  matched_col[i] = matched_row[match] = 1;
-	  for (j=0; j<N; j++)
-	    A[match][j] = eslFAIL; // don't allow the matched rwo to match other cols, too.
-	}
-      }
-      //if (match_cnt > 1), leave it for a later pass
-    }
-    unassigned -= changed;
-
-    if (changed == 0) { // All had multiple hits, so (I think) we are guaranteed of being able to pick some mapping that will be legal
-      return eslOK;
-    }
-    do_row = 1 - do_row; // flip value
-
-  }
-  //got here, all mapping must've been done
-  return eslOK;
-}
 
 /*****************************************************************
  * 6. Unit tests
