@@ -275,7 +275,6 @@ mixdchlet_gradient(double *p, int np, void *dptr, double *dp)
 {
   struct mixdchlet_data *data = (struct mixdchlet_data *) dptr;
   ESL_MIXDCHLET         *dchl = data->dchl;
-  ESL_UNUSED(np);        // parameter number <np> must be an arg, dictated by conj gradient API.
   double  sum_alpha;     //  |alpha_k| 
   double  sum_c;         //  |c_i|
   double  psi1;          //  \Psi(c_ia + alpha_ka)        
@@ -285,6 +284,7 @@ mixdchlet_gradient(double *p, int np, void *dptr, double *dp)
   int     i,j,k,a;	 // indices over countvectors, unconstrained parameters, components, residues 
 
   mixdchlet_unpack_paramvector(p, dchl);
+  esl_vec_DSet(dp, np, 0.);
   for (i = 0; i < data->N; i++)
     {
       mixdchlet_postq(dchl, data->c[i]);           // d->postq[q] is now P(q | c_i, theta)
@@ -598,7 +598,7 @@ esl_mixdchlet_Validate(const ESL_MIXDCHLET *dchl, char *errmsg)
       if (! isfinite(dchl->q[k] ) )              ESL_FAIL(eslFAIL, errmsg, "mixture coefficient [%d] = %g, not finite", k, dchl->q[k]);
       if ( dchl->q[k] < 0.0 || dchl->q[k] > 1.0) ESL_FAIL(eslFAIL, errmsg, "mixture coefficient [%d] = %g, not a probability >= 0 && <= 1", k, dchl->q[k]);
     }
-  sum = esl_vec_DSum(dchl->q, dchl->K);
+  sum = esl_vec_DSum(dchl->q, dchl->Q);
   if (esl_DCompare( sum, 1.0, tol) != eslOK)
     ESL_FAIL(eslFAIL, errmsg, "mixture coefficients sum to %g, not 1", sum);
 
@@ -850,6 +850,7 @@ utest_fit(ESL_RANDOMNESS *rng, int be_verbose)
   nll0 = 0;
   for (i = 0; i < N; i++)
     {
+      esl_vec_DSet(c[i], d0->K, 0.);
       k = esl_rnd_DChoose(rng, d0->q, d0->Q);             // choose a mixture component
       esl_dirichlet_DSample(rng, d0->alpha[k], d0->K, p); // sample a pvector
       for (a = 0; a < nct; a++)
