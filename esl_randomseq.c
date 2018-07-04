@@ -796,7 +796,7 @@ esl_rsq_xfIID(ESL_RANDOMNESS *r, const float *p, int K, int L, ESL_DSQ *dsq)
 
 
 /* Function:  esl_rsq_SampleDirty()
- * Synopsis:  Sample a digital sequence, including noncanonicals.
+ * Synopsis:  Sample a digital sequence with noncanonicals, optionally gaps.
  * Incept:    SRE, Wed Feb 17 10:57:28 2016 [H1/76]
  *
  * Purpose:   Using random number generator <rng>, use probability
@@ -815,7 +815,8 @@ esl_rsq_xfIID(ESL_RANDOMNESS *r, const float *p, int K, int L, ESL_DSQ *dsq)
  *            "alignment", <p[K]> is nonzero.
  *            
  *            If <p> is <NULL>, then we sample a probability vector
- *            according to the following rules. 
+ *            according to the following rules, which generates
+ *            *ungapped* dirtied random sequences:
  *               1. Sample pc, the probability of canonical
  *                  vs. noncanonical residues, uniformly on [0,1).
  *               2. Sample a p[] uniformly for canonical residues

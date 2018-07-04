@@ -13,14 +13,12 @@
 
 #include "esl_minimizer.h"
 
-/* Return the negative gradient at a point, determined 
- * numerically.
+/* Return the negative gradient at a point, determined numerically.
  */
 static void
 numeric_derivative(double *x, double *u, int n, 
 		   double (*func)(double *, int, void*),
-		   void *prm, double relstep,
-		   double *dx)
+		   void *prm, double relstep, double *dx)
 {
   int    i;
   double delta;
@@ -102,7 +100,7 @@ numeric_derivative(double *x, double *u, int n,
  *
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslENOHALT> if it fails to converge.
+ * Throws:    <eslENORESULT> if it fails to converge.
  *
  * Xref:      STL9/130.
  */
@@ -183,8 +181,7 @@ bracket(double *ori, double *d, int n, double firststep,
       if (ax != bx && bx != cx && fa == fb && fb == fc) break;
 
       niter++;
-      if (niter > 100)
-    	  ESL_EXCEPTION(eslENORESULT, "Failed to bracket a minimum.");
+      if (niter > 100) ESL_EXCEPTION(eslENORESULT, "Failed to bracket a minimum.");
     }
 
   /* We're about to return. Assure the caller that the points
@@ -196,14 +193,11 @@ bracket(double *ori, double *d, int n, double firststep,
       swapper = fa; fa = fc; fc = swapper;
     }
 
-  /* Return.
-   */
-  ESL_DPRINTF2(("\nbracket(): %d iterations\n", niter));
-  ESL_DPRINTF2(("bracket(): triplet is %g  %g  %g along current direction\n", 
-		ax, bx, cx));
-  ESL_DPRINTF2(("bracket(): f()'s there are: %g  %g  %g\n\n", 
-		fa, fb, fc));
+  /* Optional verbosity (depending on compile-time eslDEBUGLEVEL) */
+  ESL_DPRINTF2(("bracket(), in %2d iterations, brackets a minimum: a,b,c = %10.4g %10.4g %10.4g\n", niter, ax, bx, cx));
+  ESL_DPRINTF2(("bracket():                                     fa,fb,fc = %10.4g %10.4g %10.4g\n",        fa, fb, fc));
 
+  /* Return. */
   *ret_ax = ax;  *ret_bx = bx;  *ret_cx = cx;
   *ret_fa = fa;  *ret_fb = fb;  *ret_fc = fc;
   return eslOK;
@@ -352,14 +346,14 @@ brent(double *ori, double *dir, int n,
         }
     }
 
-  /* Return.
-   */
+  /* Optional verbosity, depending on compile-time eslDEBUGLEVEL */
+  ESL_DPRINTF2(("  brent(), in %d iterations, finds 1D minimum at %10.4g, f() = %10.4g\n", niter, x, fx));
+
+  /* Return */
   esl_vec_DCopy(ori, n, xvec);  /* build final xvec from ori, dir, x */
   esl_vec_DAddScaled(xvec, dir, x, n);
   if (ret_x  != NULL) *ret_x  = x;
   if (ret_fx != NULL) *ret_fx = fx;
-  ESL_DPRINTF2(("\nbrent(): %d iterations\n", niter));
-  ESL_DPRINTF2(("xx=%10.8f fx=%10.1f\n", x, fx));
 }
 
 
@@ -392,8 +386,8 @@ brent(double *ori, double *dir, int n,
  *            by less than a fraction <tol>. This should not be set to less than
  *            sqrt(<DBL_EPSILON>). 
  *
- *            Upon return, <x> is the minimum, and <ret_fx> is f(x),
- *            the function value at <x>.
+ *            Upon return, <x> is the minimum, and <opt_fx> (if
+ *            provided) is f(x), the function value at <x>.
  *            
  * Args:      x        - an initial guess n-vector; RETURN: x at the minimum
  *            u        - "units": maximum initial step size along gradient when bracketing.
@@ -403,7 +397,7 @@ brent(double *ori, double *dir, int n,
  *            prm      - void ptr to any data/params func,dfunc need 
  *            tol      - convergence criterion applied to f(x)
  *            wrk      - allocated 4xn-vector for workspace
- *            ret_fx   - optRETURN: f(x) at the minimum
+ *            opt_fx   - optRETURN: f(x) at the minimum
  *
  * Returns:   <eslOK> on success.
  *
@@ -417,7 +411,7 @@ int
 esl_min_ConjugateGradientDescent(double *x, double *u, int n, 
        				 double (*func)(double *, int, void *),
 				 void (*dfunc)(double *, int, void *, double *),
-				 void *prm, double tol, double *wrk, double *ret_fx)
+				 void *prm, double tol, double *wrk, double *opt_fx)
 {
   double oldfx;
   double coeff;
@@ -457,50 +451,60 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
   for (i1 = 0; i1 < n; i1++) 
     if (cg[i1] != 0.) break;
   if  (i1 == n) {
-    if (ret_fx != NULL) *ret_fx = oldfx;
+    if (opt_fx) *opt_fx = oldfx;
     return eslOK;
   }
   
   for (i = 0; i < MAXITERATIONS; i++)
-  {
+    {
+#if (eslDEBUGLEVEL >= 2)
+      printf("\nCG iteration %d\n", i+1);
+      printf(" current point:       ");
+      for (j = 0; j < n; j++) printf("%10.4g ", x[j]);
+      printf("\n gradient:            ");
+      for (j = 0; j < n; j++) printf("%10.4g ", dx[j]);
+      numeric_derivative(x, u, n, func, prm, 1e-4, w1);
+      printf("\n numeric gradient:    ");
+      for (j = 0; j < n; j++) printf("%10.4g ", w1[j]);
+      printf("\n conjugate direction: ");
+      for (j = 0; j < n; j++) printf("%10.4g ", cg[j]);
+      printf("\n");
+#endif
 
-      /* Figure out the initial step size.
-       */
-       bx = fabs(u[0] / cg[0]);
-       for (i1 = 1; i1 < n; i1++)
-	 {
-	   cx = fabs(u[i1] / cg[i1]);
-	   if (cx < bx) bx = cx;
-	 }
+      /* Figure out the initial step size. */
+      bx = fabs(u[0] / cg[0]);
+      for (i1 = 1; i1 < n; i1++)
+	{
+	  cx = fabs(u[i1] / cg[i1]);
+	  if (cx < bx) bx = cx;
+	}
  
-       /* Bracket the minimum.
-	*/
-       bracket(x, cg, n, bx, func, prm, w1,
+      /* Bracket the minimum.*/
+      bracket(x, cg, n, bx, func, prm, w1,
 	      &ax, &bx, &cx, 
 	      &fa, &fb, &fc);
        
-       /* Minimize along the line given by the conjugate gradient <cg> */
-       brent(x, cg, n, func, prm, ax, cx, 1e-3, 1e-8, w2, NULL, &fx);
-       esl_vec_DCopy(w2, n, x);
+      /* Minimize along the line given by the conjugate gradient <cg> */
+      brent(x, cg, n, func, prm, ax, cx, 1e-3, 1e-8, w2, NULL, &fx);
+      esl_vec_DCopy(w2, n, x);
 
       /* Bail out if the function is now +/-inf: this can happen if the caller
        * has screwed something up.
        */
       if (fx == eslINFINITY || fx == -eslINFINITY)
-    	  ESL_EXCEPTION(eslERANGE, "minimum not finite");
-
+	ESL_EXCEPTION(eslERANGE, "minimum not finite");
 
       /* Find the negative gradient at that point (temporarily in w1) */
       if (dfunc != NULL) 
-	  {
-	    (*dfunc)(x, n, prm, w1);
-	    esl_vec_DScale(w1, n, -1.0);
-	  }
+	{
+	  (*dfunc)(x, n, prm, w1);
+	  esl_vec_DScale(w1, n, -1.0);
+	}
       else numeric_derivative(x, u, n, func, prm, 1e-4, w1); /* resort to brute force */
 
       /* Calculate the Polak-Ribiere coefficient */
       for (coeff = 0., i1 = 0; i1 < n; i1++)
-	      coeff += (w1[i1] - dx[i1]) * w1[i1];
+	coeff += (w1[i1] - dx[i1]) * w1[i1];
       coeff /= esl_vec_DDot(dx, dx, n);
       
       /* Calculate the next conjugate gradient direction in w2 */
@@ -521,54 +525,20 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
        * minimum is at exactly f()=0.
        */
       cvg = 2.0 * fabs((oldfx-fx)) / (1e-10 + fabs(oldfx) + fabs(fx));
-
-//      fprintf(stderr, "(%d): Old f() = %.9f    New f() = %.9f    Convergence = %.9f\n", i, oldfx, fx, cvg);
-//      fprintf(stdout, "(%d): Old f() = %.9f    New f() = %.9f    Convergence = %.9f\n", i, oldfx, fx, cvg);
-
-#if eslDEBUGLEVEL >= 2
-      printf("\nesl_min_ConjugateGradientDescent():\n");
-      printf("new point:     ");
-      for (i1 = 0; i1 < n; i1++)
-	    printf("%g ", x[i1]);
-
-      printf("\nnew gradient:    ");
-      for (i1 = 0; i1 < n; i1++)
-	    printf("%g ", dx[i1]);
-
-      numeric_derivative(x, u, n, func, prm, 1e-4, w1);
-      printf("\n(numeric grad):  ");
-      for (i1 = 0; i1 < n; i1++)
-	    printf("%g ", w1[i1]);
-
-      printf("\nnew direction: ");
-      for (i1 = 0; i1 < n; i1++)
-	    printf("%g ", cg[i1]);
-
-      printf("\nOld f() = %g    New f() = %g    Convergence = %g\n\n", oldfx, fx, cvg);
-#endif
-
-     if (cvg <= tol) break;
+      if (cvg <= tol) break;
 
       /* Second (failsafe) convergence test: a zero direction can happen, 
        * and it either means we're stuck or we're finished (most likely stuck)
        */
       for (i1 = 0; i1 < n; i1++) 
-	     if (cg[i1] != 0.) break;
+	if (cg[i1] != 0.) break;
       if  (i1 == n) break;
 
       oldfx = fx;
     }
 
-
-	if (ret_fx != NULL) *ret_fx = fx;
-
-    if (i == MAXITERATIONS)
-	  ESL_FAIL(eslENOHALT, NULL, " ");
-// 	  ESL_EXCEPTION(eslENOHALT, "Failed to converge in ConjugateGradientDescent()");
-
-
-
-  return eslOK;
+  if (opt_fx) *opt_fx = fx;
+  return (i == MAXITERATIONS ? eslENOHALT: eslOK);
 }
 
 

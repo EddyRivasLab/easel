@@ -1008,8 +1008,8 @@ esl_abc_dsqlen(const ESL_DSQ *dsq)
  * Synopsis:  Returns the number of residues in a digital seq.
  *
  * Purpose:   Returns the unaligned length of digitized sequence
- *            <dsq>, in residues, not counting any gaps or
- *            missing data symbols. 
+ *            <dsq>, in residues, not counting any gaps, nonresidues,
+ *            or missing data symbols. 
  */
 int64_t
 esl_abc_dsqrlen(const ESL_ALPHABET *abc, const ESL_DSQ *dsq)

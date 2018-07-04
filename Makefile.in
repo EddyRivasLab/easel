@@ -116,6 +116,7 @@ HDRS = 	easel.h\
 	esl_gencode.h\
 	esl_getopts.h\
 	esl_gev.h\
+	esl_graph.h\
 	esl_gumbel.h\
 	esl_heap.h\
 	esl_histogram.h\
@@ -123,8 +124,10 @@ HDRS = 	easel.h\
 	esl_huffman.h\
 	esl_hyperexp.h\
 	esl_keyhash.h\
+	esl_matrixops.h\
 	esl_mem.h\
 	esl_minimizer.h\
+	esl_mixdchlet.h\
 	esl_mixgev.h\
 	esl_mpi.h\
 	esl_msa.h\
@@ -189,6 +192,7 @@ OBJS =	easel.o\
 	esl_gencode.o\
 	esl_getopts.o\
 	esl_gev.o\
+	esl_graph.o\
 	esl_gumbel.o\
 	esl_heap.o\
 	esl_histogram.o\
@@ -196,8 +200,10 @@ OBJS =	easel.o\
 	esl_huffman.o\
 	esl_hyperexp.o\
 	esl_keyhash.o\
+	esl_matrixops.o\
 	esl_mem.o\
 	esl_minimizer.o\
+	esl_mixdchlet.o\
 	esl_mixgev.o\
 	esl_mpi.o\
 	esl_msa.o\
@@ -276,6 +282,7 @@ UTESTS =\
 	esl_gamma_utest\
 	esl_gencode_utest\
 	esl_getopts_utest\
+	esl_graph_utest\
 	esl_gumbel_utest\
 	esl_heap_utest\
 	esl_histogram_utest\
@@ -283,7 +290,9 @@ UTESTS =\
 	esl_huffman_utest\
 	esl_hyperexp_utest\
 	esl_keyhash_utest\
+	esl_matrixops_utest\
 	esl_mem_utest\
+	esl_mixdchlet_utest\
 	esl_msa_utest\
 	esl_msacluster_utest\
 	esl_msafile_utest\

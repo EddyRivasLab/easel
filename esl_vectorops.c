@@ -1179,25 +1179,20 @@ esl_vec_FCDF(float *p, int n, float *cdf)
 int
 esl_vec_DValidate(double *vec, int n, double tol, char *errbuf)
 {
-  int    status;
-  int    x;
   double sum = 0.;
+  int    i;
 
   if (errbuf) *errbuf = 0;
   if (n == 0) return eslOK;
 
-  for (x = 0; x < n; x++) {
-    if (vec[x] < 0.0 || vec[x] > 1.0)
-      ESL_XFAIL(eslFAIL, errbuf, "value %d is not a probability between 0..1", x);
-    sum += vec[x];
+  for (i = 0; i < n; i++) {
+    if (! isfinite(vec[i]) || vec[i] < 0.0 || vec[i] > 1.0)
+	ESL_FAIL(eslFAIL, errbuf, "value %d (%g) is not a probability between 0..1", i, vec[i]);
+    sum += vec[i];
   }
 
-  if (fabs(sum - 1.0) > tol) 
-    ESL_XFAIL(eslFAIL, errbuf, "vector does not sum to 1.0");
+  if (fabs(sum - 1.0) > tol)  ESL_FAIL(eslFAIL, errbuf, "vector does not sum to 1.0");
   return eslOK;
-
- ERROR:
-  return status;
 }
 int
 esl_vec_FValidate(float *vec, int n, float tol, char *errbuf)
