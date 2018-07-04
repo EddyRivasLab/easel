@@ -79,7 +79,7 @@ foreach $module (@modules) {
     if (! -x "$top_builddir/$progname") { printf("%40s[UTEST NOT COMPILED]\n", "");       next; }; 
     $ncompiled++;
     
-    `$top_builddir/$progname >& /dev/null`;
+    `$top_builddir/$progname > /dev/null 2>&1`;
     if ($? != 0) { printf("%40s[UTEST FAILED ]\n", "");       next; };
     $nsuccess++;
 
