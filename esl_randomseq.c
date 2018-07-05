@@ -759,13 +759,15 @@ esl_rsq_CMarkov1(ESL_RANDOMNESS *r, const char *s, char *markoved)
  *           has a digital alphabet.) The caller must provide a <dsq>
  *           allocated for at least <L+2> residues of type <ESL_DSQ>,
  *           room for <L> residues and leading/trailing digital sentinel bytes.
- *           
+ * 
  *           <esl_rsq_xfIID()> does the same, but for a
  *           single-precision float vector <p> rather than a
  *           double-precision vector <p>.
+ * 
+ *           As a special case, if <p> is <NULL>, sample residues uniformly.
  *
  * Args:     r         - ESL_RANDOMNESS object
- *           p         - probability distribution [0..n-1]
+ *           p         - probability distribution [0..n-1] (or NULL for uniform)
  *           K         - number of symbols in alphabet
  *           L         - length of generated sequence
  *           ret_s     - RETURN: the generated sequence. 
@@ -780,7 +782,7 @@ esl_rsq_xIID(ESL_RANDOMNESS *r, const double *p, int K, int L, ESL_DSQ *dsq)
 
   dsq[0] = dsq[L+1] = eslDSQ_SENTINEL;
   for (x = 1; x <= L; x++) 
-    dsq[x] = esl_rnd_DChoose(r,p,K);
+    dsq[x] = p ? esl_rnd_DChoose(r,p,K) : esl_rnd_Roll(r,K);
   return eslOK;
 }
 int
@@ -790,7 +792,7 @@ esl_rsq_xfIID(ESL_RANDOMNESS *r, const float *p, int K, int L, ESL_DSQ *dsq)
 
   dsq[0] = dsq[L+1] = eslDSQ_SENTINEL;
   for (x = 1; x <= L; x++) 
-    dsq[x] = esl_rnd_FChoose(r,p,K);
+    dsq[x] = p ? esl_rnd_FChoose(r,p,K) : esl_rnd_Roll(r,K);
   return eslOK;
 }
 
