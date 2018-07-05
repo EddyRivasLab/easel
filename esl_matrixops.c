@@ -221,6 +221,24 @@ esl_mat_IDestroy(int **A, int M)
  *****************************************************************/
 
 int
+esl_mat_DDump(double **A, int M, int N)
+{
+  int i,j;
+  for (i = 0; i < M; i++)
+    for (j = 0; j < N; j++)
+      printf("%10.4g%c", A[i][j], j==N-1? '\n' : ' ');
+  return eslOK;
+}
+int
+esl_mat_FDump(float **A, int M, int N)
+{
+  int i,j;
+  for (i = 0; i < M; i++)
+    for (j = 0; j < N; j++)
+      printf("%10.4g%c", A[i][j], j==N-1? '\n' : ' ');
+  return eslOK;
+}
+int
 esl_mat_IDump(int **A, int M, int N)
 {
   int i,j;

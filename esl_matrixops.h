@@ -32,6 +32,9 @@ extern void     esl_mat_DDestroy(double **A, int M);
 extern void     esl_mat_FDestroy(float  **A, int M);
 extern void     esl_mat_IDestroy(int    **A, int M);
 
-extern int      esl_mat_IDump(int **A, int M, int N);
+extern int      esl_mat_DDump(double **A, int M, int N);
+extern int      esl_mat_FDump( float **A, int M, int N);
+extern int      esl_mat_IDump(   int **A, int M, int N);
+
 
 #endif // eslMATRIXOPS_INCLUDED
