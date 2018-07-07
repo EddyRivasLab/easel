@@ -30,7 +30,30 @@ ERROR:
   return NULL;
 }
 
+void esl_red_black_doublekey_Destroy(ESL_RED_BLACK_DOUBLEKEY *tree){
+  if(tree->large != NULL){
+    esl_red_black_doublekey_Destroy(tree->large);
+  }
+  if(tree->small != NULL){
+    esl_red_black_doublekey_Destroy(tree->small);
+  }
+  free(tree);
+}
 
+void esl_red_black_doublekey_linked_list_Destroy(ESL_RED_BLACK_DOUBLEKEY *tree){
+  ESL_RED_BLACK_DOUBLEKEY *next = tree->large;
+  if(tree->parent !=NULL){ // need to break the circular list or we'll recurse forever
+    tree->parent->large = NULL;
+  }
+  free(tree);
+  if(next != NULL){
+    esl_red_black_doublekey_linked_list_Destroy(next);
+  }
+  //note: we don't need to go down the tree->small path because the linked list is a set of nodes where large points to the next node 
+  //in the list while small points to the previous, so there are no nodes on the small path that aren't also on the large
+}
+  
+ 
 ESL_RED_BLACK_DOUBLEKEY * esl_red_black_doublekey_pool_Create(int number){
   int status; //return code from ESL_ALLOC.  Needs to be declared so that the macro will compile
   ESL_RED_BLACK_DOUBLEKEY *new_node;
@@ -647,8 +670,42 @@ main(int argc, char **argv)
     }
     if(esl_red_black_doublekey_linked_list_test(head, tail) != eslOK){
       esl_fatal("Linked list failed consistency check\n");
-    } 
+    }
+    tree->small = NULL; // break circular linked list so that the Destroy operation actually completes
+    esl_red_black_doublekey_linked_list_Destroy(tree);
   }
+  for(runs = 0; runs < 2; runs++){
+    tree = NULL;
+    for(i=0; i < 100000; i++){
+      my_key = ((double)rand()/(double)RAND_MAX) * 1000;
+      // generate "random" floating-point number between 0 and 100000
+      node = esl_red_black_doublekey_Create(); // get a new node
+      node->key = my_key; // set its key
+      node->contents = (void *) &my_key;
+      tree = esl_red_black_doublekey_insert(tree, node);
+      if(0){  
+        double *foo = (double *) esl_red_black_doublekey_lookup(tree, my_key); 
+        if(foo == NULL || *foo != my_key){
+          esl_fatal("Failed to find key %lf after insertion\n", my_key);
+        }
+        if(esl_red_black_doublekey_max_depth(tree) > (2 * esl_red_black_doublekey_min_depth(tree))){
+          esl_fatal("Unbalanced tree found on iteration %d: maximum depth was %d, tree minimum depth was %d\n",i, esl_red_black_doublekey_max_depth(tree), esl_red_black_doublekey_min_depth(tree)); 
+        }
+        /* Check generated tree for consistency */
+        if(esl_red_black_doublekey_check_invariants(tree) != eslOK){
+          esl_fatal("Generated tree did not obey red-black invariants\n");
+        } 
+      }
+    }
+    //printf("Tree maximum depth was %d, tree minimum depth was %d\n", esl_red_black_doublekey_max_depth(tree), esl_red_black_doublekey_min_depth(tree));
+    /* Check generated tree for consistency */
+    if(esl_red_black_doublekey_check_invariants(tree) != eslOK){
+      esl_fatal("Generated tree did not obey red-black invariants\n");
+    }
+
+  
+    esl_red_black_doublekey_Destroy(tree);
+  }  
 return 0;
 }
 
