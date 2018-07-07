@@ -99,7 +99,7 @@
 1 exercise esl-construct      !miniapps/esl-construct.itest.pl! @miniapps/esl-construct@ %TESTPFX%
 1 exercise esl-mask           !miniapps/esl-mask.itest.pl!      @miniapps/esl-mask@      %TESTPFX%
 1 exercise esl-seqrange       !miniapps/esl-seqrange.itest.pl!  @miniapps/esl-seqrange@  @miniapps/esl-sfetch@ %TESTPFX%
-1 exercise esl-shuffle        !miniapps/esl-shuffle.itest.pl!   @miniapps/esl-shuffle@   %TESTPFX%
+1 exercise esl-shuffle        !miniapps/esl-shuffle.itest.py!   @@ !! %TESTPFX%
 1 exercise esl-ssdraw         !miniapps/esl-ssdraw.itest.pl!    @miniapps/esl-ssdraw@    !testsuite/trna-ssdraw.ps! !testsuite/trna-5.stk! %TESTPFX%
 
 

@@ -131,12 +131,12 @@ msa_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 
       for (i = 0; i < N; i++)
 	{
-	  if (esl_opt_GetBoolean(go, "--boot")) esl_msashuffle_Bootstrap(r, msa, shuf);
-	  else                                  esl_msashuffle_Shuffle  (r, msa, shuf);
+	  if (esl_opt_GetBoolean(go, "-b")) esl_msashuffle_Bootstrap(r, msa, shuf);
+	  else                              esl_msashuffle_Shuffle  (r, msa, shuf);
 
 	  /* Set the name of the shuffled alignment */
 	  if (msa->name != NULL) {
-	    if (esl_opt_GetBoolean(go, "--boot")) {
+	    if (esl_opt_GetBoolean(go, "-b")) {
 	      if (N > 1) esl_msa_FormatName(shuf, "%s-sample-%d", msa->name, i);
 	      else       esl_msa_FormatName(shuf, "%s-sample",    msa->name);
 	    } else {
@@ -144,7 +144,7 @@ msa_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 	      else       esl_msa_FormatName(shuf, "%s-shuffle",    msa->name);
 	    }
 	  } else {
-	    if (esl_opt_GetBoolean(go, "--boot")) {
+	    if (esl_opt_GetBoolean(go, "-b")) {
 	      if (N > 1) esl_msa_FormatName(shuf, "sample-%d", i);
 	      else       esl_msa_FormatName(shuf, "sample");
 	    } else {
