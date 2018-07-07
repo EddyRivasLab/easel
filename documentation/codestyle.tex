@@ -1406,42 +1406,42 @@ Every function, procedure, and macro in the exposed API shall be
 tested by one or more unit tests. The unit tests aim for complete code
 coverage. This is measured by code coverage tests using \ccode{gcov}.
 
-Write unit tests. Remember that the purpose isn't so much to test
-whether your code works; the purpose is to test whether your code
-\emph{still} works, months or years from now when someone who didn't
-take the time to understand it fully has to make modifications. If
-that someone breaks your code and the unit tests fail, they know they
-need to do more. If someone breaks your code and the unit tests don't
-help them notice, it's your fault as much as theirs.
 
 
 %%%%%%%%%%%%%%%%
-\subsection{Using statistical sampling or randomization in unit tests}
+\subsection{Dealing with expected stochastic failures in unit tests}
 %%%%%%%%%%%%%%%%
-% First instituted in stats: SRE, Sun May 27 09:31:12 2007
 
-Some routines are tested on statistical samples. For example, we test
-a maximum likelihood parameter fitting routine by fitting to samples
-generated with known parameters, and testing that the estimated
-parameters are close enough to the true parameters.  The trouble is
-defining ``close enough''. There is always a finite probability that
-such a test will fail. We don't want tests to fail due to expected
+Many unit tests are based on statistical samples and/or random number
+generation.  For example, we test a maximum likelihood parameter
+fitting routine by fitting to samples generated with known parameters,
+and testing that the estimated parameters are close enough to the true
+parameters.  The trouble is defining ``close enough''. There may be a
+small but finite probability that such a test will fail. I call these
+``stochastic failures''.  We don't want tests to fail due to expected
 statistical deviations, but neither do we want to set p-values so
 loose that a flaw escapes notice.
 
-Easel tests drivers that use statistical sampling assign a
-\emph{fixed} random number seed by default, to make the statistical
-sample invariant across runs. This makes statistical tests more like
-regression tests. Manually, we use the test driver to determine that
-the test passes; in subsequent automatic use, we just check that we
-get the same answer.
+Current Easel strategy is to have such unit tests reinitialize the RNG
+to a predetermined fixed seed known to work. Optionally, the test can
+be made to use the RNG without reinitialization (therefore allowing
+stochastic failures to occur), with a \ccode{-x} option to the test
+driver. 
+% example: esl_mixdchlet
 
-To facilitate the manual testing phase, these test drivers often take
-optional arguments. A \ccode{-v} option toggles verbose mode, so unit
-tests display internal information. A \ccode{-r} option toggles
-``random'' mode, seeding the random number generator with the current
-time. A \ccode{-s <n>} option sets the random number seed to
-\ccode{<n>}.
+In the test driver, these unit tests need to be run last; unit tests
+that don't have a stochastic failure mode are run first. This is so
+the \ccode{-s <seed>} option for setting the RNG seed takes effect
+properly. (Otherwise, having a unit test reset the RNG seed would
+override the \ccode{-s <seed>} setting.}
+
+Otherwise the default for \ccode{<seed>} should be 0, so all other
+tests are randomized from run to run.
+
+In some older Easel code, fixed RNG seeds are used for tests that can
+stochastically fail. The newer approach is preferable because it gives
+more fine-grained control - only some utests need to deal with
+stochastic failure, not all of them.
 
 %%%%%%%%%%%%%%%%
 \subsection{Using temporary files in unit tests}

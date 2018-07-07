@@ -121,12 +121,12 @@ esl_graph_MaxBipartiteMatch(int **A, int M, int N, int ***opt_G, int *ret_nedges
     }
   free(Ga);       free(Gz);
   free(parent1);  free(parent2);
-  if (opt_G)  *opt_G = G; else esl_mat_IDestroy(G, M);
+  if (opt_G)  *opt_G = G; else esl_mat_IDestroy(G);
   *ret_nedges = nedges;
   return eslOK;
   
  ERROR:
-  esl_mat_IDestroy(G, M);
+  esl_mat_IDestroy(G);
   free(Ga);      free(Gz);
   free(parent1); free(parent2);
   if (opt_G) *opt_G = NULL;
@@ -186,9 +186,9 @@ utest_perfect(ESL_RANDOMNESS *rng)
   if (ntot <= n+1 && esl_mat_ICompare(G, G0, n, n) != eslOK) esl_fatal(msg);
 
   free(shuf);
-  esl_mat_IDestroy(A,  n);
-  esl_mat_IDestroy(G,  n);
-  esl_mat_IDestroy(G0, n);
+  esl_mat_IDestroy(A);
+  esl_mat_IDestroy(G);
+  esl_mat_IDestroy(G0);
 }
 #endif // eslGRAPH_TESTDRIVE
 

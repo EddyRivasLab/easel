@@ -43,7 +43,7 @@ esl_mat_DCreate(int M, int N)
   return A;
 
  ERROR:
-  esl_mat_DDestroy(A, M);
+  esl_mat_DDestroy(A);
   return NULL;
 }
 float **
@@ -65,7 +65,7 @@ esl_mat_FCreate(int M, int N)
   return A;
 
  ERROR:
-  esl_mat_FDestroy(A, M);
+  esl_mat_FDestroy(A);
   return NULL;
 }
 int **
@@ -88,9 +88,54 @@ esl_mat_ICreate(int M, int N)
   return A;
 
  ERROR:
-  esl_mat_IDestroy(A, M);
+  esl_mat_IDestroy(A);
   return NULL;
 }
+
+
+/* Function:  esl_mat_{DFI}GrowTo()
+ * Synopsis:  Increase the allocation for a matrix
+ * Incept:    SRE, Fri 06 Jul 2018 [World Cup, France v. Uruguay]
+ *
+ * Purpose:   Reallocate an existing matrix to <M> rows and <N> columns.
+ *
+ *            If only <M> has increased, and <N> is the same as it
+ *            was, then the existing contents of <*ret_A> remain valid
+ *            and unchanged. Newly allocated values are undefined and
+ *            caller needs to initialize them.
+ *
+ *            If <N> is changed, then the layout of the matrix
+ *            <*ret_A> is necessarily changed to, and it will need to
+ *            be reset to new values. Caller should treat the entire
+ *            matrix as undefined, and reinitialize all of it.
+ * 
+ * Return:    <eslOK> on success, and <*ret_A> has been reallocated.
+ *
+ * Throws:    <eslEMEM> on allocation failure; now <*ret_A> remains
+ *            valid with its previous size and contents.
+ */
+int
+esl_mat_DGrowTo(double ***ret_A, int M, int N)
+{
+  double **A = *ret_A;
+  int      i;
+  int      status;
+
+  ESL_REALLOC(A,  sizeof(double *) * M);
+  A[0] = NULL;
+
+  ESL_REALLOC(A[0], sizeof(double) * (M*N));
+  for (i = 1; i < M; i++)
+    A[i] = A[0] + i * N;
+
+  *ret_A = A;
+  return eslOK;
+
+ ERROR:
+  *ret_A = A;  // 1st realloc could succeed, moving A, before 2nd realloc fails.
+  return status;
+}
+
 
 /* Function:  esl_mat_{DFI}Set()
  * Synopsis:  Set all values in a matrix to one number. 
@@ -190,7 +235,7 @@ esl_mat_ICompare(int **A, int **B, int M, int N)
  *            caller would have to explicitly cast (void **) A.
  */
 void
-esl_mat_DDestroy(double **A, int M)
+esl_mat_DDestroy(double **A)
 {
   if (A) {
     free(A[0]);
@@ -198,7 +243,7 @@ esl_mat_DDestroy(double **A, int M)
   }
 }
 void
-esl_mat_FDestroy(float **A, int M)
+esl_mat_FDestroy(float **A)
 {
   if (A) {
     free(A[0]);
@@ -206,7 +251,7 @@ esl_mat_FDestroy(float **A, int M)
   }
 }
 void
-esl_mat_IDestroy(int **A, int M)
+esl_mat_IDestroy(int **A)
 {
   if (A) {
     free(A[0]);
@@ -293,9 +338,9 @@ utest_idiocy(ESL_RANDOMNESS *rng)
   if (esl_mat_FCompare(F, F2, m, n, 1e-4) != eslOK) esl_fatal(msg); 
   if (esl_mat_ICompare(A, A2, m, n)       != eslOK) esl_fatal(msg); 
 
-  esl_mat_DDestroy(D, m); esl_mat_DDestroy(D2, m);
-  esl_mat_FDestroy(F, m); esl_mat_FDestroy(F2, m);
-  esl_mat_IDestroy(A, m); esl_mat_IDestroy(A2, m);
+  esl_mat_DDestroy(D); esl_mat_DDestroy(D2);
+  esl_mat_FDestroy(F); esl_mat_FDestroy(F2);
+  esl_mat_IDestroy(A); esl_mat_IDestroy(A2);
 }
 #endif // eslMATRIXOPS_TESTDRIVE
 

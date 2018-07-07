@@ -6,7 +6,10 @@
  *   3. Maximum likelihood fitting to count data
  *   4. Reading/writing mixture Dirichlet files
  *   5. Debugging and development tools
- *   6. Unit tests
+ *   6. Experiment driver (estimating new mixture priors)
+ *   7. Unit tests
+ *   8. Test driver
+ *   9. Example
  *
  * See also: 
  *   esl_dirichlet : simple Dirichlet densities
@@ -79,7 +82,7 @@ esl_mixdchlet_Destroy(ESL_MIXDCHLET *dchl)
   if (dchl)
     {
       free(dchl->q);
-      esl_mat_DDestroy(dchl->alpha, dchl->Q);
+      esl_mat_DDestroy(dchl->alpha);
       free(dchl->postq);
       free(dchl);
     }
@@ -132,7 +135,7 @@ esl_mixdchlet_logp_c(ESL_MIXDCHLET *dchl, double *c)
 
 
 
-/* Function:  esl_mixdchlet_Parameterize()
+/* Function:  esl_mixdchlet_MPParameters()
  * Synopsis:  Calculate mean posterior parameters from a count vector
  *
  * Purpose:   Given a mixture Dirichlet prior <dchl> and observed
@@ -147,7 +150,7 @@ esl_mixdchlet_logp_c(ESL_MIXDCHLET *dchl, double *c)
  *            declare <dchl> to be const.
  */
 int
-esl_mixdchlet_Parameterize(ESL_MIXDCHLET *dchl, double *c, double *p)
+esl_mixdchlet_MPParameters(ESL_MIXDCHLET *dchl, double *c, double *p)
 {
   int    k,a;		// indices over components, residues
   double totc;
@@ -662,7 +665,7 @@ esl_mixdchlet_Compare(const ESL_MIXDCHLET *d1, const ESL_MIXDCHLET *d2, double t
   status = (nmatch == d1->Q) ? eslOK: eslFAIL;
   /* fallthrough */
  ERROR:
-  esl_mat_IDestroy(A, d1->Q);
+  esl_mat_IDestroy(A);
   return status;
 }
 
@@ -690,7 +693,95 @@ esl_mixdchlet_Dump(FILE *fp, const ESL_MIXDCHLET *dchl)
 
 
 /*****************************************************************
- * 6. Unit tests
+ * 6. Experiment driver (estimating new mixture priors)
+ *****************************************************************/
+#ifdef eslMIXDCHLET_EXPERIMENT
+
+#include <inttypes.h>  // for strtol()
+
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_matrixops.h"
+#include "esl_random.h"
+#include "esl_dirichlet.h"
+
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
+  { "-s",        eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+}
+
+static char usage[]  = "[-options] <Q> <K> <countsfile> <outfile>";
+static char banner[] = "estimate a mixture Dirichlet from count vectors";
+
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 3, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng     = esl_randomness_Create( esl_opt_GetInteger(go, "-s"));
+  int             Q       = strtol(esl_opt_GetArg(go, 1), NULL, 10);   // number of mixture components
+  int             K       = strtol(esl_opt_GetArg(go, 2), NULL, 10);   // size of probability/parameter vectors - length of count vectors
+  char           *ctfile  = esl_opt_GetArg(go, 3);                     // count file to input
+  char           *outfile = esl_opt_GetArg(go, 4);                     // mixture Dirichlet file output
+  ESL_FILEPARSER *efp     = NULL;                                      // open fileparser for reading                                                
+  FILE           *ofp     = NULL;                                      // open output file for writing
+  ESL_MIXDCHLET  *dchl    = esl_mixdchlet_Create(Q,K);                 // mixture Dirichlet being estimated
+  int             Nalloc  = 1024;                                      // initial allocation for ct[]
+  double        **ct      = esl_mat_DCreate(Nalloc, K);                // count vectors, [0..N-1][0..K-1]
+  int             N       = 0;                                         // number of count vectors so far
+  char           *tok     = NULL;
+  int             toklen  = 0;
+  int             a;
+  double          nll;
+  int             status;
+
+  if ( esl_fileparser_Open(ctfile, NULL, &efp) != eslOK)  esl_fatal("failed to open %s for reading", ctfile);
+  if (( ofp = fopen(outfile, "w"))             == NULL)   esl_fatal("failed to open %s for writing", outfile);
+
+  /* Read countvectors in from file. */
+  esl_fileparser_SetCommentChar('#');
+  while ((status = esl_fileparser_NextLine(efp)) == eslOK)
+    {
+      if (N == Nalloc-1) { Nalloc *= 2; esl_mat_DGrowTo(A, Nalloc, K); }
+
+      a = 0; // counter over fields on line, ct[N] [a=0..K-1].
+      while ((status = esl_fileparser_GetTokenOnLine(efp, &tok, toklen)) == eslOK)
+       {
+	 if (a == K)                esl_fatal("parse failed, %s:%d: > K=%d fields on line", ctfile, efp->linenumber, K);
+	 if (! esl_str_IsReal(tok)) esl_fatal("parse failed, %s:%d: field %d (%s) not a real number", ctfile, efp->linenumber, a+1, tok);
+	 ct[N][a++] = atof(tok, NULL);
+       }
+      N++;
+    }
+
+  /* Initialize the mixture Dirichlet */
+  esl_mixdchlet_Sample(rng, dchl);
+  
+  /* Call the (expensive) fitting function, which uses conjugate gradient descent  */
+  esl_mixdchlet_Fit(ct, N, dchl, &nll);
+
+  /* Write it */
+  esl_mixdchlet_Write(ofp, dchl);
+
+  printf("nll = %g\n", nll);
+
+  fclose(ofp);
+  esl_fileparser_Close(efp);
+  esl_mat_DDestroy(ct);
+  esl_mixdchlet_Destroy(dchl);
+  esl_randomness_Destroy(rng);
+  esl_getopts_Destroy(go);
+  return eslOK;
+}
+#endif //eslMIXDCHLET_EXPERIMENT
+
+
+
+
+/*****************************************************************
+ * 7. Unit tests
  *****************************************************************/
 #ifdef eslMIXDCHLET_TESTDRIVE
 
@@ -747,11 +838,16 @@ utest_io(ESL_RANDOMNESS *rng)
  * Generate count data from a known mixture Dirichlet, fit a new one,
  * and make sure they're similar.
  * 
- * This test can fail stochastically.
- * This test is slow (~5-10sec).
+ * This test can fail stochastically. If <allow_badluck> is FALSE (the
+ * default), it will reseed <rng> to a predetermined seed that always
+ * works (here, 14). Because the <rng> state is changed, test driver
+ * should put any such utests last.
+ * 
+ * This test is typically slow (~5-10sec). The special seed 14 is
+ * chosen to be an unusually fast one (~3s).
  */
 static void
-utest_fit(ESL_RANDOMNESS *rng, int be_verbose)
+utest_fit(ESL_RANDOMNESS *rng, int allow_badluck, int be_verbose)
 {
   char            msg[]       = "esl_mixdchlet: utest_fit failed";
   int             K           = 4;                            // alphabet size
@@ -763,6 +859,9 @@ utest_fit(ESL_RANDOMNESS *rng, int be_verbose)
   double        **c           = esl_mat_DCreate(N, K);
   double          nll0, nll;
   int i,k,a;
+
+  /* Suppress bad luck by default by fixing the RNG seed */
+  if (! allow_badluck) esl_randomness_Init(rng, 14);
 
   /* Create known 2-component mixture Dirichlet */
   d0->q[0] = 0.7;
@@ -793,214 +892,16 @@ utest_fit(ESL_RANDOMNESS *rng, int be_verbose)
   if ( esl_mixdchlet_Compare(d0, dchl, 0.1)   != eslOK) esl_fatal(msg);
   if ( nll0 < nll )                                     esl_fatal(msg);
     
-  esl_mat_DDestroy(c, N);
+  esl_mat_DDestroy(c);
   esl_mixdchlet_Destroy(dchl);
   esl_mixdchlet_Destroy(d0);
   free(p);
 }
-
-
-
-
-
-#if 0
-/*
- * For any given sampling effort, there is always a possibility that the resulting
- * count vector will have a higher likelihood under the wrong component than under the
- * correct component. This unit test runs multiple inferences and only fail if
- * more of the inferences fail than is expected
- */
-static void
-utest_inference(ESL_RANDOMNESS *r, ESL_MIXDCHLET *d, int ntrials, int ncounts, int be_verbose)
-{
-  char   *msg    = "esl_dirichlet: inference unit test failed";
-  double *counts = malloc(sizeof(double) * d->K);
-  double *probs  = malloc(sizeof(double) * d->K);
-  double *iq     = malloc(sizeof(double) * d->N);
-  double *ip     = malloc(sizeof(double) * d->K);
-  int     qused, qguess;
-  int     c, i, q, j;
-  double  maxdeviation;
-
-  int fail_cnt_1 = 0;
-  int fail_cnt_2 = 0;
-  int fail_cnt_3 = 0;
-
-  for (j=0; j<ntrials; j++) {
-	  /* Sample component, p vector, c vector from mixture Dirichlet */
-	  qused = esl_rnd_DChoose(r, d->pq, d->N);
-	  //printf("qused=%1d\n", qused);
-	  esl_dirichlet_DSample(r, d->alpha[qused], d->K, probs);
-	  esl_vec_DSet(counts, d->K, 0.);
-	  for (c = 0; c < ncounts; c++)
-		{
-		  i = esl_rnd_DChoose(r, probs, d->K);
-		  counts[i] += 1.;
-		}
-
-	  /* First inference test:
-	   * classify by posterior inference on the sampled probability vector.
-	   */
-	  for (q = 0; q < d->N; q++)
-		{
-		  esl_dirichlet_LogProbProbs(probs, d->alpha[q], d->K, &(iq[q]));
-		  iq[q] += log(d->pq[q]);
-		}
-	  qguess = esl_vec_DArgMax(iq, d->N); /* the MP guess from the probs */
-	  //printf("qguess: %1d\n", qguess);
-	  if (qused != qguess) {
-		  fail_cnt_1++;
-	  }
-
-	  /* Second inference test:
-	   * classify by posterior inference on the sampled count vector;
-	   * then attempt to estimate the probability vector.
-	   */
-	  esl_mixdchlet_MPParameters(counts, d->K, d, iq, ip);
-	  qguess = esl_vec_DArgMax(iq, d->N); /* the MP guess from the counts */
-	  //printf("%1d\n", qguess);
-	  if (qused != qguess) {
-		  fail_cnt_2++;
-	  }
-
-	  for (i = 0; i < d->K; i++)
-		ip[i] = fabs(ip[i] - probs[i]); /* ip[] is now the differences rel to probs */
-
-	  maxdeviation = esl_vec_DMax(ip, d->K);
-	  //  printf("maxdev=%.3f\n", maxdeviation);
-	  if (maxdeviation > 0.05) {
-		  fail_cnt_3++;
-	  }
-
-  }
-
-  if (fail_cnt_1 > 2 || fail_cnt_2 > 2 || fail_cnt_3 > 0) { 
-    char m1[100], m2[100], m3[100], m4[100], final_msg[500];
-    sprintf(m1, "Out of %d total trials:", ntrials);
-    sprintf(m2, "* classification sampled probability vector, failed %d times", fail_cnt_1);
-    sprintf(m3, "* classification sampled count vector, failed %d times", fail_cnt_2);
-    sprintf(m4, "* gross error in posterior probs estimated from counts, %d times", fail_cnt_3);
-
-    sprintf(final_msg, "%s\n%s\n%s\n%s\n%s\n", m1, m2, m3, m4, msg );
-    
-    esl_fatal(final_msg);
-  }
-
-  free(counts);
-  free(probs);
-  free(iq);
-  free(ip);
-  return;
-}
-
-
-/*
- * Performs two tests:
- * (1) Check to see if the inferred mixdchlt is similar to true one;
- * (2) Check if the likelihood under the inferred mixdchlt is at least as good as under the true mixdchlt.
- *
- * Also, now calls the Fit routine multiple times (via esl_mixdchlet_Fit_Multipass),
- * since any single random starting point might lead to a terrible locally optimal mixdchlet
- */
-static void
-utest_fit(ESL_RANDOMNESS *r, ESL_MIXDCHLET *d, int ntrials, int ncounts, double tol, int reps, int be_verbose)
-{
-  char           *msg ; //   = "esl_dirichlet: fit unit test failed";
-  ESL_MIXDCHLET  *id = NULL;
-  double        **counts;
-  double         *probs = malloc(sizeof(double) * d->K);
-  int             qused;
-  int             m;
-  int             c;
-  int             i;			/* counter over params (0..K-1) */
-
-  counts = malloc(sizeof(double *) * ntrials);
-  for (m = 0; m < ntrials; m ++)
-    counts[m] = malloc(sizeof(double) * d->K);
-
-  for (m = 0; m < ntrials; m ++) {
-    /* Sample component, p vector, c vector from mixture Dirichlet */
-    qused = esl_rnd_DChoose(r, d->pq, d->N); 
-    esl_dirichlet_DSample(r, d->alpha[qused], d->K, probs);
-    esl_vec_DSet(counts[m], d->K, 0.);
-
-    for (c = 0; c < ncounts; c++)
-      {
-    	i = esl_rnd_DChoose(r, probs, d->K);
-    	counts[m][i] += 1.;
-      }
-
-
-#ifdef eslDIRICHLET_TESTDRIVE_PRINTCOUNTS
-    printf ("%d  ", m);
-    for (i=0; i<d->K; i++)
-    	printf ("%.2f  ", counts[m][i]);
-    printf("\n");
-#endif /*eslDIRICHLET_TESTDRIVE_PRINTCOUNTS*/
-
-  }
-  
-  /* Start with a random id, use the counts to infer d by 
-   * maximum likelihood gradient descent.
-   * Generate a random starting point, alphas range from 0..10. 
-   */
-  id = esl_mixdchlet_Create(d->N, d->K);
-
-  /* optimize id */
-//  esl_mixdchlet_Fit(counts, ntrials, id, be_verbose);
-  esl_mixdchlet_Fit_Multipass(r, counts, ntrials, reps, id, 0);
-
-  double lp_true;
-  esl_dirichlet_LogProbDataSet_Mixture (ntrials, counts, d, &lp_true);
-
-  double lp_inf;
-  esl_dirichlet_LogProbDataSet_Mixture (ntrials, counts, id, &lp_inf);
-
-  //Test if the likelihood under the inferred model is at least as good as the
-  //likelihood under the true model
-  int lk_ok = eslOK;
-  if (lp_true > lp_inf +.00001)
-	  lk_ok = eslFAIL;
-
-  //Test if the inferred q and alpha values are close
-  // (note: "close" is relative - under the default conditions, they're all
-  //   within 35% of the true value)
-  int alphas_ok =  esl_mixdchlet_Compare(d, id, tol);
-
-
-  if (lk_ok== eslFAIL || alphas_ok==eslFAIL) {
-	  fprintf(stderr, "\nGiven dirichlet\n");
-	  esl_mixdchlet_Dump(stderr, d);
-	  fprintf (stderr, "logP = %.5f\n\n", lp_true);
-
-	  fprintf(stderr, "\nInferred dirichlet\n");
-	  esl_mixdchlet_Dump(stderr, id);
-	  fprintf (stderr, "logP = %.5f\n\n", lp_inf);
-
-
-	  if (lk_ok==eslFAIL)
-		  msg    = "esl_dirichlet: fit unit test failed (likelihood)";
-	  else
-		  msg    = "esl_dirichlet: fit unit test failed (similarity tolerance exceeded)";
-
-	  esl_fatal(msg);
-  }
-  
-  for (m = 0; m < ntrials; m ++)
-    free(counts[m]);
-  free(counts);
-  free(probs);
-  esl_mixdchlet_Destroy(id);
-
-  return;
-}
-#endif
 #endif // eslMIXDCHLET_TESTDRIVE
 
 
-
 /*****************************************************************
- * 7. Test driver
+ * 8. Test driver
  *****************************************************************/
 #ifdef eslMIXDCHLET_TESTDRIVE
 
@@ -1014,6 +915,7 @@ static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
   { "-s",        eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
+  { "-x",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "allow bad luck (expected stochastic failures)",    0 },
   { "-v",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "be more verbose"              ,                    0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
@@ -1026,12 +928,15 @@ main(int argc, char **argv)
   ESL_GETOPTS    *go   = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   ESL_RANDOMNESS *rng  = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
   int      be_verbose  = esl_opt_GetBoolean(go, "-v");
+  int   allow_badluck  = esl_opt_GetBoolean(go, "-x");  // if a utest can fail just by chance, let it, instead of suppressing
 
   fprintf(stderr, "## %s\n", argv[0]);
   fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
 
   utest_io (rng);
-  utest_fit(rng, be_verbose);
+
+  // Tests that can fail stochastically go last, because they reset the RNG seed by default.
+  utest_fit(rng, allow_badluck, be_verbose);
 
   fprintf(stderr, "#  status = ok\n");
  
@@ -1043,169 +948,8 @@ main(int argc, char **argv)
 /*--------------------- end, test driver ------------------------*/
 
 
-/*****************************************************************
- * 8. Examples
- *****************************************************************/
-#ifdef eslDIRICHLET_EXAMPLE
-/*::cexcerpt::dirichlet_example::begin::*/
-#include <stdlib.h>
-#include <stdio.h>
-#include "easel.h"
-#include "esl_random.h"
-#include "esl_fileparser.h"
-#include "esl_vectorops.h"
-#include "esl_dirichlet.h"
-
-int
-main(int argc, char **argv)
-{
-  FILE           *fp;
-  ESL_FILEPARSER *efp;
-  ESL_RANDOMNESS *r;
-  ESL_MIXDCHLET  *pri;
-  int             c,i,q,qused;
-  double         *counts, *probs, *iq, *ip;
-
-  /* Read in a mixture Dirichlet from a file. */
-  fp  = fopen(argv[1], "r");
-  efp = esl_fileparser_Create(fp);
-  if (esl_mixdchlet_Read(efp, &pri) != eslOK) {
-    fprintf(stderr, "%s;\ndirichlet file %s parse failed at line %d\n",
-	    efp->errbuf, argv[1], efp->linenumber);
-    exit(1);
-  }
-  esl_fileparser_Destroy(efp);
-  fclose(fp);  
-
-  /* Allocate some working spaces */
-  probs  = malloc(sizeof(double) * pri->K);
-  counts = malloc(sizeof(double) * pri->K);
-  iq     = malloc(sizeof(double) * pri->N);
-  ip     = malloc(sizeof(double) * pri->K);
-
-  /* Sample a probability vector from it. */
-  r = esl_randomness_Create(0);            /* init the random generator */
-  qused = esl_rnd_DChoose(r, pri->pq, pri->N); /* sample a component */
-  esl_dirichlet_DSample(r, pri->alpha[qused], pri->K, probs);
-
-  printf("Component %2d: p[] = ", qused);
-  for (i = 0; i < pri->K; i++) printf("%.3f ", probs[i]);
-  printf("\n");
-
-  /* Sample a count vector from that prob vector. */
-  esl_vec_DSet(counts, pri->K, 0.);
-  for (c = 0; c < 20; c++)
-    counts[esl_rnd_DChoose(r, probs, pri->K)] += 1.;
-
-  printf("              c[] = ");
-  for (i = 0; i < pri->K; i++) printf("%5.0f ", counts[i]);
-  printf("\n");
-
-  /* Estimate a probability vector (ip) from those counts, and
-   * also get back the posterior prob P(q|c) of each component (iq). */
-  esl_mixdchlet_MPParameters(counts, pri->K, pri, iq, ip);
-
-  printf("  reestimated p[] = ");
-  for (i = 0; i < pri->K; i++) printf("%.3f ", ip[i]);
-  printf("\n");
-
-  q = esl_vec_DArgMax(iq, pri->N);
-  printf("probably generated by component %d; P(q%d | c) = %.3f\n",
-	 q, q, iq[q]);
-
-  esl_mixdchlet_Destroy(pri);
-  esl_randomness_Destroy(r);
-  free(probs); free(counts); free(iq); free(ip);
-  return 0;
-}
-/*::cexcerpt::dirichlet_example::end::*/
-#endif /*eslDIRICHLET_EXAMPLE*/
 
 
-
-
-#ifdef eslDIRICHLET_EXAMPLE2
-
-#include <inttypes.h>  // for strtol()
-
-#include "easel.h"
-#include "esl_getopts.h"
-#include "esl_random.h"
-#include "esl_dirichlet.h"
-
-static ESL_OPTIONS options[] = {
-  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
-  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
-  { "-s",        eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
-  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-}
-
-static char usage[]  = "[-options] <Q> <K> <countsfile>";
-static char banner[] = "estimate a mixture Dirichlet from count vectors";
-
-
-int
-main(int argc, char **argv)
-{
-  ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 3, argc, argv, banner, usage);
-  int             Q       = strtol(esl_opt_GetArg(go, 1), NULL, 10);   // number of mixture components
-  int             K       = strtol(esl_opt_GetArg(go, 2), NULL, 10);   // size of probability/parameter vectors - length of count vectors
-  char           *ctfile  = esl_opt_GetArg(go, 3);                     // count file to input
-  ESL_FILEPARSER *efp     = NULL;                                      // open fileparser                                                 
-  ESL_MIXDCHLET  *dchl    = NULL;                                      // mixture Dirichlet being estimated
-  double        **ct      = NULL;                                      // count vectors, [0..N-1][0..K-1]
-  int             N       = 0;                                         // number of count vectors
-  int             Nalloc  = 0;                                         // allocation for ct[]
-  char           *tok     = NULL;
-  int             toklen  = 0;
-  int             i,j;
-  int             status;
-
-  /* Read countvectors in from file.
-   */
-  Nalloc = 1024;
-  ESL_ALLOC(ct,    sizeof(double *) * Nalloc);
-  ESL_ALLOC(ct[0], sizeof(double)   * (Nalloc * K));
-  for (i = 1; i < N; i++) ct[i] = ct + (i * K);
-
-  if ( esl_fileparser_Open(ctfile, NULL, &efp) != eslOK)
-    esl_fatal("failed to open %s", ctfile);
-  esl_fileparser_SetCommentChar('#');
-
-  while ((status = esl_fileparser_NextLine(efp)) == eslOK)
-    {
-      if (N == Nalloc-1)
-	{
-	  Nalloc *= 2;
-	  ESL_REALLOC(ct,    sizeof(double *) * Nalloc);
-	  ESL_REALLOC(ct[0], sizeof(double)   * (Nalloc * K));
-	  for (i = 1; i < Nalloc; i++) ct[i] = ct + (i * K);
-	}
-
-      j = 0;
-      while ((status = esl_fileparser_GetTokenOnLine(efp, &tok, toklen)) == eslOK)
-       {
-	 if (j == K)                esl_fatal("parse failed, %s:%d: > K=%d fields on line", ctfile, efp->linenumber, K);
-	 if (! esl_str_IsReal(tok)) esl_fatal("parse failed, %s:%d: field %d (%s) not a real number", ctfile, efp->linenumber, j+1, tok);
-	 ct[N][j] = atof(tok, NULL);
-	 j++;
-       }
-      N++;
-    }
-
-  /* Initialize the mixture Dirichlet */
-  dchl = esl_mixchlet_Create(Q, K);
-
-  
-  
-  /* Call the (expensive) fitting function, which uses conjugate gradient descent  */
-  esl_mixdchlet_Fit(ct, N, dchl, 
-
-
-}
-
-
-#endif //eslDIRICHLET_EXAMPLE2
 
 
 

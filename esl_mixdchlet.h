@@ -30,7 +30,7 @@ extern ESL_MIXDCHLET *esl_mixdchlet_Create(int Q, int K);
 extern void           esl_mixdchlet_Destroy(ESL_MIXDCHLET *dchl);
 
 extern double         esl_mixdchlet_logp_c      (ESL_MIXDCHLET *dchl, double *c);
-extern int            esl_mixdchlet_Parameterize(ESL_MIXDCHLET *dchl, double *c, double *p);
+extern int            esl_mixdchlet_MPParameters(ESL_MIXDCHLET *dchl, double *c, double *p);
 
 
 extern int            esl_mixdchlet_Fit(double **c, int N, ESL_MIXDCHLET *dchl, double *opt_nll);
