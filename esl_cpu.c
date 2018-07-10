@@ -415,16 +415,16 @@ cpu_has_avx512(void)
 static void
 utest_consistency(void)
 {
-  char msg[] = "utest_consistency() failed";
-
+  // it's possible that none of the `#if defined` blocks are used, so
+  // don't put a char msg[] here, or compiler could bark about it being unused.
 #if defined (eslENABLE_AVX512) && defined (eslENABLE_AVX)
-  if (esl_cpu_has_avx512() && ! esl_cpu_has_avx())  esl_fatal(msg);
+  if (esl_cpu_has_avx512() && ! esl_cpu_has_avx())  esl_fatal("utest_consistency() failed");
 #endif
 #if defined (eslENABLE_AVX) && defined (eslENABLE_SSE4)
-  if (esl_cpu_has_avx()    && ! esl_cpu_has_sse4()) esl_fatal(msg);
+  if (esl_cpu_has_avx()    && ! esl_cpu_has_sse4()) esl_fatal("utest_consistency() failed");
 #endif
 #if defined (eslENABLE_SSE4) && defined (eslENABLE_SSE)
-  if (esl_cpu_has_sse4()   && ! esl_cpu_has_sse())  esl_fatal(msg);
+  if (esl_cpu_has_sse4()   && ! esl_cpu_has_sse())  esl_fatal("utest_consistency() failed");
 #endif
 }
 
