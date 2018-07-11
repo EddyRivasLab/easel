@@ -113,6 +113,7 @@ msa_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 {
   char         *msafile = esl_opt_GetArg(go, 1);
   int           infmt   = eslMSAFILE_UNKNOWN;
+  ESL_ALPHABET *abc     = NULL;
   ESL_MSAFILE  *afp     = NULL;
   ESL_MSA      *msa     = NULL;
   ESL_MSA      *shuf    = NULL;
@@ -120,8 +121,12 @@ msa_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
   int           i;
   int           status;
 
-  if ( (status = esl_msafile_Open(NULL, msafile, NULL, infmt, NULL, &afp)) != eslOK)
-    esl_msafile_OpenFailure(afp, status);
+  if (esl_opt_IsOn(go, "--informat") &&
+      (infmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
+    esl_fatal("%s is not a valid MSA file format for --informat", esl_opt_GetString(go, "--informat"));
+
+  status = esl_msafile_Open(&abc, msafile, NULL, infmt, NULL, &afp);
+  if (status != eslOK) esl_msafile_OpenFailure(afp, status);
   
   while ((status = esl_msafile_Read(afp, &msa)) != eslEOF)
     {

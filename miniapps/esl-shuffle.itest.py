@@ -66,7 +66,6 @@ if (lines[0] != '>seq1-shuffled'        or
     lines[4] != '>seq3-shuffled'        or
     lines[5] != 'WWYYWWYWWYYWYYWYYWYW'):    sys.exit(errmsg)
 
-
 # We had bugs in the -N option at one point.  This test exercises the
 # bugs.
 #
@@ -85,7 +84,7 @@ r = subprocess.run('{0}/miniapps/esl-shuffle -A --seed 42 {1}.sto'.format(buildd
 if r.returncode != 0:                         sys.exit(errmsg)
 lines = r.stdout.splitlines()
 if len(lines) != 9:                           sys.exit(errmsg)
-if (lines[3] != 'seq1 TCDEDFFCCKDNALQNPDRM'): sys.exit(errmsg)
+if (lines[3] != 'seq1 TIGEYHFWCKVSALQNPDRM'): sys.exit(errmsg)
 
 print('ok')
 os.remove('{0}.sto'.format(tmppfx))

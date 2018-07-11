@@ -190,8 +190,7 @@ esl_msashuffle_Bootstrap(ESL_RANDOMNESS *r, ESL_MSA *msa, ESL_MSA *bootsample)
  *            thing for caller to do is to <esl_msa_Clone()> the <msa>
  *            to create <shuf>, then shuffle it.
  *
- *            Both <msa> and <shuf> can be in either digital 
- *            or text mode, but their modes must match.
+ *            <msa> and <shuf> must be in digital mode.
  *
  * Args:      rng  - random number generator
  *            msa  - input multiple alignment to shuffle
@@ -205,50 +204,34 @@ esl_msashuffle_Bootstrap(ESL_RANDOMNESS *r, ESL_MSA *msa, ESL_MSA *bootsample)
 int
 esl_msashuffle_VShuffle(ESL_RANDOMNESS *rng, const ESL_MSA *msa, ESL_MSA *shuf)
 {
-  ESL_DASSERT1 ((  (msa->flags & eslMSA_DIGITAL) == (shuf->flags & eslMSA_DIGITAL) )); // modes match
+  ESL_DASSERT1 ((  msa->flags  & eslMSA_DIGITAL ));
+  ESL_DASSERT1 ((  shuf->flags & eslMSA_DIGITAL ));
+  ESL_DSQ *csq = NULL;
   int      idx, apos;
+  int      nres;      // number of non-gap residues in this column
   int      status;
 
-  if (msa->flags & eslMSA_DIGITAL)
-    {
-      ESL_DSQ *csq = NULL;
-      ESL_ALLOC(csq, sizeof(ESL_DSQ) * (msa->nseq+2));  // +2 because we hack <csq> column to look like a digital sequence, suitable for esl_rsq*
-      csq[0] = csq[msa->nseq+1] = eslDSQ_SENTINEL;
+
+  ESL_ALLOC(csq, sizeof(ESL_DSQ) * (msa->nseq+2));  // +2 because we hack <csq> column to look like a digital sequence, suitable for esl_rsq*
+  csq[0] = eslDSQ_SENTINEL;
   
-      for (apos = 1; apos <= msa->alen; apos++)
-	{
-	  /* transpose each column from [idx][apos] to an array we can shuffle */
-	  for (idx = 0; idx < msa->nseq; idx++)
-	    csq[idx+1] = msa->ax[idx][apos];  // (again, the +1 here is because we make <csq> look like a digital seq)
-
-	  /* shuffle it */
-	  esl_rsq_XShuffle(rng, csq, msa->nseq, csq);
-
-	  /* put it back in <shuf> */
-	  for (idx = 0; idx < msa->nseq; idx++)
-	    shuf->ax[idx][apos] = csq[idx+1];  // (again the +1)
-	}
-      free(csq);
-    }
-  else
+  for (apos = 1; apos <= msa->alen; apos++)
     {
-      char *csq = NULL;
-      ESL_ALLOC(csq, sizeof(char) * (msa->nseq + 1));
-      csq[msa->nseq] = '\0';
+      /* transpose each column from [idx][apos] to an array (residues only) we can shuffle */
+      for (idx = 0, nres = 0; idx < msa->nseq; idx++)
+	if (! esl_abc_XIsGap(msa->abc, msa->ax[idx][apos]))
+	  csq[++nres] = msa->ax[idx][apos];  // (again, the prepend ++nres here is because we make <csq> look like a digital seq, starts at 1
+      csq[nres+1] = eslDSQ_SENTINEL;
 
-      for (apos = 0; apos < msa->alen; apos++)
-	{
-	  for (idx = 0; idx < msa->nseq; idx++)
-	    csq[idx] = msa->aseq[idx][apos];  
+      /* shuffle it (remember, it's only the residues (and *,~), not the gaps */
+      esl_rsq_XShuffle(rng, csq, nres, csq);
 
-	  esl_rsq_CShuffle(rng, csq, csq);
-
-	  for (idx = 0; idx < msa->nseq; idx++)
-	    shuf->aseq[idx][apos] = csq[idx]; 
-	}
-      free(csq);
+      /* put it back in <shuf> */
+      for (idx = 0, nres = 0; idx < msa->nseq; idx++)
+	if (! esl_abc_XIsGap(msa->abc, msa->ax[idx][apos]))
+	  shuf->ax[idx][apos] = csq[++nres];   // (again the ++, so we start at 1)
     }
-
+  free(csq);
   return eslOK;
 
  ERROR:
