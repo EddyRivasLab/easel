@@ -109,7 +109,7 @@ fi
 #     EASEL_VERSION    e.g. "1.9a"
 #
 
-EASEL_DATE="June 2018"
+EASEL_DATE="July 2018"
 EASEL_COPYRIGHT="Copyright (C) 2018 Howard Hughes Medical Institute"
 EASEL_LICENSE="Freely distributed under the BSD open source license."
 EASEL_VERSION=$PACKAGE_VERSION
@@ -121,10 +121,12 @@ AC_SUBST(EASEL_LICENSE)
 AC_SUBST(EASEL_VERSION)
 AC_SUBST(EASEL_URL)
 
-AC_DEFINE_UNQUOTED([EASEL_DATE],      ["$EASEL_DATE"],      [Release date])
-AC_DEFINE_UNQUOTED([EASEL_COPYRIGHT], ["$EASEL_COPYRIGHT"], [Brief copyright statement])
-AC_DEFINE_UNQUOTED([EASEL_LICENSE],   ["$EASEL_LICENSE"],   [Brief license statement])
-AC_DEFINE_UNQUOTED([EASEL_VERSION],   ["$EASEL_VERSION"],   [Version number])
+AC_DEFINE_UNQUOTED([EASEL_DATE],      ["$EASEL_DATE"],      [Easel release date])
+AC_DEFINE_UNQUOTED([EASEL_COPYRIGHT], ["$EASEL_COPYRIGHT"], [Easel brief copyright statement])
+AC_DEFINE_UNQUOTED([EASEL_LICENSE],   ["$EASEL_LICENSE"],   [Easel brief license statement])
+AC_DEFINE_UNQUOTED([EASEL_VERSION],   ["$EASEL_VERSION"],   [Easel version number])
+AC_DEFINE_UNQUOTED([EASEL_URL],       ["$EASEL_URL"],       [Easel web URL])
+
 
 # Figure out what host we're compiling on.
 # Three GNU scripts must be included in the distro: 

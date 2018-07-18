@@ -49,7 +49,7 @@ typedef struct {
  * variables.
  */
 typedef struct {
-  ESL_OPTIONS *opt;       /* array of app-defined options              */
+  const ESL_OPTIONS *opt; /* array of app-defined options              */
   int          nopts;     /* number of options                         */
 
   int    argc;		  /* argc from command line                    */
@@ -82,8 +82,8 @@ typedef struct {
 
 /* The visible API.
  */
-extern ESL_GETOPTS *esl_getopts_Create(ESL_OPTIONS *opt);
-extern ESL_GETOPTS *esl_getopts_CreateDefaultApp(ESL_OPTIONS *options, int nargs, int argc, char **argv, char *banner, char *usage);
+extern ESL_GETOPTS *esl_getopts_Create(const ESL_OPTIONS *opt);
+extern ESL_GETOPTS *esl_getopts_CreateDefaultApp(const ESL_OPTIONS *options, int nargs, int argc, char **argv, char *banner, char *usage);
 extern int          esl_getopts_Reuse  (ESL_GETOPTS *g);
 extern void         esl_getopts_Destroy(ESL_GETOPTS *g);
 extern void         esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g);

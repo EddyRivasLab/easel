@@ -165,6 +165,7 @@ HDRS = 	easel.h\
 	esl_stats.h\
 	esl_stopwatch.h\
 	esl_stretchexp.h\
+	esl_subcmd.h\
 	esl_threads.h\
 	esl_tree.h\
 	esl_vectorops.h\
@@ -239,6 +240,7 @@ OBJS =	easel.o\
 	esl_stats.o\
 	esl_stopwatch.o\
 	esl_stretchexp.o\
+	esl_subcmd.o\
 	esl_threads.o\
 	esl_tree.o\
 	esl_vectorops.o\
@@ -352,6 +354,7 @@ ${VMX_UTESTS}:     SIMD_CFLAGS= ${VMX_CFLAGS}
 
 
 EXPERIMENTS = \
+	esl_mixdchlet_experiment \
 	esl_scorematrix_experiment
 
 SSE_EXPERIMENTS     = 
@@ -432,6 +435,7 @@ EXAMPLES = \
         esl_hyperexp_example\
         esl_keyhash_example\
         esl_minimizer_example\
+	esl_mixdchlet_example\
         esl_mixgev_example\
         esl_msafile_example\
 	esl_msafile_a2m_example\

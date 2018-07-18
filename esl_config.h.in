@@ -13,10 +13,11 @@
 
 /* Version info.
  */
-#undef EASEL_VERSION    
-#undef EASEL_DATE      
-#undef EASEL_COPYRIGHT 
-#undef EASEL_LICENSE   
+#undef EASEL_VERSION
+#undef EASEL_DATE 
+#undef EASEL_COPYRIGHT
+#undef EASEL_LICENSE
+#undef EASEL_URL
 
 /* Debugging/assertion hooks & verbosity level (0=none;3=most verbose) */
 #undef eslDEBUGLEVEL

@@ -710,7 +710,7 @@ static ESL_OPTIONS options[] = {
   { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
   { "-s",        eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-}
+};
 
 static char usage[]  = "[-options] <Q> <K> <countsfile> <outfile>";
 static char banner[] = "estimate a mixture Dirichlet from count vectors";
@@ -719,7 +719,7 @@ static char banner[] = "estimate a mixture Dirichlet from count vectors";
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 3, argc, argv, banner, usage);
+  ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 4, argc, argv, banner, usage);
   ESL_RANDOMNESS *rng     = esl_randomness_Create( esl_opt_GetInteger(go, "-s"));
   int             Q       = strtol(esl_opt_GetArg(go, 1), NULL, 10);   // number of mixture components
   int             K       = strtol(esl_opt_GetArg(go, 2), NULL, 10);   // size of probability/parameter vectors - length of count vectors
@@ -741,17 +741,17 @@ main(int argc, char **argv)
   if (( ofp = fopen(outfile, "w"))             == NULL)   esl_fatal("failed to open %s for writing", outfile);
 
   /* Read countvectors in from file. */
-  esl_fileparser_SetCommentChar('#');
+  esl_fileparser_SetCommentChar(efp, '#');
   while ((status = esl_fileparser_NextLine(efp)) == eslOK)
     {
-      if (N == Nalloc-1) { Nalloc *= 2; esl_mat_DGrowTo(A, Nalloc, K); }
+      if (N == Nalloc-1) { Nalloc *= 2; esl_mat_DGrowTo(&ct, Nalloc, K); }
 
       a = 0; // counter over fields on line, ct[N] [a=0..K-1].
-      while ((status = esl_fileparser_GetTokenOnLine(efp, &tok, toklen)) == eslOK)
+      while ((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) == eslOK)
        {
 	 if (a == K)                esl_fatal("parse failed, %s:%d: > K=%d fields on line", ctfile, efp->linenumber, K);
 	 if (! esl_str_IsReal(tok)) esl_fatal("parse failed, %s:%d: field %d (%s) not a real number", ctfile, efp->linenumber, a+1, tok);
-	 ct[N][a++] = atof(tok, NULL);
+	 ct[N][a++] = atof(tok);
        }
       N++;
     }
@@ -948,8 +948,72 @@ main(int argc, char **argv)
 /*--------------------- end, test driver ------------------------*/
 
 
+/*****************************************************************
+ * x. Example.
+ *****************************************************************/
+#ifdef eslMIXDCHLET_EXAMPLE
+
+#include "easel.h"
+#include "esl_fileparser.h"
+#include "esl_getopts.h"
+
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options] <mixdchlet_file> <counts_file>";
+static char banner[] = "example driver for mixdchlet module: log likelihood of count data";
 
 
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS    *go     = esl_getopts_CreateDefaultApp(options, 2, argc, argv, banner, usage);
+  char           *dfile  = esl_opt_GetArg(go, 1);
+  char           *ctfile = esl_opt_GetArg(go, 2);
+  ESL_FILEPARSER *efp    = NULL;
+  ESL_MIXDCHLET  *dchl   = NULL;
+  double         *ct     = NULL;   // one countvector read from ctfile at a time
+  char           *tok    = NULL;
+  int             toklen = 0;
+  int             a;
+  double          nll    = 0;
+  int             status;
+  
+  /* Read mixture Dirichlet */
+  if ( esl_fileparser_Open(dfile, NULL, &efp) != eslOK) esl_fatal("failed to open %s for reading", dfile);
+  esl_fileparser_SetCommentChar(efp, '#');
+  if ( esl_mixdchlet_Read(efp, &dchl)         != eslOK) esl_fatal("failed to parse %s\n  %s", dfile, efp->errbuf);
+  esl_fileparser_Close(efp);
+  efp = NULL;
+
+  /* Read count vectors one at a time, increment nll */
+  if ( esl_fileparser_Open(ctfile, NULL, &efp) != eslOK) esl_fatal("failed to open %s for reading", ctfile);
+  esl_fileparser_SetCommentChar(efp, '#');
+  ct = malloc(sizeof(double) * dchl->K);
+  while ((status = esl_fileparser_NextLine(efp)) == eslOK)
+    {
+      a = 0; // counter over fields on line, ct[a=0..K-1].
+      while ((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) == eslOK)
+       {
+	 if (a == dchl->K)          esl_fatal("parse failed, %s:%d: > K=%d fields on line", ctfile, efp->linenumber, dchl->K);
+	 if (! esl_str_IsReal(tok)) esl_fatal("parse failed, %s:%d: field %d (%s) not a real number", ctfile, efp->linenumber, a+1, tok);
+	 ct[a++] = atof(tok);
+       }
+
+      nll += esl_mixdchlet_logp_c(dchl, ct);
+    }
+  esl_fileparser_Close(efp);
+
+  printf("nll = %g\n", -nll);
+
+  free(ct);
+  esl_mixdchlet_Destroy(dchl);
+  esl_getopts_Destroy(go);
+}
+#endif /*eslMIXDCHLET_EXAMPLE*/
 
 
 

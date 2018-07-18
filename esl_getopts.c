@@ -59,7 +59,7 @@ static int process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti);
  *            an invalid <ESL_OPTIONS> structure.
  */
 ESL_GETOPTS *
-esl_getopts_Create(ESL_OPTIONS *opt)
+esl_getopts_Create(const ESL_OPTIONS *opt)
 {
   ESL_GETOPTS *g = NULL;
   int status;
@@ -196,7 +196,7 @@ esl_getopts_Create(ESL_OPTIONS *opt)
  *
  */
 ESL_GETOPTS *
-esl_getopts_CreateDefaultApp(ESL_OPTIONS *options, int nargs, int argc, char **argv, char *banner, char *usage)
+esl_getopts_CreateDefaultApp(const ESL_OPTIONS *options, int nargs, int argc, char **argv, char *banner, char *usage)
 {
   ESL_GETOPTS *go = NULL;
 

@@ -463,6 +463,7 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
   for (i = 0; i < max_iterations; i++)
     {
 #if (eslDEBUGLEVEL >= 2)
+      int j;
       printf("\nCG iteration %d\n", i+1);
       printf(" current point:       ");
       for (j = 0; j < n; j++) printf("%10.4g ", x[j]);
