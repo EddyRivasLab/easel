@@ -101,11 +101,11 @@ esl_mat_ICreate(int M, int N)
  *
  *            If only <M> has increased, and <N> is the same as it
  *            was, then the existing contents of <*ret_A> remain valid
- *            and unchanged. Newly allocated values are undefined and
+ *            and unchanged. Newly allocated values are undefined, and
  *            caller needs to initialize them.
  *
  *            If <N> is changed, then the layout of the matrix
- *            <*ret_A> is necessarily changed to, and it will need to
+ *            <*ret_A> is necessarily changed too, and it will need to
  *            be reset to new values. Caller should treat the entire
  *            matrix as undefined, and reinitialize all of it.
  * 
@@ -121,11 +121,9 @@ esl_mat_DGrowTo(double ***ret_A, int M, int N)
   int      i;
   int      status;
 
-  ESL_REALLOC(A,  sizeof(double *) * M);
-  A[0] = NULL;
-
-  ESL_REALLOC(A[0], sizeof(double) * (M*N));
-  for (i = 1; i < M; i++)
+  ESL_REALLOC(A[0], sizeof(double) * (M*N));  // must reallocate contents first
+  ESL_REALLOC(A,  sizeof(double *) * M);      // ... then the pointers
+  for (i = 1; i < M; i++)                     // ... then reset row pointers.
     A[i] = A[0] + i * N;
 
   *ret_A = A;
@@ -308,7 +306,7 @@ esl_mat_IDump(int **A, int M, int N)
  * Basically just a valgrind and compile warning test.  Inconceivable
  * that it could fail. (Why yes, I do know what that word means.)
  */
-void
+static void
 utest_idiocy(ESL_RANDOMNESS *rng)
 {
   char     msg[]   = "esl_matrixops utest_idiocy() test failed";
@@ -342,6 +340,32 @@ utest_idiocy(ESL_RANDOMNESS *rng)
   esl_mat_FDestroy(F); esl_mat_FDestroy(F2);
   esl_mat_IDestroy(A); esl_mat_IDestroy(A2);
 }
+
+static void
+utest_grow(void)
+{
+  char     msg[] = "esl_matrixops utest_grow() test failed";
+  double **D1    = esl_mat_DCreate(5, 3);
+  double **D2    = esl_mat_DCreate(10, 3);
+  int      i,j;
+
+  for (i = 0; i < 5; i++)
+    for (j = 0; j < 3; j++)
+      D1[i][j] = (double) (i*3 + j);
+  esl_mat_DGrowTo(&D1, 10, 3);
+  for (i = 5; i < 10; i++)
+    for (j = 0; j < 3; j++)
+      D1[i][j] = (double) (i*3 + j);
+
+  for (i = 0; i < 10; i++)
+    for (j = 0; j < 3; j++)
+      D2[i][j] = (double) (i*3 + j);
+
+  if (esl_mat_DCompare(D1, D2, 10, 3, 1e-5) != eslOK) esl_fatal(msg);
+
+  esl_mat_DDestroy(D1);
+  esl_mat_DDestroy(D2);
+}
 #endif // eslMATRIXOPS_TESTDRIVE
 
 
@@ -373,6 +397,7 @@ main(int argc, char **argv)
   fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
 
   utest_idiocy(rng);
+  utest_grow();
 
   fprintf(stderr, "#  status = ok\n");
   esl_randomness_Destroy(rng);
