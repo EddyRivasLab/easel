@@ -2140,7 +2140,8 @@ esl_getcwd(char **ret_cwd)
  * 8. Typed comparison routines.
  *****************************************************************/
 
-/* Function:  esl_DCompare()
+/* Function:  esl_{DF}Compare()
+ * OBSOLETE. Use esl_{DF}CompareNew() instead.
  *
  * Purpose:   Compare two floating point scalars <a> and <b> for approximate equality.
  *            Return <eslOK> if equal, <eslFAIL> if not.
@@ -2181,6 +2182,7 @@ esl_FCompare(float a, float b, float tol)
 }
 
 /* Function:  esl_DCompareAbs()
+ * OBSOLETE. Use esl_{DF}CompareNew() instead.
  *
  * Purpose:   Compare two floating point scalars <a> and <b> for
  *            approximate equality, by absolute difference.  Return
@@ -2220,6 +2222,74 @@ esl_FCompareAbs(float a, float b, float tol)
   return eslFAIL;
 }
 
+
+/* Function:  esl_{DF}CompareNew()
+ * Synopsis:  Compare floating point values for approximate equality, better version.
+ * Incept:    SRE, Thu 19 Jul 2018 [Benasque]
+ *
+ * Purpose:   Return <eslOK> if <x0> and <x> are approximately equal within
+ *            relative tolerance tolerance <rtol> and absolute
+ *            tolerance <atol>;  <eslFAIL> if not.
+ *            
+ *            Equality is defined as $|x0-x| \leq |x0|*rtol + atol$.
+ *            
+ *            <x0> is the reference value: the true value or the
+ *            better estimate, if appropriate. For example, if you are
+ *            comparing a new (better) estimate $x_i$ to a previous
+ *            (worse) estimate $x_{i-1}$, <x0> is the new, <x> is the
+ *            old.
+ *
+ *            Tolerances <rtol> and <atol> must be $\geq 0$. For a
+ *            strictly relative tolerance test, use <atol=0>; for
+ *            strict absolute tolerance, use <rtol=0>.
+ *            
+ *            "Approximate equality" in floating point math: here be
+ *            dragons. Usually you want to compare floating point
+ *            values by their relative difference <rtol>. An <rtol> of
+ *            $1e-5$ essentially means they agree up to their first
+ *            five digits, regardless of absolute magnitude. However,
+ *            relative difference fails for <x0 ~ 0>.  Using both
+ *            <rtol> and <atol>, there is a switch at <|x0| = atol /
+ *            rtol>: above this |x0|, <rtol> dominates, and below it,
+ *            <atol> does. So you typically want <atol << rtol>, so
+ *            the switchover only happens close to zero.
+ *            
+ *            In floating point math, the smallest possible |x0-x| is
+ *            on the order of |x0| times machine epsilon, where
+ *            typically <DBL_EPSILON> is 2.2e-16; <FLT_EPSILON>,
+ *            1.2e-7, so it does not make sense to set <atol> smaller
+ *            than this.
+ *            
+ *            Special values: comparisons involving <NaN> and <inf>
+ *            are always <eslFAIL>; <inf> because difference
+ *            <inf-inf=inf>, and <NaN> because IEEE754. 
+ *            
+ *            Note that <eslOK> has value 0, not TRUE, so you don't want to
+ *            write code like <if (esl_DCompare()) ...>; you want to
+ *            test explicitly against <eslOK>.
+ *
+ * Args:      x0   - reference value to compare against (either true, or better estimate)
+ *            x    - test value 
+ *            rtol - relative tolerance
+ *            atol - absolute tolerance
+ *
+ * Returns:   <eslOK> if <x0> and <x> are approximately equal.
+ *            <eslFAIL> if not.
+ *
+ * Xref:      H5/116
+ */
+int
+esl_DCompareNew(double x0, double x, double rtol, double atol)
+{
+  if (fabs(x0 - x) <= rtol * x0 + atol) return eslOK;
+  return eslFAIL;
+}
+int
+esl_FCompareNew(float x0, float x, float rtol, float atol)
+{
+  if (fabs(x0 - x) <= rtol * x0 + atol)  return eslOK;
+  return eslFAIL;
+}
 
 
 
@@ -2371,7 +2441,6 @@ utest_strtok(void)
   if (*s != '\0')                                                    esl_fatal(msg);
 
   free(teststring);
-  return;
 }
   
 static void
@@ -2420,7 +2489,6 @@ utest_FileExists(void)
 
   remove(tmpfile);
   if (esl_FileExists(tmpfile))   esl_fatal(msg);
-  return;
 }
 
 static void
@@ -2439,8 +2507,35 @@ utest_tmpfile_named(void)
   if (strcmp(buf, "Unit test.\n")  != 0)     esl_fatal(msg);
   fclose(fp);
   remove(tmpfile);
-  return;
 }
+
+static void
+utest_compares(void)
+{
+  char msg[] = "easel utest_compares failed";
+
+  // if (esl_DCompare(-eslINFINITY, eslINFINITY, 1e-5) != eslFAIL) esl_fatal(msg);   /* -inf != inf */
+  // if (esl_DCompare(eslNaN, eslNaN, 1e-5) != eslFAIL) esl_fatal(msg);              /* NaN fails in any comparison */
+  if (esl_DCompare(0.,           eslNaN,        1e-12) != eslFAIL) esl_fatal(msg);
+  if (esl_DCompare(eslNaN,       0.,            1e-12) != eslFAIL) esl_fatal(msg);
+  //  if (esl_DCompare(eslINFINITY,  eslINFINITY,   1e-12) != eslFAIL) esl_fatal(msg);  
+
+  if (esl_DCompareNew(-eslINFINITY, eslINFINITY,   1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   /* -inf != inf of course*/
+  if (esl_DCompareNew(eslINFINITY,  eslINFINITY,   1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   /* inf != inf too, because rel diff = inf */
+  if (esl_DCompareNew(eslNaN,       eslNaN,        1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   /* NaN fails in any comparison */
+  if (esl_DCompareNew(0.,           eslNaN,        1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   
+  if (esl_DCompareNew(eslNaN,       0.,            1e-12, 1e-16) != eslFAIL) esl_fatal(msg);
+  if (esl_DCompareNew(0.,           1e-16,         1e-12, 1e-16) != eslOK)   esl_fatal(msg);
+
+  if (esl_FCompareNew(-eslINFINITY, eslINFINITY,   1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   /* -inf != inf of course*/
+  if (esl_FCompareNew(eslINFINITY,  eslINFINITY,   1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   /* inf != inf too, because rel diff = inf */
+  if (esl_FCompareNew(eslNaN,       eslNaN,        1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   /* NaN fails in any comparison */
+  if (esl_FCompareNew(0.,           eslNaN,        1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   
+  if (esl_FCompareNew(eslNaN,       0.,            1e-6, 1e-10) != eslFAIL) esl_fatal(msg);
+  if (esl_DCompareNew(0.,           1e-10,         1e-6, 1e-10) != eslOK)   esl_fatal(msg);
+}
+
+
 
 #endif /*eslEASEL_TESTDRIVE*/
 
@@ -2468,6 +2563,8 @@ int main(void)
   utest_sprintf();
   utest_FileExists();
   utest_tmpfile_named();
+  utest_compares();
+  
   return eslOK;
 }
 #endif /*eslEASEL_TESTDRIVE*/
