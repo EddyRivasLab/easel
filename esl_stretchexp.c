@@ -353,10 +353,9 @@ esl_sxp_FitComplete(double *x, int n,
 
 {
   struct sxp_data data;
-  double p[2], u[2], wrk[8];
+  double p[2];
   double mu, tau, lambda;
   double mean;
-  double tol = 1e-6;
   double fx;
   int    status;
 
@@ -375,14 +374,11 @@ esl_sxp_FitComplete(double *x, int n,
   data.mu = mu;
   p[0]    = log(lambda);
   p[1]    = log(tau);
-  u[0]    = 1.0;
-  u[1]    = 1.0;
 
   /* hand it off */
-  status =  esl_min_ConjugateGradientDescent(p, u, 2, 
-					     &sxp_complete_func, 
-					     NULL,
-					     (void *) (&data), tol, wrk, &fx);
+  status =  esl_min_ConjugateGradientDescent(NULL, p, 2, 
+					     &sxp_complete_func, NULL,
+					     (void *) (&data), &fx, NULL);
   *ret_mu     = mu;
   *ret_lambda = exp(p[0]);
   *ret_tau    = exp(p[1]);
@@ -446,13 +442,12 @@ esl_sxp_FitCompleteBinned(ESL_HISTOGRAM *g,
 
 {
   struct sxp_binned_data data;
-  double p[2], u[2], wrk[8];
+  double p[2];
   double mu, tau, lambda;
-  double tol = 1e-6;
   double fx;
-  int    status;
   double ai, mean;
   int    i;
+  int    status;
 
   /* Set the fixed mu.
    * Make a good initial guess of lambda, based on exponential fit.
@@ -471,7 +466,6 @@ esl_sxp_FitCompleteBinned(ESL_HISTOGRAM *g,
     }
   mean  /= g->No;
   lambda = 1 / (mean - mu);
-
   tau    = 0.9;
 
   /* load data structure, param vector, and step vector */
@@ -479,14 +473,11 @@ esl_sxp_FitCompleteBinned(ESL_HISTOGRAM *g,
   data.mu = mu;
   p[0]    = log(lambda);
   p[1]    = log(tau);
-  u[0]    = 1.0;
-  u[1]    = 1.0;
 
   /* hand it off */
-  status =  esl_min_ConjugateGradientDescent(p, u, 2, 
-					     &sxp_complete_binned_func, 
-					     NULL,
-					     (void *) (&data), tol, wrk, &fx);
+  status =  esl_min_ConjugateGradientDescent(NULL, p, 2, 
+					     &sxp_complete_binned_func, NULL,
+					     (void *) (&data), &fx, NULL);
   *ret_mu     = mu;
   *ret_lambda = exp(p[0]);
   *ret_tau    = exp(p[1]);

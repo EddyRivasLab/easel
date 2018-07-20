@@ -950,28 +950,35 @@ tevd_grad(double *p, int nparam, void *dptr, double *dp)
  *            returned as 0.0.
  *            These are "normal" (returned) errors because 
  *            the data might be provided directly by a user.
+ *            
+ * Throws:    <eslEMEM> on allocation error.           
  */
 int
 esl_gumbel_FitTruncated(double *x, int n, double phi, double *ret_mu, double *ret_lambda)
 {
+  ESL_MIN_CFG *cfg = NULL;      /* customization of the CG optimizer */
   struct tevd_data data;
-  double wrk[8];		/* workspace for CG: 4 tmp vectors of size 2 */
   double p[2];			/* mu, w;  lambda = e^w */
-  double u[2];			/* max initial step size for mu, lambda */
   double mean, variance;
   double mu, lambda;
   double fx;
   int    i;
   int    status;
   
+  /* customization of the optimizer */
+  if ((cfg = esl_min_cfg_Create(2)) == NULL) { status = eslEMEM; goto ERROR; }
+  cfg->u[0]    = 2.0;
+  cfg->u[1]    = 0.1;
+  cfg->cg_rtol = 1e-4;
+
   /* Can't fit to n<=1 */
-  if (n <= 1) { status = eslEINVAL; goto FAILURE; }
+  if (n <= 1) { status = eslEINVAL; goto ERROR; }
   
   /* Can fail on small <n>. One way is if x_i are all identical, so
    * ML lambda is undefined. 
    */
   for (i = 1; i < n; i++) if (x[i] != x[0]) break;
-  if  (i == n) { status = eslENORESULT; goto FAILURE; }
+  if  (i == n) { status = eslENORESULT; goto ERROR; }
 
   data.x   = x;
   data.n   = n;
@@ -992,22 +999,22 @@ esl_gumbel_FitTruncated(double *x, int n, double phi, double *ret_mu, double *re
   p[0] = mu;
   p[1] = log(lambda);		/* c.o.v. because lambda is constrained to >0 */
 
-  u[0] = 2.0;
-  u[1] = 0.1;
-
   /* Pass the problem to the optimizer. The work is done by the
    * equations in tevd_func() and tevd_grad().
    */
-  status = esl_min_ConjugateGradientDescent(p, u, 2, 
+  status = esl_min_ConjugateGradientDescent(cfg, p, 2, 
 					    &tevd_func, &tevd_grad,(void *)(&data),
-					    1e-4, wrk, &fx);
-  if (status != eslOK) { status = eslENORESULT; goto FAILURE; }
+					    &fx, NULL);
+  if      (status == eslENOHALT) { status = eslENORESULT; goto ERROR; }
+  else if (status != eslOK)      goto ERROR;
   
+  esl_min_cfg_Destroy(cfg);
   *ret_mu     = p[0];
   *ret_lambda = exp(p[1]);	/* reverse the c.o.v. */
   return status;
 
- FAILURE:
+ ERROR:
+  esl_min_cfg_Destroy(cfg);
   *ret_mu     = 0.0;
   *ret_lambda = 0.0;
   return status;

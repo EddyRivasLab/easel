@@ -342,54 +342,51 @@ mixdchlet_gradient(double *p, int np, void *dptr, double *dp)
 int
 esl_mixdchlet_Fit(double **c, int N, ESL_MIXDCHLET *dchl, double *opt_nll)
 {
+  ESL_MIN_CFG *cfg = NULL;
   struct mixdchlet_data data;
-  double *p      = NULL;  // parameter vector [0..nparam-1], for CG descent
-  double *u      = NULL;  // step size per parameter, input to CG descent
-  double *wrk    = NULL;  // workspace for CG descent: CG routine needs 4*nparam
-  int     nparam =  dchl->Q * (dchl->K + 1); 
-  double  tol    = 1e-6;
+  double *p        = NULL;  // parameter vector [0..nparam-1], for CG descent
+  int     nparam   =  dchl->Q * (dchl->K + 1); 
   double  fx;
   int     status;
+
+  cfg = esl_min_cfg_Create(nparam);
+  if (! cfg) { status = eslEMEM; goto ERROR; }
+  cfg->cg_rtol = 1e-6;
+  esl_vec_DSet(cfg->u, nparam, 0.1);
 
   if (N < 1) return eslEINVAL;
 #if (eslDEBUGLEVEL >= 1)
   if ( esl_mixdchlet_Validate(dchl, NULL) != eslOK) ESL_EXCEPTION(eslECORRUPT, "initial mixture is invalid");
 #endif
-  
   ESL_ALLOC(p,   sizeof(double) * nparam);       
-  ESL_ALLOC(u,   sizeof(double) * nparam);      
-  ESL_ALLOC(wrk, sizeof(double) * nparam * 4);  
 
   /* <data> is a wrapper that shuttles count data, theta into CG  */
   data.dchl = dchl;
   data.c    = c;
   data.N    = N;
 
-  /* initialize <p> and <u> */
+  /* initialize <p> */
   mixdchlet_pack_paramvector(dchl, p);
-  esl_vec_DSet(u, nparam, 0.1);
 
   /* Feed it all to the mighty optimizer */
-  status = esl_min_ConjugateGradientDescent(p, u, nparam, 
+  status = esl_min_ConjugateGradientDescent(cfg, p, nparam, 
 					    &mixdchlet_nll, 
 					    &mixdchlet_gradient,
-					    (void *) (&data), tol, wrk, &fx);
+					    (void *) (&data), &fx, NULL);
   if      (status == eslENOHALT) { status = eslENORESULT; goto ERROR; } // fail to converge is returned as eslENORESULT
-  else if (status != eslOK) goto ERROR; // eslERANGE can also happen
+  else if (status != eslOK) goto ERROR; // eslERANGE, eslEMEM can also happen
 
   /* Convert the final parameter vector back */
   mixdchlet_unpack_paramvector(p, dchl);
 
   free(p);
-  free(u);
-  free(wrk);
+  esl_min_cfg_Destroy(cfg);
   if (opt_nll) *opt_nll = fx;
   return eslOK;
 
  ERROR:
   free(p);
-  free(u);
-  free(wrk);
+  esl_min_cfg_Destroy(cfg);
   if (opt_nll) *opt_nll = -eslINFINITY;
   return status;
 }

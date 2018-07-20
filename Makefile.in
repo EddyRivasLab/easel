@@ -294,6 +294,7 @@ UTESTS =\
 	esl_keyhash_utest\
 	esl_matrixops_utest\
 	esl_mem_utest\
+	esl_minimizer_utest\
 	esl_mixdchlet_utest\
 	esl_msa_utest\
 	esl_msacluster_utest\
@@ -328,7 +329,6 @@ UTESTS =\
 	esl_weibull_utest\
 	esl_wuss_utest
 #	gev_utest\
-#	minimizer_utest\
 #	mixgev_utest\
 #	mpi_utest\
 #	paml_utest\

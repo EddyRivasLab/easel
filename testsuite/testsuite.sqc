@@ -35,7 +35,7 @@
 1 exercise keyhash-utest      @esl_keyhash_utest@
 1 exercise matrixops-utest    @esl_matrixops_utest@
 1 exercise mem-utest          @esl_mem_utest@
-# minimizer
+1 exercise minimizer-utest    @esl_minimizer_utest@
 1 exercise mixdchlet-utest    @esl_mixdchlet_utest@
 # mixgev
 # mpi
@@ -149,7 +149,7 @@
 3 valgrind keyhash-utest      @esl_keyhash_utest@
 3 valgrind matrixops-utest    @esl_matrixops_utest@
 3 valgrind mem-utest          @esl_mem_utest@
-# minimizer
+3 valgrind minimizer-utest    @esl_minimizer_utest@
 3 valgrind mixdchlet-utest    @esl_mixdchlet_utest@
 # mixgev
 # mpi

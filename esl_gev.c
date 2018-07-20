@@ -501,12 +501,10 @@ static int
 fitting_engine(struct gev_data *data, 
 	       double *ret_mu, double *ret_lambda, double *ret_alpha)
 {
+  ESL_MIN_CFG *cfg = NULL;      /* customization of the optimizer    */
   double p[3];			/* parameter vector                  */
-  double u[3];			/* max initial step size vector      */
-  double wrk[12];		/* 4 tmp vectors of length 3         */
   double mean, variance;
   double mu, lambda, alpha;	/* initial param guesses             */
-  double tol = 1e-6;		/* convergence criterion for CG      */
   double fx;			/* f(x) at minimum; currently unused */
   int    status;
 
@@ -522,18 +520,21 @@ fitting_engine(struct gev_data *data,
   p[1] = log(lambda);	/* c.o.v. from lambda to w */
   p[2] = alpha;
 
+  /* customize the CG optimizer */
+  cfg = esl_min_cfg_Create(3);
+  cfg->cg_rtol = 1e-6;
   /* max initial step sizes: keeps bracketing from exploding */
-  u[0] = 1.0;
-  u[1] = fabs(log(0.02));
-  u[2] = 0.02;
+  cfg->u[0]    = 1.0;
+  cfg->u[1]    = fabs(log(0.02));
+  cfg->u[2]    = 0.02;
 
   /* pass problem to the optimizer
    */
-  status = esl_min_ConjugateGradientDescent(p, u, 3, 
-					    &gev_func, 
-					    &gev_gradient,
-					    (void *)data,
-					    tol, wrk, &fx);
+  status = esl_min_ConjugateGradientDescent(cfg, p, 3, 
+					    &gev_func, &gev_gradient, (void *)data,
+					    &fx, NULL);
+
+  esl_min_cfg_Destroy(cfg);
   *ret_mu     = p[0];
   *ret_lambda = exp(p[1]);
   *ret_alpha  = p[2];

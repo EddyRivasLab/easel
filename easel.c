@@ -588,7 +588,7 @@ esl_dataheader(FILE *fp, ...)
       s   = va_arg(ap, char *);
       len = strlen(s);
       if (len > width) {
-	if (col == 0) ESL_XEXCEPTION(eslEINVAL, "esl_dataheader(): first arg (%s) too wide for %d-char column ('# ' leader took 2 chars)", col, s, width+2);
+	if (col == 0) ESL_XEXCEPTION(eslEINVAL, "esl_dataheader(): first arg (%s) too wide for %d-char column ('# ' leader took 2 chars)", s, width);
 	else          ESL_XEXCEPTION(eslEINVAL, "esl_dataheader(): arg %d (%s) too wide for %d-char column", col, s, width);
       }
 
@@ -2231,7 +2231,7 @@ esl_FCompareAbs(float a, float b, float tol)
  *            relative tolerance tolerance <rtol> and absolute
  *            tolerance <atol>;  <eslFAIL> if not.
  *            
- *            Equality is defined as $|x0-x| \leq |x0|*rtol + atol$.
+ *            Equality is defined as $|x0-x| < |x0|*rtol + atol$.
  *            
  *            <x0> is the reference value: the true value or the
  *            better estimate, if appropriate. For example, if you are
@@ -2277,17 +2277,19 @@ esl_FCompareAbs(float a, float b, float tol)
  *            <eslFAIL> if not.
  *
  * Xref:      H5/116
+ *
+ * Note:      <, not <=, because with <=, -inf ~= inf (yes really).
  */
 int
 esl_DCompareNew(double x0, double x, double rtol, double atol)
 {
-  if (fabs(x0 - x) <= rtol * x0 + atol) return eslOK;
+  if (fabs(x0 - x) < rtol * fabs(x0) + atol) return eslOK;
   return eslFAIL;
 }
 int
 esl_FCompareNew(float x0, float x, float rtol, float atol)
 {
-  if (fabs(x0 - x) <= rtol * x0 + atol)  return eslOK;
+  if (fabs(x0 - x) < rtol * fabs(x0) + atol)  return eslOK;
   return eslFAIL;
 }
 
@@ -2525,14 +2527,14 @@ utest_compares(void)
   if (esl_DCompareNew(eslNaN,       eslNaN,        1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   /* NaN fails in any comparison */
   if (esl_DCompareNew(0.,           eslNaN,        1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   
   if (esl_DCompareNew(eslNaN,       0.,            1e-12, 1e-16) != eslFAIL) esl_fatal(msg);
-  if (esl_DCompareNew(0.,           1e-16,         1e-12, 1e-16) != eslOK)   esl_fatal(msg);
+  if (esl_DCompareNew(0.,           1e-17,         1e-12, 1e-16) != eslOK)   esl_fatal(msg);
 
   if (esl_FCompareNew(-eslINFINITY, eslINFINITY,   1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   /* -inf != inf of course*/
   if (esl_FCompareNew(eslINFINITY,  eslINFINITY,   1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   /* inf != inf too, because rel diff = inf */
   if (esl_FCompareNew(eslNaN,       eslNaN,        1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   /* NaN fails in any comparison */
   if (esl_FCompareNew(0.,           eslNaN,        1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   
   if (esl_FCompareNew(eslNaN,       0.,            1e-6, 1e-10) != eslFAIL) esl_fatal(msg);
-  if (esl_DCompareNew(0.,           1e-10,         1e-6, 1e-10) != eslOK)   esl_fatal(msg);
+  if (esl_DCompareNew(0.,           1e-11,         1e-6, 1e-10) != eslOK)   esl_fatal(msg);
 }
 
 
