@@ -47,7 +47,7 @@ top_usage(const char *topcmd)
   char *lastslash = strrchr(topcmd, '/');
   if (lastslash) topcmd = lastslash+1;
 
-  if (printf("Usage:\n")                                                             < 0) ESL_EXCEPTION_SYS(eslEWRITE, "printf failed");
+  if (printf("Usage:\n")                                                              < 0) ESL_EXCEPTION_SYS(eslEWRITE, "printf failed");
   if (printf("  %s -h                 : show overall brief help summary\n",  topcmd)  < 0) ESL_EXCEPTION_SYS(eslEWRITE, "printf failed");
   if (printf("  %s --version          : show version number\n",              topcmd)  < 0) ESL_EXCEPTION_SYS(eslEWRITE, "printf failed");
   if (printf("  %s <cmd> -h           : show brief help for a subcommand\n", topcmd)  < 0) ESL_EXCEPTION_SYS(eslEWRITE, "printf failed");
