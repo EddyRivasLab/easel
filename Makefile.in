@@ -123,6 +123,7 @@ HDRS = 	easel.h\
 	esl_hmm.h\
 	esl_huffman.h\
 	esl_hyperexp.h\
+	esl_json.h\
 	esl_keyhash.h\
 	esl_matrixops.h\
 	esl_mem.h\
@@ -200,6 +201,7 @@ OBJS =	easel.o\
 	esl_hmm.o\
 	esl_huffman.o\
 	esl_hyperexp.o\
+	esl_json.o\
 	esl_keyhash.o\
 	esl_matrixops.o\
 	esl_mem.o\
@@ -291,6 +293,7 @@ UTESTS =\
 	esl_hmm_utest\
 	esl_huffman_utest\
 	esl_hyperexp_utest\
+	esl_json_utest\
 	esl_keyhash_utest\
 	esl_matrixops_utest\
 	esl_mem_utest\
@@ -354,7 +357,6 @@ ${VMX_UTESTS}:     SIMD_CFLAGS= ${VMX_CFLAGS}
 
 
 EXPERIMENTS = \
-	esl_mixdchlet_experiment \
 	esl_scorematrix_experiment
 
 SSE_EXPERIMENTS     = 
@@ -433,6 +435,7 @@ EXAMPLES = \
         esl_hmm_example\
 	esl_huffman_example\
         esl_hyperexp_example\
+	esl_json_example\
         esl_keyhash_example\
         esl_minimizer_example\
 	esl_mixdchlet_example\
