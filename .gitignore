@@ -29,6 +29,7 @@ miniapps/esl-compstruct
 miniapps/esl-construct
 miniapps/esl-histplot
 miniapps/esl-mask
+miniapps/esl-mixdchlet
 miniapps/esl-reformat
 miniapps/esl-selectn
 miniapps/esl-seqrange
