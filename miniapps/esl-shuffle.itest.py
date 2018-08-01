@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 # Integrated tests of esl-shuffle miniapp
 #
@@ -11,11 +11,6 @@
 import sys
 import os
 import subprocess
-
-if sys.version_info < (3,0,0):
-    print("this test requires python 3");
-    sys.exit(0)                           # sqc test harness will see this as "ok"
-                                          # TODO: sqc should see this as "not run". xref H5/122.
 
 if len(sys.argv) != 4:
     sys.exit('usage: esl-shuffle.itest.py <builddir> <srcdir> <tmppfx>')

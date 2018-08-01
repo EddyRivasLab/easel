@@ -146,40 +146,39 @@ esl_json_PartialParse(ESL_JSON_PARSER *parser, ESL_JSON *pi, const char *s, esl_
 {
   esl_pos_t i;
   enum esl_json_type_e closed_value;
-  int       status;
 
   for (i = 0; i < n; i++, parser->pos++)
     {
       closed_value = eslJSON_UNKNOWN; // i.e. FALSE, we didn't close a value; changes to something if we do.
       switch (parser->state) {
       case eslJSON_OBJ_NONE:   // Only at very beginning of parse: initialize with root object
-	if      (s[i] == '{')    { parser->state = eslJSON_OBJ_OPEN; status = new_token(parser, pi, eslJSON_OBJECT, parser->pos);  }
+	if      (s[i] == '{')    { parser->state = eslJSON_OBJ_OPEN; new_token(parser, pi, eslJSON_OBJECT, parser->pos);  }
 	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). expected to open object with {", s[i], parser->linenum, parser->linepos);
 	break;
 
       case eslJSON_OBJ_OPEN:
-	if      (s[i] == '"')   { parser->state = eslJSON_KEY_OPEN; status = new_token(parser, pi, eslJSON_KEY, parser->pos+1); } // pos+1 because not including the quote 
+	if      (s[i] == '"')   { parser->state = eslJSON_KEY_OPEN; new_token(parser, pi, eslJSON_KEY, parser->pos+1); } // pos+1 because not including the quote 
 	else if (s[i] == '}')     closed_value = eslJSON_OBJECT;
 	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). expected object key, or closing }", s[i], parser->linenum, parser->linepos);
 	break;
 
       case eslJSON_OBJ_COMMA:
-	if      (s[i] == '"')   { parser->state = eslJSON_KEY_OPEN;    status = new_token(parser, pi, eslJSON_KEY,  parser->pos+1); }
+	if      (s[i] == '"')   { parser->state = eslJSON_KEY_OPEN;    new_token(parser, pi, eslJSON_KEY,  parser->pos+1); }
 	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). expected object key, or closing }", s[i], parser->linenum, parser->linepos);
 	break;
 
       case eslJSON_OBJ_COLON:
       case eslJSON_ARR_OPEN:
       case eslJSON_ARR_COMMA:
-	if      (s[i] == '"')   { parser->state = eslJSON_STR_OPEN;    status = new_token(parser, pi, eslJSON_STRING,  parser->pos+1); }
-	else if (s[i] == '{')   { parser->state = eslJSON_OBJ_OPEN;    status = new_token(parser, pi, eslJSON_OBJECT,  parser->pos);   }
-	else if (s[i] == '[')   { parser->state = eslJSON_ARR_OPEN;    status = new_token(parser, pi, eslJSON_ARRAY,   parser->pos);   }
-	else if (s[i] == '-')   { parser->state = eslJSON_NUM_SIGN;    status = new_token(parser, pi, eslJSON_NUMBER,  parser->pos);   }
-	else if (s[i] == '0')   { parser->state = eslJSON_NUM_ZERO;    status = new_token(parser, pi, eslJSON_NUMBER,  parser->pos);   }
-	else if (isdigit(s[i])) { parser->state = eslJSON_NUM_NONZERO; status = new_token(parser, pi, eslJSON_NUMBER,  parser->pos);   }
-	else if (s[i] == 't')   { parser->state = eslJSON_VAL_TRUE;    status = new_token(parser, pi, eslJSON_BOOLEAN, parser->pos);   }
-	else if (s[i] == 'f')   { parser->state = eslJSON_VAL_FALSE;   status = new_token(parser, pi, eslJSON_BOOLEAN, parser->pos);   }
-	else if (s[i] == 'n')   { parser->state = eslJSON_VAL_NULL;    status = new_token(parser, pi, eslJSON_NULL,    parser->pos);   }
+	if      (s[i] == '"')   { parser->state = eslJSON_STR_OPEN;    new_token(parser, pi, eslJSON_STRING,  parser->pos+1); }
+	else if (s[i] == '{')   { parser->state = eslJSON_OBJ_OPEN;    new_token(parser, pi, eslJSON_OBJECT,  parser->pos);   }
+	else if (s[i] == '[')   { parser->state = eslJSON_ARR_OPEN;    new_token(parser, pi, eslJSON_ARRAY,   parser->pos);   }
+	else if (s[i] == '-')   { parser->state = eslJSON_NUM_SIGN;    new_token(parser, pi, eslJSON_NUMBER,  parser->pos);   }
+	else if (s[i] == '0')   { parser->state = eslJSON_NUM_ZERO;    new_token(parser, pi, eslJSON_NUMBER,  parser->pos);   }
+	else if (isdigit(s[i])) { parser->state = eslJSON_NUM_NONZERO; new_token(parser, pi, eslJSON_NUMBER,  parser->pos);   }
+	else if (s[i] == 't')   { parser->state = eslJSON_VAL_TRUE;    new_token(parser, pi, eslJSON_BOOLEAN, parser->pos);   }
+	else if (s[i] == 'f')   { parser->state = eslJSON_VAL_FALSE;   new_token(parser, pi, eslJSON_BOOLEAN, parser->pos);   }
+	else if (s[i] == 'n')   { parser->state = eslJSON_VAL_NULL;    new_token(parser, pi, eslJSON_NULL,    parser->pos);   }
 	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). expected a value", s[i], parser->linenum, parser->linepos);
 	break;
 

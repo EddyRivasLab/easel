@@ -149,12 +149,16 @@ esl_min_ConjugateGradientDescent(ESL_MIN_CFG *cfg, double *x, int n,
     if (cg[i1] != 0.) break;
   if  (i1 == n) {
     if (opt_fx) *opt_fx = oldfx;
+    free(wrk);
     return eslOK;
   }
   
   for (i = 1; i <= max_iterations; i++)
     {
-      if (dat) dat->niter = i;  // this is how bracket() and brent() know what CG iteration they're on
+      if (dat) {
+	dat->niter    = i;  // this is how bracket() and brent() know what CG iteration they're on
+	dat->nfunc[i] = 0;
+      }
       
 #if (eslDEBUGLEVEL >= 2)   // When debugging, it's useful to compare caller's deriv to numeric_deriv
       int j;
@@ -236,6 +240,7 @@ esl_min_ConjugateGradientDescent(ESL_MIN_CFG *cfg, double *x, int n,
       oldfx = fx;
     }
 
+  free(wrk);
   if (opt_fx) *opt_fx = fx;
   return (i > max_iterations ? eslENOHALT: eslOK);
 
