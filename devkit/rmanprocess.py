@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 # rmanprocess.py
 # Massages output of PolyGlotMan's `rman -f latex2e` to fit Tufteian userguide style.
