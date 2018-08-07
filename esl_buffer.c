@@ -795,22 +795,24 @@ esl_buffer_SetStableAnchor(ESL_BUFFER *bf, esl_pos_t offset)
  *            anchored, this position ought to be in the current
  *            buffer window. If an anchor is in effect in <bf>, 
  *            <offset> should be at or distal to that anchor.
+ *            
+ *            The buffer's memory and position are not changed yet.  A
+ *            caller can raise an anchor and still assume that the
+ *            buffer contains all data from that anchor, until the
+ *            next call to something that would alter the buffer.
  *
  * Args:      bf      - input buffer
  *            offset  - absolute position in input, <0..len-1>
  *
  * Returns:   <eslOK> on success.
- *
- * Throws:    <eslEINVAL> if <offset> is outside current buffer window,
- *            or if it is proximal to the active anchor in <bf>.
+ * 
+ * Throws:    (none)
  */
 int
 esl_buffer_RaiseAnchor(ESL_BUFFER *bf, esl_pos_t offset)
 {
-  if (offset < bf->baseoffset || offset > bf->baseoffset + bf->n)
-    ESL_EXCEPTION(eslEINVAL, "anchor is outside current buffer window? can't happen.");
-  if (bf->anchor > offset - bf->baseoffset)
-    ESL_EXCEPTION(eslEINVAL, "anchor is proximal to current active anchor");
+  ESL_DASSERT1(( offset >= bf->baseoffset && offset <= bf->baseoffset + bf->n ));
+  ESL_DASSERT1(( bf->anchor <= offset - bf->baseoffset ));
 
   if (bf->anchor ==  offset - bf->baseoffset) {
     bf->nanchor--;

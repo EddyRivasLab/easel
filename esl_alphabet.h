@@ -84,8 +84,9 @@ extern int    esl_abc_FExpectScVec(const ESL_ALPHABET *a, float  *sc, const floa
 extern int    esl_abc_DExpectScVec(const ESL_ALPHABET *a, double *sc, const double *p);
 extern int    esl_abc_FCount      (const ESL_ALPHABET *a, float  *ct, ESL_DSQ x, float  wt);
 extern int    esl_abc_DCount      (const ESL_ALPHABET *a, double *ct, ESL_DSQ x, double wt);
-extern int    esl_abc_EncodeType  (char *typestring);
-extern char  *esl_abc_DecodeType  (int type);
+extern int    esl_abc_EncodeType   (char *typestring);
+extern int    esl_abc_EncodeTypeMem(char *type, int n);
+extern char  *esl_abc_DecodeType   (int type);
 extern int    esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int64_t L, char *errbuf);
 
 /* In the tests below, remember the rules of order in internal alphabets:

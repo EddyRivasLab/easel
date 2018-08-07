@@ -4,6 +4,7 @@
 #define eslRANDOM_INCLUDED
 #include "esl_config.h"
 
+#include <stdio.h>
 #include <stdint.h>
 
 #define eslRND_FAST     0

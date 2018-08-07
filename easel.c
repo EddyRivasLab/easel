@@ -2067,7 +2067,7 @@ esl_tmpfile_named(char *basename6X, FILE **ret_fp)
 
   *ret_fp = NULL;
   old_mode = umask(077);
-  if ((fd = mkstemp(basename6X)) <  0)    return eslFAIL;
+  if ((fd = mkstemp(basename6X)) <  0)  return eslFAIL;
   umask(old_mode);
   if ((fp = fdopen(fd, "w+b")) == NULL) return eslFAIL;
 

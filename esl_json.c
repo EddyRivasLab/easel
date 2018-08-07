@@ -6,11 +6,12 @@
  *   1. Full or incremental JSON parsing 
  *   2. ESL_JSON: a JSON parse tree
  *   3. ESL_JSON_PARSER: precise state at each input byte
- *   4. Debugging, development tools
- *   5. Internal functions
- *   6. Unit tests
- *   7. Test driver
- *   8. Example
+ *   4. Accessing tokenized data
+ *   5. Debugging, development tools
+ *   6. Internal functions
+ *   7. Unit tests
+ *   8. Test driver
+ *   9. Example
  *
  * References:
  *   www.json.org
@@ -85,7 +86,7 @@ esl_json_Parse(ESL_BUFFER *bf, ESL_JSON **ret_pi)
 
       esl_buffer_Set(bf, s, nused);
     }
-  esl_buffer_SetOffset  (bf, pos0);
+  esl_buffer_SetOffset  (bf, pos0); // wait is this right? I don't think so
   esl_buffer_RaiseAnchor(bf, pos0);
 
   esl_json_parser_Destroy(parser);
@@ -132,10 +133,14 @@ esl_json_Parse(ESL_BUFFER *bf, ESL_JSON **ret_pi)
  *             tree <pi> is incrementally updated.  Caller can pass
  *             <parser>, <pi> to parse the next chunk.
  *            
- *            <eslEOD> on success, where a complete JSON data object ended
- *            in this chunk after consuming <*ret_nused> bytes, inclusive
- *            of closing brace. The <parser> is restored to an initial
- *            state. <pi> contains a complete JSON parse tree.
+ *            <eslEOD> on success, where a complete JSON data object
+ *            ended in this chunk after consuming <*ret_nused> bytes,
+ *            inclusive of closing brace. The <parser> state is
+ *            <eslJSON_OBJ_NONE>, and its <pos>, <linenum>, and
+ *            <linepos> are set to the byte immediately following the
+ *            close brace, ready to parse another JSON object in the
+ *            stream if it's a stream of concatenated objects.
+ *            <pi> contains a complete JSON parse tree.
  *            
  *            <eslEFORMAT> on an invalid JSON string. 
  *
@@ -314,7 +319,9 @@ esl_json_PartialParse(ESL_JSON_PARSER *parser, ESL_JSON *pi, const char *s, esl_
       default: esl_fatal("no such state");
       }  // end of the big switch for parsing one character given curr state
 
-      /* Solely for informative error messages, keep track of line number and position on line */
+      /* Solely for informative error messages, keep track of line number and position on line.
+       * Advance counters to what byte i+1 will be.
+       */
       if (s[i] == '\n') { parser->linenum++; parser->linepos = 1; }
       else              { parser->linepos++; }
 
@@ -360,7 +367,11 @@ esl_json_PartialParse(ESL_JSON_PARSER *parser, ESL_JSON *pi, const char *s, esl_
 	  pi->tok[parser->curridx].endpos = (  (pi->tok[parser->curridx].type == eslJSON_STRING || pi->tok[parser->curridx].type == eslJSON_KEY) ? parser->pos-1 : parser->pos);
 	  if ( esl_stack_IPop(parser->pda, &(parser->curridx)) == eslEOD)
 	    { // if we have nothing to pop, we just closed the root object at i, parser->pos.
-	      i++; 
+              // advance to next byte, and reinitialize state 
+	      parser->curridx = -1;  // no tokens are open.
+	      parser->codelen = 0;
+	      parser->state   = eslJSON_OBJ_NONE;
+	      parser->pos     = ++i; 
 	      break;
 	    }
 	  if      (closed_value == eslJSON_KEY)                     parser->state = eslJSON_STR_ASKEY;
@@ -368,7 +379,7 @@ esl_json_PartialParse(ESL_JSON_PARSER *parser, ESL_JSON *pi, const char *s, esl_
 	  else if (pi->tok[parser->curridx].type == eslJSON_ARRAY)  parser->state = eslJSON_VAL_INARR;
 	}
     } // end loop over chars in s[0..n-1] string.
-  *ret_nused = i;
+  *ret_nused = i; 
   return (i < n ? eslEOD : eslOK);
 }
 
@@ -381,6 +392,8 @@ esl_json_PartialParse(ESL_JSON_PARSER *parser, ESL_JSON *pi, const char *s, esl_
 /* Function:  esl_json_Create()
  * Synopsis:  Create a new, empty JSON parse tree object
  * Incept:    SRE, Tue 31 Jul 2018 [Clint Mansell, Moon]
+ * 
+ * Throws:    <NULL> on allocation failure.
  */
 ESL_JSON *
 esl_json_Create(void)
@@ -416,8 +429,21 @@ esl_json_Grow(ESL_JSON *pi)
   return status;
 }
 
+
+/* Function:  esl_json_Reuse()
+ * Synopsis:  Reinitialize an existing parse tree for reuse.
+ * Incept:    SRE, Sun 05 Aug 2018 [Clint Mansell, Welcome to Lunar Industries]
+ */
+int
+esl_json_Reuse(ESL_JSON *pi)
+{
+  pi->ntok = 0;
+  return eslOK;
+}
+
+
 /* Function:  esl_json_Destroy()
- * Synopsis:  Frees a parse tree.
+ * Synopsis:  Free a parse tree.
  */
 void
 esl_json_Destroy(ESL_JSON *pi)
@@ -436,6 +462,8 @@ esl_json_Destroy(ESL_JSON *pi)
 /* Function:  esl_json_parser_Create()
  * Synopsis:  Create and initialize a new ESL_JSON_PARSER
  * Incept:    SRE, Tue 31 Jul 2018 [Clint Mansell, Moon]
+ * 
+ * Throws:    <NULL> on allocation failure.
  */
 ESL_JSON_PARSER *
 esl_json_parser_Create(void)
@@ -476,7 +504,56 @@ esl_json_parser_Destroy(ESL_JSON_PARSER *parser)
 
 
 /*****************************************************************
- * 4. Debugging, development tools
+ * 4. Accessing tokenized data in ESL_JSON
+ *****************************************************************/
+
+char *
+esl_json_GetMem(const ESL_JSON *pi, int idx, const ESL_BUFFER *bf)
+{
+  return bf->mem + pi->tok[idx].startpos - bf->baseoffset;
+}
+
+esl_pos_t
+esl_json_GetLen(const ESL_JSON *pi, int idx, const ESL_BUFFER *bf)
+{
+  return pi->tok[idx].endpos - pi->tok[idx].startpos + 1;
+}
+
+int
+esl_json_ReadInt(const ESL_JSON *pi, int idx, ESL_BUFFER *bf, int *ret_i)
+{
+  esl_pos_t n  = esl_json_GetLen(pi, idx, bf);
+  int       nc;
+  int       status;
+
+  status = esl_mem_strtoi(esl_json_GetMem(pi, idx, bf), n, 10, &nc, ret_i);
+  if       (status == eslEFORMAT) ESL_FAIL(eslEFORMAT, bf->errmsg, "no integer digits seen");
+  else if  (status == eslERANGE)  ESL_FAIL(eslERANGE,  bf->errmsg, "integer overflow/underflow");
+  else if  (status != eslOK)      ESL_FAIL(status,     bf->errmsg, "unexpected integer conversion error");
+  else if  (nc < n)               ESL_FAIL(eslEFORMAT, bf->errmsg, "integer conversion stopped short (is it a real number?)");
+  else return eslOK;
+}
+
+int
+esl_json_ReadFloat(const ESL_JSON *pi, int idx, ESL_BUFFER *bf, float *ret_x)
+{
+  esl_pos_t n  = esl_json_GetLen(pi, idx, bf);
+  int       nc;
+  int       status;
+
+  status = esl_mem_strtof(esl_json_GetMem(pi, idx, bf), n, &nc, ret_x);
+  if       (status == eslEFORMAT) ESL_FAIL(eslEFORMAT, bf->errmsg, "no real number digits seen");
+  else if  (status == eslERANGE)  ESL_FAIL(eslERANGE,  bf->errmsg, "float overflow/underflow");
+  else if  (status != eslOK)      ESL_FAIL(status,     bf->errmsg, "unexpected float conversion error");
+  else if  (nc < n)               ESL_FAIL(eslEFORMAT, bf->errmsg, "float conversion stopped short (is it a real number?)");
+  else return eslOK;
+}
+  
+
+
+
+/*****************************************************************
+ * 5. Debugging, development tools
  *****************************************************************/
 
 /* Function:  esl_json_Validate()
@@ -582,11 +659,13 @@ esl_json_Dump(FILE *fp, ESL_JSON *pi)
   int i;
 
   esl_dataheader(fp, 5, "idx", 8, "type", 8, "startpos", 8, "endpos",
+		 8, "linenum", 8, "linepos",
 		 8, "nchild", 10, "firstchild", 10, "lastchild", 8, "nextsib", 0);
   for (i = 0; i < pi->ntok; i++)
-    fprintf(fp, "%-5d %8s %8d %8d %8d %10d %10d %8d\n",
+    fprintf(fp, "%-5d %8s %8d %8d %8d %8d %8d %10d %10d %8d\n",
 	    i, esl_json_DecodeType(pi->tok[i].type),
 	    (int) pi->tok[i].startpos, (int) pi->tok[i].endpos,
+	    pi->tok[i].linenum,  pi->tok[i].linepos,
 	    pi->tok[i].nchild,   pi->tok[i].firstchild, pi->tok[i].lastchild, pi->tok[i].nextsib);
   return eslOK;
 }
@@ -845,7 +924,7 @@ esl_json_SampleDirty(ESL_RANDOMNESS *rng, char **ret_s, int *ret_n)
 
 
 /*****************************************************************
- * 5. internal functions
+ * 6. internal functions
  *****************************************************************/
 
 static int
@@ -872,6 +951,8 @@ new_token(ESL_JSON_PARSER *parser, ESL_JSON *pi, enum esl_json_type_e type, esl_
   pi->tok[parser->curridx].nextsib    = -1;
   pi->tok[parser->curridx].firstchild = -1;
   pi->tok[parser->curridx].lastchild  = -1;
+  pi->tok[parser->curridx].linenum    = parser->linenum;
+  pi->tok[parser->curridx].linepos    = parser->linepos;
 
   if (mom != -1)
     {
@@ -918,7 +999,7 @@ add_dirty_unicode(ESL_RANDOMNESS *rng, char *s, int n, int *ret_nadd)
 
 
 /*****************************************************************
- * 6. Unit tests
+ * 7. Unit tests
  *****************************************************************/ 
 #ifdef eslJSON_TESTDRIVE
 
@@ -945,7 +1026,7 @@ utest_evil(ESL_RANDOMNESS *rng)
 #endif /* eslJSON_TESTDRIVE */
 
 /*****************************************************************
- * 7. Test driver
+ * 8. Test driver
  *****************************************************************/ 
 #ifdef eslJSON_TESTDRIVE
 
@@ -982,7 +1063,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 8. Example
+ * 9. Example
  *****************************************************************/
 #ifdef eslJSON_EXAMPLE
 

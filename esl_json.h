@@ -85,6 +85,9 @@ typedef struct {
   int       firstchild;  // -1, or (for obj, arr:) index of first child in tree's <tok> array
   int       lastchild;   //  ... ditto for last child
   int       nextsib;     // Children are a linked list. <nextsib> is index in tree's <tok> array.
+
+  int       linenum;     // for user error reporting: what line number this token is on, 1..
+  int       linepos;     //   ... and what char position it starts at on that line, 1..
 } ESL_JSON_TOK;
 
 
@@ -119,11 +122,18 @@ extern int esl_json_PartialParse(ESL_JSON_PARSER *parser, ESL_JSON *pi, const ch
 /* ESL_JSON */
 extern ESL_JSON *esl_json_Create (void);
 extern int       esl_json_Grow   (ESL_JSON *pi);
+extern int       esl_json_Reuse  (ESL_JSON *pi);
 extern void      esl_json_Destroy(ESL_JSON *pi);
 
 /* ESL_JSON_PARSER */
 extern ESL_JSON_PARSER *esl_json_parser_Create(void);
 extern void             esl_json_parser_Destroy(ESL_JSON_PARSER *parser);
+
+/* Accessing tokenized data */
+extern char      *esl_json_GetMem   (const ESL_JSON *pi, int idx, const ESL_BUFFER *bf);
+extern esl_pos_t  esl_json_GetLen   (const ESL_JSON *pi, int idx, const ESL_BUFFER *bf);
+extern int        esl_json_ReadInt  (const ESL_JSON *pi, int idx,       ESL_BUFFER *bf, int   *ret_i);
+extern int        esl_json_ReadFloat(const ESL_JSON *pi, int idx,       ESL_BUFFER *bf, float *ret_x);
 
 /* Debugging, development */
 extern int   esl_json_Validate(const ESL_JSON *pi, const ESL_BUFFER *bf, char *errbuf);

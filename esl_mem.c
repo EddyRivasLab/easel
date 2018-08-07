@@ -15,6 +15,8 @@
  */
 #include "esl_config.h"
 
+#include <stdint.h>
+#include <limits.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -76,11 +78,13 @@
  *            <eslEFORMAT> if no valid integer digits are found. Now
  *            <*opt_val> and <*opt_nc> are 0.
  *            
- *            <eslERANGE> on an overflow error. In this case
+ *            <eslERANGE> on overflow or underflow error. Now
  *            <*opt_val> is <INT32_MAX> or <INT32_MIN> for an
  *            overflow or underflow, respectively. <*opt_nc> is
  *            set to the number of characters parsed INCLUDING
- *            the digit that caused the overflow.
+ *            the digit that caused the overflow. There might
+ *            be even more digits following, so parsers need to
+ *            be careful before blithely advancing by <nc>.
  *
  * Throws:    <eslEINVAL> if <base> isn't in range <0..36>. Now
  *            <*opt_nc> and <*opt_val> are 0.
@@ -99,10 +103,13 @@
  *            
  *            I could copy <p> to a temporary allocated string that I
  *            NUL-terminate, then use strtol() or suchlike, but that's
- *            just as awful as what I've done here (rewriting
- *            strtol()). Plus, here I get complete control of the integer
- *            type (<int32_t>) whereas strtol() gives me the less satisfying
- *            <long>.
+ *            even more horrible than what I've done here (rewriting
+ *            strtol()). Plus, here I get complete control of the
+ *            integer type (<int32_t>) whereas strtol() gives me the
+ *            less satisfying <long>.
+ *            
+ *            esl_mem_strtoi32(), _strtoi64(), and _strtoi() repeat
+ *            near-identical code. If you change one, change them all.
  */
 int
 esl_mem_strtoi32(char *p, esl_pos_t n, int base, int *opt_nc, int32_t *opt_val)
@@ -120,11 +127,11 @@ esl_mem_strtoi32(char *p, esl_pos_t n, int base, int *opt_nc, int32_t *opt_val)
   if      ((base == 0 || base == 16) && i < n-1 && p[i] == '0' && p[i+1] == 'x') 
     { i += 2; base = 16; }
   else if (base == 0 && i < n && p[i] == '0')                                    
-    { i += 1; base = 8; }
+    { i += 1; base = 8; ndigits++; }  // ndigits++ because "0" by itself is 0: weirdly, "0" is an octal literal.
   else if (base == 0) 
     { base = 10; }
 
-  for (ndigits = 0; i < n; i++, ndigits++)
+  for (; i < n; i++, ndigits++)
     {
       if      (isdigit(p[i])) digit = p[i] - '0';
       else if (isupper(p[i])) digit = 10 + (p[i] - 'A');
@@ -153,10 +160,133 @@ esl_mem_strtoi32(char *p, esl_pos_t n, int base, int *opt_nc, int32_t *opt_val)
 	  currval = currval * base - digit;
 	}
     }
+
   if (opt_nc)  { *opt_nc  = (ndigits ? i : 0); }
   if (opt_val) { *opt_val = currval; }
   return (ndigits ? eslOK : eslEFORMAT);
 }
+
+
+/* Function:  esl_mem_strtoi64()
+ * Synopsis:  Convert a chunk of memory to an int64_t.
+ * Incept:    SRE, Thu 02 Aug 2018 [Slaid Cleaves, Drunken Barber's Hand]
+ *
+ * Purpose:   Same as <esl_mem_strtoi32()> but converts to <int64_t>.
+ */
+int
+esl_mem_strtoi64(char *p, esl_pos_t n, int base, int *opt_nc, int64_t *opt_val)
+{
+  esl_pos_t i           = 0;
+  int64_t   sign        = 1;
+  int64_t   currval     = 0;
+  int64_t   digit       = 0;
+  int       ndigits     = 0;
+
+  if    (base < 0 || base == 1 || base > 36)  ESL_EXCEPTION(eslEINVAL, "base must be 2..36 or 0");
+  while (i < n && isspace(p[i])) i++; /* skip leading whitespace */
+  if    (i < n && p[i] == '-')   { sign = -1; i++; }
+
+  if      ((base == 0 || base == 16) && i < n-1 && p[i] == '0' && p[i+1] == 'x') 
+    { i += 2; base = 16; }
+  else if (base == 0 && i < n && p[i] == '0')                                    
+    { i += 1; base = 8; ndigits++; }
+  else if (base == 0) 
+    { base = 10; }
+
+  for (; i < n; i++, ndigits++)
+    {
+      if      (isdigit(p[i])) digit = p[i] - '0';
+      else if (isupper(p[i])) digit = 10 + (p[i] - 'A');
+      else if (islower(p[i])) digit = 10 + (p[i] - 'a');
+      else    break;
+      if (digit >= base) break;
+
+      if (sign == 1)
+	{
+	  if (currval > (INT64_MAX - digit) / base) 
+	    { 
+	      if (opt_val) *opt_val = INT64_MAX; 
+	      if (opt_nc)  *opt_nc  = i+1;
+	      return eslERANGE; 
+	    }
+	  currval = currval * base + digit;
+	}
+      else
+	{
+	  if (currval < (INT64_MIN + digit) / base)
+	    { 
+	      if (opt_val) *opt_val = INT64_MIN; 
+	      if (opt_nc)  *opt_nc  = i+1;
+	      return eslERANGE;
+	    }
+	  currval = currval * base - digit;
+	}
+    }
+  if (opt_nc)  { *opt_nc  = (ndigits ? i : 0); }
+  if (opt_val) { *opt_val = currval; }
+  return (ndigits ? eslOK : eslEFORMAT);
+}
+
+/* Function:  esl_mem_strtoi()
+ * Synopsis:  Convert a chunk of memory to an int.
+ * Incept:    SRE, Thu 02 Aug 2018 [Slaid Cleaves, Junkyard]
+ *
+ * Purpose:   Same as <esl_mem_strtoi32()> but converts to generic <int>.
+ */
+int
+esl_mem_strtoi(char *p, esl_pos_t n, int base, int *opt_nc, int *opt_val)
+{
+  esl_pos_t i           = 0;
+  int       sign        = 1;
+  int       currval     = 0;
+  int       digit       = 0;
+  int       ndigits     = 0;
+
+  if    (base < 0 || base == 1 || base > 36)  ESL_EXCEPTION(eslEINVAL, "base must be 2..36 or 0");
+  while (i < n && isspace(p[i])) i++; /* skip leading whitespace */
+  if    (i < n && p[i] == '-')   { sign = -1; i++; }
+
+  if      ((base == 0 || base == 16) && i < n-1 && p[i] == '0' && p[i+1] == 'x') 
+    { i += 2; base = 16; }
+  else if (base == 0 && i < n && p[i] == '0')                                    
+    { i += 1; base = 8; ndigits++; }
+  else if (base == 0) 
+    { base = 10; }
+
+  for (; i < n; i++, ndigits++)
+    {
+      if      (isdigit(p[i])) digit = p[i] - '0';
+      else if (isupper(p[i])) digit = 10 + (p[i] - 'A');
+      else if (islower(p[i])) digit = 10 + (p[i] - 'a');
+      else    break;
+      if (digit >= base) break;
+
+      if (sign == 1)
+	{
+	  if (currval > (INT_MAX - digit) / base) 
+	    { 
+	      if (opt_val) *opt_val = INT_MAX; 
+	      if (opt_nc)  *opt_nc  = i+1;
+	      return eslERANGE; 
+	    }
+	  currval = currval * base + digit;
+	}
+      else
+	{
+	  if (currval < (INT_MIN + digit) / base)
+	    { 
+	      if (opt_val) *opt_val = INT_MIN; 
+	      if (opt_nc)  *opt_nc  = i+1;
+	      return eslERANGE;
+	    }
+	  currval = currval * base - digit;
+	}
+    }
+  if (opt_nc)  { *opt_nc  = (ndigits ? i : 0); }
+  if (opt_val) { *opt_val = currval; }
+  return (ndigits ? eslOK : eslEFORMAT);
+}
+
 
 /* Function:  esl_mem_strtof()
  * Synopsis:  Convert a chunk of memory to a float.
@@ -453,6 +583,34 @@ esl_memstrcmp(const char *p, esl_pos_t n, const char *s)
   return TRUE;
 }
 
+
+/* Function:  esl_memstrcmp_case()
+ * Synopsis:  Compare memory chunk and string for equality, case-insensitive
+ * Incept:    SRE, Thu 02 Aug 2018 [Gurf Morlix, One More Second]
+ *
+ * Purpose:   Compare line <p> of length <n> to a NUL-terminated string
+ *            <s>, case-insensitively, and return TRUE if they are
+ *            exactly equal: <strlen(s) == n> and <p[0..n-1] ==
+ *            s[0..n-1]>.  Else, return FALSE.
+ *            
+ * Note:      Return convention differs from strcmp(), which may be confusing.
+ *            strcmp()'s convention of -1/0/+1 return is convenient for use
+ *            in sorting, and we should probably sync to that.
+ */
+int
+esl_memstrcmp_case(const char *p, esl_pos_t n, const char *s)
+{
+  esl_pos_t pos;
+
+  if (p == NULL && n == 0 && (s == NULL || s[0] == '\0')) return TRUE;
+  if (!p || !s)                                           return FALSE;
+  for (pos = 0; pos < n && s[pos] != '\0'; pos++)
+    if (toupper(p[pos]) != toupper(s[pos])) return FALSE;
+  if (pos    != n)    return FALSE;
+  if (s[pos] != '\0') return FALSE;
+  return TRUE;
+}
+  
 
 /* Function:  esl_memstrpfx()
  * Synopsis:  Return TRUE if memory line starts with string.
@@ -785,23 +943,88 @@ utest_mem_strtoi32(void)
   int     status;
   
   if ( (status = esl_mem_strtoi32("-1234",          5, 10, &nc, &val)) != eslOK      || nc !=  5 || val !=     -1234) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("\t  -1234",      8, 10, &nc, &val)) != eslOK      || nc !=  8 || val !=     -1234) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("1234",           4,  0, &nc, &val)) != eslOK      || nc !=  4 || val !=      1234) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("12345",          4,  0, &nc, &val)) != eslOK      || nc !=  4 || val !=      1234) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32(" 0xff",          5,  0, &nc, &val)) != eslOK      || nc !=  5 || val !=       255) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32(" 0777",          4,  0, &nc, &val)) != eslOK      || nc !=  4 || val !=        63) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("FFGG",           4, 16, &nc, &val)) != eslOK      || nc !=  2 || val !=       255) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("0xffff",         6,  0, &nc, &val)) != eslOK      || nc !=  6 || val !=     65535) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("0xffffff",       8,  0, &nc, &val)) != eslOK      || nc !=  8 || val !=  16777215) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32(" 2147483647",   11,  0, &nc, &val)) != eslOK      || nc != 11 || val != INT32_MAX) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("-2147483648",   11,  0, &nc, &val)) != eslOK      || nc != 11 || val != INT32_MIN) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32(" 2147483648",   11,  0, &nc, &val)) != eslERANGE  || nc != 11 || val != INT32_MAX) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("-2147483649",   11,  0, &nc, &val)) != eslERANGE  || nc != 11 || val != INT32_MIN) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32(" 214748364800", 13,  0, &nc, &val)) != eslERANGE  || nc != 11 || val != INT32_MAX) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("-214748364900", 13,  0, &nc, &val)) != eslERANGE  || nc != 11 || val != INT32_MIN) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32(" 0x1234",        3, 16, &nc, &val)) != eslEFORMAT || nc !=  0 || val !=         0) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("09999999",       7,  0, &nc, &val)) != eslEFORMAT || nc !=  0 || val !=         0) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi32("\t  -1234",      8, 10, &nc, &val)) != eslOK      || nc !=  8 || val !=     -1234) esl_fatal(msg);  // leading whitespace is skipped
+  if ( (status = esl_mem_strtoi32("1234",           4,  0, &nc, &val)) != eslOK      || nc !=  4 || val !=      1234) esl_fatal(msg);  
+  if ( (status = esl_mem_strtoi32("12345",          4,  0, &nc, &val)) != eslOK      || nc !=  4 || val !=      1234) esl_fatal(msg);  // n=4 is respected
+  if ( (status = esl_mem_strtoi32(" 0xff",          5,  0, &nc, &val)) != eslOK      || nc !=  5 || val !=       255) esl_fatal(msg);  // leading 0x is detected as hexadecimal
+  if ( (status = esl_mem_strtoi32(" 0777",          4,  0, &nc, &val)) != eslOK      || nc !=  4 || val !=        63) esl_fatal(msg);  // leading 0 is detected as octal
+  if ( (status = esl_mem_strtoi32("FFGG",           4, 16, &nc, &val)) != eslOK      || nc !=  2 || val !=       255) esl_fatal(msg);  // parse stops at trailing non-integer chars 
+  if ( (status = esl_mem_strtoi32("0xffff",         6,  0, &nc, &val)) != eslOK      || nc !=  6 || val !=     65535) esl_fatal(msg);  
+  if ( (status = esl_mem_strtoi32("0xffffff",       8,  0, &nc, &val)) != eslOK      || nc !=  8 || val !=  16777215) esl_fatal(msg);  
+  if ( (status = esl_mem_strtoi32(" 2147483647",   11,  0, &nc, &val)) != eslOK      || nc != 11 || val != INT32_MAX) esl_fatal(msg);  // largest valid int32
+  if ( (status = esl_mem_strtoi32("-2147483648",   11,  0, &nc, &val)) != eslOK      || nc != 11 || val != INT32_MIN) esl_fatal(msg);  // smallest valid int32
+  if ( (status = esl_mem_strtoi32(" 2147483648",   11,  0, &nc, &val)) != eslERANGE  || nc != 11 || val != INT32_MAX) esl_fatal(msg);  // overflow
+  if ( (status = esl_mem_strtoi32("-2147483649",   11,  0, &nc, &val)) != eslERANGE  || nc != 11 || val != INT32_MIN) esl_fatal(msg);  // underflow
+  if ( (status = esl_mem_strtoi32(" 214748364800", 13,  0, &nc, &val)) != eslERANGE  || nc != 11 || val != INT32_MAX) esl_fatal(msg);  // <nc> is for the digit that overflowed
+  if ( (status = esl_mem_strtoi32("-214748364900", 13,  0, &nc, &val)) != eslERANGE  || nc != 11 || val != INT32_MIN) esl_fatal(msg);  //   ... or underflowed
+  if ( (status = esl_mem_strtoi32(" 0x1234",        3, 16, &nc, &val)) != eslEFORMAT || nc !=  0 || val !=         0) esl_fatal(msg);  // leading bare "0x" is an error
+  if ( (status = esl_mem_strtoi32("0XX",            3,  0, &nc, &val)) != eslOK      || nc !=  1 || val !=         0) esl_fatal(msg);  // but a leading 0 is 0 (!)
 }
+
+static void
+utest_mem_strtoi64(void)
+{
+  char    msg[] = "esl_mem_strtoi64() unit test failed";
+  int     nc;
+  int64_t val;
+  int     status;
+  
+  if ( (status = esl_mem_strtoi64("-1234",                   5, 10, &nc, &val)) != eslOK      || nc !=  5 || val !=     -1234) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi64("\t  -1234",               8, 10, &nc, &val)) != eslOK      || nc !=  8 || val !=     -1234) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi64("1234",                    4,  0, &nc, &val)) != eslOK      || nc !=  4 || val !=      1234) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi64("12345",                   4,  0, &nc, &val)) != eslOK      || nc !=  4 || val !=      1234) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi64(" 0xff",                   5,  0, &nc, &val)) != eslOK      || nc !=  5 || val !=       255) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi64(" 0777",                   4,  0, &nc, &val)) != eslOK      || nc !=  4 || val !=        63) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi64("FFGG",                    4, 16, &nc, &val)) != eslOK      || nc !=  2 || val !=       255) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi64("0xffff",                  6,  0, &nc, &val)) != eslOK      || nc !=  6 || val !=     65535) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi64("0xffffff",                8,  0, &nc, &val)) != eslOK      || nc !=  8 || val !=  16777215) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi64(" 9223372036854775807",   20,  0, &nc, &val)) != eslOK      || nc != 20 || val != INT64_MAX) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi64("-9223372036854775808",   20,  0, &nc, &val)) != eslOK      || nc != 20 || val != INT64_MIN) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi64(" 9223372036854775808",   20,  0, &nc, &val)) != eslERANGE  || nc != 20 || val != INT64_MAX) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi64("-9223372036854775809",   20,  0, &nc, &val)) != eslERANGE  || nc != 20 || val != INT64_MIN) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi64(" 922337203685477580800", 22,  0, &nc, &val)) != eslERANGE  || nc != 20 || val != INT64_MAX) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi64("-922337203685477580900", 22,  0, &nc, &val)) != eslERANGE  || nc != 20 || val != INT64_MIN) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi64(" 0x1234",                 3, 16, &nc, &val)) != eslEFORMAT || nc !=  0 || val !=         0) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi64("0XX",                     3,  0, &nc, &val)) != eslOK      || nc !=  1 || val !=         0) esl_fatal(msg); 
+}  
+
+
+static void
+utest_mem_strtoi(void)
+{
+  char    msg[] = "esl_mem_strtoi64() unit test failed";
+  int     nc;
+  int     val;
+  int     status;
+  
+  if ( (status = esl_mem_strtoi("-1234",                   5, 10, &nc, &val)) != eslOK      || nc !=  5 || val !=     -1234) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi("\t  -1234",               8, 10, &nc, &val)) != eslOK      || nc !=  8 || val !=     -1234) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi("1234",                    4,  0, &nc, &val)) != eslOK      || nc !=  4 || val !=      1234) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi("12345",                   4,  0, &nc, &val)) != eslOK      || nc !=  4 || val !=      1234) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi(" 0xff",                   5,  0, &nc, &val)) != eslOK      || nc !=  5 || val !=       255) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi(" 0777",                   4,  0, &nc, &val)) != eslOK      || nc !=  4 || val !=        63) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi("FFGG",                    4, 16, &nc, &val)) != eslOK      || nc !=  2 || val !=       255) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi("0xffff",                  6,  0, &nc, &val)) != eslOK      || nc !=  6 || val !=     65535) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi("0xffffff",                8,  0, &nc, &val)) != eslOK      || nc !=  8 || val !=  16777215) esl_fatal(msg);
+  if (sizeof(int) == 4) {
+    if ( (status = esl_mem_strtoi(" 2147483647",   11,  0, &nc, &val)) != eslOK      || nc != 11 || val != INT32_MAX) esl_fatal(msg);  // largest valid int32
+    if ( (status = esl_mem_strtoi("-2147483648",   11,  0, &nc, &val)) != eslOK      || nc != 11 || val != INT32_MIN) esl_fatal(msg);  // smallest valid int32
+    if ( (status = esl_mem_strtoi(" 2147483648",   11,  0, &nc, &val)) != eslERANGE  || nc != 11 || val != INT32_MAX) esl_fatal(msg);  // overflow
+    if ( (status = esl_mem_strtoi("-2147483649",   11,  0, &nc, &val)) != eslERANGE  || nc != 11 || val != INT32_MIN) esl_fatal(msg);  // underflow
+    if ( (status = esl_mem_strtoi(" 214748364800", 13,  0, &nc, &val)) != eslERANGE  || nc != 11 || val != INT32_MAX) esl_fatal(msg);  // <nc> is for the digit that overflowed
+    if ( (status = esl_mem_strtoi("-214748364900", 13,  0, &nc, &val)) != eslERANGE  || nc != 11 || val != INT32_MIN) esl_fatal(msg);  //   ... or underflowed
+  } else if (sizeof(int) == 8) {
+    if ( (status = esl_mem_strtoi(" 9223372036854775807",   20,  0, &nc, &val)) != eslOK      || nc != 20 || val != INT64_MAX) esl_fatal(msg);
+    if ( (status = esl_mem_strtoi("-9223372036854775808",   20,  0, &nc, &val)) != eslOK      || nc != 20 || val != INT64_MIN) esl_fatal(msg);
+    if ( (status = esl_mem_strtoi(" 9223372036854775808",   20,  0, &nc, &val)) != eslERANGE  || nc != 20 || val != INT64_MAX) esl_fatal(msg);
+    if ( (status = esl_mem_strtoi("-9223372036854775809",   20,  0, &nc, &val)) != eslERANGE  || nc != 20 || val != INT64_MIN) esl_fatal(msg);
+    if ( (status = esl_mem_strtoi(" 922337203685477580800", 22,  0, &nc, &val)) != eslERANGE  || nc != 20 || val != INT64_MAX) esl_fatal(msg);
+    if ( (status = esl_mem_strtoi("-922337203685477580900", 22,  0, &nc, &val)) != eslERANGE  || nc != 20 || val != INT64_MIN) esl_fatal(msg);
+  }
+  if ( (status = esl_mem_strtoi(" 0x1234",                 3, 16, &nc, &val)) != eslEFORMAT || nc !=  0 || val !=         0) esl_fatal(msg);
+  if ( (status = esl_mem_strtoi("0XX",                     3,  0, &nc, &val)) != eslOK      || nc !=  1 || val !=         0) esl_fatal(msg); 
+}  
+
 
 
 static void
@@ -1009,6 +1232,9 @@ main(int argc, char **argv)
   ESL_GETOPTS    *go          = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
 
   utest_mem_strtoi32();
+  utest_mem_strtoi64();
+  utest_mem_strtoi();
+
   utest_mem_strtof();
   utest_memtok();
   utest_memspn_memcspn();
