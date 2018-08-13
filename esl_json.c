@@ -86,7 +86,6 @@ esl_json_Parse(ESL_BUFFER *bf, ESL_JSON **ret_pi)
 
       esl_buffer_Set(bf, s, nused);
     }
-  esl_buffer_SetOffset  (bf, pos0); // wait is this right? I don't think so
   esl_buffer_RaiseAnchor(bf, pos0);
 
   esl_json_parser_Destroy(parser);
@@ -142,9 +141,8 @@ esl_json_Parse(ESL_BUFFER *bf, ESL_JSON **ret_pi)
  *            stream if it's a stream of concatenated objects.
  *            <pi> contains a complete JSON parse tree.
  *            
- *            <eslEFORMAT> on an invalid JSON string. 
- *
- * Throws:   
+ *            <eslEFORMAT> on an invalid JSON string:
+ *                <errbuf> contains a detailed (line/cpos) error message.
  */
 int
 esl_json_PartialParse(ESL_JSON_PARSER *parser, ESL_JSON *pi, const char *s, esl_pos_t n, esl_pos_t *ret_nused, char *errbuf)
@@ -371,7 +369,8 @@ esl_json_PartialParse(ESL_JSON_PARSER *parser, ESL_JSON *pi, const char *s, esl_
 	      parser->curridx = -1;  // no tokens are open.
 	      parser->codelen = 0;
 	      parser->state   = eslJSON_OBJ_NONE;
-	      parser->pos     = ++i; 
+	      parser->pos++;
+	      i++; 
 	      break;
 	    }
 	  if      (closed_value == eslJSON_KEY)                     parser->state = eslJSON_STR_ASKEY;
@@ -405,8 +404,9 @@ esl_json_Create(void)
   pi->tok    = NULL;
 
   ESL_ALLOC(pi->tok, sizeof (ESL_JSON_TOK) * 32);
-  pi->nalloc = 32;
-  pi->ntok   = 0;
+  pi->nalloc  = 32;
+  pi->redline = 65536;   // M ~= 2114 for HMMER profile parser; ~3.1M @48B/token. See HMMER h4_hmmfile.md if you change; xref SRE:H5/131.
+  pi->ntok    = 0;
   return pi;
 
  ERROR:
@@ -429,6 +429,29 @@ esl_json_Grow(ESL_JSON *pi)
   return status;
 }
 
+/* Function:  esl_json_Sizeof()
+ * Synopsis:  Returns allocated size of a parse tree, in bytes
+ */
+size_t
+esl_json_Sizeof(ESL_JSON *pi)
+{
+  size_t n = 0;
+  n += sizeof(ESL_JSON);
+  n += sizeof(ESL_JSON_TOK) * pi->nalloc;
+  return n;
+}
+
+/* Function:  esl_json_MinSizeof()
+ * Synopsis:  Returns minimum size required for a parse tree, in bytes
+ */
+size_t
+esl_json_MinSizeof(ESL_JSON *pi)
+{
+  size_t n = 0;
+  n += sizeof(ESL_JSON);
+  n += sizeof(ESL_JSON_TOK) * pi->ntok;
+  return n;
+}
 
 /* Function:  esl_json_Reuse()
  * Synopsis:  Reinitialize an existing parse tree for reuse.
@@ -437,8 +460,16 @@ esl_json_Grow(ESL_JSON *pi)
 int
 esl_json_Reuse(ESL_JSON *pi)
 {
+  int status;
+  if (pi->nalloc > pi->redline) {
+    ESL_REALLOC(pi->tok, sizeof(ESL_JSON_TOK) * pi->redline);
+    pi->nalloc = pi->redline;
+  }
   pi->ntok = 0;
   return eslOK;
+
+ ERROR:
+  return status;
 }
 
 
@@ -537,16 +568,38 @@ esl_json_ReadInt(const ESL_JSON *pi, int idx, ESL_BUFFER *bf, int *ret_i)
 int
 esl_json_ReadFloat(const ESL_JSON *pi, int idx, ESL_BUFFER *bf, float *ret_x)
 {
-  esl_pos_t n  = esl_json_GetLen(pi, idx, bf);
-  int       nc;
-  int       status;
+  esl_pos_t n        = esl_json_GetLen(pi, idx, bf);
+  char     *p        = esl_json_GetMem(pi, idx, bf);
+  int       i        = 0;
+  float     sign     = 1.0;
+  float     val      = 0.0;
+  float     frac     = 0.1;
+  float     expsign  = 1.;
+  float     exponent = 0.;
 
-  status = esl_mem_strtof(esl_json_GetMem(pi, idx, bf), n, &nc, ret_x);
-  if       (status == eslEFORMAT) ESL_FAIL(eslEFORMAT, bf->errmsg, "no real number digits seen");
-  else if  (status == eslERANGE)  ESL_FAIL(eslERANGE,  bf->errmsg, "float overflow/underflow");
-  else if  (status != eslOK)      ESL_FAIL(status,     bf->errmsg, "unexpected float conversion error");
-  else if  (nc < n)               ESL_FAIL(eslEFORMAT, bf->errmsg, "float conversion stopped short (is it a real number?)");
-  else return eslOK;
+  /* Parser already verified p[0..n-1] is valid JSON number, so we can
+   * use a stripped-down copy of esl_mem_strtof(); we don't need to
+   * check for inf|nan|infinity, for example. Large speed win.
+   */
+  if (p[i] == '-') { sign = -1.0; i++; }
+  while (i < n && isdigit(p[i]))  val = 10. * val + (p[i++]-'0');
+  if (i < n && p[i] == '.')
+    while (++i < n && isdigit(p[i]))
+      {
+	val  += (p[i]-'0') * frac;
+	frac *= 0.1;   // roundoff error here! I have not checked its effects.
+      }
+  if (i < n && (p[i] == 'e' || p[i] == 'E'))
+    {
+      i++;
+      if       (p[i] == '-') { expsign = -1.; i++; }
+      else if  (p[i] == '+') { expsign =  1.; i++; }
+      while (i < n && isdigit(p[i]))
+	exponent += 10.*exponent + (p[i++]-'0') ;
+    }
+  ESL_DASSERT1(( i == n ));
+  *ret_x = sign * val * powf(10.,expsign*exponent);  // range errors (underflow/overflow) aren't checked for.
+  return eslOK;
 }
   
 

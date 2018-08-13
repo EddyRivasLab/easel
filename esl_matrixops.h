@@ -11,8 +11,17 @@
 extern double **esl_mat_DCreate(int M, int N);
 extern float  **esl_mat_FCreate(int M, int N);
 extern int    **esl_mat_ICreate(int M, int N);
+extern char   **esl_mat_CCreate(int M, int N);
 
 extern int      esl_mat_DGrowTo(double ***ret_A, int M, int N);
+extern int      esl_mat_FGrowTo(float  ***ret_A, int M, int N);
+extern int      esl_mat_IGrowTo(int    ***ret_A, int M, int N);
+extern int      esl_mat_CGrowTo(char   ***ret_A, int M, int N);
+
+extern size_t   esl_mat_DSizeof(int M, int N);
+extern size_t   esl_mat_FSizeof(int M, int N);
+extern size_t   esl_mat_ISizeof(int M, int N);
+extern size_t   esl_mat_CSizeof(int M, int N);
 
 extern void     esl_mat_DSet(double **A, int M, int N, double value);
 extern void     esl_mat_FSet(float  **A, int M, int N, float  value);
@@ -33,6 +42,7 @@ extern int      esl_mat_ICompare(int    **A, int    **B, int M, int N);
 extern void     esl_mat_DDestroy(double **A);
 extern void     esl_mat_FDestroy(float  **A);
 extern void     esl_mat_IDestroy(int    **A);
+extern void     esl_mat_CDestroy(char   **A);
 
 extern int      esl_mat_DDump(double **A, int M, int N);
 extern int      esl_mat_FDump( float **A, int M, int N);

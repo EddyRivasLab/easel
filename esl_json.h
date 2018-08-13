@@ -97,7 +97,8 @@ typedef struct {
 typedef struct {
   ESL_JSON_TOK *tok;
   int ntok;
-  int nalloc;
+  int nalloc;          // current allocation size
+  int redline;         // if nalloc > redline, _Reuse() reallocates downward 
 } ESL_JSON;
 
 /* ESL_JSON_PARSER
@@ -105,12 +106,12 @@ typedef struct {
  */
 typedef struct {
   enum esl_json_state_e state;
-  ESL_STACK *pda;      // push down stack of open internal obj|arr nodes on the parse tree
-  int        curridx;  // index of open (parse-in-progress) token in tree's <tok> array
-  int        codelen;  // how far we're into a unicode, "true", "false", "null".
-  esl_pos_t  pos;      // position in input JSON string 0..n-1
-  int        linenum;  // solely for informative error messages: what input line we're on, 1..N
-  int        linepos;  //  ... and what char position we're on in that line, 1..L 
+  ESL_STACK *pda;        // push down stack of open internal obj|arr nodes on the parse tree
+  int        curridx;    // index of open (parse-in-progress) token in tree's <tok> array
+  int        codelen;    // how far we're into a unicode, "true", "false", "null".
+  esl_pos_t  pos;        // position in input JSON string 0..n-1
+  int        linenum;    // solely for informative error messages: what input line we're on, 1..N
+  int        linepos;    //  ... and what char position we're on in that line, 1..L 
 } ESL_JSON_PARSER;
 
 
@@ -120,10 +121,12 @@ extern int esl_json_Parse(ESL_BUFFER *bf, ESL_JSON **ret_pi);
 extern int esl_json_PartialParse(ESL_JSON_PARSER *parser, ESL_JSON *pi, const char *s, esl_pos_t n, esl_pos_t *ret_nused, char *errbuf);
   
 /* ESL_JSON */
-extern ESL_JSON *esl_json_Create (void);
-extern int       esl_json_Grow   (ESL_JSON *pi);
-extern int       esl_json_Reuse  (ESL_JSON *pi);
-extern void      esl_json_Destroy(ESL_JSON *pi);
+extern ESL_JSON *esl_json_Create   (void);
+extern int       esl_json_Grow     (ESL_JSON *pi);
+extern size_t    esl_json_Sizeof   (ESL_JSON *pi);
+extern size_t    esl_json_MinSizeof(ESL_JSON *pi);
+extern int       esl_json_Reuse    (ESL_JSON *pi);
+extern void      esl_json_Destroy  (ESL_JSON *pi);
 
 /* ESL_JSON_PARSER */
 extern ESL_JSON_PARSER *esl_json_parser_Create(void);

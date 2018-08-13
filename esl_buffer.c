@@ -1598,15 +1598,23 @@ buffer_init_file_slurped(ESL_BUFFER *bf, esl_pos_t filesize)
 {
   int status;
 
-  ESL_ALLOC(bf->mem, sizeof(char) * filesize);
-  bf->balloc = filesize;
+  if (filesize > 0) 
+    {
+      ESL_ALLOC(bf->mem, sizeof(char) * filesize);
+      bf->balloc = filesize;
 
-  bf->n = fread(bf->mem, sizeof(char), filesize, bf->fp);
-  if (bf->n < filesize)
-    ESL_XEXCEPTION(eslESYS, "failed to slurp %s\n", bf->filename);
+      bf->n = fread(bf->mem, sizeof(char), filesize, bf->fp);
+      if (bf->n < filesize)
+	ESL_XEXCEPTION(eslESYS, "failed to slurp %s\n", bf->filename);
+    }
+  else /* empty file, NULL buffer, 0 length */
+    {
+      bf->mem    = NULL;
+      bf->balloc = 0;
+      bf->n      = 0;
+    }
 
   bf->mode_is = eslBUFFER_ALLFILE;
-
   fclose(bf->fp);   /* open fp no longer needed - close it. */
   bf->fp = NULL;
   return eslOK;
