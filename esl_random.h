@@ -48,7 +48,6 @@ extern double esl_rnd_UniformPositive(ESL_RANDOMNESS *r);
 extern double esl_rnd_Gaussian (ESL_RANDOMNESS *rng, double mean, double stddev);
 extern double esl_rnd_Gamma    (ESL_RANDOMNESS *rng, double a);
 extern void   esl_rnd_Dirichlet(ESL_RANDOMNESS *rng, const double *alpha, int K, double *p);  // Pass alpha=NULL if you just want a uniform draw.
-extern void   esl_rnd_mem      (ESL_RANDOMNESS *rng, void *buf, int n);
 
 /* 5. Multinomial sampling from discrete probability n-vectors.
  */
@@ -57,5 +56,9 @@ extern int    esl_rnd_FChoose   (ESL_RANDOMNESS *r, const float  *p,   int N);
 extern int    esl_rnd_DChooseCDF(ESL_RANDOMNESS *r, const double *cdf, int N);
 extern int    esl_rnd_FChooseCDF(ESL_RANDOMNESS *r, const float  *cdf, int N);
 
+/* 6. Random data generators (unit testing, etc.)
+ */
+extern int    esl_rnd_mem        (ESL_RANDOMNESS *rng, void *buf, int n);
+extern int    esl_rnd_floatstring(ESL_RANDOMNESS *rng, char *s);
 
 #endif /*eslRANDOM_INCLUDED*/

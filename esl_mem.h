@@ -1,4 +1,4 @@
-/* str*()-like functions for raw memory "lines" (non-NUL terminated strings)
+/* str*()-like functions for raw char arrays (non-NUL-terminated strings)
  */
 #ifndef eslMEM_INCLUDED
 #define eslMEM_INCLUDED
@@ -8,7 +8,6 @@
 extern int       esl_mem_strtoi32(char *p, esl_pos_t n, int base, int *opt_nc, int32_t *opt_val);
 extern int       esl_mem_strtoi64(char *p, esl_pos_t n, int base, int *opt_nc, int64_t *opt_val);
 extern int       esl_mem_strtoi  (char *p, esl_pos_t n, int base, int *opt_nc, int     *opt_val);
-
 extern int       esl_mem_strtof  (char *p, esl_pos_t n,           int *opt_nc, float   *opt_val);
 extern int       esl_memnewline(const char *p, esl_pos_t n, esl_pos_t *ret_nline, int *ret_nterm);
 extern int       esl_memtok(char **p, esl_pos_t *n, const char *delim, char **ret_tok, esl_pos_t *ret_toklen);

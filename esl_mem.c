@@ -1,12 +1,6 @@
-/* str*()-like functions for raw memory "lines" (non-NUL terminated strings).
+/* str*()-like functions for raw char arrays (non-NUL-terminated strings).
  * 
- * Especially when we're parsing input in an ESL_BUFFER, we need to be
- * able to parse non-writable raw memory buffers. Because an
- * ESL_BUFFER may have memory mapped a file, we cannot assume that the
- * input is NUL-terminated, and we can't even assume it's writable (so
- * we can't NUL-terminate it ourselves). These functions provide
- * a set of utilities for parsing raw memory (in terms of a char * pointer
- * and a length in bytes; <char *p>, <esl_pos_t n> by convention).
+ * esl_mem.md has additional notes.
  * 
  * Contents:
  *    1. The esl_mem*() API.
@@ -110,6 +104,9 @@
  *            
  *            esl_mem_strtoi32(), _strtoi64(), and _strtoi() repeat
  *            near-identical code. If you change one, change them all.
+ *            
+ *            Stripped-down version of same code is used in 
+ *            esl_json_ReadInt().
  */
 int
 esl_mem_strtoi32(char *p, esl_pos_t n, int base, int *opt_nc, int32_t *opt_val)
@@ -292,14 +289,14 @@ esl_mem_strtoi(char *p, esl_pos_t n, int base, int *opt_nc, int *opt_val)
  * Synopsis:  Convert a chunk of memory to a float.
  * Incept:    SRE, Fri Jun  3 10:52:07 2016 [Hamilton]
  *
- * Purpose:   Convert the text starting at <p> to a float, converting no
+ * Purpose:   Convert a prefix of the char array starting at <p> to a float, converting no
  *            more than <n> characters, i.e. the valid length of
  *            non-NUL terminated memory buffer <p>.
  *            
- *            The floating point representation is parsed as:
+ *            The decimal string representation is parsed as:
  *              - leading whitespace is skipped
- *              - an optional sign for the mantissa, +/-
- *              - a mantissa: (at least one digit must be present)
+ *              - an optional sign for the significand, +/-
+ *              - a significand: (at least one digit must be present)
  *                 - an optional string of digits
  *                 - an optional  '.'
  *                 - an optional string of digits
@@ -310,7 +307,14 @@ esl_mem_strtoi(char *p, esl_pos_t n, int base, int *opt_nc, int *opt_val)
  *            Or, after whitespace and the optional sign, one of the
  *            following special strings (case-insensitive):
  *                "inf", "infinity", "nan"
-
+ *
+ *            Parsing stops at the first character that isn't part of
+ *            a decimal string representation. For example, given "
+ *            42.0xx", 5 characters are parsed (including the skipped
+ *            leading whitespace, for a result of 42.0. A missing
+ *            exponent, as in " 42.0e-" isn't an <eslEFORMAT> error,
+ *            because it's also parsed as 5 chars to 42.0.
+ *
  *            The converted value is optionally returned in
  *            <*opt_val>, and the number of characters parsed (up to
  *            <n>) is optionally returned in <*opt_n>. The caller can
@@ -318,8 +322,19 @@ esl_mem_strtoi(char *p, esl_pos_t n, int base, int *opt_nc, int *opt_val)
  *            parsed number.
  *            
  *            Only decimal representations are recognized. Compare to
- *            POSIX strtof(), which also allows hexadecimal
- *            representation (when the mantissa leads with 0x or 0X).
+ *            <strtof()>, which also allows hexadecimal representation
+ *            (when the significand leads with 0x or 0X).
+ *            
+ *            If the representation overflows (e.g. "1e999") the
+ *            result is +/-infinity. If it underflows (e.g. "1e-999")
+ *            the result is 0.  These conversions still return
+ *            <eslOK>.
+ *            
+ *            This function incurs a small roundoff error, typically
+ *            around +/-1 ulp. See notes in esl_mem.md for details.
+ *            When an accuracy guarantee is more important than a
+ *            ~three-fold speed difference, use <esl_memtof()>
+ *            instead.
  *
  * Args:      p         - pointer to text buffer to convert
  *            n         - max number of chars to convert in <p>: p[0..n-1] are valid
@@ -328,13 +343,8 @@ esl_mem_strtoi(char *p, esl_pos_t n, int base, int *opt_nc, int *opt_val)
  *
  * Returns:   <eslOK> on success.
  * 
- *            <eslEFORMAT> if no mantissa digits are found.
+ *            <eslEFORMAT> if no significand digits are found.
  *            Now <*opt_val> is set to 0 and <*opt_nc> is set to 0.
- *
- * Note:      Think this is stupid? Yeah, I agree. But see note on
- *            <esl_mem_strtoi32()> for why this seems necessary, and
- *            why POSIX strtod()/strtol() don't suffice, especially
- *            if we're going to parse mmap'ed() read-only data.
  */
 int
 esl_mem_strtof(char *p, esl_pos_t n, int *opt_nc, float *opt_val)
@@ -391,7 +401,7 @@ esl_mem_strtof(char *p, esl_pos_t n, int *opt_nc, float *opt_val)
 
 	    while (i < n && isdigit(p[i]))
 	      {
-		exp += 10.*exp + (p[i]-'0');
+		exp = 10.*exp + (p[i]-'0');
 		i++;
 		e++;
 	      }
@@ -934,6 +944,8 @@ main(int argc, char **argv)
  *****************************************************************/
 #ifdef eslMEM_TESTDRIVE
 
+#include "esl_random.h"
+
 static void
 utest_mem_strtoi32(void)
 {
@@ -1075,11 +1087,59 @@ utest_mem_strtof(void)
   if (( status = esl_mem_strtof("iNfXYZ",           6, &nc, &val) ) != eslOK || nc != 3  ||  !isinf(val))                               esl_fatal(msg);
   if (( status = esl_mem_strtof("nAnXYZ",           6, &nc, &val) ) != eslOK || nc != 3  ||  !isnan(val))                               esl_fatal(msg);
 
+  /* terrifying edge cases that expose some flaws in our implementation, even aside from roundoff error */
+  if (( status = esl_mem_strtof("9999999999999999999999999999999999999999e-10",         44, &nc, &val) ) != eslOK || nc != 44  || val != eslINFINITY)   esl_fatal(msg);   // a real strtof() gets this right: it's 1e30
+  if (( status = esl_mem_strtof("-9999999999999999999999999999999999999999e-10",        45, &nc, &val) ) != eslOK || nc != 45  || val != -eslINFINITY)  esl_fatal(msg);   // ... and this should be -1e30
+  if (( status = esl_mem_strtof("0.0000000000000000000000000000000000000000000001e10",  51, &nc, &val) ) != eslOK || nc != 51  || val != 0.0)           esl_fatal(msg);   // ... 1-e36
+  if (( status = esl_mem_strtof("-0.0000000000000000000000000000000000000000000001e10", 52, &nc, &val) ) != eslOK || nc != 52  || val != 0.0)           esl_fatal(msg);   // ... -1-e36
+
+  /* Bad formats correctly detected: */
   if (( status = esl_mem_strtof("XYZXYZ",           6, &nc, &val) ) != eslEFORMAT || nc != 0  || val != 0.0)                            esl_fatal(msg);
   if (( status = esl_mem_strtof("intinity",         8, &nc, &val) ) != eslEFORMAT || nc != 0  || val != 0.0)                            esl_fatal(msg);
-
-
 }
+
+
+/* utest_mem_strtof_error()
+ * 
+ * Compares <esl_mem_strtof()> to <strtof()>. Assumes that <strtof()>
+ * is accurate: that it finds the nearest floating point
+ * representation for the input string (within +/- 1 ulp and correctly
+ * rounded).  Makes sure that error in <esl_mem_strtof()> is tolerable:
+ * that its relative error is no more than 4 ulps away from
+ * <strtof()>, corresponding to a maximum relative error of ~5e-7.
+ * 
+ * There is an error distribution, and this test can stochastically
+ * fail normally. We force a fixed RNG seed unless caller toggles an
+ * <allow_badluck> option to <TRUE>.
+ * 
+ * See esl_mem.md for notes on rationale for rolling our own strtof(),
+ * and its tradeoffs.
+ */
+static void
+utest_mem_strtof_error(ESL_RANDOMNESS *rng, int allow_badluck)
+{
+  char    msg[] = "mem_strtof() error unit test failed";
+  char    s[32];                                    // random generated string representation of a float. Max len of slen+'.'+flen+'e'+"-xx" = 18.
+  typedef union { float f; uint32_t rep; } flunion; // union gives us access to IEEE754 bitwise representation of a float
+  flunion v1;                                       // value deduced by strtof(), which we assume is accurate
+  flunion v2;                                       // value deduced by esl_mem_strtof(), which is fast and not too inaccurate
+  int     ulperr;                                   // error in integer representation of significand
+  int     trial;
+
+  if (! allow_badluck) esl_randomness_Init(rng, 42);
+
+  for (trial = 0; trial < 100000; trial++)          // check 100,000 numbers
+    {
+      esl_rnd_floatstring(rng, s);
+
+      v1.f = strtof(s, NULL);
+      esl_mem_strtof(s, strlen(s), NULL, &(v2.f));
+      ulperr =  (v1.rep & 0x7fffff) - (v2.rep & 0x7fffff);
+
+      if (ulperr > 4)    esl_fatal(msg);  //   4 ulp = up to 4 \epsilon ~ 5e-7 rel error. 
+    }
+}
+  
 
 
 static void
@@ -1220,7 +1280,9 @@ utest_memstrcontains(void)
 
 static ESL_OPTIONS options[] = {
    /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
-  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",      0},
+  { "-h",  eslARG_NONE,    FALSE, NULL, NULL,  NULL,  NULL, NULL, "show help and usage",                     0},
+  { "-s",  eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",           0 },
+  { "-x",  eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "allow bad luck (stochastic failures)",    0 },
   { 0,0,0,0,0,0,0,0,0,0},
 };
 static char usage[]  = "[-options]";
@@ -1229,7 +1291,12 @@ static char banner[] = "test driver for mem module";
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS *go = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_GETOPTS    *go   = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng  = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+  int   allow_badluck  = esl_opt_GetBoolean(go, "-x");  // if a utest can fail just by chance, let it, instead of suppressing
+
+  fprintf(stderr, "## %s\n", argv[0]);
+  fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
 
   utest_mem_strtoi32();
   utest_mem_strtoi64();
@@ -1241,6 +1308,12 @@ main(int argc, char **argv)
   utest_memstrcmp_memstrpfx();
   utest_memstrcontains();
 
+  /* tests that can fail stochastically go last, because they reset RNG seed by default */
+  utest_mem_strtof_error(rng, allow_badluck);
+
+  fprintf(stderr, "#  status = ok\n");
+  
+  esl_randomness_Destroy(rng);
   esl_getopts_Destroy(go);
   return 0;
 }

@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 #include <ctype.h>
+#include <limits.h>
 #include <string.h>
 
 #include "easel.h"
@@ -156,18 +157,18 @@ esl_json_PartialParse(ESL_JSON_PARSER *parser, ESL_JSON *pi, const char *s, esl_
       switch (parser->state) {
       case eslJSON_OBJ_NONE:   // Only at very beginning of parse: initialize with root object
 	if      (s[i] == '{')    { parser->state = eslJSON_OBJ_OPEN; new_token(parser, pi, eslJSON_OBJECT, parser->pos);  }
-	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). expected to open object with {", s[i], parser->linenum, parser->linepos);
+	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). expected JSON object to start with {", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.1}
 	break;
 
       case eslJSON_OBJ_OPEN:
 	if      (s[i] == '"')   { parser->state = eslJSON_KEY_OPEN; new_token(parser, pi, eslJSON_KEY, parser->pos+1); } // pos+1 because not including the quote 
 	else if (s[i] == '}')     closed_value = eslJSON_OBJECT;
-	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). expected object key, or closing }", s[i], parser->linenum, parser->linepos);
+	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). expected JSON object key, or closing }", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos);   // {jbad.3}
 	break;
 
       case eslJSON_OBJ_COMMA:
 	if      (s[i] == '"')   { parser->state = eslJSON_KEY_OPEN;    new_token(parser, pi, eslJSON_KEY,  parser->pos+1); }
-	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). expected object key, or closing }", s[i], parser->linenum, parser->linepos);
+	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). expected JSON object key after comma", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos);   // {jbad.2}
 	break;
 
       case eslJSON_OBJ_COLON:
@@ -182,7 +183,7 @@ esl_json_PartialParse(ESL_JSON_PARSER *parser, ESL_JSON *pi, const char *s, esl_
 	else if (s[i] == 't')   { parser->state = eslJSON_VAL_TRUE;    new_token(parser, pi, eslJSON_BOOLEAN, parser->pos);   }
 	else if (s[i] == 'f')   { parser->state = eslJSON_VAL_FALSE;   new_token(parser, pi, eslJSON_BOOLEAN, parser->pos);   }
 	else if (s[i] == 'n')   { parser->state = eslJSON_VAL_NULL;    new_token(parser, pi, eslJSON_NULL,    parser->pos);   }
-	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). expected a value", s[i], parser->linenum, parser->linepos);
+	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). expected JSON value", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.4}
 	break;
 
       case eslJSON_STR_OPEN:
@@ -191,7 +192,7 @@ esl_json_PartialParse(ESL_JSON_PARSER *parser, ESL_JSON *pi, const char *s, esl_
 	if      ( s[i] == '\\' )  parser->state = eslJSON_STR_BACKSLASH; 
 	else if ( s[i] == '"'  )  closed_value  = eslJSON_STRING;
 	else if (! iscntrl(s[i])) parser->state = eslJSON_STR_CHAR;     // anything not forbidden is allowed: this will accept UTF-8 one byte at a time, though without validating that it's a valid UTF-8 byte sequence.
-	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). expected a string character", s[i], parser->linenum, parser->linepos);
+	else ESL_FAIL(eslEFORMAT, errbuf, "invalid control char at line %d pos %d. expected JSON string character", parser->linenum, parser->linepos);  // {jbad.5}  (For god's sake don't try to print it.) In emacs: C-q <key> to insert, for instance DEL.
 	break;
 
       case eslJSON_KEY_OPEN:
@@ -200,37 +201,37 @@ esl_json_PartialParse(ESL_JSON_PARSER *parser, ESL_JSON *pi, const char *s, esl_
 	if      ( s[i] == '\\' )  parser->state = eslJSON_KEY_BACKSLASH; 
 	else if ( s[i] == '"'  )  closed_value  = eslJSON_KEY;
 	else if (! iscntrl(s[i])) parser->state = eslJSON_KEY_CHAR;      
-	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). expected a key string character", s[i], parser->linenum, parser->linepos);
+	else ESL_FAIL(eslEFORMAT, errbuf, "invalid control char at line %d pos %d. expected JSON key character", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos);  // {jbad.6}
 	break;
 
       case eslJSON_STR_BACKSLASH:
 	if      ( strchr("\"\\/bfnrt", s[i]) != NULL)  parser->state = eslJSON_STR_PROTECTED; 
 	else if ( s[i] == 'u')                         parser->state = eslJSON_STR_UNICODE; 
-	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). After \\, expected \"\\/bfnrtu", s[i], parser->linenum, parser->linepos);
+	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). After \\, valid JSON chars are \"\\/bfnrtu", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.7}
 	break;
 
       case eslJSON_KEY_BACKSLASH:
 	if      ( strchr("\"\\/bfnrt", s[i]) != NULL)  parser->state = eslJSON_KEY_PROTECTED; 
 	else if ( s[i] == 'u')                         parser->state = eslJSON_KEY_UNICODE; 
-	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). After \\, expected \"\\/bfnrtu", s[i], parser->linenum, parser->linepos);
+	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). After \\, valid JSON chars are \"\\/bfnrtu", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.8}
 	break;
 
       case eslJSON_STR_UNICODE:
 	if ( isxdigit(s[i]))  parser->codelen++; 
-	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). In unicode, expected hex digit", s[i], parser->linenum, parser->linepos);
+	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). In JSON unicode, expected hex digit", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.9}
 	if ( parser->codelen == 4) { parser->state = eslJSON_STR_PROTECTED; parser->codelen = 0; }
 	break;
 	    
       case eslJSON_KEY_UNICODE:
 	if ( isxdigit(s[i]))  parser->codelen++; 
-	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). In unicode, expected hex digit", s[i], parser->linenum, parser->linepos);
+	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d). In JSON unicode, expected hex digit", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.10}
 	if ( parser->codelen == 4) { parser->state = eslJSON_KEY_PROTECTED; parser->codelen = 0; }
 	break;
 
       case eslJSON_NUM_SIGN:
 	if      (s[i] == '0')    parser->state = eslJSON_NUM_ZERO;    
 	else if (isdigit(s[i]))  parser->state = eslJSON_NUM_NONZERO; 	    
-	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) inn number after leading sign, expected digit", s[i], parser->linenum, parser->linepos);
+	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) in number after leading sign of JSON number", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.11}
 	break;
 
       case eslJSON_NUM_ZERO:
@@ -238,7 +239,7 @@ esl_json_PartialParse(ESL_JSON_PARSER *parser, ESL_JSON *pi, const char *s, esl_
 	else if (strchr("eE",  s[i]))  parser->state = eslJSON_NUM_EXP; 
 	else if (strchr(",]}", s[i]))  closed_value  = eslJSON_NUMBER;
 	else if (isspace(s[i]))        closed_value  = eslJSON_NUMBER;
-	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after leading zero of a number", s[i], parser->linenum, parser->linepos);
+	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after leading zero of JSON number", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.12}
 	break;
 
       case eslJSON_NUM_NONZERO:
@@ -248,12 +249,12 @@ esl_json_PartialParse(ESL_JSON_PARSER *parser, ESL_JSON *pi, const char *s, esl_
 	else if (strchr("eE",  s[i]))  parser->state = eslJSON_NUM_EXP; 
 	else if (strchr(",]}", s[i]))  closed_value  = eslJSON_NUMBER;
 	else if (isspace(s[i]))        closed_value  = eslJSON_NUMBER;
-	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after leading digit(s) of a number", s[i], parser->linenum, parser->linepos);
+	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after leading digit(s) of JSON number", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos);  // {jbad.13}
 	break;
 
       case eslJSON_NUM_POINT:
 	if (isdigit(s[i]))  parser->state = eslJSON_NUM_FRACDIGIT; 
-	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after decimal point", s[i], parser->linenum, parser->linepos);
+	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after decimal point of JSON number", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos);  // {jbad.14}
 	break;
 	    
       case eslJSON_NUM_FRACDIGIT:
@@ -261,57 +262,57 @@ esl_json_PartialParse(ESL_JSON_PARSER *parser, ESL_JSON *pi, const char *s, esl_
 	else if (strchr("eE",  s[i])) parser->state = eslJSON_NUM_EXP; 
 	else if (strchr(",]}", s[i])) closed_value  = eslJSON_NUMBER;
 	else if (isspace(s[i]))       closed_value  = eslJSON_NUMBER;
-	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after decimal point", s[i], parser->linenum, parser->linepos);
+	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) in fractional part of JSON number", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.15}
 	break;
 
       case eslJSON_NUM_EXP:
 	if      (isdigit(s[i]))       parser->state = eslJSON_NUM_EXPDIGIT; 
 	else if (strchr("+-", s[i]))  parser->state = eslJSON_NUM_EXPSIGN;  
-	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) in exponent", s[i], parser->linenum, parser->linepos);
+	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) in exponent of JSON number", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.16}
 	break;
 
       case eslJSON_NUM_EXPSIGN:
 	if      (isdigit(s[i]))      parser->state = eslJSON_NUM_EXPDIGIT; 
-	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after exponent sign", s[i], parser->linenum, parser->linepos);
+	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after exponent sign of JSON number", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.17}
 	break;
 
       case eslJSON_NUM_EXPDIGIT:
 	if      (isdigit(s[i]))        parser->state = eslJSON_NUM_EXPDIGIT; 
 	else if (strchr(",]}", s[i]))  closed_value  = eslJSON_NUMBER;
 	else if (isspace(s[i]))        closed_value  = eslJSON_NUMBER;
-	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) in exponent", s[i], parser->linenum, parser->linepos);
+	else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) in exponent of JSON number", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.18}
 	break;
 
       case eslJSON_VAL_TRUE:
-	if (s[i] != "true"[++parser->codelen]) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) in 'true'", s[i], parser->linenum, parser->linepos);
+	if (s[i] != "true"[++parser->codelen]) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) in JSON 'true'", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.19}
 	if (parser->codelen == 3) { parser->codelen = 0; closed_value = eslJSON_BOOLEAN; }
 	break;
 
       case eslJSON_VAL_FALSE:
-	if (s[i] != "false"[++parser->codelen]) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) in 'false'", s[i], parser->linenum, parser->linepos);
+	if (s[i] != "false"[++parser->codelen]) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) in JSON 'false'", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.20}
 	if (parser->codelen == 4) { parser->codelen = 0; closed_value = eslJSON_BOOLEAN; }
 	break;
 
       case eslJSON_VAL_NULL:
-	if (s[i] != "null"[++parser->codelen]) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) in 'null'", s[i], parser->linenum, parser->linepos);
+	if (s[i] != "null"[++parser->codelen]) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) in JSON 'null'", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.21}
 	if (parser->codelen == 3) { parser->codelen = 0; closed_value = eslJSON_NULL; }
 	break;
 
       case eslJSON_VAL_INOBJ:
 	if      (s[i] == ',')     parser->state = eslJSON_OBJ_COMMA; 
 	else if (s[i] == '}')     closed_value  = eslJSON_OBJECT;
-	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after object value", s[i], parser->linenum, parser->linepos);
+	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after JSON object value", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.22}
 	break;
 
       case eslJSON_VAL_INARR:
 	if      (s[i] == ',')     parser->state = eslJSON_ARR_COMMA; 
 	else if (s[i] == ']')     closed_value  = eslJSON_ARRAY;
-	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after array value", s[i], parser->linenum, parser->linepos);
+	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after JSON array value", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.23}
 	break;
 
       case eslJSON_STR_ASKEY:
 	if      (s[i] == ':')     parser->state = eslJSON_OBJ_COLON; 
-	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after key", s[i], parser->linenum, parser->linepos);
+	else if (! isspace(s[i])) ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after JSON key", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.24}
 	break;
 
       default: esl_fatal("no such state");
@@ -340,14 +341,14 @@ esl_json_PartialParse(ESL_JSON_PARSER *parser, ESL_JSON *pi, const char *s, esl_
 	      if      (s[i] == ',')     parser->state = eslJSON_OBJ_COMMA; 
 	      else if (s[i] == '}')   { parser->state = eslJSON_VAL_INOBJ; closed_value = eslJSON_OBJECT; }
 	      else if (isspace(s[i]))   parser->state = eslJSON_VAL_INOBJ; 
-	      else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after number value in obj", s[i], parser->linenum, parser->linepos);
+	      else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after JSON number in key:value pair", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.25}
 	    }
 	  else if (pi->tok[parser->curridx].type == eslJSON_ARRAY)
 	    {
 	      if      (s[i] == ',')     parser->state = eslJSON_ARR_COMMA; 
 	      else if (s[i] == ']')   { parser->state = eslJSON_VAL_INARR; closed_value = eslJSON_ARRAY; }
 	      else if (isspace(s[i]))   parser->state = eslJSON_VAL_INARR; 
-	      else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after number value in arr", s[i], parser->linenum, parser->linepos);
+	      else ESL_FAIL(eslEFORMAT, errbuf, "invalid char `%c` (line %d pos %d) after JSON number in array", isprint(s[i]) ? s[i] : ' ', parser->linenum, parser->linepos); // {jbad.26}
 	    }
 	  else esl_fatal("doesn't happen");
 	}
@@ -550,21 +551,93 @@ esl_json_GetLen(const ESL_JSON *pi, int idx, const ESL_BUFFER *bf)
   return pi->tok[idx].endpos - pi->tok[idx].startpos + 1;
 }
 
+
+/* Function:  esl_json_ReadInt()
+ * Synopsis:  Read an integer from a valid JSON number token.
+ * Incept:    SRE, Tue 14 Aug 2018
+ *
+ * Purpose:   Parse tree <pi> token <idx> is a validated JSON number
+ *            in input buffer <bf>; return its value in <*ret_i>.
+ *            
+ *            JSON number format is a superset of the integers.
+ *            Valid integers match <-?0 | -?[1-9][0-9]*>.
+ *            
+ * Args:      pi    - JSON parse tree
+ *            idx   - index of token in <pi>
+ *            bf    - input buffer that <pi> is for
+ *            ret_i - RETURN: integer value      
+ *
+ * Returns:   <eslOK> on success, and <*ret_i> contains the value.
+ *  
+ *            <eslEFORMAT> if the complete token isn't a valid integer,
+ *            and <*ret_i> is 0.
+ *            
+ *            <eslERANGE> if the integer value overflows (underflows)
+ *            INT_MAX (INT_MIN), and <*ret_i> is INT_MAX (INT_MIN).
+ *
+ * Throws:    (no abnormal error conditions)
+ *
+ * Xref:      Shares code with <esl_mem_strtoi()>. Less (and different)
+ *            error checking, because we assume token has already been
+ *            validated as a JSON number format, and we assume that 
+ *            the entire token consists of integer (no whitespace or 
+ *            trailing stuff), and it must be base 10.
+ */
 int
 esl_json_ReadInt(const ESL_JSON *pi, int idx, ESL_BUFFER *bf, int *ret_i)
 {
-  esl_pos_t n  = esl_json_GetLen(pi, idx, bf);
-  int       nc;
-  int       status;
+  char     *p     = esl_json_GetMem(pi, idx, bf);
+  esl_pos_t n     = esl_json_GetLen(pi, idx, bf);
+  int       val   = 0;
+  esl_pos_t i     = 0;
+  int       sign  = 1;
+  int       digit = 0;
 
-  status = esl_mem_strtoi(esl_json_GetMem(pi, idx, bf), n, 10, &nc, ret_i);
-  if       (status == eslEFORMAT) ESL_FAIL(eslEFORMAT, bf->errmsg, "no integer digits seen");
-  else if  (status == eslERANGE)  ESL_FAIL(eslERANGE,  bf->errmsg, "integer overflow/underflow");
-  else if  (status != eslOK)      ESL_FAIL(status,     bf->errmsg, "unexpected integer conversion error");
-  else if  (nc < n)               ESL_FAIL(eslEFORMAT, bf->errmsg, "integer conversion stopped short (is it a real number?)");
-  else return eslOK;
+  bf->errmsg[0] = '\0';
+
+  if (p[i] == '-') { sign = -1; i++; }
+  for (; i < n; i++)
+    { // don't have to check leading zero specially; JSON parser has already validated that it's not 00, 0a, or some such.
+      if (! isdigit(p[i])) { *ret_i = 0; ESL_FAIL(eslEFORMAT, bf->errmsg, "bad JSON integer format, contains nondigit"); } // only happens for .eE+-: components of a float
+      digit = p[i] - '0';
+
+      if (sign == 1  &&  val > (INT_MAX - digit) / 10) { *ret_i = INT_MAX; return eslERANGE; } 
+      if (sign == -1 &&  val < (INT_MIN + digit) / 10) { *ret_i = INT_MIN; return eslERANGE; } 
+      val = val * 10 + sign * digit;
+    }
+  *ret_i = val;
+  return eslOK;
 }
 
+
+/* Function:  esl_json_ReadFloat()
+ * Synopsis:  Read a float from a valid JSON number token.
+ * Incept:    SRE, Tue 14 Aug 2018
+ *
+ * Purpose:   Given a parse tree <pi>, where token <idx> is a validated
+ *            JSON number in input buffer <bf>, convert the decimal
+ *            string representation to a float; return the float in
+ *            <*ret_x>.
+ *            
+ *            This function is adapted from <esl_mem_strtof()>.
+ *            Because the input was already validated as a JSON
+ *            number, and all JSON numbers are valid floating-point
+ *            decimal string representations, so no error checking is
+ *            needed, and the complete token is converted. JSON does
+ *            not have a representation for "NaN" or "infinity".
+ *            
+ *            If the representation overflows (e.g. "1e999") the
+ *            result is +/-infinity. If it underflows (e.g. "1e-999")
+ *            the result is 0.  These conversions still return
+ *            <eslOK>.
+ *            
+ *            Like <esl_mem_strtof()>, this conversion incurs a small
+ *            roundoff error (usually within +/-1 ulp) that a strictly
+ *            correct <strtof()> implementation does not. See
+ *            <esl_mem.md> for discussion.
+ *
+ * Returns:   <eslOK>.
+ */
 int
 esl_json_ReadFloat(const ESL_JSON *pi, int idx, ESL_BUFFER *bf, float *ret_x)
 {
@@ -587,7 +660,7 @@ esl_json_ReadFloat(const ESL_JSON *pi, int idx, ESL_BUFFER *bf, float *ret_x)
     while (++i < n && isdigit(p[i]))
       {
 	val  += (p[i]-'0') * frac;
-	frac *= 0.1;   // roundoff error here! I have not checked its effects.
+	frac *= 0.1;   // this is a source of roundoff error.
       }
   if (i < n && (p[i] == 'e' || p[i] == 'E'))
     {
@@ -595,10 +668,15 @@ esl_json_ReadFloat(const ESL_JSON *pi, int idx, ESL_BUFFER *bf, float *ret_x)
       if       (p[i] == '-') { expsign = -1.; i++; }
       else if  (p[i] == '+') { expsign =  1.; i++; }
       while (i < n && isdigit(p[i]))
-	exponent += 10.*exponent + (p[i++]-'0') ;
+	exponent = 10.*exponent + (p[i++]-'0') ;
+
+      exponent = exponent * expsign;
+      if (isfinite(val)) while ( val >= 10. ) { exponent += 1.; val /= 10.; }  // renormalization. (and another source of roundoff error)
+      if (val != 0.0)    while ( val <  1.  ) { exponent -= 1.; val *= 10.; }
     }
   ESL_DASSERT1(( i == n ));
-  *ret_x = sign * val * powf(10.,expsign*exponent);  // range errors (underflow/overflow) aren't checked for.
+
+  *ret_x = sign * val * powf(10.,exponent);  // range errors (over/underflow) aren't checked for; just let it go to +/-inf.
   return eslOK;
 }
   
@@ -1076,6 +1154,150 @@ utest_evil(ESL_RANDOMNESS *rng)
   esl_buffer_Close(bf);
   free(s);
 }
+
+/* utest_read_int
+ * Test esl_json_ReadInt() on extreme values.
+ */
+static void
+utest_read_int(void)
+{
+  char        msg[] = "json utest_read_int failed";
+  ESL_BUFFER *bf; 
+  ESL_JSON   *pi;
+  int         val;
+
+  if ( esl_buffer_OpenMem("{ \"a\" : 42 }", -1, &bf) != eslOK) esl_fatal(msg);
+  if ( esl_json_Parse(bf, &pi)                       != eslOK) esl_fatal(msg);
+  if ( esl_json_ReadInt(pi, 2, bf, &val)             != eslOK) esl_fatal(msg);
+  if (val != 42)                                               esl_fatal(msg);
+  esl_buffer_Close(bf);
+  esl_json_Destroy(pi);
+
+  if ( esl_buffer_OpenMem("{ \"a\" : 42.0 }", -1, &bf) != eslOK)      esl_fatal(msg);  // 42. isn't a valid JSON number, but 42.0 is.
+  if ( esl_json_Parse(bf, &pi)                         != eslOK)      esl_fatal(msg);
+  if ( esl_json_ReadInt(pi, 2, bf, &val)               != eslEFORMAT) esl_fatal(msg);
+  if (val != 0)                                                       esl_fatal(msg);
+  esl_buffer_Close(bf);
+  esl_json_Destroy(pi);
+
+  if (INT_MAX == 2147483647)  // rather than hassling with printing INT_MAX+1 more generally, when we may not be able to find an integer size that fits it.
+    {
+      if ( esl_buffer_OpenMem("{ \"a\" : 2147483647 }", -1, &bf) != eslOK) esl_fatal(msg);
+      if ( esl_json_Parse(bf, &pi)                               != eslOK) esl_fatal(msg);
+      if ( esl_json_ReadInt(pi, 2, bf, &val)                     != eslOK) esl_fatal(msg);
+      if (val != INT_MAX)                                                  esl_fatal(msg);
+      esl_buffer_Close(bf);
+      esl_json_Destroy(pi);
+      
+      if ( esl_buffer_OpenMem("{ \"a\" : 2147483648 }", -1, &bf) != eslOK)     esl_fatal(msg);
+      if ( esl_json_Parse(bf, &pi)                               != eslOK)     esl_fatal(msg);
+      if ( esl_json_ReadInt(pi, 2, bf, &val)                     != eslERANGE) esl_fatal(msg);
+      if (val != INT_MAX)                                                      esl_fatal(msg);
+      esl_buffer_Close(bf);
+      esl_json_Destroy(pi);
+
+      if ( esl_buffer_OpenMem("{ \"a\" : -2147483648 }", -1, &bf) != eslOK) esl_fatal(msg);
+      if ( esl_json_Parse(bf, &pi)                                != eslOK) esl_fatal(msg);
+      if ( esl_json_ReadInt(pi, 2, bf, &val)                      != eslOK) esl_fatal(msg);
+      if (val != INT_MIN)                                                   esl_fatal(msg);
+      esl_buffer_Close(bf);
+      esl_json_Destroy(pi);
+
+      if ( esl_buffer_OpenMem("{ \"a\" : -2147483649 }", -1, &bf) != eslOK)     esl_fatal(msg);
+      if ( esl_json_Parse(bf, &pi)                                != eslOK)     esl_fatal(msg);
+      if ( esl_json_ReadInt(pi, 2, bf, &val)                      != eslERANGE) esl_fatal(msg);
+      if (val != INT_MIN)                                                       esl_fatal(msg);
+      esl_buffer_Close(bf);
+      esl_json_Destroy(pi);
+    }
+}
+  
+static void
+utest_read_float(void)
+{
+  char        msg[] = "json utest_read_float failed";
+  struct tests_s { char *json;               float trueval; float rtol; float atol; int status; }
+  tests[] = {    { "{ \"a\" :  42 }",                 42.0,        0.0,        0.0,      eslOK  },
+		 { "{ \"a\" :  42.12345 }",       42.12345,       1e-6,        0.0,      eslOK  },
+		 { "{ \"a\" : -42.12345 }",      -42.12345,       1e-6,        0.0,      eslOK  },
+		 { "{ \"a\" :  42.12345e1 }",     421.2345,       1e-6,        0.0,      eslOK  },
+		 { "{ \"a\" : -42.12345e1 }",    -421.2345,       1e-6,        0.0,      eslOK  },
+		 { "{ \"a\" :  42.12345e-1 }",    4.212345,       1e-6,        0.0,      eslOK  },
+		 { "{ \"a\" : -42.12345e-1 }",   -4.212345,       1e-6,        0.0,      eslOK  },
+		 { "{ \"a\" :  3.4e38  }",          3.4e38,       1e-6,        0.0,      eslOK  },
+		 { "{ \"a\" :  3.5e38  }",     eslINFINITY,        0.0,        0.0,      eslOK  },    // overflows. rtol = 0 leads to a inf==inf equality test below
+		 { "{ \"a\" :  1.2e-38 }",         1.2e-38,       1e-6,        0.0,      eslOK  },
+		 { "{ \"a\" :  1.3e-38 }",         1.3e-38,       1e-6,        0.0,      eslOK  },    // denormal, so this still works
+		 { "{ \"a\" :  1e-46 }",               0.0,        0.0,        0.0,      eslOK  },    // underflows denormals to 0.0
+		 { "{ \"a\" : 0.0001e39 }",           1e35,       1e-6,        0.0,      eslOK  },    // requires renormalization to get right
+		 { "{ \"a\" : 1000e-39 }",           1e-36,       1e-6,        0.0,      eslOK  },    // ... ditto
+		 { "{ \"a\" : 9999999999999999999999999999999999999999e-10 }",         eslINFINITY, 0.0, 0.0, eslOK },  // a real strtof() gets this right: it's 1e30
+		 { "{ \"a\" : 0.0000000000000000000000000000000000000000000001e10 }",  0.0,         0.0, 0.0, eslOK },  //  ... and this should be 1e-36
+		 { "{ \"a\" : -9999999999999999999999999999999999999999e-10 }",       -eslINFINITY, 0.0, 0.0, eslOK },  //  ... this, -1e30
+		 { "{ \"a\" : -0.0000000000000000000000000000000000000000000001e10 }", 0.0,         0.0, 0.0, eslOK },  //  ... this, -1e-36
+		 
+  }; 
+  int         ntests = sizeof(tests) / sizeof(struct tests_s);
+  ESL_BUFFER *bf; 
+  ESL_JSON   *pi;
+  float       val;
+  int         i;
+  int         status;
+
+  for (i = 0; i < ntests; i++)
+    {
+      if ( esl_buffer_OpenMem(tests[i].json, -1, &bf)     != eslOK)           esl_fatal(msg);
+      if ( esl_json_Parse(bf, &pi)                        != eslOK)           esl_fatal(msg);
+      if (( status = esl_json_ReadFloat(pi, 2, bf, &val)) != tests[i].status) esl_fatal(msg);
+      if (tests[i].rtol == 0.0) {
+	if (val != tests[i].trueval) esl_fatal(msg);  // includes inf==inf test
+      } else if (esl_FCompareNew(tests[i].trueval, val, tests[i].rtol, tests[i].atol) != eslOK) esl_fatal(msg);
+
+      esl_buffer_Close(bf);
+      esl_json_Destroy(pi);
+    } 
+}
+  
+
+/* utest_read_float_err()
+ * Based on esl_mem.c::utest_mem_strtof_error().
+ */
+static void
+utest_read_float_err(ESL_RANDOMNESS *rng, int allow_badluck)
+{
+  char msg[] = "esl_json read_float_err unit test failed";
+  char        s[32];                                 // randomly generated decimal string rep of a float
+  char        sj[64];                                // JSON string constructed from <s>, e.g.  { "a" = 42.0 }
+  ESL_BUFFER *bf;                                    // input buffer
+  ESL_JSON   *pi;                                    // JSON parse tree
+  typedef union { float f; uint32_t rep; } flunion;  // union gives us access to the IEEE754 binary representation
+  flunion     v1;                                    // reference conversion from strtof()
+  flunion     v2;                                    // conversion from esl_json_ReadFloat() for comparison   
+  int         ulperr;                                // ulp error
+  int         trial;
+
+  if (! allow_badluck) esl_randomness_Init(rng, 42);
+
+  for (trial = 0; trial < 10000; trial++)
+    {
+      if ( esl_rnd_floatstring(rng, s)            != eslOK) esl_fatal(msg);
+      if ( sprintf(sj, "{ \"a\" : %s }", s)       < 0)      esl_fatal(msg);
+      if ( esl_buffer_OpenMem(sj, -1, &bf)        != eslOK) esl_fatal(msg);
+      if ( esl_json_Parse(bf, &pi)                != eslOK) esl_fatal(msg);
+      if ( esl_json_ReadFloat(pi, 2, bf, &(v2.f)) != eslOK) esl_fatal(msg);
+
+      v1.f   = strtof(s, NULL);
+      ulperr =  (v1.rep & 0x7fffff) - (v2.rep & 0x7fffff);
+
+      if (ulperr > 4)    esl_fatal(msg);  // 4 ulp = up to 4 \epsilon ~ 5e-7 rel error. 
+      
+      esl_buffer_Close(bf);
+      esl_json_Reuse(pi);
+    }  
+  esl_json_Destroy(pi);
+}
+
+
 #endif /* eslJSON_TESTDRIVE */
 
 /*****************************************************************
@@ -1086,9 +1308,10 @@ utest_evil(ESL_RANDOMNESS *rng)
 #include "esl_getopts.h"
 
 static ESL_OPTIONS options[] = {
-  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
-  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
-  { "-s",        eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
+  /* name           type      default  env  range toggles reqs incomp  help                             docgroup*/
+  { "-h",  eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",    0 },
+  { "-s",  eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",           0 },
+  { "-x",  eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "allow bad luck (stochastic failures)",    0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options]";
@@ -1099,11 +1322,17 @@ main(int argc, char **argv)
 {
   ESL_GETOPTS    *go   = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   ESL_RANDOMNESS *rng  = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+  int   allow_badluck  = esl_opt_GetBoolean(go, "-x");  // if a utest can fail just by chance, let it, instead of suppressing
 
   fprintf(stderr, "## %s\n", argv[0]);
   fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
 
   utest_evil(rng);
+  utest_read_int();
+  utest_read_float();
+
+  /* tests that can stochastically fail go last, because they reinit the RNG w/ fixed seed */
+  utest_read_float_err(rng, allow_badluck);
 
   fprintf(stderr, "#  status = ok\n");
  

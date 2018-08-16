@@ -6,10 +6,11 @@
  *  3. Debugging/development tools.
  *  4. Other fundamental sampling (including Gaussian, gamma).
  *  5. Multinomial sampling from discrete probability n-vectors.
- *  6. Benchmark driver
- *  7. Unit tests.
- *  8. Test driver.
- *  9. Example.
+ *  6. Random data generators (unit testing, etc.)
+ *  7. Benchmark driver
+ *  8. Unit tests.
+ *  9. Test driver.
+ * 10. Example.
  *  
  * See http://csrc.nist.gov/rng/ for the NIST random number
  * generation test suite.
@@ -749,29 +750,6 @@ esl_rnd_Dirichlet(ESL_RANDOMNESS *rng, const double *alpha, int K, double *p)
 }
 
 
-/* Function:  esl_rnd_mem()
- * Synopsis:  Overwrite a buffer with random garbage.
- * Incept:    SRE, Fri Feb 19 08:53:07 2016
- *
- * Purpose:   Write <n> bytes of random garbage into buffer
- *            <buf>, by uniform sampling of values 0..255,
- *            using generator <rng>.
- *
- *            Used in unit tests that are reusing memory, and that
- *            want to make sure that there's no favorable side effects
- *            from that reuse.
- */
-void
-esl_rnd_mem(ESL_RANDOMNESS *rng, void *buf, int n)
-{
-  unsigned char *p = (unsigned char *) buf;
-  int            i;
-
-  for (i = 0; i < n; i++)
-    p[i] = (unsigned char) esl_rnd_Roll(rng, 256);
-}
-
-
 /*****************************************************************
  *# 5. Multinomial sampling from discrete probability n-vectors
  *****************************************************************/ 
@@ -908,7 +886,106 @@ esl_rnd_FChooseCDF(ESL_RANDOMNESS *r, const float *cdf, int N)
 
 
 /*****************************************************************
- * 6. Benchmark driver
+ * 6. Random data generators (unit testing, etc.)
+ *****************************************************************/
+
+
+
+/* Function:  esl_rnd_mem()
+ * Synopsis:  Overwrite a buffer with random garbage.
+ * Incept:    SRE, Fri Feb 19 08:53:07 2016
+ *
+ * Purpose:   Write <n> bytes of random garbage into buffer
+ *            <buf>, by uniform sampling of values 0..255,
+ *            using generator <rng>.
+ *
+ *            Used in unit tests that are reusing memory, and that
+ *            want to make sure that there's no favorable side effects
+ *            from that reuse.
+ */
+int
+esl_rnd_mem(ESL_RANDOMNESS *rng, void *buf, int n)
+{
+  unsigned char *p = (unsigned char *) buf;
+  int            i;
+
+  for (i = 0; i < n; i++)
+    p[i] = (unsigned char) esl_rnd_Roll(rng, 256);
+  return eslOK;
+}
+
+
+/* Function:  esl_rnd_floatstring()
+ * Synopsis:  Generate a string representation of a floating point number.
+ * Incept:    SRE, Wed 15 Aug 2018 [Hamilton, It's Quiet Uptown]
+ *
+ * Purpose:   Generate a string decimal representation of a random 
+ *            floating point number in <s>, which is space provided
+ *            by the caller, allocated for at least 20 characters.
+ *            
+ *            The string representation of the number consists of:
+ *              * an optional - sign  (50%)
+ *              * a 1-6 digit integer part; (1/7 '0'; else 1/7 for each len, [1-9][0-9]* uniformly)
+ *              * an optional fractional part (50%), consisting of:
+ *                 - '.'
+ *                 - a 1-7 digit fractional part; 1/7 for each len, [0-9]* uniformly
+ *              * an optional exponent (50%), consisting of:
+ *                 - 'e'
+ *                 -  -20..e20, 1/41 uniformly.
+ *              * '\0' terminator.
+ *
+ *            Maximum length is 1+6+1+7+4+1 = 20.
+ *            
+ *            The string representation is an intersection of what's
+ *            valid for <strtod()>, JSON number values, and C. JSON
+ *            number values do not permit numbers like "1."  (a
+ *            decimal part, decimal point, no fractional part), nor
+ *            hexadecimal representations, nor leading or trailing
+ *            whitespace.
+ *            
+ *            The generated number does not attempt to exercise
+ *            extreme values. The absolute magnitude of non-zero
+ *            numbers ranges from 0.0000001e-20..999999e20 (1e-27 to
+ *            ~1e27), well within IEEE754 FLT_MIN..FLT_MAX
+ *            range. Special values "infinity" and "nan" are not
+ *            generated.  Zero can be represented by many different
+ *            patterns <-?0.0+(e-?..)?>.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_rnd_floatstring(ESL_RANDOMNESS *rng, char *s)
+{
+  int i = 0;
+  int n;
+  int exponent;
+
+  if (esl_rnd_Roll(rng, 2)) s[i++] = '-';
+  n = esl_rnd_Roll(rng, 7);                                      // length of integer part.
+  s[i++] = (n-- == 0) ? '0' : '0' + (1 + esl_rnd_Roll(rng, 9));  // No 0 prefix except "0."
+  while (n-- > 0) s[i++] = '0' + esl_rnd_Roll(rng, 10);
+  if (esl_rnd_Roll(rng, 2))                                      // optional fractional part
+    {
+      n = 1 + esl_rnd_Roll(rng, 7);                           
+      s[i++] = '.';
+      while (n--) s[i++] = '0' + esl_rnd_Roll(rng, 10);
+    }
+  if (esl_rnd_Roll(rng, 2))                                      // optional exponent
+    {
+      s[i++] = 'e';
+      exponent = -20 + esl_rnd_Roll(rng, 41);
+      i += sprintf(s+i, "%d", exponent);
+    }
+  s[i++] = '\0';
+  ESL_DASSERT1(( i <= 20 ));
+  return eslOK;
+}
+
+
+
+
+/*****************************************************************
+ * 7. Benchmark driver
  *****************************************************************/
 #ifdef eslRANDOM_BENCHMARK
 /*
@@ -979,7 +1056,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 7. Unit tests.
+ * 8. Unit tests.
  *****************************************************************/
 
 #ifdef eslRANDOM_TESTDRIVE
@@ -1116,7 +1193,7 @@ utest_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
 
 
 /*****************************************************************
- * 8. Test driver.
+ * 9. Test driver.
  *****************************************************************/
 #ifdef eslRANDOM_TESTDRIVE
 /* gcc -g -Wall -o esl_random_utest -L. -I. -DeslRANDOM_TESTDRIVE esl_random.c -leasel -lm
@@ -1213,7 +1290,7 @@ save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
 
 
 /*****************************************************************
- * 9. Example.
+ * 10. Example.
  *****************************************************************/
 #ifdef eslRANDOM_EXAMPLE
 /*::cexcerpt::random_example::begin::*/

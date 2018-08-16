@@ -842,8 +842,8 @@ utest_simplefunc(ESL_RANDOMNESS *rng)
   esl_min_ConjugateGradientDescent(NULL, x, n, &test_func, &test_dfunc, (void *) prm, &fx, NULL);
 
   for (i = 0; i < n; i++)
-    if ( esl_DCompareNew( b[i], x[i], 1e-8, 1e-15) != eslOK) esl_fatal(msg);
-  if (esl_DCompareNew(0., fx, 0., 1e-8) != eslOK) esl_fatal(msg);
+    if ( esl_DCompareNew( b[i], x[i], 1e-5, 1e-15) != eslOK) esl_fatal(msg);
+  if (esl_DCompareNew(0., fx, 0., 1e-5) != eslOK) esl_fatal(msg);
 
   free(prm);
   free(x);
