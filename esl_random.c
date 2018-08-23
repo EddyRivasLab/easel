@@ -12,8 +12,8 @@
  *  9. Test driver.
  * 10. Example.
  *  
- * See http://csrc.nist.gov/rng/ for the NIST random number
- * generation test suite.
+ * NIST test suite for validating random number generators:
+ * https://csrc.nist.gov/projects/random-bit-generation/documentation-and-software
  *
  * It'd be nice if we had a debugging/unit testing mode in which
  * esl_random() deliberately generated extreme values, such as 0 for
@@ -39,7 +39,6 @@
 #include "esl_random.h"
 
 static uint32_t choose_arbitrary_seed(void);
-static uint32_t jenkins_mix3(uint32_t a, uint32_t b, uint32_t c);
 static uint32_t knuth              (ESL_RANDOMNESS *r);
 static uint32_t mersenne_twister   (ESL_RANDOMNESS *r);
 static void     mersenne_seed_table(ESL_RANDOMNESS *r, uint32_t seed);
@@ -53,7 +52,7 @@ static void     mersenne_fill_table(ESL_RANDOMNESS *r);
  * Synopsis:  Create the default strong random number generator.
  *
  * Purpose:   Create a random number generator using
- *            a given random seed. The <seed> must be $\geq 0$.
+ *            a given random seed. 
  *            
  *            The default random number generator uses the Mersenne
  *            Twister MT19937 algorithm \citep{Matsumoto98}.  It has a
@@ -231,7 +230,7 @@ esl_randomness_Init(ESL_RANDOMNESS *r, uint32_t seed)
   else 
     {
       r->seed = seed;
-      r->x    = jenkins_mix3(seed, 87654321, 12345678);	/* arbitrary dispersion of the seed */
+      r->x    = esl_rnd_mix3(seed, 87654321, 12345678);	/* arbitrary dispersion of the seed */
       if (r->x == 0) r->x = 42;                         /* make sure we don't have a zero */
     }
   return eslOK;
@@ -330,10 +329,10 @@ mersenne_twister(ESL_RANDOMNESS *r)
   if (r->mti >= 624) mersenne_fill_table(r);
 
   x = r->mt[r->mti++];
-  x ^= (x>>11);
-  x ^= (x<< 7) & 0x9d2c5680;
-  x ^= (x<<15) & 0xefc60000;
-  x ^= (x>>18);
+  x ^= (x >> 11);
+  x ^= (x <<  7) & 0x9d2c5680;
+  x ^= (x << 15) & 0xefc60000;
+  x ^= (x >> 18);
   return x;
 }
 
@@ -398,18 +397,21 @@ choose_arbitrary_seed(void)
 #ifdef HAVE_GETPID
   b  = (uint32_t) getpid();	                    // preferable b choice, if we have POSIX getpid()
 #endif
-  seed = jenkins_mix3(a,b,c);	                    // try to decorrelate closely spaced choices of pid/times
+  seed = esl_rnd_mix3(a,b,c);	                    // try to decorrelate closely spaced choices of pid/times
   return (seed == 0) ? 42 : seed; /* 42 is entirely arbitrary, just to avoid seed==0. */
 }
 
-/* jenkins_mix3()
- * 
- * from Bob Jenkins: given a,b,c, generate a number that's distributed
- * reasonably uniformly on the interval 0..2^32-1 even for closely
- * spaced choices of a,b,c.
+/* Function:  esl_rnd_mix3()
+ * Synopsis:  Make a quasirandom number by mixing three inputs.
+ * Incept:    SRE, Tue 21 Aug 2018
+ *
+ * Purpose:   This is Bob Jenkin's <mix()>. Given <a,b,c>,
+ *            generate a number that's generated reasonably
+ *            uniformly on $[0,2^{32}-1]$ even for closely
+ *            spaced choices of $a,b,c$. 
  */
-static uint32_t 
-jenkins_mix3(uint32_t a, uint32_t b, uint32_t c)
+uint32_t 
+esl_rnd_mix3(uint32_t a, uint32_t b, uint32_t c)
 {
   a -= b; a -= c; a ^= (c>>13);		
   b -= c; b -= a; b ^= (a<<8); 
@@ -1000,6 +1002,7 @@ esl_rnd_floatstring(ESL_RANDOMNESS *rng, char *s)
    27 Dec 08 on wanderoo:  1e7    0.78s    78 nsec     1e6   2.08s     2.1 usec   ran2() from NR
    30 May 09 on wanderoo:  1e9    8.39s     8 nsec     1e6   5.98s     6.0 usec   Mersenne Twister
                            1e9    5.73s     6 nsec     1e8   2.51s     0.03 usec  Knuth
+   22 Aug 18 on wyvern:    1e9    3.31s     3 nsec     1e7   8.71s     0.8 usec   Mersenne Twister
 
  */
 #include "easel.h"
@@ -1196,8 +1199,6 @@ utest_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
  * 9. Test driver.
  *****************************************************************/
 #ifdef eslRANDOM_TESTDRIVE
-/* gcc -g -Wall -o esl_random_utest -L. -I. -DeslRANDOM_TESTDRIVE esl_random.c -leasel -lm
- */
 #include "esl_config.h"
 
 #include <stdio.h>

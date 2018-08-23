@@ -38,6 +38,8 @@ extern uint32_t        esl_randomness_GetSeed(const ESL_RANDOMNESS *r);
 extern double   esl_random       (ESL_RANDOMNESS *r);
 extern uint32_t esl_random_uint32(ESL_RANDOMNESS *r);
 
+extern uint32_t esl_rnd_mix3(uint32_t a, uint32_t b, uint32_t c);
+
 /* 3. Debugging/development tools.
  */
 extern int esl_randomness_Dump(FILE *fp, ESL_RANDOMNESS *r);

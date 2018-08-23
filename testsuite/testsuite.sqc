@@ -58,6 +58,7 @@
 # paml
 1 exercise quicksort-utest    @esl_quicksort_utest@
 1 exercise random-utest       @esl_random_utest@
+1 exercise rand64-utest       @esl_rand64_utest@
 1 exercise randomseq-utest    @esl_randomseq_utest@
 1 exercise ratematrix-utest   @esl_ratematrix_utest@
 1 exercise recorder-utest     @esl_recorder_utest@
@@ -173,6 +174,7 @@
 # paml
 3 valgrind quicksort-utest    @esl_quicksort_utest@
 3 valgrind random-utest       @esl_random_utest@
+3 valgrind rand64-utest       @esl_rand64_utest@
 3 valgrind randomseq-utest    @esl_randomseq_utest@
 3 valgrind ratematrix-utest   @esl_ratematrix_utest@
 3 valgrind recorder-utest     @esl_recorder_utest@

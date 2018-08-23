@@ -149,6 +149,7 @@ HDRS = 	easel.h\
 	esl_quicksort.h\
 	esl_paml.h\
 	esl_random.h\
+	esl_rand64.h\
 	esl_randomseq.h\
 	esl_ratematrix.h\
 	esl_recorder.h\
@@ -226,6 +227,7 @@ OBJS =	easel.o\
 	esl_paml.o\
 	esl_quicksort.o\
 	esl_random.o\
+	esl_rand64.o\
 	esl_randomseq.o\
 	esl_ratematrix.o\
 	esl_recorder.o\
@@ -314,6 +316,7 @@ UTESTS =\
 	esl_normal_utest\
 	esl_quicksort_utest\
 	esl_random_utest\
+	esl_rand64_utest\
 	esl_randomseq_utest\
 	esl_ratematrix_utest\
 	esl_red_black_utest\
@@ -381,7 +384,8 @@ BENCHMARKS =\
 	esl_buffer_benchmark  \
 	esl_keyhash_benchmark \
 	esl_mem_benchmark     \
-	esl_random_benchmark
+	esl_random_benchmark  \
+	esl_rand64_benchmark
 
 SSE_BENCHMARKS     = esl_sse_benchmark
 AVX_BENCHMARKS     = esl_avx_benchmark
@@ -460,6 +464,7 @@ EXAMPLES = \
         esl_msaweight_example\
         esl_normal_example\
         esl_random_example\
+        esl_rand64_example\
 	esl_regexp_example\
 	esl_regexp_example2\
 	esl_regexp_example3\
