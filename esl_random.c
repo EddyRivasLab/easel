@@ -1,5 +1,4 @@
-/* Portable, threadsafe random number generators.
- * Provides both a fast generator and a strong generator.
+/* Portable, threadsafe Mersenne Twister random number generator
  *
  *  1. The ESL_RANDOMNESS object.
  *  2. The generators, esl_random().
@@ -21,6 +20,8 @@
  * the interval 0,1 is open or closed. We should be able to test for
  * problems with interval endpoints without taking enormous numbers of
  * samples.
+ * 
+ * Competitive alternatives to MT exist, including PCG [http://www.pcg-random.org/].
  */
 #include "esl_config.h"
 
@@ -66,16 +67,14 @@ static void     mersenne_fill_table(ESL_RANDOMNESS *r);
  *            make reproducible stochastic simulations, for example.
  *            
  *            If <seed> is 0, an arbitrary seed is chosen.
- *            Internally, the arbitrary seed is produced by a
- *            combination of the current <time()> and the process id
- *            (if available; POSIX only). Two RNGs created with
- *            <seed>=0 will very probably (but not assuredly) give
+ *            Internally, this comes from hashing together the current
+ *            <time()>, <clock()>, and process id.  Two RNGs created
+ *            with <seed>=0 probably (but not assuredly) give
  *            different streams of pseudorandom numbers. The true seed
  *            can be retrieved from the <ESL_RANDOMNESS> object using
  *            <esl_randomness_GetSeed()>.  The strategy used for
- *            choosing the arbitrary seed is predictable, so it is
- *            not secure in any sense, especially in the cryptographic
- *            sense.
+ *            choosing the arbitrary seed is predictable; it should
+ *            not be considered cryptographically secure.
  *            
  * Args:      seed $>= 0$.
  *
@@ -107,39 +106,36 @@ esl_randomness_Create(uint32_t seed)
 
 /* Function:  esl_randomness_CreateFast()
  * Synopsis:  Create the alternative fast generator.
+ *            
+ * THIS FUNCTION IS DEPRECATED. USE esl_randomness_Create() INSTEAD.
  *
  * Purpose:   Same as <esl_randomness_Create()>, except that a simple
  *            linear congruential generator (LCG) will be used.
- *            
- *            This is a low quality generator. Successive samples from
- *            an LCG are correlated, and it has a relatively short
- *            period. IT SHOULD NOT BE USED FOR SERIOUS
- *            SIMULATIONS. Rather, it's a quick and dirty RNG where
- *            you're sure that speed is more important than the
- *            quality of your random numbers. For a high quality RNG,
- *            use <esl_randomness_Create()> instead.
- *            
  *            This is a $(a=69069, c=1)$ LCG, with a period of
  *            $2^{32}$. 
  *            
- *            It is about 20x faster to initialize the generator, and
- *            about 25\% faster to sample each number, compared to the
- *            default Mersenne Twister. (In most cases, this speed
- *            differential is not worth the degradation in
- *            quality. Since we made MT our default generator, the
- *            speed advantage of the LCG essentially disappeared, so
- *            in some sense this is legacy code.)
- *
+ *            This is a low quality RNG. It fails several standard
+ *            NIST statistical tests. Successive samples from an LCG
+ *            are correlated, and it has a relatively short period. IT
+ *            SHOULD NOT BE USED (period). It is present in Easel for
+ *            legacy reasons. It used to be substantially faster than
+ *            our high quality RNG, but now our default Mersenne
+ *            Twister is plenty fast. We have regression and unit
+ *            tests that use the LCG and depend on a fixed seed and a
+ *            particular pseudorandom number sequence; they would have
+ *            to be re-studied carefully to upgrade them to a
+ *            different RNG.
+ * 
  *            Here's an example of how serial correlation arises in an
  *            LCG, and how it can lead to serious (and difficult to
- *            diagnose) failure in a Monte Carlo simulation. Recall
- *            that an LCG calculates $x_{i+1} = ax_i + c$. Suppose
- *            $x_i$ is small: in the range 0..6000, say, as a specific
- *            example. Now $x_{i+1}$ cannot be larger than 4.1e8, for
- *            an LCG with $a=69069$,$c=1$. So if you take a sample and
- *            test whether it is $< 1e-6$ (say), the next sample will
- *            be in a range of about 0..0.1, rather than being uniform
- *            on 0..1.
+ *            diagnose) failure in a Monte Carlo simulation.  An LCG
+ *            calculates $x_{i+1} = ax_i + c$. Suppose $x_i$ is small:
+ *            in the range 0..6000, say, as a specific example. Now
+ *            $x_{i+1}$ cannot be larger than 4.1e8, for an LCG with
+ *            $a=69069$,$c=1$. So if you take a sample and test
+ *            whether it is $< 1e-6$ (say), the next sample will be in
+ *            a range of about 0..0.1, rather than being uniform on
+ *            0..1.
  *
  * Args:      seed $>= 0$.
  *
@@ -148,8 +144,7 @@ esl_randomness_Create(uint32_t seed)
  *              
  * Throws:    <NULL> on failure.
  *
- * Xref:      SRE:J5/44: for accidental proof that the period is
- *                       indeed 2^32.
+ * Xref:      SRE:J5/44: for accidental proof that period is indeed 2^32.
  */
 ESL_RANDOMNESS *
 esl_randomness_CreateFast(uint32_t seed)
@@ -172,6 +167,8 @@ esl_randomness_CreateFast(uint32_t seed)
 
 /* Function:  esl_randomness_CreateTimeseeded()
  * Synopsis:  Create an RNG with a quasirandom seed.
+ *            
+ * THIS FUNCTION IS DEPRECATED. USE esl_randomness_Create(0).           
  *
  * Purpose:   Like <esl_randomness_Create()>, but it initializes the
  *            the random number generator using a POSIX <time()> call 
@@ -200,21 +197,17 @@ esl_randomness_CreateTimeseeded(void)
  * Purpose:   Reset and reinitialize an existing <ESL_RANDOMNESS>
  *            object with a new seed. 
  *            
- *            Not generally recommended. This does not make a
- *            sequence of numbers more random, and may make it less
- *            so. Sometimes, though, it's useful to reseed an RNG
- *            to guarantee a particular reproducible series of
- *            pseudorandom numbers at an arbitrary point in a program;
- *            HMMER does this, for example, to guarantee the same
- *            results from the same HMM/sequence comparison regardless
- *            of where in a search the HMM or sequence occurs.
+ *            Sometimes it's useful to reseed an RNG to guarantee a
+ *            particular reproducible series of pseudorandom numbers
+ *            at an arbitrary point in a program; HMMER does this, for
+ *            example, to guarantee the same results from the same
+ *            HMM/sequence comparison regardless of where in a search
+ *            the HMM or sequence occurs.
  *
  * Args:      r     - randomness object
- *            seed  - new seed to use; >0.
+ *            seed  - new seed to use; >=0.
  *
  * Returns:   <eslOK> on success.
- *
- * Throws:    <eslEINVAL> if seed is $<= 0$.
  *
  * Xref:      SRE:STL8/p57.
  */
@@ -285,7 +278,7 @@ double
 esl_random(ESL_RANDOMNESS *r)
 {
   uint32_t x = (r->type == eslRND_MERSENNE) ? mersenne_twister(r) : knuth(r);
-  return ((double) x / 4294967296.0); /* 2^32: normalizes to [0,1) */
+  return ((double) x / 4294967296.0);    // 2^32: [0,1).  Original MT code has * (1.0/ 4294967296.0), which I believe (and tested) to be identical.
 }
 
 
@@ -337,8 +330,16 @@ mersenne_twister(ESL_RANDOMNESS *r)
 }
 
 /* mersenne_seed_table()
- * Initialize the state of the RNG from a seed.
- * Uses the knuth linear congruential generator.
+ * Initialize the state of the RNG from a seed, using a Knuth LCG.
+ * 
+ * TODO: In January 2002, Nishimura and Matsumoto replaced this with a
+ * better initialization. (Why did I use their ~1999 initialization
+ * when I adapted MT in June 2009?) They say that the problem with
+ * this version is that the seed's most significant bit has little
+ * effect on the MT state vector. Upgrading this will require effort
+ * though: any change to the output of our RNG will break numerous
+ * unit tests and regressions that use fixed RNG seeds to get
+ * reproducible streams.
  */
 static void
 mersenne_seed_table(ESL_RANDOMNESS *r, uint32_t seed)
@@ -383,8 +384,8 @@ mersenne_fill_table(ESL_RANDOMNESS *r)
 
 
 /* choose_arbitrary_seed()
- * Return a 'quasirandom' seed > 0.
- * This should be ok, but could be better.
+ * Return a 'quasirandom' seed > 0, concocted by hashing time(),
+ * clock(), and getpid() together.
  * See RFC1750 for a discussion of securely seeding RNGs.
  */
 static uint32_t
@@ -398,7 +399,7 @@ choose_arbitrary_seed(void)
   b  = (uint32_t) getpid();	                    // preferable b choice, if we have POSIX getpid()
 #endif
   seed = esl_rnd_mix3(a,b,c);	                    // try to decorrelate closely spaced choices of pid/times
-  return (seed == 0) ? 42 : seed; /* 42 is entirely arbitrary, just to avoid seed==0. */
+  return (seed == 0) ? 42 : seed;                   // 42 is arbitrary, just to avoid seed==0. 
 }
 
 /* Function:  esl_rnd_mix3()

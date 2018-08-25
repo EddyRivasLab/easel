@@ -164,6 +164,27 @@ esl_rand64(ESL_RAND64 *rng)
 }
 
 
+/* Function:  esl_rand64_int64()
+ * Synopsis:  Generate a random signed int64 on [0,2^63-1]
+ * Incept:    SRE, Fri 24 Aug 2018
+ *
+ * Note:      Starting with a 64-bit uint64_t, discards the most
+ *            significant bit and returns the low-order 63 bits. This
+ *            makes assumptions about the binary representation of
+ *            unsigned/signed integers. It will work correctly for
+ *            two's-complement, one's complement, and sign/magnitude
+ *            integer systems. C99 allows any of the three systems
+ *            (C99 6.2.6.2) for an <int>; exact-width types such as
+ *            <int64_t> are required to use two's complement (C99
+ *            7.18.1.1).
+ */
+int64_t
+esl_rand64_int64(ESL_RAND64 *rng)
+{
+  return ((int64_t) (esl_rand64(rng) >> 1));
+}
+
+
 /* Function:  esl_rand64_Roll()
  * Synopsis:  Generate a random number 0..n-1.
  * Incept:    SRE, Tue 21 Aug 2018
@@ -176,7 +197,6 @@ esl_rand64_Roll(ESL_RAND64 *rng, uint64_t n)
   do { x = esl_rand64(rng) / factor; } while (x >= n);
   return x;
 }
-
 
 /* Function:  esl_rand64_double()
  * Synopsis:  Generate a uniformly distributed double on half-open interval [0,1)

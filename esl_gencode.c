@@ -5,7 +5,7 @@
  *   2. ESL_GENCODE genetic code object
  *   3. Reading and writing genetic codes in NCBI format
  *   4. DNA->protein digital translation, allowing ambiguity chars
- *   5. Functions fo/////ting/destroying ESL_TRANS_WORKSTATE
+ *   5. Functions for creating/destroying ESL_GENCODE_WORKSTATE
  *   6. Functions for processing ORFs
  *   7. Debugging/development utilities
  *   8. Unit tests
@@ -22,6 +22,8 @@
 #include "esl_alphabet.h"
 #include "esl_fileparser.h"
 #include "esl_regexp.h"
+#include "esl_sq.h"
+#include "esl_sqio.h"
 
 #include "esl_gencode.h"
 
@@ -722,7 +724,7 @@ esl_gencode_IsInitiator(const ESL_GENCODE *gcode, ESL_DSQ *dsqp)
 
 
 /*****************************************************************
- * 5. Functions for creating/destroying ESL_TRANS_WORKSTATE
+ * 5. Functions for creating/destroying ESL_GENCODE_WORKSTATE
  *****************************************************************/
 void
 esl_gencode_WorkstateDestroy(ESL_GENCODE_WORKSTATE *wrk)

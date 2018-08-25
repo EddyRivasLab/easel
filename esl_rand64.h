@@ -17,6 +17,7 @@ typedef struct {
 extern ESL_RAND64 *esl_rand64_Create (uint64_t seed);
 extern int         esl_rand64_Init   (ESL_RAND64 *rng, uint64_t seed);
 extern uint64_t    esl_rand64_GetSeed(ESL_RAND64 *rng);
+extern void        esl_rand64_Destroy(ESL_RAND64 *rng);
 
 extern uint64_t    esl_rand64(ESL_RAND64 *rng); 
 extern uint64_t    esl_rand64_Roll(ESL_RAND64 *rng, uint64_t n); // 0..n-1

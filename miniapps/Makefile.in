@@ -67,6 +67,9 @@ PROGS = esl-afetch\
         esl-translate\
 	esl-weight
 
+SUBCMDOBJS = \
+	cmd_sample.o
+
 # beautification magic stolen from git 
 #
 QUIET_SUBDIR0 = +${MAKE} -C #space separator after -c
@@ -83,13 +86,19 @@ endif
 
 .PHONY: all dev tests check install uninstall clean distclean 
 
-all: 	${PROGS}
-dev:    ${PROGS}
-tests:  ${PROGS}
-check:  ${PROGS}
+all: 	${PROGS} easel
+dev:    ${PROGS} easel
+tests:  ${PROGS} easel
+check:  ${PROGS} easel
+
+easel:  easel.c ../libeasel.a ${SUBCMDOBJS}
+	${QUIET_GEN}${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ easel.c ${SUBCMDOBJS} ${LIBS}
 
 ${PROGS}: % : %.c ../libeasel.a 
 	${QUIET_GEN}${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ $< ${LIBS}
+
+${SUBCMDOBJS}: %.o : %.c ../libeasel.a
+	${QUIET_CC}${CC} -I. -I.. -I${srcdir} -I${srcdir}/.. ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} -c $<
 
 install: ${PROGS} 
 	for file in ${PROGS}; do \

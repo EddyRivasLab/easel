@@ -691,6 +691,7 @@ qsort_IDecreasing(const void *xp1, const void *xp2)
   return 0;
 }
 
+
 /* Function:  esl_vec_DSortIncreasing()
  * Synopsis:  Sort vector from smallest to largest.          
  * Incept:    SRE, Wed Aug 17 10:44:31 2005 [St. Louis]
@@ -717,6 +718,8 @@ esl_vec_ISortIncreasing(int *vec, int n)
 {
   qsort((void *) vec, n, sizeof(int), qsort_IIncreasing);
 }
+
+
 
 /* Function:  esl_vec_DSortDecreasing()
  * Synopsis:  Sort vector from largest to smallest.          
