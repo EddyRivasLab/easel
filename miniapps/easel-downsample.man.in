@@ -1,0 +1,186 @@
+.TH "easel downsample" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+
+.SH NAME
+easel downsample \- select random subset of lines or sequences 
+
+.SH SYNOPSIS
+.B easel downsample
+[\fIoptions\fR]
+.I M
+.I infile
+
+
+.SH DESCRIPTION
+
+.PP
+Given an
+.I infile
+that contains
+.I N
+things (lines, sequences...),
+.B easel downsample
+randomly selects a subset of
+.I M
+of those things (M <= N) and outputs them to
+.I stdout.
+
+
+.PP
+If
+.I infile
+is \- (a single dash)
+input is read from
+.I stdin.
+(The
+.B \-S
+option can't read from stdin.)
+
+.PP
+The default is to downsample individual lines from a text
+.I infile.
+With the
+.B -s
+or
+.B -S
+option,
+.I infile
+is a sequence file (in any format that Easel accepts), and
+it downsamples sequence records.
+
+.PP
+Uses an efficient reservoir sampling algorithm that only requires
+memory proportional to the sample size
+.I M,
+independent of the total input size
+.I N,
+and usually requires only a single pass through
+.I infile.
+Still, if 
+.I M
+is large, memory usage could be a concern. The default line sampler
+holds
+.I M
+lines in memory, so it uses about
+.I ML
+bytes of memory, for mean line length
+.I L.
+The
+.B -s
+sequence sampler holds
+.I M
+sequence objects in memory, including metadata. The
+.B -S
+"big" sequence sampler is a more memory efficient version
+that only needs
+.I 8M
+bytes, but it has some restrictions on its use, described below.
+
+.PP
+Otherwise the magnitude of
+.I M 
+is essentially unrestricted; it is a 64-bit integer.
+.B easel downsample
+is designed to handle samples of billions
+of sequences if necessary.
+
+
+.SH OPTIONS
+
+.TP
+.B \-h
+Print brief help; includes version number and summary of
+all options.
+
+.TP
+.B \-s
+Sequence sampling.
+.I infile
+is a sequence file, in any valid Easel sequence format
+(including multiple sequence alignment files). 
+The sample of sequences needs to fit in memory, so
+.I M
+should not be outrageously large.
+Because the sequences pass through the Easel sequence
+data parser, there can be some metadata loss. 
+When
+.I infile
+is a multi-MSA file (e.g. Pfam or Rfam),
+.I N
+includes all alignments, not just the first one.
+The output is in FASTA format.
+
+.TP
+.B \-S
+"Big" sequence sampling.
+.I M
+can be reasonably outrageous (a billion sequences
+will require about 8G RAM).
+.I infile
+needs to be an actual file (not a pipe or stream), because this option
+keeps only disk offsets to define the sample, then uses each offset to
+go and seek each sequence record in the file.
+Additionally,
+.I infile
+must be an unaligned sequence file format, not
+in a multiple sequence alignment format, because the mechanics
+of
+.B \-S
+assume that each
+sequence record is a contiguous chunk of the file.
+Each sampled sequence record is echoed to the output, so each
+record is exactly as it appeared in its native format; 
+there is no metadata loss, and the output
+is in the same format that
+.I infile
+was in.
+
+
+
+.SH EXPERT OPTIONS
+
+.TP
+.BI \-\-seed " <n>"
+Set the random number seed to
+.I <n>,
+an integer >= 0. The default is 0, which means to use
+a randomly selected seed. A seed > 0 will result
+in identical samples from different runs of the same
+.B easel downsample
+command.
+
+
+
+.SH SEE ALSO
+
+.nf
+@EASEL_URL@
+.fi
+
+.SH COPYRIGHT
+
+.nf 
+@EASEL_COPYRIGHT@
+@EASEL_LICENSE@
+.fi 
+
+.SH AUTHOR
+
+.nf
+http://eddylab.org
+.fi
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

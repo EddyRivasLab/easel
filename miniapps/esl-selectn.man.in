@@ -54,17 +54,11 @@ all options, including expert options.
 .BI \-\-seed " <d>"
 Set the random number seed to
 .I <d>,
-an integer greater than 0. 
-The default is to use the current value of
-.B time().
-(As the return value of
-.B time()
-is likely to be in units of seconds,
-two calls to 
-.B esl\-selectn
-within the same second will generate exactly the
-same sample; this may not be what you want.)
-
+an integer >= 0.
+The default is 0, which means to use a randomly selected seed.
+A seed > 0 results
+in reproducible identical samples from different runs of the same
+command.
 
 
 .SH SEE ALSO
