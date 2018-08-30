@@ -1902,8 +1902,9 @@ buffer_counttok(ESL_BUFFER *bf, const char *sep, esl_pos_t *ret_nc)
 #include "esl_stopwatch.h"
 
 static ESL_OPTIONS options[] = {
-  /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
-  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                            0},
+  /* name                      type   default  env  range togs  reqs  incomp       help                                       docgrp */
+  { "-h",              eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                                0},
+  { "--with-oneread",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "run single slurp times too (<infile> fits in RAM)",  0},
   { 0,0,0,0,0,0,0,0,0,0},
 };
 static char usage[]  = "[-options] <infile>";
@@ -2144,8 +2145,10 @@ main(int argc, char **argv)
   esl_stopwatch_Start(w);  benchmark_mmap               (infile, filesize, counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "mmap():                      ");
   esl_stopwatch_Start(w);  benchmark_buffer_stream_raw  (infile,           counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "ESL_BUFFER (stream, raw):    ");
   esl_stopwatch_Start(w);  benchmark_buffer_raw         (infile,           counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "ESL_BUFFER (mmap, raw):      ");
-  esl_stopwatch_Start(w);  benchmark_one_read           (infile, filesize, counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "one read():                  ");
-  esl_stopwatch_Start(w);  benchmark_one_fread          (infile, filesize, counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "one fread():                 ");
+  if (esl_opt_GetBoolean(go, "--with-oneread")) {
+    esl_stopwatch_Start(w);  benchmark_one_read         (infile, filesize, counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "one read():                  ");
+    esl_stopwatch_Start(w);  benchmark_one_fread        (infile, filesize, counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "one fread():                 ");
+  }
   esl_stopwatch_Start(w);  benchmark_fgets              (infile,           counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "fgets():                     ");
   esl_stopwatch_Start(w);  benchmark_esl_fgets          (infile,           counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "esl_fgets():                 ");
   esl_stopwatch_Start(w);  benchmark_buffer_lines       (infile,           counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "ESL_BUFFER (mmap, lines):    ");

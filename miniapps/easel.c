@@ -9,7 +9,7 @@
 
 ESL_SUBCMD subcommands[] = {
   /* function            subcmd_name  nargs        arg_description               help_line */
-  { esl_cmd_downsample, "downsample",    2, "[-options] <infile>", "downsample a data file" },
+  { esl_cmd_downsample, "downsample",    2, "[-options] <m> <infile>", "downsample <m> things from larger <infile> of n things" },
 };
 
 static ESL_OPTIONS top_options[] = {
