@@ -91,8 +91,8 @@ dev:    ${PROGS} easel
 tests:  ${PROGS} easel
 check:  ${PROGS} easel
 
-easel:  easel.c ../libeasel.a ${SUBCMDOBJS}
-	${QUIET_GEN}${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ easel.c ${SUBCMDOBJS} ${LIBS}
+easel:  % : %.c ../libeasel.a ${SUBCMDOBJS}
+	${QUIET_GEN}${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ $< ${SUBCMDOBJS} ${LIBS}
 
 ${PROGS}: % : %.c ../libeasel.a 
 	${QUIET_GEN}${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ $< ${LIBS}
