@@ -927,7 +927,7 @@ esl_vec_FLog(float *vec, int n)
  *            in bits ($\log_2$), defined as \citep{CoverThomas}:
  *            
  *            \[
- *               H = - \sum_x p_x \log_2 p_x.
+ *               H = - \sum_x p_x \log_2 p_x
  *            \]
  *
  *            <esl_vec_FEntropy()> does the same, for a probability vector
@@ -936,24 +936,22 @@ esl_vec_FLog(float *vec, int n)
 double
 esl_vec_DEntropy(const double *p, int n)
 {
+  double H = 0.;
   int    i;
-  double entropy;
  
-  entropy = 0.;
-  for(i = 0; i < n; i++)
-    if (p[i] > 0.) entropy += p[i] * log(p[i]);
-  return(-1.44269504 * entropy); /* converts to bits */
+  for (i = 0; i < n; i++)
+    if (p[i] > 0.) H -= p[i] * log(p[i]);
+  return (eslCONST_LOG2R * H);         // converts to bits 
 }
 float
 esl_vec_FEntropy(const float *p, int n)
 {
+  float  H = 0.;
   int    i;
-  float  entropy;
 
-  entropy = 0.;
-  for(i = 0; i < n; i++)
-    if (p[i] > 0.) entropy += p[i] * logf(p[i]);
-  return(-1.44269504 * entropy); /* converts to bits */
+  for (i = 0; i < n; i++)
+    if (p[i] > 0.) H -= p[i] * logf(p[i]);
+  return (eslCONST_LOG2R * H); /* converts to bits */
 }
 
 /* Function:  esl_vec_DRelEntropy()
@@ -962,10 +960,10 @@ esl_vec_FEntropy(const float *p, int n)
  *
  * Purpose:   Returns Shannon relative entropy of probability
  *            vectors <p> and <q> in bits, also known as the
- *            Kullback Leibler "distance" \citep[p.18]{CoverThomas}:
+ *            Kullback-Leibler divergence \citep[p.18]{CoverThomas}:
  *            
  *            \[
- *               D(p \parallel f) = \sum_x  p_x \log_2 \frac{p_x}{q_x}.
+ *               D(p \parallel q) = \sum_x  p_x \log_2 \frac{p_x}{q_x}.
  *            \]
  *
  *            If for any $x$ $q_x = 0$ and $p_x > 0$, the relative
@@ -986,7 +984,7 @@ esl_vec_DRelEntropy(const double *p, const double *q, int n)
       if (q[i] == 0.) return eslINFINITY;
       else            kl += p[i] * log(p[i]/q[i]);
     }
-  return(1.44269504 * kl); /* converts to bits */
+  return(eslCONST_LOG2R * kl); /* converts to bits */
 }
 float
 esl_vec_FRelEntropy(const float *p, const float *q, int n)
@@ -1000,7 +998,7 @@ esl_vec_FRelEntropy(const float *p, const float *q, int n)
       if (q[i] == 0.) return eslINFINITY;
       else            kl += p[i] * log(p[i]/q[i]);
     }
-  return(1.44269504 * kl); /* converts to bits */
+  return(eslCONST_LOG2R * kl); /* converts to bits */
 }
 
 
