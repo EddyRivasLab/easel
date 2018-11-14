@@ -404,6 +404,13 @@ else
 fi
 
 
+# We need python, specifically python3, for 'make check' and
+# some dev tools. Define @PYTHON3@ output variable to be the
+# path to python3, or the empty string.
+# 
+AC_PATH_PROG([PYTHON3], [python3])
+
+
 ################################################################
 # 6. Checks for libraries
 #################################################################
@@ -614,8 +621,15 @@ Vector implementations enabled:
            avx: $enable_avx
         avx512: $enable_avx512
           neon: $enable_neon
-           vmx: $enable_vmx
+           vmx: $enable_vmx"
 
-Do 'make' to build Easel.
-Then (optionally) do 'make check' to run self-tests.
-"
+
+if test ${PYTHON3}; then echo "
+Now do 'make' to build Easel, and optionally:
+       'make check' to run self-tests.";
+else echo "
+(No python3 found, so 'make check' self tests are disabled.)
+
+Now do 'make' to build Easel.";
+fi
+

@@ -11,6 +11,7 @@ LDFLAGS        = @LDFLAGS@
 DEFS           = @DEFS@
 LIBS           = @LIBGSL@ @LIBS@ -lm
 MPILIBS        = @MPILIBS@
+PYTHON3        = @PYTHON3@
 
 SQCLEVEL = 2
 
@@ -28,12 +29,20 @@ endif
 .PHONY: check dcheck clean distclean
 
 check:
+	@if ! test ${PYTHON3}; then\
+	    echo "No python3 found. 'make check' self tests are disabled.";\
+	    exit 1;\
+	fi
 	@echo 
 	@echo Running Easel test suite...
 	@echo
 	@${srcdir}/../devkit/sqc ${SQCLEVEL} ${srcdir}/testsuite.sqc .. ${srcdir}/..
 
 dcheck: 
+	@if ! test ${PYTHON3}; then\
+	    echo "No python3 found. 'make dcheck' self tests are disabled.";\
+	    exit 1;\
+	fi
 	@echo    Running developer testsuite...
 	@echo -n Compiling for unit tests and valgrind tests...
 	@(cd ..; make clean > /dev/null; testsuite/${top_srcdir}/configure --enable-debugging >/dev/null; make dev > /dev/null)       

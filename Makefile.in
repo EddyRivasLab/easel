@@ -75,7 +75,7 @@ COMPRESS = gzip
 AR       = @AR@
 RANLIB   = @RANLIB@
 INSTALL  = @INSTALL@
-
+PYTHON3  = @PYTHON3@
 
 
 # beautification magic, stolen from git
@@ -525,11 +525,19 @@ tests:  ${ALL_UTESTS}
 	${QUIET_SUBDIR0}miniapps ${QUIET_SUBDIR1} tests
 
 check:  ${ALL_UTESTS} .FORCE
+	@if ! test ${PYTHON3}; then\
+	    echo "No python3 found. 'make check' self test scripts are disabled.";\
+	    exit 1;\
+	fi
 	${QUIET_SUBDIR0}miniapps  ${QUIET_SUBDIR1} check
 	${QUIET_SUBDIR0}testsuite ${QUIET_SUBDIR1} check
 
 # `make dcheck`: run developer testsuite, save output in testsuite/dcheck.report
 dcheck:
+	@if ! test ${PYTHON3}; then\
+	    echo "No python3 found. 'make dcheck' self test scripts are disabled.";\
+	    exit 1;\
+	fi
 	${QUIET_SUBDIR0}testsuite   ${QUIET_SUBDIR1} dcheck
 
 pdf:
