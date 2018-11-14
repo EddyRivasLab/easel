@@ -1292,9 +1292,8 @@ utest_read_float_err(ESL_RANDOMNESS *rng, int allow_badluck)
       if (ulperr > 4)    esl_fatal(msg);  // 4 ulp = up to 4 \epsilon ~ 5e-7 rel error. 
       
       esl_buffer_Close(bf);
-      esl_json_Reuse(pi);
+      esl_json_Destroy(pi);
     }  
-  esl_json_Destroy(pi);
 }
 
 
