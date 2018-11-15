@@ -117,7 +117,7 @@ uninstall:
 	done
 
 clean:
-	-rm -f ${PROGS}
+	-rm -f ${PROGS} easel
 	-rm -f *.o *~
 	-rm -f *.gcno *.gcda *.gcov
 	-rm -f TAGS

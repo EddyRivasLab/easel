@@ -6,6 +6,8 @@ Makefile
 /decoy_config.h
 /esl_config.h
 /libeasel.a
+/autom4te.cache
+/build-*/
 *.o
 *.dSYM
 easel_utest
@@ -16,6 +18,7 @@ esl_*_example?
 esl_*_benchmark
 esl_*_experiment
 miniapps/*.man
+miniapps/easel
 miniapps/esl-afetch
 miniapps/esl-alimanip
 miniapps/esl-alimap
