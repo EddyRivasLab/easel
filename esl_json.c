@@ -488,7 +488,7 @@ esl_json_Destroy(ESL_JSON *pi)
 }
 
 /*****************************************************************
- * 3. ESL_JSON_PARSE : keeps precise state at each input byte 
+ * 3. ESL_JSON_PARSER : precise state at each input byte 
  *****************************************************************/
 
 /* Function:  esl_json_parser_Create()
