@@ -402,9 +402,10 @@ typedef uint8_t ESL_DSQ;
 #define ESL_MIN(a,b)          (((a)<(b))?(a):(b))
 #define ESL_MAX(a,b)          (((a)>(b))?(a):(b))
 
-static inline float esl_log (double x) { return (x == 0.0 ? -eslINFINITY : log(x));  } /* avoid fp exceptions; log(0) = -inf is fine */
-static inline float esl_logf(float x)  { return (x == 0.0 ? -eslINFINITY : logf(x)); }
-static inline float esl_log2f(float x) { return (x == 0.0 ? -eslINFINITY : eslCONST_LOG2R * logf(x)); }
+static inline float esl_log  (double x) { return (x == 0.0 ? -eslINFINITY : log(x));  } /* avoid fp exceptions; log(0) = -inf is fine */
+static inline float esl_log2 (double x) { return (x == 0.0 ? -eslINFINITY : log2(x)); } 
+static inline float esl_logf (float x)  { return (x == 0.0 ? -eslINFINITY : logf(x)); }
+static inline float esl_log2f(float x)  { return (x == 0.0 ? -eslINFINITY : log2f(x)); }
 
 /* Typedef: <esl_pos_t> 
  * 
