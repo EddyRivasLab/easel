@@ -169,6 +169,7 @@ HDRS = 	easel.h\
 	esl_subcmd.h\
 	esl_threads.h\
 	esl_tree.h\
+	esl_varint.h\
 	esl_vectorops.h\
 	esl_vmx.h\
 	esl_weibull.h\
@@ -246,6 +247,7 @@ OBJS =	easel.o\
 	esl_subcmd.o\
 	esl_threads.o\
 	esl_tree.o\
+	esl_varint.o\
 	esl_vectorops.o\
 	esl_weibull.o\
 	esl_workqueue.o\
@@ -330,6 +332,7 @@ UTESTS =\
 	esl_stats_utest\
 	esl_stretchexp_utest\
 	esl_tree_utest\
+	esl_varint_utest\
 	esl_vectorops_utest\
 	esl_weibull_utest\
 	esl_wuss_utest
@@ -486,6 +489,7 @@ EXAMPLES = \
         esl_threads_example2\
         esl_tree_example\
         esl_tree_example2\
+	esl_varint_example\
         esl_vectorops_example\
         esl_weibull_example\
         esl_workqueue_example

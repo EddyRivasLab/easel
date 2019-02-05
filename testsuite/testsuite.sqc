@@ -77,6 +77,7 @@
 # swat
 # threads
 1 exercise tree-utest         @esl_tree_utest@
+1 exercise varint-utest       @esl_varint_utest@
 1 exercise vectorops-utest    @esl_vectorops_utest@
 1 exercise vmx-utest          @esl_vmx_utest@
 1 exercise weibull-utest      @esl_weibull_utest@
@@ -193,6 +194,7 @@
 # swat
 # threads
 3 valgrind tree-utest         @esl_tree_utest@
+3 valgrind varint-utest       @esl_varint_utest@
 3 valgrind vectorops-utest    @esl_vectorops_utest@
 3 valgrind vmx-utest          @esl_vmx_utest@
 3 valgrind weibull-utest      @esl_weibull_utest@
