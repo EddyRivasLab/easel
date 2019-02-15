@@ -68,6 +68,7 @@ PROGS = esl-afetch\
 	esl-weight
 
 SUBCMDOBJS = \
+	cmd_alistat.o    \
 	cmd_downsample.o
 
 # beautification magic stolen from git 
