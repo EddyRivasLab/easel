@@ -98,7 +98,7 @@ esl_varint_expgol(int v, int k, uint64_t *opt_code, int *opt_n)
  *
  *            If <code> does contain a 1 bit but does not contain a
  *            complete codeword, assume it is corrupted somehow,
- *            and throw <eslECORRUPT>.
+ *            and return <eslECORRUPT>.
  *
  * Args:      code : bit string to decode, starting from MSB
  *            k    : parameter for which exp-Golomb code; k >= 0
@@ -106,10 +106,11 @@ esl_varint_expgol(int v, int k, uint64_t *opt_code, int *opt_n)
  *            opt_n: optRETURN: length of decoded prefix codeword, in bits
  *
  * Returns:   <eslOK> on success. 
- *            <eslEOD> if <code> is all 0 bits.
  *
- * Throws:    <eslECORRUPT> if at least one 1 bit is set, yet no codeword
- *            is present. <*opt_v> and <*opt_n> are 0.
+ *            <eslEOD> if <code> is all 0 bits.  
+ *            <eslECORRUPT> if at least one 1 bit is set, yet no
+ *            codeword is present. On errors, <*opt_v> and <*opt_n>
+ *            are 0.
  */
 int
 esl_varint_expgol_decode(uint64_t code, int k, int *opt_v, int *opt_n)
@@ -122,7 +123,7 @@ esl_varint_expgol_decode(uint64_t code, int k, int *opt_v, int *opt_n)
   for (b = 63; b >= 0; b--)
     if (code & (1ull << b)) break;  // now b is position of leftmost 1 bit (i.e. MSB); 63..0.
   n = 2*(64-b)+k-1;                 // ...and from that, we know the size of the codeword.
-  if (n > 64) ESL_XEXCEPTION(eslECORRUPT, "unterminated exponential-Golomb codeword");
+  if (n > 64) { status = eslECORRUPT; goto ERROR; } // looks like a code but can't be valid
 
   // the n-bit codeword consists of the binary representation of q+1 (with leading zeros),
   // followed by a k-bit remainder. 
@@ -327,10 +328,10 @@ esl_varint_delta(int v, uint64_t *opt_code, int *opt_n)
  *            opt_n: optRETURN: length of decoded prefix codeword, in bits
  *
  * Returns:   <eslOK> on success. 
- *            <eslEOD> if <code> is all 0 bits.
  *
- * Throws:    <eslECORRUPT> if at least one 1 bit is set, yet no codeword
- *            is present. <*opt_v> and <*opt_n> are 0.
+ *            <eslEOD> if <code> is all 0 bits.
+ *            <eslECORRUPT> if at least one 1 bit is set, yet no codeword
+ *            is present. On errors, <*opt_v> and <*opt_n> are 0.
  */
 int
 esl_varint_delta_decode(uint64_t code, int *opt_v, int *opt_n)
@@ -344,7 +345,7 @@ esl_varint_delta_decode(uint64_t code, int *opt_v, int *opt_n)
   a = (code >> (63 - 2*b)) - 1;          // After b leading 0's, b+1 bits encode a+1
   n = 2*b + a + 1;
 
-  if (n > 64) ESL_XEXCEPTION(eslECORRUPT, "unterminated Elias delta codeword");
+  if (n > 64) { status = eslECORRUPT; goto ERROR; }
 
   v = (code >> (63 - 2*b -a));           //  ... and a bits encodes v mod 2^a, all but its highest order bit
   v += (1 << a);                         // put the 2^a bit back

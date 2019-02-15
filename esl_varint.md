@@ -313,6 +313,13 @@ for efficiency reasons. Allowing the generalization to any $k$ bits is
 my own thing.
 
 
+# Additional design notes
+
+* Codes can be user input (for example, in HMMER zigars) so varint decoders
+  need to treat bad codes as normal errors, not exceptions.
+
+
+
 # References
 
 Elias, P. Universal codeword sets and representations of the
