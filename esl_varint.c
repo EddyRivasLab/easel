@@ -298,7 +298,7 @@ esl_varint_delta(int v, uint64_t *opt_code, int *opt_n)
  ERROR:
   if (opt_code) *opt_code = 0;
   if (opt_n)    *opt_n    = 0;
-  return eslOK;
+  return status;
 }
 
 

@@ -1,6 +1,6 @@
 ## esl_alloc : portable aligned memory allocation
 
-The `esl_alloc` module provides for portable aligned allocation. This
+The `alloc` module provides for portable aligned allocation. This
 is generally only needed for SIMD vector code.
 
 ### rationale

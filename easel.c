@@ -2279,6 +2279,10 @@ esl_FCompareAbs(float a, float b, float tol)
  * Xref:      H5/116
  *
  * Note:      <, not <=, because with <=, -inf ~= inf (yes really).
+ * 
+ *            It might be better to rename the arguments <aeps>,
+ *            <reps> (eps for epsilon), because "atol" is the name of
+ *            a stdlib function.
  */
 int
 esl_DCompareNew(double x0, double x, double rtol, double atol)

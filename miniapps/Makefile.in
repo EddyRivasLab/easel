@@ -102,6 +102,7 @@ ${SUBCMDOBJS}: %.o : %.c ../libeasel.a
 	${QUIET_CC}${CC} -I. -I.. -I${srcdir} -I${srcdir}/.. ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} -c $<
 
 install: ${PROGS} 
+	${INSTALL} -m 0755 easel ${DESTDIR}${bindir}/
 	for file in ${PROGS}; do \
 	   ${INSTALL} -m 0755 $$file ${DESTDIR}${bindir}/ ;\
 	done
@@ -110,6 +111,7 @@ install: ${PROGS}
 	done
 
 uninstall:
+	rm ${DESTDIR}${bindir}/easel
 	for file in $(PROGS); do \
 	   rm ${DESTDIR}${bindir}/$$file ;\
 	done

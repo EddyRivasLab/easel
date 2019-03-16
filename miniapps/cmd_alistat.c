@@ -87,7 +87,8 @@ alistat_oneline(const char *msafile, ESL_MSAFILE *afp)
 		 8,   "avglen",
 		 3,   "%id",
 		 12,  "recsize",
-		 10,  "size/nres");
+		 10,  "size/nres",
+		 0);  // 0 is needed to signal arglist termination
 
   while ((status = esl_msafile_Read(afp, &msa)) == eslOK)
     {
