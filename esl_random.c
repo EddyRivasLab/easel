@@ -735,22 +735,63 @@ esl_rnd_Gamma(ESL_RANDOMNESS *r, double a)
  *            K     : number of elements in alpha, p
  *            p     : RESULT: sampled probability vector
  *
- * Returns:   (void)
+ * Returns:   <eslOK> on success, and <p> is a sampled probability vector.
  */
-void
+int
 esl_rnd_Dirichlet(ESL_RANDOMNESS *rng, const double *alpha, int K, double *p)
 {
-  int    x;
+  int    i;
   double norm = 0.;
 
-  for (x = 0; x < K; x++) 
+  for (i = 0; i < K; i++) 
     {
-      p[x] = esl_rnd_Gamma(rng, (alpha ? alpha[x] : 1.0));
-      norm += p[x];
+      p[i] = esl_rnd_Gamma(rng, (alpha ? alpha[i] : 1.0));
+      norm += p[i];
     }
-  for (x = 0; x < K; x++)
-    p[x] /= norm;
+  for (i = 0; i < K; i++)
+    p[i] /= norm;
+
+  return eslOK;
 }
+
+
+/* Function:  esl_rnd_Deal()
+ * Synopsis:  Sequential random sample of <m> random integers in range <n>
+ * Incept:    SRE, Sun 17 Mar 2019 
+ *
+ * Purpose:   Obtain a random sequential sample of <m> integers without
+ *            replacement from <n> possible ones, like dealing a hand
+ *            of m=5 cards from a deck of n=52 possible cards with
+ *            cards numbered <0..n-1>. Caller provides allocated space
+ *            <deal>, allocated for at least <m> elements. Return the
+ *            sample in <deal>, in sorted order (smallest to largest).
+ *            
+ *            Uses the selection sampling algorithm [Knuth, 3.4.2],
+ *            which is O(n) time. For more impressive O(m)
+ *            performance, see <esl_rand64_Deal()>.
+ *
+ * Args:      m    - number of integers to sample
+ *            n    - range: each sample is 0..n-1
+ *            deal - RESULT: allocated space for <m> sampled integers
+ *
+ * Returns:   <eslOK> on success, and the sample of <m> integers
+ *            is in <deal>.
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+int
+esl_rnd_Deal(ESL_RANDOMNESS *rng, int m, int n, int *deal)
+{
+  int i = 0;
+  int j = 0;
+
+  ESL_DASSERT1(( m <= n ));
+
+  for (j = 0; j < n && i < m; j++)
+    if ( ((double) (n - j)) * esl_random(rng) < (double) (m - i)) deal[i++] = j;
+  return eslOK;
+}
+
 
 
 /*****************************************************************
@@ -1192,6 +1233,48 @@ utest_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
   free(ct);
   return;
 }
+
+
+/* utest_Deal()  
+ * tests esl_rnd_Deal()
+ * 
+ * If deals are random, each possible integer is sampled uniformly.
+ * Take <nsamp> deals of <m> integers from possible <n>.
+ * Expected count of each integer = nsamp * (m/n), +/- s.d. \sqrt(u)
+ * Test that min, max are within +/- 6 sd.
+ *
+ * Can fail stochastically, so caller should default to an <rng>
+ * with a fixed RNG seed.
+ */
+static void
+utest_Deal(ESL_RANDOMNESS *rng)
+{
+  char msg[]           = "esl_random deal unit test failed";
+  int    m             = 100;
+  int    n             = 1000;
+  int    nsamp         = 10000;
+  int   *deal          = malloc(sizeof(int) * m);
+  int   *ct            = malloc(sizeof(int) * n);
+  double expected_mean = ((double) m / (double) n) * (double) nsamp;
+  double expected_sd   = sqrt(expected_mean);
+  int    max_allowed   = (int) round( expected_mean + 6. * expected_sd);
+  int    min_allowed   = (int) round( expected_mean - 6. * expected_sd);
+  int    i;
+
+  if (deal == NULL || ct == NULL) esl_fatal(msg);
+  esl_vec_ISet(ct, n, 0);
+
+  while (nsamp--)
+    {
+      esl_rnd_Deal(rng, m, n, deal);
+      for (i = 0; i < m; i++) ct[deal[i]]++;
+    }
+  if (esl_vec_IMax(ct, n) > max_allowed) esl_fatal(msg);
+  if (esl_vec_IMin(ct, n) < min_allowed) esl_fatal(msg);
+
+  free(deal);
+  free(ct);
+}
 #endif /*eslRANDOM_TESTDRIVE*/
 /*-------------------- end, unit tests --------------------------*/
 
@@ -1247,6 +1330,8 @@ main(int argc, char **argv)
   utest_choose(r1, n, nbins, be_verbose);
   utest_random(r2, n, nbins, be_verbose);
   utest_choose(r2, n, nbins, be_verbose);
+
+  utest_Deal(r1);
 
   if (mtbitfile) save_bitfile(mtbitfile, r1, n);
   if (kbitfile)  save_bitfile(kbitfile,  r2, n);

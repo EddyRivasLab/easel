@@ -3,19 +3,26 @@
  * Contents:
  *    1. <ESL_RAND64> object
  *    2. Base esl_rand64_*() number generators
- *    3. Internal functions implementing Mersenne Twister MT19937-64
- *    4. Debugging and development tools
- *    5. Benchmark driver
- *    6. Unit tests
- *    7. Test driver
- *    8. Example
+ *    3. Other sampling routines
+ *    4. Internal functions implementing Mersenne Twister MT19937-64
+ *    5. Debugging and development tools
+ *    6. Benchmark driver
+ *    7. Unit tests
+ *    8. Test driver
+ *    9. Example
  * 
- * Derived from MT19937-64 (2004/9/29) by Takuji Nishimura and Makoto Matsumoto.
- * http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/VERSIONS/C-LANG/mt19937-64.c
- * Copyright (C) 2004, Makoto Matsumoto and Takuji Nishimura. All rights reserved.
- *
  * See also:
- *    esl_random : Easel's standard RNG, a 32-bit Mersenne Twister
+ *   esl_random : Easel's standard RNG, a 32-bit Mersenne Twister
+ *
+ * The ESL_RAND64 generator is derived from MT19937-64 (2004/9/29) by
+ * Takuji Nishimura and Makoto Matsumoto.
+ * http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/VERSIONS/C-LANG/mt19937-64.c
+ * Copyright (C) 2004, Makoto Matsumoto and Takuji Nishimura. 
+ * All rights reserved.
+ * 
+ * esl_rand64_Deal() is derived from code by Kevin Lawler (Brave
+ * Software; brave.com).  
+ * Copyright (2016) Kevin Lawler. Released under ISC License.
  *
  * In addition to the automated unit tests, external tests also verified that:
  *    1. esl_rand64() stream matches mt19937-64.c stream
@@ -240,10 +247,178 @@ esl_rand64_double_open(ESL_RAND64 *rng)
 }
 
 
+/*****************************************************************
+ * 3. Other sampling routines
+ *****************************************************************/
+
+/* vitter_a()
+ * Vitter [1987] "Method A", needed inside the main "Method D" below. 
+ * 
+ * Sample the remaining <m'> integers from the remaining <n'>, where the
+ * last one we sampled was <j>; store the sampled numbers in <deal'>.
+ * 
+ * The primes (e.g. m' not m) there indicate that this function is
+ * implemented for finishing off a sample in progress, at the end of
+ * Method D (below). Method D is sampling m from n. It decrements m
+ * and n as it goes, and it's also incrementing a counter i as it
+ * stores sampled integers in deal[i]. As it nears the end it may 
+ * switch to Method A by calling:
+ *     vitter_a(rng, m', n', j, deal+i)
+ * to sample the remaining m' from the remaining n'. Because the
+ * algorithm works by sampling skip distances between sampled integers
+ * (<S> in the code below), we only need to know how many n' are left;
+ * we don't need to know the maximum n. We get the samples by adding
+ * the sampled skip distance to <j>.
+ * 
+ */
+static int
+vitter_a(ESL_RAND64 *rng, int64_t m, int64_t n, int64_t j, int64_t *deal)
+{
+  int64_t i     = 0;                 // will count over remaining m samples
+  int64_t S     = 0;                 // sampled skip distance
+  double  top   = (double) (n - m);
+  double  nreal = (double) n;
+  double  U, quot;
+
+  while (m >= 2)
+    {
+      U    = esl_rand64_double_open(rng);  // (0,1) unit open interval. Lawler uses [0,1) but Vitter says (0,1).
+      S    = 0;
+      quot = top/nreal;
+      while (quot > U)                     // sample this S in O(S+1) time; so O(n) over all sampling
+	{
+	  S++;
+	  top   -= 1.;
+	  nreal -= 1.;
+	  quot   = (quot * top)/nreal;
+	}
+      j        += S+1;    // skip S to next sampled integer j
+      deal[i++] = j;
+      nreal    -= 1;
+      m--;
+    }
+  S         = floor(round(nreal) * esl_rand64_double(rng));  // last sample (0..n'-1) uniform, with n' >= 1
+  j        += S+1;                                           
+  deal[i++] = j;
+  return eslOK;
+}
+
+
+/* Function:  esl_rand64_Deal()
+ * Synopsis:  Sequential random sample of <m> integers from <n>.
+ * Incept:    SRE, Wed 13 Mar 2019 (John Prine, No Ordinary Blue)
+ *
+ * Purpose:   Obtain a random sample of <m> integers without replacement
+ *            from <n> possible ones, like dealing a hand of m=5 cards
+ *            from a deck of n=52 possible cards with cards numbered
+ *            <0..n-1>. Caller provides allocated space <deal>,
+ *            allocated for at least <m> elements. Return the sample
+ *            in <deal>, in sorted order (smallest to largest).
+ *            
+ *            Uses the Vitter sequential random sampling algorithm
+ *            [[Vitter, 1987]](https://dl.acm.org/citation.cfm?id=23003),
+ *            which is $O(m)$ time and $O(1)$ additional memory. Selection 
+ *            sampling and reservoir sampling algorithms are simpler,
+ *            but less efficient when the range $n$ is large because
+ *            they are $O(n)$ time.
+ *            
+ * Args:      m    - number of integers to sample
+ *            n    - range: each sample is 0..n-1
+ *            deal - RESULT: allocated space for <m> sampled integers
+ *
+ * Returns:   <eslOK> on success, and the sample of <m> integers
+ *            is in <deal>.
+ *
+ * Throws:    (no abnormal error conditions)
+ *
+ * Xref:      J.S. Vitter, "An Efficient Algorithm for Sequential
+ *            Random Sampling", ACM Trans Math Software 13:58-67
+ *            (1987). 
+ *            
+ * Derived from code by Kevin Lawler (Brave Software; brave.com). 
+ * https://getkerf.wordpress.com/2016/03/30/the-best-algorithm-no-one-knows-about/
+ * Copyright (2016) Kevin Lawler. Released under ISC License.
+ * Lawler's implementation closely follows Vitter (1987).
+ * I've only made cosmetic changes to be more Easel-ish.
+ */
+int
+esl_rand64_Deal(ESL_RAND64 *rng, int64_t m, int64_t n, int64_t *deal)
+{
+  int64_t i           = 0;                // index over samples going into <deal>
+  int64_t j           = -1;               // index of last sample we took. 
+  int64_t S;                              // randomly sampled gap size. j' = j+S+1.
+  int64_t qu1         = n - m + 1;
+  int64_t negalphainv = -13;              // 1/a, where a is free parameter controlling switch to method "A"
+  int64_t threshold   = -negalphainv*m;   // controls switchover to "method A"
+  double  mreal       = (double) m;
+  double  nreal       = (double) n;
+  double  minv        = 1.0 / (double) m;
+  double  mmin1inv    = 1.0 / (double) (m-1);
+  double  Vprime      = exp(minv * log(esl_rand64_double(rng)));
+  double  qu1real     = nreal - mreal + 1.0;
+  int64_t t, limit;       
+  double  negSreal, U, X, y1, y2, top, bottom;
+  
+  ESL_DASSERT1(( m <= n ));
+
+  while (m > 1 && n > threshold)
+    {
+      mmin1inv = 1.0 / (-1.0 + mreal);
+      while (1)
+	{
+	  while (1)
+	    {
+	      X = nreal * (-Vprime + 1.0);
+	      if ((S = floor(X)) < qu1) break;
+	      Vprime = exp(minv * log(esl_rand64_double_open(rng)));
+	    }
+	  U        = esl_rand64_double_open(rng);
+	  negSreal = -S;
+	  y1       = exp(mmin1inv * log(U*nreal/qu1real));
+	  Vprime   = y1 * (-X/nreal + 1.0) * (qu1real / (negSreal + qu1real));
+	  if (Vprime <= 1.) break;
+	    
+	  y2  = 1.;
+	  top = nreal - 1.;
+
+	  if (n-1 > S)  { bottom = nreal - mreal;         limit  = n - S; }
+	  else          { bottom = nreal + negSreal - 1.; limit  = qu1;   }
+
+	  for (t = n-1; t >= limit; t--)
+	    { y2 = (y2 * top) / bottom;   top--;   bottom--; }
+
+	  if (nreal / (nreal-X) >= y1 * exp(mmin1inv * log(y2)))
+	    { Vprime = exp(mmin1inv * log(esl_rand64_double_open(rng))); break; }
+
+	  Vprime = exp(minv * log(esl_rand64_double_open(rng)));
+	}
+      j         += S+1;
+      deal[i++]  = j;
+      n          = n - S - 1;
+      nreal      = nreal + negSreal - 1.;
+      m         -= 1;
+      mreal     -= 1.0;
+      minv       = mmin1inv;
+      qu1        = qu1 - S;
+      qu1real    = qu1real + negSreal;
+      threshold += negalphainv;
+    }
+
+  if (m > 1) vitter_a(rng, m, n, j, deal+i);
+  else {
+    S         = floor(n * Vprime);
+    j        += S+1;
+    deal[i++] = j;
+  }
+  return eslOK;
+}
+
+
+
 
 
 /*****************************************************************
- * 3. Internal functions implementing MT19937-64
+ * 4. Internal functions implementing MT19937-64
  *****************************************************************/
 
 /* mt64_seed_table()
@@ -316,7 +491,7 @@ choose_arbitrary_seed(void)
 
 
 /*****************************************************************
- * 4. Debugging and development tools
+ * 5. Debugging and development tools
  *****************************************************************/
 
 /* Function:  esl_rand64_Dump()
@@ -342,7 +517,7 @@ esl_rand64_Dump(FILE *fp, ESL_RAND64 *rng)
 
 
 /*****************************************************************
- * 5. Benchmark driver
+ * 6. Benchmark driver
  *****************************************************************/
 #ifdef eslRAND64_BENCHMARK
 
@@ -392,7 +567,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 6. Unit tests
+ * 7. Unit tests
  *****************************************************************/
 #ifdef eslRAND64_TESTDRIVE
 
@@ -478,12 +653,53 @@ utest_rand64(ESL_RAND64 *rng, enum esl_rand64_utest_e whichtest)
   if (X2p < 0.01) esl_fatal(msg);  // P < 0.01 happens 1% of the time; hence our fixed RNG seed
   free(counts);
 }
+
+
+/* utest_Deal()
+ * Tests the esl_rand64_Deal() sequential sampling algorithm.
+ * 
+ * If deals are random, each possible integer is sampled uniformly.
+ * Take <nsamp> deals of <m> integers from possible <n>.
+ * Expected count of each integer = nsamp * (m/n), +/- s.d. \sqrt(u)
+ * Test that min, max are within +/- 6 sd.
+ *
+ * Can fail stochastically, so default test driver uses a fixed RNG seed.
+ */
+static void
+utest_Deal(ESL_RAND64 *rng)
+{
+  char     msg[]         = "esl_rand64 deal unit test failed";
+  int64_t  m             = 100;
+  int64_t  n             = 1000;
+  int64_t  nsamp         = 10000;
+  int64_t *deal          = malloc(sizeof(int64_t) * m);
+  int64_t *ct            = malloc(sizeof(int64_t) * n);
+  double   expected_mean = ((double) m / (double) n) * (double) nsamp;
+  double   expected_sd   = sqrt(expected_mean);
+  int64_t  max_allowed   = (int64_t) round( expected_mean + 6. * expected_sd);
+  int64_t  min_allowed   = (int64_t) round( expected_mean - 6. * expected_sd);
+  int64_t  i;
+
+  if (deal == NULL || ct == NULL) esl_fatal(msg);
+  esl_vec_LSet(ct, n, 0);
+
+  while (nsamp--)
+    {
+      esl_rand64_Deal(rng, m, n, deal);
+      for (i = 0; i < m; i++) ct[deal[i]]++;
+    }
+  if (esl_vec_LMax(ct, n) > max_allowed) esl_fatal(msg);
+  if (esl_vec_LMin(ct, n) < min_allowed) esl_fatal(msg);
+
+  free(deal);
+  free(ct);
+}
 #endif // eslRAND64_TESTDRIVE
 
 
 
 /*****************************************************************
- * 7. Test driver
+ * 8. Test driver
  *****************************************************************/
 #ifdef eslRAND64_TESTDRIVE
 
@@ -526,6 +742,8 @@ main(int argc, char **argv)
       utest_rand64(rng,  eslRAND64_DOUBLE);
       utest_rand64(rng,  eslRAND64_DOUBLE_CLOSED);
       utest_rand64(rng,  eslRAND64_DOUBLE_OPEN);
+
+      utest_Deal(rng);
 
       fprintf(stderr, "#  status = ok\n");
     }
@@ -571,7 +789,7 @@ save_bitfile(char *bitfile, ESL_RAND64 *rng)
 
 
 /*****************************************************************
- * 8. Example 
+ * 9. Example 
  *****************************************************************/
 #ifdef eslRAND64_EXAMPLE
 

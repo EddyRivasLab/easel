@@ -1446,10 +1446,190 @@ esl_vec_FLogValidate(const float *vec, int n, float tol, char *errbuf)
  * 2. Unit tests
  *****************************************************************/ 
 #ifdef eslVECTOROPS_TESTDRIVE
+
+#include "esl_random.h"
+
+/* utest_ivectors
+ * Tests the integer (I) versions for stupid mistakes.
+ *
+ * The utest succeeds for any <rng> seed.
+ */
+static void
+utest_ivectors(ESL_RANDOMNESS *rng)
+{
+  char msg[] = "esl_vectorops ivectors test failed";
+  int  n     = 20;
+  int *v1    = malloc(sizeof(int) * n);
+  int *v2    = malloc(sizeof(int) * n);
+  int  i;
+
+  for (i = 0; i < n; i++) esl_vec_ISet(v1+i, n-i, i);   // violent way to set vector to 0..n-1
+  for (i = 0; i < n; i++) v2[i] = i;                    // ... and more obvious way
+  if ( esl_vec_ICompare(v1, v2, n) != eslOK) esl_fatal(msg);
+  
+  esl_vec_IAdd(v1, v2, n);           if (v1[1] != 2) esl_fatal(msg);     // v1 is now 0..(2n-2) 
+  esl_vec_IScale(v2, n, 2);          if (v2[1] != 2) esl_fatal(msg);     // ... now v2 is too
+  esl_vec_IIncrement(v1, n, 1);      if (v1[1] != 3) esl_fatal(msg);     // v1 now 1..(2n-1)
+  esl_vec_IAddScaled(v1, v1, -1, n); if (v1[1] != 0) esl_fatal(msg);     // v1 is now all 0's
+  esl_vec_ISwap(v1, v2, n);          if (v2[1] != 0) esl_fatal(msg);     // v2 is now all 0's, and v1 is 0..(2n-2)
+  esl_vec_ICopy(v1, n, v2);          if (v2[1] != 2) esl_fatal(msg);     // both v1 and v2 are now 0..(2n-2) again
+  
+  esl_vec_IShuffle(rng, v1, n);       // shuffle v1, leaving v2.
+
+  if (esl_vec_IDot(v1, v1, n)      != esl_vec_IDot(v2, v2, n)) esl_fatal(msg);
+  if (esl_vec_ISum(v1, n)          != (n * (n-1)))             esl_fatal(msg);
+  if (esl_vec_IMax(v1, n)          != 2*(n-1))                 esl_fatal(msg);
+  if (esl_vec_IMin(v1, n)          != 0)                       esl_fatal(msg);
+  if (v1[ esl_vec_IArgMax(v1, n) ] != 2*(n-1))                 esl_fatal(msg);
+  if (v1[ esl_vec_IArgMin(v1, n) ] != 0)                       esl_fatal(msg);
+
+  esl_vec_ISortDecreasing(v1, n);         // now 2(n-1)..0
+  esl_vec_ISortIncreasing(v2, n);
+  esl_vec_IReverse(v2, v2, n);            // ... ditto for v2 by another way
+  if ( esl_vec_ICompare(v1, v2, n) != eslOK) esl_fatal(msg);
+  if ( v1[0] != 2*(n-1))                     esl_fatal(msg);
+
+  free(v1);
+  free(v2);
+}
+  
+/* utest_lvectors
+ * Tests the int64_t (L) versions for stupid mistakes.
+ * Same as utest_ivectors() but with int64_t type.
+ */
+static void
+utest_lvectors(ESL_RANDOMNESS *rng)
+{
+  char     msg[] = "esl_vectorops lvectors test failed";
+  int      n     = 20;
+  int64_t *v1    = malloc(sizeof(int64_t) * n);
+  int64_t *v2    = malloc(sizeof(int64_t) * n);
+  int      i;
+
+  for (i = 0; i < n; i++) esl_vec_LSet(v1+i, n-i, (int64_t) i);  
+  for (i = 0; i < n; i++) v2[i] = (int64_t) i;                   
+  if ( esl_vec_LCompare(v1, v2, n) != eslOK) esl_fatal(msg);
+  
+  esl_vec_LAdd(v1, v2, n);           if (v1[1] != 2) esl_fatal(msg);
+  esl_vec_LScale(v2, n, 2);          if (v2[1] != 2) esl_fatal(msg);
+  esl_vec_LIncrement(v1, n, 1);      if (v1[1] != 3) esl_fatal(msg);
+  esl_vec_LAddScaled(v1, v1, -1, n); if (v1[1] != 0) esl_fatal(msg);
+  esl_vec_LSwap(v1, v2, n);          if (v2[1] != 0) esl_fatal(msg);
+  esl_vec_LCopy(v1, n, v2);          if (v2[1] != 2) esl_fatal(msg);
+  
+  esl_vec_LShuffle(rng, v1, n);      
+
+  if (esl_vec_LDot(v1, v1, n)      != esl_vec_LDot(v2, v2, n)) esl_fatal(msg);
+  if (esl_vec_LSum(v1, n)          != (n * (n-1)))  esl_fatal(msg);
+  if (esl_vec_LMax(v1, n)          != 2*(n-1))      esl_fatal(msg);
+  if (esl_vec_LMin(v1, n)          != 0)            esl_fatal(msg);
+  if (v1[ esl_vec_LArgMax(v1, n) ] != 2*(n-1))      esl_fatal(msg);
+  if (v1[ esl_vec_LArgMin(v1, n) ] != 0)            esl_fatal(msg);
+
+  esl_vec_LSortDecreasing(v1, n);    
+  esl_vec_LSortIncreasing(v2, n);
+  esl_vec_LReverse(v2, v2, n);       
+  if ( esl_vec_LCompare(v1, v2, n) != eslOK) esl_fatal(msg);
+  if ( v1[0] != 2*(n-1))                     esl_fatal(msg);
+
+  free(v1);
+  free(v2);
+}
+
+/* utest_fvectors
+ * Tests the float (F) versions for stupid mistakes.
+ * Same as utest_ivectors() but with float type.
+ * All values are whole numbers, so no roundoff error issues.
+ */
+static void
+utest_fvectors(ESL_RANDOMNESS *rng)
+{
+  char   msg[] = "esl_vectorops fvectors test failed";
+  int    n     = 20;
+  float *v1    = malloc(sizeof(float) * n);
+  float *v2    = malloc(sizeof(float) * n);
+  int    i;
+
+  for (i = 0; i < n; i++) esl_vec_FSet(v1+i, n-i, (float) i);   
+  for (i = 0; i < n; i++) v2[i] = (float) i;                    
+  if ( esl_vec_FCompare(v1, v2, n, 0.) != eslOK) esl_fatal(msg);
+  
+  esl_vec_FAdd(v1, v2, n);            if (v1[1] != 2.) esl_fatal(msg); 
+  esl_vec_FScale(v2, n, 2.);          if (v2[1] != 2.) esl_fatal(msg); 
+  esl_vec_FIncrement(v1, n, 1.);      if (v1[1] != 3.) esl_fatal(msg); 
+  esl_vec_FAddScaled(v1, v1, -1., n); if (v1[1] != 0.) esl_fatal(msg); 
+  esl_vec_FSwap(v1, v2, n);           if (v2[1] != 0.) esl_fatal(msg); 
+  esl_vec_FCopy(v1, n, v2);           if (v2[1] != 2.) esl_fatal(msg); 
+  
+  esl_vec_FShuffle(rng, v1, n);    
+
+  if (esl_vec_FDot(v1, v1, n)     != esl_vec_FDot(v2, v2, n)) esl_fatal(msg);
+  if (esl_vec_FSum(v1, n)         != (n * (n-1)))  esl_fatal(msg);
+  if (esl_vec_FMax(v1, n)         != 2*(n-1))      esl_fatal(msg);
+  if (esl_vec_FMin(v1, n)         != 0)            esl_fatal(msg);
+  if (v1[esl_vec_FArgMax(v1, n) ] != 2*(n-1))      esl_fatal(msg);
+  if (v1[esl_vec_FArgMin(v1, n) ] != 0)            esl_fatal(msg);
+
+  esl_vec_FSortDecreasing(v1, n);  
+  esl_vec_FSortIncreasing(v2, n);
+  esl_vec_FReverse(v2, v2, n);     
+  if ( esl_vec_FCompare(v1, v2, n, 0.) != eslOK) esl_fatal(msg);
+  if ( v1[0] != 2*(n-1))                         esl_fatal(msg);
+
+  free(v1);
+  free(v2);
+}
+
+
+/* utest_dvectors
+ * Tests the double (D) versions for stupid mistakes.
+ * Same as utest_ivectors() but with double type.
+ * All values are whole numbers, so no roundoff error issues.
+ */
+static void
+utest_dvectors(ESL_RANDOMNESS *rng)
+{
+  char   msg[] = "esl_vectorops dvectors test failed";
+  int    n     = 20;
+  double *v1   = malloc(sizeof(double) * n);
+  double *v2   = malloc(sizeof(double) * n);
+  int    i;
+
+  for (i = 0; i < n; i++) esl_vec_DSet(v1+i, n-i, (float) i);   
+  for (i = 0; i < n; i++) v2[i] = (float) i;                    
+  if ( esl_vec_DCompare(v1, v2, n, 0.) != eslOK) esl_fatal(msg);
+  
+  esl_vec_DAdd(v1, v2, n);            if (v1[1] != 2.) esl_fatal(msg);
+  esl_vec_DScale(v2, n, 2.);          if (v2[1] != 2.) esl_fatal(msg);
+  esl_vec_DIncrement(v1, n, 1.);      if (v1[1] != 3.) esl_fatal(msg);
+  esl_vec_DAddScaled(v1, v1, -1., n); if (v1[1] != 0.) esl_fatal(msg);
+  esl_vec_DSwap(v1, v2, n);           if (v2[1] != 0.) esl_fatal(msg);
+  esl_vec_DCopy(v1, n, v2);           if (v2[1] != 2.) esl_fatal(msg);
+  
+  esl_vec_DShuffle(rng, v1, n);    
+
+  if (esl_vec_DDot(v1, v1, n)     != esl_vec_DDot(v2, v2, n)) esl_fatal(msg);
+  if (esl_vec_DSum(v1, n)         != (n * (n-1)))  esl_fatal(msg);
+  if (esl_vec_DMax(v1, n)         != 2*(n-1))      esl_fatal(msg);
+  if (esl_vec_DMin(v1, n)         != 0)            esl_fatal(msg);
+  if (v1[esl_vec_DArgMax(v1, n) ] != 2*(n-1))      esl_fatal(msg);
+  if (v1[esl_vec_DArgMin(v1, n) ] != 0)            esl_fatal(msg);
+
+  esl_vec_DSortDecreasing(v1, n);  
+  esl_vec_DSortIncreasing(v2, n);
+  esl_vec_DReverse(v2, v2, n);     
+  if ( esl_vec_DCompare(v1, v2, n, 0.) != eslOK) esl_fatal(msg); 
+  if ( v1[0] != 2*(n-1))                         esl_fatal(msg);
+
+  free(v1);
+  free(v2);
+}
+
+
 static void
 utest_pvectors(void)
 {
-  char  *msg   = "pvector unit test failed";
+  char   msg[] = "pvector unit test failed";
   double p1[4] = { 0.25, 0.25, 0.25, 0.25 };
   double p2[4];
   double p3[4];
@@ -1516,17 +1696,41 @@ utest_pvectors(void)
 /*****************************************************************
  * 3. Test driver
  *****************************************************************/ 
-
-/*   gcc -g -Wall -o test -I. -L. -DeslVECTOROPS_TESTDRIVE esl_vectorops.c -leasel -lm
- */
 #ifdef eslVECTOROPS_TESTDRIVE
+
 #include "easel.h"
+#include "esl_getopts.h"
 #include "esl_vectorops.h"
 
-int main(void)
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                             docgroup*/
+  { "-h",  eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",    0 },
+  { "-s",  eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",           0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for vectorops module";
+
+int
+main(int argc, char **argv)
 {
+  ESL_GETOPTS    *go   = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng  = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+
+  fprintf(stderr, "## %s\n", argv[0]);
+  fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
+
+  utest_ivectors(rng);
+  utest_lvectors(rng);
+  utest_fvectors(rng);
+  utest_dvectors(rng);
   utest_pvectors();
-  return 0;
+
+  fprintf(stderr, "#  status = ok\n");
+
+  esl_randomness_Destroy(rng);
+  esl_getopts_Destroy(go);
+  return eslOK;
 }
 #endif /*eslVECTOROPS_TESTDRIVE*/
 
