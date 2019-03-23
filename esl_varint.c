@@ -50,17 +50,17 @@ esl_varint_expgol(int v, int k, uint64_t *opt_code, int *opt_n)
 {
   ESL_DASSERT1(( v >= 0 && k >= 0 ));
 
-  uint64_t m    = (1 << k);   // 2^k.                                                      For k=0 standard expgol: m=1,
-  uint64_t q    = (v >> k);   // \floor (v / 2^k) piece, to be encoded in exp-golomb-0      ... q=v, all bits here,
-  uint64_t r    = v % m;      // will become rightmost bits                                 ... r=0, no bits stored
+  uint64_t m    = (1 << k);  // 2^k.                                                      For k=0 standard expgol: m=1,
+  uint64_t q    = v / m;     // \floor (v / 2^k) piece, to be encoded in exp-golomb-0      ... q=v, all bits here,
+  uint64_t r    = v % m;     // will become rightmost bits                                 ... r=0, no bits stored
   int      n    = 0;
   uint64_t code = q+1;       
   int      status;
 
   // q stored in exp-golomb-0.  We already set low order bits to q+1; now we just need to determine width of q+1.
   q = q+1;
-  while (q) { q = q >> 1; n++; }    // Let a = # of bits needed to represent q+1
-  n = 2 * n - 1;                    // now a-1 leading bits are 0, followed by a bits of q+1, for an exp-golomb-0 code.
+  while (q) { q >>= 1; n++; }   // Let a = # of bits needed to represent q+1
+  n = 2 * n - 1;                // now a-1 leading bits are 0, followed by a bits of q+1, for an exp-golomb-0 code.
 
   if (opt_code && n > 64) ESL_XEXCEPTION(eslERANGE, "exponential Golomb codeword length > 64");
 
@@ -171,7 +171,7 @@ esl_varint_rice(int v, int k, uint64_t *opt_code, int *opt_n)
 {
   ESL_DASSERT1(( v >= 0 && k >= 0));
   int      m    = (1 << k); // 2^k
-  int      q    = (v >> k); // int(v / 2^k), quotient.  code leads with this many 1's; then a 0
+  int      q    = v / m;    // int(v / 2^k), quotient.  code leads with this many 1's; then a 0
   int      r    = v % m;    // remainder. encoded in k bits
   uint64_t code = 0;
   int      status;
@@ -279,11 +279,11 @@ esl_varint_delta(int v, uint64_t *opt_code, int *opt_n)
   int  b = 0;  // \floor log_2 (a+1)
   int  n = 0;
   uint64_t code = 0;
-  int  tmp;
+  uint64_t tmp;
   int  status;
 
-  tmp = v >> 1;     while (tmp) { tmp = tmp >> 1; a++; }  
-  tmp = (a+1) >> 1; while (tmp) { tmp = tmp >> 1; b++; }
+  tmp = ((uint64_t) v     >> 1); while (tmp) { tmp = tmp >> 1; a++; }  
+  tmp = ((uint64_t) (a+1) >> 1); while (tmp) { tmp = tmp >> 1; b++; }
 
   n =  b;                                               // b leading zeros
   n += b+1; code = a+1;                                 // b+1 bits, representation of a+1
@@ -500,14 +500,10 @@ esl_varint_google_decode(uint64_t code, int k, int *opt_v, int *opt_n)
  * 
  * Example: v=53 ==> 00110101 ==> w=5  (2^5 = 32)
  */
-
 static int
 floor_log2(int v)
 {
-  int w = 0;
-  v >>= 1;
-  while (v) { v >>= 1; w++; }
-  return w;
+  return (v == 0 ? 0 : (int) floor(log2(v)));
 }
 
 /* floor_log2k()
@@ -516,12 +512,10 @@ floor_log2(int v)
 static int
 floor_log2k(int v, int k)
 {
-  int w = 0;
-  v = v >> k; while (v) { v = v >> k; w++; }
-  return w;
+  return ( v == 0 ? 0 : (int) floor( log2(v)) / k);
 }
 
-int     len_expgol(int v, int k) { return (2 * floor_log2((v >> k) + 1)  + 1 + k); }
+int     len_expgol(int v, int k) { return (2 * floor_log2((v / (1<<k)) + 1)  + 1 + k); }
 int64_t max_expgol(int b, int k) { return (((1ull << (((b-k-1)/2) + 1)) - 1) << k) - 1;  }
 int     len_rice  (int v, int k) { return (1 + k + (v / (1ull << k))); }
 int     max_rice  (int b, int k) { return ( (1ull << k) * (b-k) - 1); }
