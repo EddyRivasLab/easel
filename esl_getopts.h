@@ -7,7 +7,9 @@
 #define eslGETOPTS_INCLUDED
 #include "esl_config.h"
 #include "easel.h"
-
+#ifdef __cplusplus // magic to make C++ compilers happy
+extern "C" {
+#endif
 /* Object: ESL_OPTIONS
  * 
  * The application main.c defines an array of <ESL_OPTIONS> structures to
@@ -110,5 +112,7 @@ extern char  *esl_opt_GetString (const ESL_GETOPTS *g, char *optname);
 extern char  *esl_opt_GetArg    (const ESL_GETOPTS *g, int which);
 
 extern int esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent, int textwidth);
-
+#ifdef __cplusplus // magic to make C++ compilers happy
+}
+#endif
 #endif /*eslGETOPTS_INCLUDED*/

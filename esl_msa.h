@@ -2,6 +2,7 @@
  */
 #ifndef eslMSA_INCLUDED
 #define eslMSA_INCLUDED
+
 #include "esl_config.h"
 
 #include <stdio.h>
@@ -11,7 +12,9 @@
 #include "esl_random.h"
 #include "esl_randomseq.h"
 #include "esl_ssi.h"		/* indexes of large flatfiles on disk        */
-
+#ifdef __cplusplus // magic to make C++ compilers happy
+extern "C" {
+#endif
 /* The following constants define the Pfam/Rfam cutoff set we propagate
  * from Stockholm format msa's into HMMER and Infernal models.
  */
@@ -130,7 +133,7 @@ typedef struct {
 /* 1. The ESL_MSA object */
 extern ESL_MSA *esl_msa_Create(int nseq, int64_t alen);
 extern int      esl_msa_Expand(ESL_MSA *msa);
-extern int      esl_msa_Copy (const ESL_MSA *msa, ESL_MSA *new);
+//extern int      esl_msa_Copy (const ESL_MSA *msa, ESL_MSA *new);
 extern ESL_MSA *esl_msa_Clone(const ESL_MSA *msa);
 extern void     esl_msa_Destroy(ESL_MSA *msa);
 
@@ -193,5 +196,8 @@ extern int      esl_msa_Compare         (ESL_MSA *a1, ESL_MSA *a2);
 extern int      esl_msa_CompareMandatory(ESL_MSA *a1, ESL_MSA *a2);
 extern int      esl_msa_CompareOptional (ESL_MSA *a1, ESL_MSA *a2);
 extern int      esl_msa_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int max_nseq, int max_alen, ESL_MSA **ret_msa);
+#ifdef __cplusplus // magic to make C++ compilers happy
+}
+#endif
 #endif /*eslMSA_INCLUDED*/
 
