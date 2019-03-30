@@ -9,36 +9,36 @@
 #include "esl_msa.h"
 #include "esl_rand64.h"
 
-/* Default parameters
- * These can be customized in esl_msaweight_PB_adv() by passing in an
- * ESL_MSAWEIGHT_CFG
- */
-#define  eslMSAWEIGHT_FRAGTHRESH  0.5
-#define  eslMSAWEIGHT_SYMFRAC     0.5
-#define  eslMSAWEIGHT_IGNORE_RF   FALSE
-#define  eslMSAWEIGHT_SAMPTHRESH  50000   
-#define  eslMSAWEIGHT_NSAMP       10000
-#define  eslMSAWEIGHT_MAXFRAG     5000
-
 /* ESL_MSAWEIGHT_CFG
  * optional configuration/customization of PB weighting
  */
 typedef struct {
-  float fragthresh;   // seq is a fragment if (length from 1st to last aligned residue)/alen < fragthresh (i.e. span < minspan)
-  float symfrac;      // col is consensus if nres / (nres+ngap) >= symfrac
-  int   ignore_rf;    // TRUE to ignore RF line (if present), always determine our own consensus
-  int   sampthresh;   // if nseq > sampthresh, try to determine consensus on a sample, not all nseq
-  int   nsamp;        // # of seqs in sample, if determining consensus by sample
-  int   maxfrag;      // if sample has > maxfrag fragments in it, abort determining consensus by sample; use all nseq instead
-  ESL_RAND64 *rng;    // provided RNG to use in sampling, if we're sampling. If NULL, we'll create one.
-
+  float fragthresh;     // seq is a fragment if (length from 1st to last aligned residue)/alen < fragthresh (i.e. span < minspan)
+  float symfrac;        // col is consensus if nres / (nres+ngap) >= symfrac
+  int   ignore_rf;      // TRUE to ignore RF line (if present), always determine our own consensus
+  int   allow_samp;     // TRUE to allow consensus determination by subsampling (if nseq > sampthresh)
+  int   sampthresh;     // if nseq > sampthresh, try to determine consensus on a sample, not all nseq
+  int   nsamp;          // # of seqs in sample, if determining consensus by sample
+  int   maxfrag;        // if sample has > maxfrag fragments in it, abort determining consensus by sample; use all nseq instead
+  uint64_t seed;        // RNG seed 
 } ESL_MSAWEIGHT_CFG;
 
+/* Default parameters for ESL_MSAWEIGHT_CFG */
+#define  eslMSAWEIGHT_FRAGTHRESH  0.5
+#define  eslMSAWEIGHT_SYMFRAC     0.5
+#define  eslMSAWEIGHT_IGNORE_RF   FALSE
+#define  eslMSAWEIGHT_ALLOW_SAMP  TRUE
+#define  eslMSAWEIGHT_SAMPTHRESH  50000   
+#define  eslMSAWEIGHT_NSAMP       10000
+#define  eslMSAWEIGHT_MAXFRAG     5000
+#define  eslMSAWEIGHT_RNGSEED     42
 
 /* ESL_MSAWEIGHT_DAT
  * optional data collected from PB weighting
  */
 typedef struct {
+  uint64_t seed;         // RNG seed used. (if cfg->seed is 0, random seed is chosen, and this is it.)
+
   int  cons_by_rf;       // TRUE if consensus columns were determined using RF annotation
   int  cons_by_sample;   //   ... or by using a subsample of sequences                                  
   int  cons_by_all;      //   ... or by using all sequences

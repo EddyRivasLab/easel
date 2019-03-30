@@ -73,6 +73,9 @@ static uint64_t choose_arbitrary_seed(void);
  * Returns:   <eslOK> on success.
  *
  * Throws:    <NULL> on allocation failure.
+ * 
+ * Notes:     Initializing a new RNG takes negligible time. If you find
+ *            yourself obsessively worrying about it, don't. 
  */
 ESL_RAND64 *
 esl_rand64_Create(uint64_t seed)

@@ -2068,15 +2068,15 @@ main(void)
 #include "esl_getopts.h"
 
 static ESL_OPTIONS options[] = {
-  /* name        type       def   env  range toggles reqs incomp help                       docgroup*/
-  { "-h",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",            0},
-  { "-a",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "a boolean switch",               0},
-  { "-b",     eslARG_NONE,"default",NULL,NULL, NULL, NULL, NULL, "another boolean switch",         0},
-  { "-n",     eslARG_INT,     "0", NULL, NULL, NULL, NULL, NULL, "an integer argument",            0},
-  { "-s",     eslARG_STRING,"hi!", NULL, NULL, NULL, NULL, NULL, "a string argument",              0},
-  { "-x",     eslARG_REAL,  "1.0", NULL, NULL, NULL, NULL, NULL, "a real-valued argument",         0},
-  { "--file", eslARG_STRING, NULL, NULL, NULL, NULL, NULL, NULL, "long option, with filename arg", 0},
-  { "--char", eslARG_CHAR,     "", NULL, NULL, NULL, NULL, NULL, "long option, with character arg",0},
+  /* name        type          def   env  range toggles reqs incomp help                       docgroup*/
+  { "-h",     eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",       0},
+  { "-a",     eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "a boolean switch",          0},
+  { "-b",     eslARG_NONE,"default", NULL, NULL, NULL, NULL, NULL, "another boolean switch",    0},
+  { "-n",     eslARG_INT,       "0", NULL, NULL, NULL, NULL, NULL, "an integer argument",       0},
+  { "-s",     eslARG_STRING,  "hi!", NULL, NULL, NULL, NULL, NULL, "a string argument",         0},
+  { "-x",     eslARG_REAL,    "1.0", NULL, NULL, NULL, NULL, NULL, "a real-valued argument",    0},
+  { "--file", eslARG_STRING,   NULL, NULL, NULL, NULL, NULL, NULL, "long option, filename arg", 0},
+  { "--char", eslARG_CHAR,       "", NULL, NULL, NULL, NULL, NULL, "long option, char arg",     0},
   { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, 
 };
 static char usage[] = "Usage: ./example [-options] <arg>";
@@ -2092,13 +2092,12 @@ main(int argc, char **argv)
   if (esl_opt_VerifyConfig(go)               != eslOK) esl_fatal("Failed to parse command line: %s\n", go->errbuf);
 
   if (esl_opt_GetBoolean(go, "-h") == TRUE) {
-    puts(usage); 
-    puts("\n  where options are:");
+    printf("%s\n  where options are:", usage);
     esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0=all docgroups; 2=indentation; 80=width */
     return 0;
   }
+
   if (esl_opt_ArgNumber(go) != 1) esl_fatal("Incorrect number of command line arguments.\n%s\n", usage);
-  
   arg = esl_opt_GetArg(go, 1);
 
   printf("Option -a:      %s\n", esl_opt_GetBoolean(go, "-a") ? "on" : "off");

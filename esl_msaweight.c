@@ -171,6 +171,7 @@ int
 esl_msaweight_PB_adv(const ESL_MSAWEIGHT_CFG *cfg, ESL_MSA *msa, ESL_MSAWEIGHT_DAT *dat)
 {
   int   ignore_rf   = (cfg? cfg->ignore_rf  : eslMSAWEIGHT_IGNORE_RF);      // default is FALSE: use RF annotation as consensus definition, if RF is present
+  int   allow_samp  = (cfg? cfg->allow_samp : eslMSAWEIGHT_ALLOW_SAMP);     // default is TRUE: allow subsampling speed optimization
   int   sampthresh  = (cfg? cfg->sampthresh : eslMSAWEIGHT_SAMPTHRESH);     // if nseq > sampthresh, try to determine consensus on a subsample of seqs
   int **ct          = NULL;     // matrix of symbol counts in each column. ct[apos=(0).1..alen][a=0..Kp-1]
   int  *r           = NULL;     // number of different canonical residues used in each consensus column. r[j=0..ncons-1]
@@ -190,8 +191,8 @@ esl_msaweight_PB_adv(const ESL_MSAWEIGHT_CFG *cfg, ESL_MSA *msa, ESL_MSAWEIGHT_D
   ESL_ALLOC(conscols, sizeof(int) * msa->alen);
 
   /* Determine consensus columns early if we can. (ncons stays = 0 if neither way gets used.) */
-  if      (msa->rf && ! ignore_rf)   consensus_by_rf(msa, conscols, &ncons, dat);
-  else if ( msa->nseq > sampthresh)  consensus_by_sample(cfg, msa, ct, conscols, &ncons, dat);
+  if      (! ignore_rf && msa->rf)                consensus_by_rf(msa, conscols, &ncons, dat);
+  else if (allow_samp  && msa->nseq > sampthresh) consensus_by_sample(cfg, msa, ct, conscols, &ncons, dat);
 
   /* Collect count matrix ct[apos][a]  (either all columns, or if we have consensus already, only consensus columns) */
   collect_counts(cfg, msa, conscols, ncons, ct, dat);
@@ -312,7 +313,7 @@ consensus_by_sample(const ESL_MSAWEIGHT_CFG *cfg, const ESL_MSA *msa, int **ct, 
   float       symfrac     = (cfg? cfg->symfrac    : eslMSAWEIGHT_SYMFRAC);
   int         nsamp       = (cfg? cfg->nsamp      : eslMSAWEIGHT_NSAMP);
   int         maxfrag     = (cfg? cfg->maxfrag    : eslMSAWEIGHT_MAXFRAG);
-  ESL_RAND64 *rng         = ((cfg && cfg->rng) ? cfg->rng : esl_rand64_Create(42));    // fixed seed for default reproducibility
+  ESL_RAND64 *rng         = (cfg? esl_rand64_Create(cfg->seed) : esl_rand64_Create(eslMSAWEIGHT_RNGSEED));   // fixed seed for default reproducibility
   int64_t    *sampidx     = NULL;
   int         nfrag       = 0;        // number of fragments in sample
   int         ncons       = 0;        // number of consensus columns defined
@@ -325,6 +326,7 @@ consensus_by_sample(const ESL_MSAWEIGHT_CFG *cfg, const ESL_MSA *msa, int **ct, 
 
   ESL_ALLOC(sampidx, sizeof(int64_t) * nsamp);
   esl_mat_ISet(ct, msa->alen+1, msa->abc->Kp, 0);
+  if (dat) dat->seed = esl_rand64_GetSeed(rng);
 
   esl_rand64_Deal(rng, nsamp, (int64_t) msa->nseq, sampidx);  // <sampidx> is now an ordered list of <nsamp> indices in range 0..nseq-1
 
@@ -359,9 +361,11 @@ consensus_by_sample(const ESL_MSAWEIGHT_CFG *cfg, const ESL_MSA *msa, int **ct, 
       status = eslFAIL;
     }
 
+
+
  ERROR:
   free(sampidx);
-  if (!cfg || !cfg->rng) esl_rand64_Destroy(rng);
+  esl_rand64_Destroy(rng);
   *ret_ncons = ncons;   // will be 0 if we saw too many fragments.
   return status;
 }
@@ -549,9 +553,11 @@ esl_msaweight_cfg_Create(void)
   cfg->fragthresh = eslMSAWEIGHT_FRAGTHRESH;
   cfg->symfrac    = eslMSAWEIGHT_SYMFRAC;
   cfg->ignore_rf  = eslMSAWEIGHT_IGNORE_RF;
+  cfg->allow_samp = eslMSAWEIGHT_ALLOW_SAMP;
   cfg->sampthresh = eslMSAWEIGHT_SAMPTHRESH;
   cfg->nsamp      = eslMSAWEIGHT_NSAMP;
   cfg->maxfrag    = eslMSAWEIGHT_MAXFRAG;
+  cfg->seed       = eslMSAWEIGHT_RNGSEED;          
 
  ERROR:
   return cfg;
@@ -578,6 +584,8 @@ esl_msaweight_dat_Create(void)
   int status;
 
   ESL_ALLOC(dat, sizeof(ESL_MSAWEIGHT_DAT));
+
+  dat->seed            = eslMSAWEIGHT_RNGSEED;
 
   dat->cons_by_rf      = FALSE;
   dat->cons_by_sample  = FALSE;
@@ -1357,12 +1365,23 @@ main(int argc, char **argv)
 #include "esl_msaweight.h"
 
 static ESL_OPTIONS options[] = {
-  /* name             type          default  env  range toggles reqs incomp  help                                       docgroup*/
-  { "-h",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",        0 },
-  { "--informat",  eslARG_STRING,      NULL,  NULL, NULL,  NULL,  NULL, NULL, "specify the input MSA file is in format <s>", 0 }, 
-  { "--dna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use DNA alphabet",                            0 },
-  { "--rna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use RNA alphabet",                            0 },
-  { "--amino",     eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use protein alphabet",                        0 },
+  /* name             type          default                           env  range       toggles reqs incomp             help                                                    docgroup*/
+  { "-h",            eslARG_NONE,   FALSE,                            NULL, NULL,       NULL,  NULL, NULL,            "show brief help on version and usage",                      1 },
+  { "--informat",    eslARG_STRING, NULL,                             NULL, NULL,       NULL,  NULL, NULL,            "specify the input MSA file is in format <s>",               1 }, 
+  { "--dna",         eslARG_NONE,   FALSE,                            NULL, NULL,       NULL,  NULL, NULL,            "use DNA alphabet",                                          1 },
+  { "--rna",         eslARG_NONE,   FALSE,                            NULL, NULL,       NULL,  NULL, NULL,            "use RNA alphabet",                                          1 },
+  { "--amino",       eslARG_NONE,   FALSE,                            NULL, NULL,       NULL,  NULL, NULL,            "use protein alphabet",                                      1 },
+
+  { "--ignore-rf",   eslARG_NONE,   eslMSAWEIGHT_IGNORE_RF,           NULL, NULL,       NULL,  NULL, NULL,            "ignore any RF line; always determine our own consensus",    2 },
+  { "--fragthresh",  eslARG_REAL,   ESL_STR(eslMSAWEIGHT_FRAGTHRESH), NULL, "0<=x<=1",  NULL,  NULL, NULL,            "seq is fragment if aspan/alen < fragthresh",                2 },	// 0.0 = no fragments; 1.0 = everything is a frag except 100% full-span aseq 
+  { "--symfrac",     eslARG_REAL,   ESL_STR(eslMSAWEIGHT_SYMFRAC),    NULL, "0<=x<=1",  NULL,  NULL, NULL,            "col is consensus if nres/(nres+ngap) >= symfrac",           2 },	// 0.0 = all cols are consensus; 1.0 = only 100% all-residue cols are consensus
+
+  { "--no-sampling", eslARG_NONE,   FALSE,                            NULL, NULL,       NULL,  NULL, NULL,            "never use subsampling to determine consensus",              3 },
+  { "--nsamp",       eslARG_INT,    ESL_STR(eslMSAWEIGHT_NSAMP),      NULL, "n>=0",     NULL,  NULL, "--no-sampling", "number of seqs to sample (if using sampling)",              3 },
+  { "--sampthresh",  eslARG_INT,    ESL_STR(eslMSAWEIGHT_SAMPTHRESH), NULL, "n>=0",     NULL,  NULL, "--no-sampling", "switch to using sampling when nseq > nsamp",                3 },
+  { "--maxfrag",     eslARG_INT,    ESL_STR(eslMSAWEIGHT_MAXFRAG),    NULL, "n>=0",     NULL,  NULL, "--no-sampling", "if sample has > maxfrag fragments, don't use sample",       3 },
+  { "-s",            eslARG_INT,    ESL_STR(eslMSAWEIGHT_RNGSEED),    NULL, "n>=0",     NULL,  NULL, NULL,            "set random number seed to <n>",                             3 },
+
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
@@ -1372,14 +1391,38 @@ static char banner[] = "esl_msaweight example";
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS  *go           = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
-  char         *msafile      = esl_opt_GetArg(go, 1);
+  ESL_GETOPTS  *go           = NULL;
+  char         *msafile      = NULL;
   int           infmt        = eslMSAFILE_UNKNOWN;
+  ESL_MSAWEIGHT_CFG *cfg     = esl_msaweight_cfg_Create();
+  ESL_MSAWEIGHT_DAT *dat     = esl_msaweight_dat_Create();
   ESL_ALPHABET *abc          = NULL;
   ESL_MSAFILE  *afp          = NULL;
   ESL_MSA      *msa          = NULL;
   int           nali         = 0;
+  int           idx;
   int           status;
+
+  /* Process command line and options
+   */
+  if (( go = esl_getopts_Create(options))    == NULL)  esl_fatal("bad options structure");
+  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) esl_fatal("Failed to parse command line: %s\n", go->errbuf);
+  if (esl_opt_VerifyConfig(go)               != eslOK) esl_fatal("Failed to parse command line: %s\n", go->errbuf);
+
+  if (esl_opt_GetBoolean(go, "-h") == TRUE) {
+    esl_banner(stdout, argv[0], banner);
+    esl_usage (stdout, argv[0], usage);
+    puts("\noptions:");
+    esl_opt_DisplayHelp(stdout, go, 1, 2, 80); /* 1=docgroup; 2=indentation; 80=width */
+    puts("\noptions for deriving consensus:");
+    esl_opt_DisplayHelp(stdout, go, 2, 2, 80); /* 1=docgroup; 2=indentation; 80=width */
+    puts("\noptions for deriving consensus by sampling (on deep MSAs):");
+    esl_opt_DisplayHelp(stdout, go, 3, 2, 80); /* 1=docgroup; 2=indentation; 80=width */
+    return 0;
+  }
+
+  if (esl_opt_ArgNumber(go) != 1) esl_fatal("Incorrect number of command line arguments.\n%s\n", usage);
+  msafile = esl_opt_GetArg(go, 1);
 
   if      (esl_opt_GetBoolean(go, "--rna"))   abc = esl_alphabet_Create(eslRNA);
   else if (esl_opt_GetBoolean(go, "--dna"))   abc = esl_alphabet_Create(eslDNA);
@@ -1389,6 +1432,15 @@ main(int argc, char **argv)
       (infmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
     esl_fatal("%s is not a valid MSA file format for --informat", esl_opt_GetString(go, "--informat"));
 
+  cfg->fragthresh =  esl_opt_GetReal   (go, "--fragthresh");
+  cfg->symfrac    =  esl_opt_GetReal   (go, "--symfrac");
+  cfg->ignore_rf  =  esl_opt_GetBoolean(go, "--ignore-rf");
+  cfg->allow_samp = !esl_opt_GetBoolean(go, "--no-sampling");
+  cfg->sampthresh =  esl_opt_GetInteger(go, "--sampthresh");
+  cfg->nsamp      =  esl_opt_GetInteger(go, "--nsamp");
+  cfg->maxfrag    =  esl_opt_GetInteger(go, "--maxfrag");
+  cfg->seed       =  esl_opt_GetInteger(go, "-s");
+
   if ((status = esl_msafile_Open(&abc, msafile, NULL, infmt, NULL, &afp)) != eslOK)
     esl_msafile_OpenFailure(afp, status);
   
@@ -1396,16 +1448,40 @@ main(int argc, char **argv)
     {
       nali++;
 
-      if ((status = esl_msaweight_PB(msa)) != eslOK)
+      if ((status = esl_msaweight_PB_adv(cfg, msa, dat)) != eslOK)
 	esl_fatal("weighting failed");
 
-      if ((status = esl_msafile_Write(stdout, msa, eslMSAFILE_STOCKHOLM)) != eslOK)
-	esl_fatal("msa file write failed");
+      for (idx = 0; idx < msa->nseq; idx++)
+	printf("%-25s %.4f\n", msa->sqname[idx], msa->wgt[idx]);
+
+
+      if      (dat->cons_by_rf)     printf("# consensus by:             RF annotation\n");
+      else if (dat->cons_by_sample) printf("# consensus by:             subsampling\n");
+      else if (dat->cons_by_all)    printf("# consensus by:             standard rules\n");
+      else if (dat->cons_allcols)   printf("# consensus by:             all columns\n");
+
+      if (dat->rejected_sample)     printf("# (attempted sampling but rejected, too many frags\n");
+      printf("# sampling allowed?         %s\n", cfg->allow_samp ? "yes" : "NO");
+
+      printf("# fragthresh:               %.4f\n", cfg->fragthresh);
+      printf("# symfrac:                  %.4f\n", cfg->symfrac);
+      if (dat->cons_by_sample)
+	{
+	  printf("# Info on sampling:\n");
+	  printf("#    RNG seed:     %" PRIu64 "\n", dat->seed);
+	  printf("#    Sample size:  %d\n", cfg->nsamp);
+	  printf("#    Fragments:    %d  (<= maxfrag of %d)\n", dat->samp_nfrag, cfg->maxfrag);
+	}
+
+      printf("# number of consensus cols: %d out of %d\n", dat->ncons,     (int) msa->alen);
+      printf("# number of fragments:      %d out of %d\n", dat->all_nfrag, msa->nseq);
 
       esl_msa_Destroy(msa);
     }
   if (nali == 0 || status != eslEOF) esl_msafile_ReadFailure(afp, status); /* a convenience, like esl_msafile_OpenFailure() */
 
+  esl_msaweight_cfg_Destroy(cfg);
+  esl_msaweight_dat_Destroy(dat);
   esl_alphabet_Destroy(abc);
   esl_msafile_Close(afp);
   esl_getopts_Destroy(go);
