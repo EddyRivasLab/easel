@@ -11,7 +11,9 @@
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_sqio.h"
-
+#ifdef __cplusplus // magic to make C++ compilers happy
+extern "C" {
+#endif
 /* Defaults for control parameters
  */
 #define eslDSQDATA_CHUNK_MAXSEQ       4096      // max number of sequences in a chunk
@@ -146,5 +148,7 @@ extern int  esl_dsqdata_Recycle(ESL_DSQDATA *dd, ESL_DSQDATA_CHUNK *chu);
 extern int  esl_dsqdata_Close  (ESL_DSQDATA *dd);
 
 extern int  esl_dsqdata_Write  (ESL_SQFILE *sqfp, char *basename, char *errbuf);
-
+#ifdef __cplusplus // magic to make C++ compilers happy
+}
+#endif
 #endif /*eslDSQDATA_INCLUDED*/
