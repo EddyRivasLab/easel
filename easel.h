@@ -214,9 +214,23 @@
 /* Sometimes a shared function API dictates arguments that a function
  * doesn't use, and we want to silence compiler warnings about this.
  * Putting ESL_UNUSED(x) in the function, for an unused argument <x>,
- * should silence the compiler, and should generate a no-op.
+ * satisfies the compiler while generating a no-op.
  */
 #define ESL_UNUSED(x) (void)(sizeof((x)))
+
+/* Sometimes we need a macro's value as a string constant
+ * instead of a number. For example we might have
+ *    #define eslFOO_DEFAULT 42
+ * and we want to use that default value in an esl_getopts OPTIONS
+ * array, where the default needs to be specified as a string constant
+ * "42" not a number 42.  We can use a C preprocessor trick for this,
+ * using the stringize `#` preprocessor operator. It requires two
+ * steps: one to expand the macro, another to convert the expanded
+ * value to a string constant.  You call ESL_STR(eslFOO_DEFAULT). The
+ * ESL_XSTR() macro is just to make the trick work.
+ */
+#define ESL_XSTR(x) #x
+#define ESL_STR(x)  ESL_XSTR(x)
 
 
 /*****************************************************************
