@@ -20,6 +20,7 @@
 import os
 import sys
 import re
+import getopt
 
 def process(text):
     """
@@ -41,13 +42,27 @@ def output_argtable(argtext):
     print("\n")
 
 def main():
-    cfile = sys.argv[1]
+    try:    (opts, args) = getopt.getopt(sys.argv[1:], "t")
+    except:              sys.exit("Usage: autodoc.py [-t] <.c file>")
+    if (len(args) != 1): sys.exit("Usage: autodoc.py [-t] <.c file>")        
+
+    cfile    = args[0]
+    do_table = False
+    for opt, arg in opts:
+        if opt == '-t': do_table = True
+    
     if not os.path.isfile(cfile): exit(".c file {0} not found".format(cfile))
     fp   = open(cfile)
     text = fp.read()
 
-    #                       /* Function:  ...    */ ... }   blank line. Grabs header + implementation(s).
-    #                       vv    vvvvvvvv       vv   vvv   vvv   v...or, grabs subheading line in a comment
+    if do_table:
+        print('| {0:30s} | {1:60s} |'.format('Function', 'Synopsis'))
+        print('|{0:-^32s}|{1:-^62s}|'.format('', ''))
+              
+
+
+    #                       /* Function:  ...    */ ... } to a blank line.   Grabs header + implementation(s)...
+    #                        vv    vvvvvvvv       vv   vvv   vvv   v...      or, grabs subheading line in a comment
     for m in re.finditer(r'^(/\*\s+Function:.+?^ \*/)(.+?^\})\s*$^\s*$|^\s*\*#\s*\d+\..+?$\s*', text, flags=re.MULTILINE | re.DOTALL):
         if m.group(0).startswith('/*'):
             header = m.group(1)    # comment header "/* Function: ... */"
@@ -57,7 +72,7 @@ def main():
             funcnames = [ a.lstrip().rstrip() for a in m.group(1).split(',') ]    
 
             m = re.search(r'^\s+\*\s+Synopsis:\s+(.+)$', header, flags=re.MULTILINE)
-            synopsis = m.group(1) if m else None
+            synopsis = process(m.group(1)) if m else None
 
             m = re.search(r'^\s+\*\s+Args:\s+(.+?)(?:^ \*/|^ \* \S)', header, flags=re.MULTILINE | re.DOTALL)
             argtext = process(m.group(1)) if m else None
@@ -71,7 +86,7 @@ def main():
             m = re.search(r'^\s+\*\s+Throws:\s+(.+?)(?:^ \*/|^ \* \S)', header, flags=re.MULTILINE | re.DOTALL)
             throws = process(m.group(1)) if m else None
 
-            # pull the syntax out of the C implementation.
+            # pull the call syntax (function name, arguments) out of the C implementation.
             # nontrivial to do well with just regexps, without a real grammar parser,
             # because we're covering the less common case where there's >1 function
             # documented by a single header.
@@ -83,19 +98,37 @@ def main():
                 if m: syntax.append(m.group(1) + ' ' + fname + m.group(2))
                 else: exit("failed to parse out the syntax for {0}".format(fname))
 
-            for a in funcnames: print("### `{0}`\n".format(a))
-            if synopsis: print("**{0}**\n".format(synopsis.rstrip())) 
-            for s in syntax:    print("`{0}`\n".format(s))
-            if argtext: output_argtable(argtext)
-            if purpose: print(purpose);
-            if returns: print("Returns: {0}".format(returns))
-            if throws:  print("Throws: {0}".format(throws))
-            print("------")
+
+            # Now we're done parsing one (or more) documented functions,
+            # and it's time to print whatever we're going to print.
+            #
+            #   funcnames : list of one (or more) function names sharing the documentation
+            #   synopsis  : optional one-line description
+            #   syntax    : list of one (or more) "funcname(arg, arg)" call syntax
+            #   purpose   : optional documentation (Markdown format)
+            #   argtext   : optional argument table text (needs further processing)
+            #   returns:  : optional text about return status
+            #   throws:   : optional text about exceptions
+            #
+            if do_table:
+                if synopsis: print('| {0:30s} | {1:60s} |'.format(funcnames[0], synopsis))
+                else:        print('| {0:30s} | {1:60s} |'.format(funcnames[0], ''))
+            else:
+                for a in funcnames: print("### `{0}`\n".format(a))
+                if synopsis: print("**{0}**\n".format(synopsis.rstrip())) 
+                for s in syntax:    print("`{0}`\n".format(s))
+                if argtext: output_argtable(argtext)
+                if purpose: print(purpose);
+                if returns: print("Returns: {0}".format(returns))
+                if throws:  print("Throws: {0}".format(throws))
+                print("------")
 
         else:  # or, we're a section heading.
             m = re.match('^\s*\*#\s*(\d+\..+)', m.group(0))
             secheading = m.group(1)
-            print("## {0}\n".format(secheading))
+
+            if not do_table:
+                print("## {0}\n".format(secheading))
 
 
 if __name__ == "__main__":
