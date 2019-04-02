@@ -7,12 +7,13 @@
 
 extern int esl_cmd_alistat   (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  // cmd_alistat.c
 extern int esl_cmd_downsample(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  // cmd_downsample.c
-
+extern int esl_cmd_filter    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  // cmd_filter.c
 
 ESL_SUBCMD subcommands[] = {
   /* function            subcmd_name  nargs        arg_description               help_line */
-  { esl_cmd_alistat,    "alistat",       1, "[-options] <msafile>",    "summary statistics for a multiple seq alignment file"   },
-  { esl_cmd_downsample, "downsample",    2, "[-options] <m> <infile>", "downsample <m> things from larger <infile> of n things" },
+  { esl_cmd_alistat,    "alistat",       1, "[-options] <msafile>",         "summary statistics for a multiple seq alignment file"     },
+  { esl_cmd_downsample, "downsample",    2, "[-options] <m> <infile>",      "downsample <m> things from larger <infile> of n things"   },
+  { esl_cmd_filter,     "filter",        2, "[-options] <maxid> <msafile>", "remove seqs >= <maxid> fractional identity from MSA"      },
 };
 
 static ESL_OPTIONS top_options[] = {

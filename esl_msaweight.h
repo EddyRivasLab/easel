@@ -10,7 +10,7 @@
 #include "esl_rand64.h"
 
 /* ESL_MSAWEIGHT_CFG
- * optional configuration/customization of PB weighting
+ * optional configuration/customization of PB weighting and %id filtering.
  */
 typedef struct {
   float fragthresh;     // seq is a fragment if (length from 1st to last aligned residue)/alen < fragthresh (i.e. span < minspan)
@@ -21,6 +21,9 @@ typedef struct {
   int   nsamp;          // # of seqs in sample, if determining consensus by sample
   int   maxfrag;        // if sample has > maxfrag fragments in it, abort determining consensus by sample; use all nseq instead
   uint64_t seed;        // RNG seed 
+
+  /* Only affects %id filtering: */
+  int   filterpref;     // eslMSAWEIGHT_FILT_CONSCOVER | eslMSAWEIGHT_FILT_RANDOM | eslMSAWEIGHT_FILT_ORIGORDER
 } ESL_MSAWEIGHT_CFG;
 
 /* Default parameters for ESL_MSAWEIGHT_CFG */
@@ -32,6 +35,12 @@ typedef struct {
 #define  eslMSAWEIGHT_NSAMP       10000
 #define  eslMSAWEIGHT_MAXFRAG     5000
 #define  eslMSAWEIGHT_RNGSEED     42
+
+/* Exclusive settings for seq preference rule in %id filter */
+#define  eslMSAWEIGHT_FILT_CONSCOVER 1
+#define  eslMSAWEIGHT_FILT_RANDOM    2
+#define  eslMSAWEIGHT_FILT_ORIGORDER 3
+
 
 /* ESL_MSAWEIGHT_DAT
  * optional data collected from PB weighting
@@ -59,11 +68,14 @@ extern int esl_msaweight_PB_adv(const ESL_MSAWEIGHT_CFG *cfg, ESL_MSA *msa, ESL_
 extern ESL_MSAWEIGHT_CFG *esl_msaweight_cfg_Create(void);
 extern void               esl_msaweight_cfg_Destroy(ESL_MSAWEIGHT_CFG *cfg);
 extern ESL_MSAWEIGHT_DAT *esl_msaweight_dat_Create(void);
+extern int                esl_msaweight_dat_Reuse  (ESL_MSAWEIGHT_DAT *dat);
 extern void               esl_msaweight_dat_Destroy(ESL_MSAWEIGHT_DAT *dat);
 
 extern int esl_msaweight_GSC(ESL_MSA *msa);
 extern int esl_msaweight_BLOSUM(ESL_MSA *msa, double maxid);
+
 extern int esl_msaweight_IDFilter(const ESL_MSA *msa, double maxid, ESL_MSA **ret_newmsa);
+extern int esl_msaweight_IDFilter_adv(const ESL_MSAWEIGHT_CFG *cfg, const ESL_MSA *msa, double maxid, ESL_MSA **ret_newmsa);
 
 
 #endif /*eslMSAWEIGHT_INCLUDED*/

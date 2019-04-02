@@ -17,12 +17,13 @@
  * Contents:
  *   1. Position-based (PB) weighting
  *   2. Optional config, stats collection for advanced PB weighting
- *   3. Other weighting algorithms (GSC, BLOSUM, %id filtering)
- *   4. Benchmark
- *   5. Stats driver
- *   6. Unit tests
- *   7. Test driver
- *   8. Example
+ *   3. Other weighting algorithms (GSC, BLOSUM)
+ *   4. %id filtering
+ *   5. Benchmark
+ *   6. Stats driver
+ *   7. Unit tests
+ *   8. Test driver
+ *   9. Example
  */
 #include "esl_config.h"
 
@@ -37,6 +38,7 @@
 #include "esl_matrixops.h"
 #include "esl_msa.h"
 #include "esl_msacluster.h"
+#include "esl_quicksort.h"
 #include "esl_tree.h"
 #include "esl_vectorops.h"
 
@@ -46,8 +48,7 @@
 /*****************************************************************
  * 1. Position-based (PB) weighting
  *****************************************************************/
-
-/* March 2019: PB weighting algorithm revised to use only consensus
+/* Mar 2019: PB weighting algorithm revised to use only consensus
  *   columns, not all columns. HMMER benchmarks show improved
  *   discrimination especially with deep alignments. Also optimized
  *   order of access, trading off O(K) -> O(KL) memory in return for
@@ -361,8 +362,6 @@ consensus_by_sample(const ESL_MSAWEIGHT_CFG *cfg, const ESL_MSA *msa, int **ct, 
       status = eslFAIL;
     }
 
-
-
  ERROR:
   free(sampidx);
   esl_rand64_Destroy(rng);
@@ -539,7 +538,7 @@ msaweight_PB_txt(ESL_MSA *msa)
  *****************************************************************/
 
 /* Function:  esl_msaweight_cfg_Create()
- * Synopsis:  Create configuration options structure for PB weighting.
+ * Synopsis:  Create config options structure for PB weights, %id filter
  * Incept:    SRE, Thu 21 Mar 2019 [Drive By Truckers, Guns of Umpqua]
  */
 ESL_MSAWEIGHT_CFG *
@@ -558,6 +557,7 @@ esl_msaweight_cfg_Create(void)
   cfg->nsamp      = eslMSAWEIGHT_NSAMP;
   cfg->maxfrag    = eslMSAWEIGHT_MAXFRAG;
   cfg->seed       = eslMSAWEIGHT_RNGSEED;          
+  cfg->filterpref = eslMSAWEIGHT_FILT_CONSCOVER;
 
  ERROR:
   return cfg;
@@ -601,6 +601,26 @@ esl_msaweight_dat_Create(void)
 
  ERROR:
   return dat;
+}
+
+/* Function:  esl_msaweight_dat_Reuse()
+ * Synopsis:  Reuse an <ESL_MSAWEIGHT_DAT> structure.
+ */
+int
+esl_msaweight_dat_Reuse(ESL_MSAWEIGHT_DAT *dat)
+{
+  if (dat->conscols) { free(dat->conscols); }
+  dat->seed            = eslMSAWEIGHT_RNGSEED;
+  dat->cons_by_rf      = FALSE;
+  dat->cons_by_sample  = FALSE;
+  dat->cons_by_all     = FALSE;
+  dat->cons_allcols    = FALSE;
+  dat->rejected_sample = FALSE;
+  dat->ncons           = 0;
+  dat->conscols        = NULL;
+  dat->all_nfrag       = 0;
+  dat->samp_nfrag      = 0;
+  return eslOK;
 }
 
 
@@ -864,23 +884,61 @@ esl_msaweight_BLOSUM(ESL_MSA *msa, double maxid)
   return status;
 }
 
+
+
+/*****************************************************************
+ * 4. %id filtering
+ *****************************************************************/
+/* Mar 2019: After revising the PB weighting algorithm, I also went
+ * ahead and revised ER's %id filtering along related lines, because TAJ
+ * coincidentally complained about how filtering could keep a fragment
+ * and throw out a closer-to-consensus sequence. 
+ */
+
+/* In addition to some of the internal functions used by PB weighting above... */
+static int sort_doubles_decreasing(const void *data, int e1, int e2);
+static int set_preference_conscover(const ESL_MSA *msa, const int *conscols, int ncons, double *sortwgt);
+static int set_preference_randomly(const ESL_MSAWEIGHT_CFG *cfg, int nseq, double *sortwgt);
+static int set_preference_origorder(int nseq, double *sortwgt);
+static int msaweight_IDFilter_txt(const ESL_MSA *msa, double maxid, ESL_MSA **ret_newmsa);
+
 /* Function:  esl_msaweight_IDFilter()
  * Synopsis:  Filter by %ID.
  * Incept:    ER, Wed Oct 29 10:06:43 2008 [Janelia]
  * 
- * Purpose:   Constructs a new alignment by removing near-identical 
- *            sequences from a given alignment (where identity is 
- *            calculated *based on the alignment*).
- *            Does not affect the given alignment.
- *            Keeps earlier sequence, discards later one. 
- *           
- *            Usually called as an ad hoc sequence "weighting" mechanism.
- *           
- * Limitations:
- *            Unparsed Stockholm markup is not propagated into the
- *            new alignment.
- *           
- * Return:    <eslOK> on success, and the <newmsa>.
+ * Purpose:   Remove sequences in <msa> that are $\geq$ <maxid>
+ *            fractional identity to another aligned sequence.  Return
+ *            the filtered alignment in <*ret_newmsa>.  The original
+ *            <msa> is not changed.
+ *            
+ *            When a pair of sequences has $\geq$ <maxid> fractional
+ *            identity, the default rule for which of them we keep
+ *            differs depending on whether the <msa> is in digital or
+ *            text mode. We typically manipulate biosequence
+ *            alignments in digital mode. In digital mode, the default
+ *            rule (called "conscover") is to prefer the sequence with
+ *            an alignment span that covers more consensus columns.
+ *            (Where "span" is defined by the column coordinates of
+ *            the leftmost and rightmost aligned residues of the
+ *            sequence; fragment definition rules also use the concept
+ *            of "span".)  In the simpler text mode, the rule is to
+ *            keep the earlier sequence and discard the later, in the
+ *            order the seqs come in the alignment. The conscover rule
+ *            is designed to avoid keeping fragments, while trying not
+ *            to bias the insertion/deletion statistics of the
+ *            filtered alignment. To use different preference rules in
+ *            digital mode alignments, see the more customizable
+ *            <esl_msaweight_IDFilter_adv()>.
+ *
+ *            Fractional identity is calculated by
+ *            <esl_dst_{CX}PairID()>, which defines the denominator of
+ *            the calculation as MIN(rlen1, rlen2).
+ *            
+ *            Unparsed Stockholm markup is not propagated into the new
+ *            filtered alignment.
+ *            
+ * Return:    <eslOK> on success, and <*ret_newmsa> is the filtered
+ *            alignment.
  *
  * Throws:    <eslEMEM> on allocation error. <eslEINVAL> if a pairwise
  *            identity calculation fails because of corrupted sequence 
@@ -891,6 +949,214 @@ esl_msaweight_BLOSUM(ESL_MSA *msa, double maxid)
 int
 esl_msaweight_IDFilter(const ESL_MSA *msa, double maxid, ESL_MSA **ret_newmsa)
 {
+  if (msa->flags & eslMSA_DIGITAL) return esl_msaweight_IDFilter_adv(NULL, msa, maxid, ret_newmsa);
+  else                             return msaweight_IDFilter_txt    (      msa, maxid, ret_newmsa);
+}
+
+
+/* Function:  esl_msaweight_IDFilter_adv()
+ * Synopsis:  Advanced version of %id filtering; digital MSAs only.
+ * Incept:    SRE, Sat 30 Mar 2019
+ *
+ * Purpose:   Same as <esl_msaweight_IDFilter()> but customizable with
+ *            optional custom parameters in <cfg>. Requires digital
+ *            mode alignment.
+ *            
+ *            In particular, <cfg> can be used to select two other
+ *            rules for sequence preference, besides the default
+ *            "conscover" rule: random preference, or preferring the
+ *            lower-index sequence (same as the rule used in text mode
+ *            alignments).
+ *            
+ *            For the "conscover" rule, consensus column determination
+ *            can be customized the same way as in PB weighting.
+ */
+int
+esl_msaweight_IDFilter_adv(const ESL_MSAWEIGHT_CFG *cfg, const ESL_MSA *msa, double maxid, ESL_MSA **ret_newmsa)
+{
+  int     ignore_rf   = (cfg? cfg->ignore_rf  : eslMSAWEIGHT_IGNORE_RF);      // default is FALSE: use RF annotation as consensus definition, if RF is present
+  int     allow_samp  = (cfg? cfg->allow_samp : eslMSAWEIGHT_ALLOW_SAMP);     // default is TRUE: allow subsampling speed optimization
+  int     sampthresh  = (cfg? cfg->sampthresh : eslMSAWEIGHT_SAMPTHRESH);     // if nseq > sampthresh, try to determine consensus on a subsample of seqs
+  int     filterpref  = (cfg? cfg->filterpref : eslMSAWEIGHT_FILT_CONSCOVER); // default preference rule is "conscover"
+  int   **ct          = NULL;     // matrix of symbol counts in each column. ct[apos=(0).1..alen][a=0..Kp-1]
+  int    *conscols    = NULL;     // list of consensus column indices [0..ncons-1]
+  double *sortwgt     = NULL;     // when pair of seqs is >= maxid, retain seq w/ higher <sortwgt>
+  int    *ranked_at   = NULL;     // sorted seq indices 0..nseq-1
+  int    *list        = NULL;     // array of seq indices in new msa 
+  int    *useme       = NULL;     // useme[i] is TRUE if seq[i] is kept in new msa 
+  int     ncons       = 0;        // number of consensus column indices in <conscols> list
+  int     nnew        = 0;        // how many seqs have been added to <list> and <useme> so far
+  int     apos, r, i;             // index over columns, ranked seq indices, seqs in <list>
+  double  ident;                  // pairwise fractional id (0..1)
+  int     status      = eslOK;
+
+  ESL_DASSERT1(( msa->nseq >= 1 && msa->alen >= 1));
+  ESL_DASSERT1(( msa->flags & eslMSA_DIGITAL ));
+
+  /* Allocations that we always need*/
+  ESL_ALLOC(sortwgt,   sizeof(double) * msa->nseq);
+  ESL_ALLOC(ranked_at, sizeof(double) * msa->nseq);
+  ESL_ALLOC(list,      sizeof(int)    * msa->nseq);
+  ESL_ALLOC(useme,     sizeof(int)    * msa->nseq);
+  esl_vec_ISet(useme, msa->nseq, 0); /* initialize array */
+
+  /* Determine consensus columns with same procedure as advanced PB weights.
+   *   1. If RF annotation is provided, use it.
+   *         (...unless cfg->ignore_rf has been set TRUE)
+   *   2. If it's a deep alignment, subsample and apply fragthresh/symfrac rules to the sample.
+   *         (...unless cfg->allow_samp has been set FALSE)
+   *   3. Otherwise, use standard rule on all sequences: 
+   *      collect observed counts in <ct> (applying fragthresh rule) and
+   *      determine consensus (applying symfrac rule)
+   *   4. If all else fails, define all columns as consensus.
+   *
+   * We only need to do this if we're using the default "conscover" rule.
+   */
+  if (filterpref == eslMSAWEIGHT_FILT_CONSCOVER)
+    {
+      /* allocations only needed for consensus determination */
+      ct = esl_mat_ICreate( msa->alen+1, msa->abc->Kp );      // (0).1..alen; 0..Kp-1
+      ESL_ALLOC(conscols,  sizeof(int)    * msa->alen);
+
+      if      (! ignore_rf && msa->rf)                consensus_by_rf(msa, conscols, &ncons, NULL);
+      else if (allow_samp  && msa->nseq > sampthresh) consensus_by_sample(cfg, msa, ct, conscols, &ncons, NULL);
+      else {
+	collect_counts(cfg, msa, conscols, ncons, ct, NULL);
+	consensus_by_all(cfg, msa, ct, conscols, &ncons, NULL);
+      }
+      if (!ncons) {
+	for (apos = 1; apos <= msa->alen; apos++) conscols[apos-1] = apos; 
+	ncons = msa->alen; 
+      }
+    }
+  
+  /* Assign preferences for which sequences to retain.
+   * Higher <sortwgt> means higher preference.
+   */
+  if      (filterpref == eslMSAWEIGHT_FILT_CONSCOVER) set_preference_conscover(msa, conscols, ncons, sortwgt);
+  else if (filterpref == eslMSAWEIGHT_FILT_RANDOM)    set_preference_randomly (cfg, msa->nseq,       sortwgt);
+  else if (filterpref == eslMSAWEIGHT_FILT_ORIGORDER) set_preference_origorder(     msa->nseq,       sortwgt);
+  else esl_fatal("bad filterpref");
+
+  /* Sort sequence indices by these preferences.
+   * <ranked_at[]> is a ranked list of sequence indices 0..nseq-1.
+   */
+  esl_quicksort(sortwgt, msa->nseq, sort_doubles_decreasing, ranked_at);
+
+  /* Determine which seqs will be kept, favoring highest ranked ones.
+   */
+  for (r = 0; r < msa->nseq; r++)  // Try to include each sequence, starting with highest ranked ones
+    {
+      for (i = 0; i < nnew; i++)   // Test it against all the seqs we've already put in the list.
+	{
+	  if ((status = esl_dst_XPairId(msa->abc, msa->ax[ranked_at[r]], msa->ax[list[i]], &ident, NULL, NULL)) != eslOK) goto ERROR;
+	  if (ident >= maxid) break;
+	}
+
+      if (i == nnew)  // if the seq made it past comparisons with all <nnew> current seqs in the list...
+	{
+	  list[nnew++]        = ranked_at[r];  // ... add it to the growing list.
+	  useme[ranked_at[r]] = TRUE;
+	}
+    }
+
+  /* Filter the input MSA.
+   */
+  if ((status = esl_msa_SequenceSubset(msa, useme, ret_newmsa)) != eslOK) goto ERROR;
+  
+ ERROR:
+  free(useme);
+  free(list);
+  free(ranked_at);
+  free(sortwgt);
+  free(conscols);
+  esl_mat_IDestroy(ct);
+  return status;
+}
+
+
+
+/* Sorting function for the esl_quicksort() in the 
+ * esl_msaweight_IDFilter_adv() implementation below:
+ * rank seqs in order of decreasing sortwgt.
+ */
+static int
+sort_doubles_decreasing(const void *data, int e1, int e2)
+{
+  double *sortwgt = (double *) data;
+  if (sortwgt[e1] > sortwgt[e2]) return -1;
+  if (sortwgt[e1] < sortwgt[e2]) return 1;
+  return 0;
+}
+
+/* Preference-setting function for which seqs we prefer to retain. The
+ * default "conscover" rule counts how many consensus columns are
+ * covered by the "span" of this sequence from its first to last
+ * residue.
+ *    - set lpos, rpos to the column coord (1..alen) of the leftmost,
+ *      rightmost residue in this seq;
+ *    - count how many consensus columns are covered by that span.
+ * 
+ * This is not the same as counting how many consensus columns have
+ * a residue in them. We're trying not to bias (too much) against 
+ * deletions when we select representative sequences.
+ */
+static int
+set_preference_conscover(const ESL_MSA *msa, const int *conscols, int ncons, double *sortwgt)
+{
+  int idx, apos, lpos, rpos, j;
+
+  for (idx = 0; idx < msa->nseq; idx++)
+    {
+      for (lpos = 1;         lpos <= msa->alen; lpos++) if (esl_abc_XIsResidue(msa->abc, msa->ax[idx][lpos])) break;
+      for (rpos = msa->alen; rpos >= 1;         rpos--) if (esl_abc_XIsResidue(msa->abc, msa->ax[idx][rpos])) break;
+
+      sortwgt[idx] = 0.;
+      for (j = 0; j < ncons && conscols[j] <= rpos; j++)
+	{
+	  apos = conscols[j];
+	  if (apos < lpos) continue;
+	  sortwgt[idx] += 1.;
+	}
+    }
+  return eslOK;
+}
+
+/* Preference-setting function where we assign random preference.
+ */
+static int
+set_preference_randomly(const ESL_MSAWEIGHT_CFG *cfg, int nseq, double *sortwgt)
+{
+  ESL_RAND64 *rng = (cfg? esl_rand64_Create(cfg->seed) : esl_rand64_Create(eslMSAWEIGHT_RNGSEED));
+  int         idx;
+
+  for (idx = 0; idx < nseq; idx++)
+    sortwgt[idx] = esl_rand64_double(rng);
+  
+  esl_rand64_Destroy(rng);
+  return eslOK;
+}
+
+/* Preference-setting function that favors the earlier sequence
+ * in the alignment; same as the rule used for text mode alignments.
+ */
+static int
+set_preference_origorder(int nseq, double *sortwgt)
+{
+  int idx;
+
+  for (idx = 0; idx < nseq; idx++)
+    sortwgt[idx] = (double) (nseq - idx); // sets them to nseq..1
+  return eslOK;
+}
+
+
+/* msaweight_IDFilter_txt()
+ * %id filtering for text-mode MSAs.
+ */
+static int
+msaweight_IDFilter_txt(const ESL_MSA *msa, double maxid, ESL_MSA **ret_newmsa)
+{
   int     *list   = NULL;               /* array of seqs in new msa */
   int     *useme  = NULL;               /* TRUE if seq is kept in new msa */
   int      nnew;			/* number of seqs in new alignment */
@@ -899,11 +1165,10 @@ esl_msaweight_IDFilter(const ESL_MSA *msa, double maxid, ESL_MSA **ret_newmsa)
   int      remove;                      /* TRUE if sq is to be removed */
   int      status;
   
-  /* Contract checks
-   */
-  ESL_DASSERT1( (msa       != NULL) );
-  ESL_DASSERT1( (msa->nseq >= 1)    );
-  ESL_DASSERT1( (msa->alen >= 1)    );
+  ESL_DASSERT1(( msa ));
+  ESL_DASSERT1(( msa->nseq >= 1 ));
+  ESL_DASSERT1(( msa->alen >= 1 ));
+  ESL_DASSERT1(( ! (msa->flags & eslMSA_DIGITAL )));
 
   /* allocate */
   ESL_ALLOC(list,  sizeof(int) * msa->nseq);
@@ -946,11 +1211,11 @@ esl_msaweight_IDFilter(const ESL_MSA *msa, double maxid, ESL_MSA **ret_newmsa)
   if (useme != NULL) free(useme);
   return status;
 }
-/*---------------- end, weighting implementations ----------------*/
+
 
 
 /*****************************************************************
- * 4. Benchmark
+ * 5. Benchmark
  *****************************************************************/
 #ifdef eslMSAWEIGHT_BENCHMARK
 /* gcc -g -Wall -o benchmark -I. -L. -DeslMSAWEIGHT_BENCHMARK esl_msaweight.c -leasel -lm
@@ -1058,7 +1323,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 5. Statistics driver
+ * 6. Statistics driver
  *****************************************************************/
 #ifdef eslMSAWEIGHT_STATS
 /* gcc -g -Wall -o stats -I. -L. -DeslMSAWEIGHT_STATS esl_msaweight.c -leasel -lm
@@ -1169,72 +1434,254 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 6. Unit tests
+ * 7. Unit tests
  *****************************************************************/
 #ifdef eslMSAWEIGHT_TESTDRIVE
 
-static int
-utest_GSC(ESL_ALPHABET *abc, ESL_MSA *msa, double *expect)
-{
-  char *msg = "GSC weights unit test failure";
+#include "esl_msafile.h"
 
+/* GSC weighting test on text-mode alignment <msa>, where we expect
+ * the weights to be <expect[0]..expect[nseq-1]>. 
+ * 
+ * If <abc> is non-NULL, digitize alignment and run test again in
+ * digital alignment mode.
+ * 
+ * On failure, caller utest provides <msg> as the error msg to print.
+ */
+static void
+do_GSC(ESL_ALPHABET *abc, ESL_MSA *msa, double *expect, char *msg)
+{
+  /* text mode */
   if (esl_msaweight_GSC(msa)                               != eslOK) esl_fatal(msg);
   if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal(msg);
   
-  if (abc != NULL) 
+  /* digital mode */
+  if (abc)
     {
       if (esl_msa_Digitize(abc, msa, NULL)                     != eslOK) esl_fatal(msg);
       if (esl_msaweight_GSC(msa)                               != eslOK) esl_fatal(msg);
       if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal(msg);
       if (esl_msa_Textize(msa)                                 != eslOK) esl_fatal(msg);
     }
-  return eslOK;
 }
 
-static int
-utest_PB(ESL_ALPHABET *abc, ESL_MSA *msa, double *expect)
+/* As above, but for default PB weights */
+static void
+do_PB(ESL_ALPHABET *abc, ESL_MSA *msa, double *expect, char *msg)
 {
-  char *msg = "PB weights unit test failure";
-
   if (esl_msaweight_PB(msa)                                != eslOK) esl_fatal(msg);
   if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal(msg);
   
-  if (abc != NULL) 
+  if (abc)
     {
       if (esl_msa_Digitize(abc, msa, NULL)                     != eslOK) esl_fatal(msg);
       if (esl_msaweight_PB(msa)                                != eslOK) esl_fatal(msg);
       if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal(msg);
       if (esl_msa_Textize(msa)                                 != eslOK) esl_fatal(msg);
     }
-  return eslOK;
 }
 
-static int
-utest_BLOSUM(ESL_ALPHABET *abc, ESL_MSA *msa, double maxid, double *expect)
+/* As above, but for BLOSUM weights with fractional identity threshold <maxid> */
+static void
+do_BLOSUM(ESL_ALPHABET *abc, ESL_MSA *msa, double maxid, double *expect, char *msg)
 {
-  char *msg = "BLOSUM weights unit test failure";
-
   if (esl_msaweight_BLOSUM(msa, maxid)                     != eslOK) esl_fatal(msg);
   if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal(msg);
   
-  if (abc != NULL) 
+  if (abc)
     {
       if (esl_msa_Digitize(abc, msa, NULL)                     != eslOK) esl_fatal(msg);
       if (esl_msaweight_BLOSUM(msa, maxid)                     != eslOK) esl_fatal(msg);
       if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal(msg);
       if (esl_msa_Textize(msa)                                 != eslOK) esl_fatal(msg);
     }
-  return eslOK;
 }
+
+/* utest_wgt_identical_seqs
+ * For all identical sequences, weights are uniform, all 1.0.
+ */
+static void
+utest_identical_seqs(void)
+{
+  char          msg[]      = "identical_seqs test failed";
+  ESL_MSA      *msa        = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nseq1 AAAAA\nseq2 AAAAA\nseq3 AAAAA\nseq4 AAAAA\nseq5 AAAAA\n//\n", eslMSAFILE_STOCKHOLM);
+  ESL_ALPHABET *aa_abc     = esl_alphabet_Create(eslAMINO);
+  ESL_ALPHABET *nt_abc     = esl_alphabet_Create(eslDNA);
+  double        uniform[5] = { 1.0, 1.0, 1.0, 1.0, 1.0 };
+
+  do_GSC   (aa_abc, msa,       uniform, msg);
+  do_GSC   (nt_abc, msa,       uniform, msg);
+  do_PB    (aa_abc, msa,       uniform, msg);
+  do_PB    (nt_abc, msa,       uniform, msg);
+  do_BLOSUM(aa_abc, msa, 0.62, uniform, msg);
+  do_BLOSUM(nt_abc, msa, 0.62, uniform, msg);
+
+  esl_alphabet_Destroy(nt_abc);
+  esl_alphabet_Destroy(aa_abc);
+  esl_msa_Destroy(msa);
+}
+
+/* The "contrived" example of [Henikoff94b].
+ * "Correct" solution is 1==2, 3==4, 5==2x others.
+ * PB, GSC, BLOSUM weights all agree.
+ */
+static void
+utest_henikoff_contrived(void)
+{
+  char          msg[]      = "henikoff_contrived test failed";
+  ESL_MSA      *msa        = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nseq1 AAAAA\nseq2 AAAAA\nseq3 CCCCC\nseq4 CCCCC\nseq5 TTTTT\n//\n", eslMSAFILE_STOCKHOLM);
+  ESL_ALPHABET *aa_abc     = esl_alphabet_Create(eslAMINO);
+  ESL_ALPHABET *nt_abc     = esl_alphabet_Create(eslDNA);
+  double        ewgt[5]  = { 0.833333, 0.833333, 0.833333, 0.833333, 1.66667 }; 
+
+  do_GSC   (aa_abc, msa,       ewgt, msg);
+  do_GSC   (nt_abc, msa,       ewgt, msg);
+  do_PB    (aa_abc, msa,       ewgt, msg);
+  do_PB    (nt_abc, msa,       ewgt, msg);
+  do_BLOSUM(aa_abc, msa, 0.62, ewgt, msg);
+  do_BLOSUM(nt_abc, msa, 0.62, ewgt, msg);
+
+  esl_alphabet_Destroy(nt_abc);
+  esl_alphabet_Destroy(aa_abc);
+  esl_msa_Destroy(msa);
+}
+
+/* The "nitrogenase segments" example of [Henikoff94b].
+ * PB, GSC, BLOSUM wgts differ on this example.
+ */
+static void
+utest_nitrogenase(void)
+{
+  char          msg[]   = "nitrogenase test failed";
+  ESL_MSA      *msa     = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nNIFE_CLOPA GYVGS\nNIFD_AZOVI GFDGF\nNIFD_BRAJA GYDGF\nNIFK_ANASP GYQGG\n//\n", eslMSAFILE_STOCKHOLM);
+  ESL_ALPHABET *aa_abc  = esl_alphabet_Create(eslAMINO);
+  double        egsc[4] = { 1.125000, 0.875000, 0.875000, 1.125000 };
+  double        epb[4]  = { 1.066667, 1.066667, 0.800000, 1.066667 };
+  double        eblo[4] = { 1.333333, 0.666667, 0.666667, 1.333333 };
+
+  do_GSC   (aa_abc, msa,       egsc, msg);
+  do_PB    (aa_abc, msa,       epb,  msg);
+  do_BLOSUM(aa_abc, msa, 0.62, eblo, msg);
+
+  esl_alphabet_Destroy(aa_abc);
+  esl_msa_Destroy(msa);
+}
+
+/* gerstein4 test:
+ * alignment that makes the same distances as Figure 4 from [Gerstein94].
+ */
+static void
+utest_gerstein4(void)
+{
+  char          msg[]   = "gerstein4 test failed";
+  ESL_MSA      *msa     = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nA  AAAAAAAAAA\nB  TTAAAAAAAA\nC  ATAAAACCCC\nD  GGGAAGGGGG\n//\n", eslMSAFILE_STOCKHOLM);
+  ESL_ALPHABET *aa_abc  = esl_alphabet_Create(eslAMINO);
+  ESL_ALPHABET *nt_abc  = esl_alphabet_Create(eslDNA);
+  double        egsc[4] = { 0.760870, 0.760870, 1.086957, 1.391304 };
+  double        epb[4]  = { 0.800000, 0.800000, 1.000000, 1.400000 };
+  double        eblo[4] = { 0.666667, 0.666667, 1.333333, 1.333333 };
+  double        uni[4]  = { 1.0, 1.0, 1.0, 1.0 };
+ 
+  do_GSC   (aa_abc, msa,       egsc, msg);
+  do_GSC   (nt_abc, msa,       egsc, msg);
+  do_PB    (aa_abc, msa,       epb,  msg);
+  do_PB    (nt_abc, msa,       epb,  msg);
+  do_BLOSUM(aa_abc, msa, 0.62, eblo, msg);
+  do_BLOSUM(nt_abc, msa, 0.62, eblo, msg);
+
+  /* BLOSUM weights have the peculiar property of going flat at maxid=0.0
+   * (when everyone clusters) or maxid=1.0 (nobody clusters). Test that here.
+   */
+  do_BLOSUM(aa_abc, msa, 0.0,  uni, msg);
+  do_BLOSUM(aa_abc, msa, 1.0,  uni, msg);
+
+  esl_alphabet_Destroy(nt_abc);
+  esl_alphabet_Destroy(aa_abc);
+  esl_msa_Destroy(msa);
+}
+
+/* pathologs test
+ * A gappy alignment where no seqs overlap, and weighting methods
+ * have to resort to uniform weights.
+ */
+static void
+utest_pathologs(void)
+{
+  char          msg[]   = "pathologs test failed";
+  ESL_MSA      *msa     = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nA  A----\nB  -C---\nC  --G--\nD  ---T-\nE  ----T\n//\n", eslMSAFILE_STOCKHOLM);
+  ESL_ALPHABET *aa_abc  = esl_alphabet_Create(eslAMINO);
+  ESL_ALPHABET *nt_abc  = esl_alphabet_Create(eslDNA);
+  double        uni[5]  = { 1.0, 1.0, 1.0, 1.0, 1.0 };
+ 
+  do_GSC   (aa_abc, msa,       uni, msg);
+  do_GSC   (nt_abc, msa,       uni, msg);
+  do_PB    (aa_abc, msa,       uni, msg);
+  do_PB    (nt_abc, msa,       uni, msg);
+  do_BLOSUM(aa_abc, msa, 0.62, uni, msg);
+  do_BLOSUM(nt_abc, msa, 0.62, uni, msg);
+
+  esl_alphabet_Destroy(nt_abc);
+  esl_alphabet_Destroy(aa_abc);
+  esl_msa_Destroy(msa);
+}
+
+
+/* Simple test of the %id filter.
+ * seq1 and seq2 are 100% identical, but seq1 is shorter.
+ * seq2 is preferred in the default conscover rule;
+ * seq1 is preferred in the origorder rule;
+ * either seq1 or seq2 will be selected with the random rule.
+ */
+static void
+utest_idfilter(void)
+{
+  char msg[] = "idfilter test failed";
+  ESL_MSAWEIGHT_CFG *cfg  = esl_msaweight_cfg_Create();
+  ESL_ALPHABET      *abc  = esl_alphabet_Create(eslAMINO);
+  ESL_MSA           *msa  = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nseq1  ..AAAAAAAA\nseq2  AAAAAAAAAA\nseq3  CCCCCCCCCC\nseq4  GGGGGGGGGG\n//\n", eslMSAFILE_STOCKHOLM);
+  ESL_MSA           *msa2 = NULL;
+
+  /* Default text mode rule is origorder */
+  if (esl_msaweight_IDFilter(msa, 1.0, &msa2)           != eslOK) esl_fatal(msg);
+  if (msa2->nseq != 3 || strcmp(msa2->sqname[0], "seq1") != 0)     esl_fatal(msg);
+  esl_msa_Destroy(msa2);
+
+  /* Default digital mode rule is conscover */
+  if (esl_msa_Digitize(abc, msa, NULL)                  != eslOK) esl_fatal(msg);
+  if (esl_msaweight_IDFilter(msa, 1.0, &msa2)           != eslOK) esl_fatal(msg);
+  if (msa2->nseq != 3 || strcmp(msa2->sqname[0], "seq2") != 0)     esl_fatal(msg);
+  esl_msa_Destroy(msa2);
+
+  /* Ditto with _adv too */
+  if (esl_msaweight_IDFilter_adv(cfg, msa, 1.0, &msa2)  != eslOK) esl_fatal(msg);
+  if (msa2->nseq != 3 || strcmp(msa2->sqname[0], "seq2") != 0)     esl_fatal(msg);
+  esl_msa_Destroy(msa2);
+  
+  /* Custom setting _adv to origorder */
+  cfg->filterpref = eslMSAWEIGHT_FILT_ORIGORDER;
+  if (esl_msaweight_IDFilter_adv(cfg, msa, 1.0, &msa2)  != eslOK) esl_fatal(msg);
+  if (msa2->nseq != 3 || strcmp(msa2->sqname[0], "seq1") != 0)     esl_fatal(msg);
+  esl_msa_Destroy(msa2);
+
+  /* Custom setting _adv to randorder */
+  cfg->filterpref = eslMSAWEIGHT_FILT_RANDOM;
+  if (esl_msaweight_IDFilter_adv(cfg, msa, 1.0, &msa2)  != eslOK) esl_fatal(msg);
+  if (msa2->nseq != 3)                                            esl_fatal(msg);
+  if (strcmp(msa2->sqname[0], "seq1") != 0 && strcmp(msa2->sqname[0], "seq2") != 0) esl_fatal(msg);
+  esl_msa_Destroy(msa2);
+   
+  esl_msaweight_cfg_Destroy(cfg);
+  esl_alphabet_Destroy(abc);
+  esl_msa_Destroy(msa);
+}
+  
 #endif /*eslMSAWEIGHT_TESTDRIVE*/
 /*-------------------- end, unit tests  -------------------------*/
 
 
 
-
-
 /*****************************************************************
- * 7. Test driver
+ * 8. Test driver
  *****************************************************************/
 #ifdef eslMSAWEIGHT_TESTDRIVE
 
@@ -1252,97 +1699,23 @@ static ESL_OPTIONS options[] = {
 static char usage[]  = "[-options]";
 static char banner[] = "test driver for msaweight module";
 
-
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS    *go   = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
-  ESL_ALPHABET *aa_abc = NULL,
-               *nt_abc = NULL;
-  ESL_MSA      *msa1   = NULL,
-               *msa2   = NULL, 
-               *msa3   = NULL,
-               *msa4   = NULL,
-               *msa5   = NULL;
-  double uniform[5] = { 1.0, 1.0, 1.0, 1.0, 1.0 };
-  double wgt2[5]    = { 0.833333, 0.833333, 0.833333, 0.833333, 1.66667 }; /* GSC, PB give same answer */
-  double gsc3[4]    = { 1.125000, 0.875000, 0.875000, 1.125000 };
-  double pb3[4]     = { 1.066667, 1.066667, 0.800000, 1.066667 };
-  double blosum3[4] = { 1.333333, 0.666667, 0.666667, 1.333333 };
-  double gsc4[4]    = { 0.760870, 0.760870, 1.086957, 1.391304 };
-  double pb4[4]     = { 0.800000, 0.800000, 1.000000, 1.400000 };
-  double blosum4[4] = { 0.666667, 0.666667, 1.333333, 1.333333 };
+  ESL_GETOPTS  *go   = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   
   fprintf(stderr, "## %s\n", argv[0]);
 
-  if ((aa_abc = esl_alphabet_Create(eslAMINO)) == NULL)  esl_fatal("failed to create amino alphabet");
-  if ((nt_abc = esl_alphabet_Create(eslDNA))   == NULL)  esl_fatal("failed to create DNA alphabet");
+  utest_identical_seqs();
+  utest_henikoff_contrived();
+  utest_nitrogenase();
+  utest_gerstein4();
+  utest_pathologs();
 
-  /* msa1: all sequences identical. Any weighting method should assign uniform weights.
-   * msa2: "contrived" example of [Henikoff94b]. "Correct" solution is 1==2, 3==4, and 5==2x other weights.
-   * msa3: the "nitrogenase segments" example of [Henikoff94b].
-   * msa4: alignment that makes the same distances as Figure 4 from [Gerstein94]
-   * msa5: gap pathology. no information here, so weighting methods should resort to uniform weights.
-   */
-  if ((msa1 = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nseq1 AAAAA\nseq2 AAAAA\nseq3 AAAAA\nseq4 AAAAA\nseq5 AAAAA\n//\n", 
-				       eslMSAFILE_STOCKHOLM)) == NULL) esl_fatal("msa 1 creation failed");
-  if ((msa2 = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nseq1 AAAAA\nseq2 AAAAA\nseq3 CCCCC\nseq4 CCCCC\nseq5 TTTTT\n//\n",
-				       eslMSAFILE_STOCKHOLM)) == NULL) esl_fatal("msa 2 creation failed");
-  if ((msa3 = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nNIFE_CLOPA GYVGS\nNIFD_AZOVI GFDGF\nNIFD_BRAJA GYDGF\nNIFK_ANASP GYQGG\n//\n",
-				       eslMSAFILE_STOCKHOLM)) == NULL) esl_fatal("msa 3 creation failed");
-  if ((msa4 = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nA  AAAAAAAAAA\nB  TTAAAAAAAA\nC  ATAAAACCCC\nD  GGGAAGGGGG\n//\n",
-				       eslMSAFILE_STOCKHOLM)) == NULL) esl_fatal("msa 4 creation failed");
-  if ((msa5 = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nA  A----\nB  -C---\nC  --G--\nD  ---T-\nE  ----T\n//\n",
-				       eslMSAFILE_STOCKHOLM)) == NULL) esl_fatal("msa 5 creation failed");
-
-  utest_GSC(aa_abc, msa1, uniform);
-  utest_GSC(nt_abc, msa1, uniform);
-  utest_GSC(aa_abc, msa2, wgt2);
-  utest_GSC(nt_abc, msa2, wgt2);
-  utest_GSC(aa_abc, msa3, gsc3);
-  /* no nt test on msa3: it's protein-only */
-  utest_GSC(aa_abc, msa4, gsc4);
-  utest_GSC(nt_abc, msa4, gsc4);
-  utest_GSC(aa_abc, msa5, uniform);
-  utest_GSC(aa_abc, msa5, uniform);
-
-  utest_PB(aa_abc, msa1, uniform);
-  utest_PB(nt_abc, msa1, uniform);
-  utest_PB(aa_abc, msa2, wgt2);
-  utest_PB(nt_abc, msa2, wgt2);
-  utest_PB(aa_abc, msa3, pb3);
-  /* no nt test on msa3: it's protein-only */
-  utest_PB(aa_abc, msa4, pb4);
-  utest_PB(nt_abc, msa4, pb4);
-  utest_PB(aa_abc, msa5, uniform);
-  utest_PB(nt_abc, msa5, uniform);
-
-  utest_BLOSUM(aa_abc, msa1, 0.62, uniform);
-  utest_BLOSUM(nt_abc, msa1, 0.62, uniform);
-  utest_BLOSUM(aa_abc, msa2, 0.62, wgt2);
-  utest_BLOSUM(nt_abc, msa2, 0.62, wgt2);
-  utest_BLOSUM(aa_abc, msa3, 0.62, blosum3);
-  /* no nt test on msa3: it's protein-only */
-  utest_BLOSUM(aa_abc, msa4, 0.62, blosum4);
-  utest_BLOSUM(nt_abc, msa4, 0.62, blosum4);
-  utest_BLOSUM(aa_abc, msa5, 0.62, uniform);
-  utest_BLOSUM(nt_abc, msa5, 0.62, uniform);
-
-  /* BLOSUM weights have the peculiar property of going flat at maxid=0.0 (everyone
-   * clusters) or maxid=1.0 (nobody clusters).
-   */
-  utest_BLOSUM(aa_abc, msa4, 0.0,  uniform);
-  utest_BLOSUM(aa_abc, msa4, 1.0,  uniform);
+  utest_idfilter();
 
   fprintf(stderr, "#  status = ok\n");
 
-  esl_msa_Destroy(msa1);
-  esl_msa_Destroy(msa2);
-  esl_msa_Destroy(msa3);
-  esl_msa_Destroy(msa4);
-  esl_msa_Destroy(msa5);
-  esl_alphabet_Destroy(aa_abc);
-  esl_alphabet_Destroy(nt_abc);
   esl_getopts_Destroy(go);
   exit(0);
 }
@@ -1354,7 +1727,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 8. Example
+ * 9. Example
  *****************************************************************/
 #ifdef eslMSAWEIGHT_EXAMPLE
 
@@ -1391,7 +1764,7 @@ static char banner[] = "esl_msaweight example";
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS  *go           = NULL;
+  ESL_GETOPTS  *go           = esl_getopts_Create(options);
   char         *msafile      = NULL;
   int           infmt        = eslMSAFILE_UNKNOWN;
   ESL_MSAWEIGHT_CFG *cfg     = esl_msaweight_cfg_Create();
@@ -1405,21 +1778,21 @@ main(int argc, char **argv)
 
   /* Process command line and options
    */
-  if (( go = esl_getopts_Create(options))    == NULL)  esl_fatal("bad options structure");
-  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) esl_fatal("Failed to parse command line: %s\n", go->errbuf);
-  if (esl_opt_VerifyConfig(go)               != eslOK) esl_fatal("Failed to parse command line: %s\n", go->errbuf);
-
-  if (esl_opt_GetBoolean(go, "-h") == TRUE) {
-    esl_banner(stdout, argv[0], banner);
-    esl_usage (stdout, argv[0], usage);
-    puts("\noptions:");
-    esl_opt_DisplayHelp(stdout, go, 1, 2, 80); /* 1=docgroup; 2=indentation; 80=width */
-    puts("\noptions for deriving consensus:");
-    esl_opt_DisplayHelp(stdout, go, 2, 2, 80); /* 1=docgroup; 2=indentation; 80=width */
-    puts("\noptions for deriving consensus by sampling (on deep MSAs):");
-    esl_opt_DisplayHelp(stdout, go, 3, 2, 80); /* 1=docgroup; 2=indentation; 80=width */
-    return 0;
-  }
+  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK ||
+      esl_opt_VerifyConfig(go)               != eslOK)
+    esl_fatal("Failed to parse command line: %s\n", go->errbuf);
+  if (esl_opt_GetBoolean(go, "-h") == TRUE)
+    {
+      esl_banner(stdout, argv[0], banner);
+      esl_usage (stdout, argv[0], usage);
+      puts("\noptions:");
+      esl_opt_DisplayHelp(stdout, go, 1, 2, 80); /* 1=docgroup; 2=indentation; 80=width */
+      puts("\noptions for deriving consensus:");
+      esl_opt_DisplayHelp(stdout, go, 2, 2, 80); /* 1=docgroup; 2=indentation; 80=width */
+      puts("\noptions for deriving consensus by sampling (on deep MSAs):");
+      esl_opt_DisplayHelp(stdout, go, 3, 2, 80); /* 1=docgroup; 2=indentation; 80=width */
+      return 0;
+    }
 
   if (esl_opt_ArgNumber(go) != 1) esl_fatal("Incorrect number of command line arguments.\n%s\n", usage);
   msafile = esl_opt_GetArg(go, 1);

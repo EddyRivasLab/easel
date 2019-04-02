@@ -69,7 +69,8 @@ PROGS = esl-afetch\
 
 SUBCMDOBJS = \
 	cmd_alistat.o    \
-	cmd_downsample.o
+	cmd_downsample.o \
+	cmd_filter.o
 
 # beautification magic stolen from git 
 #
