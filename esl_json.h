@@ -5,6 +5,7 @@
 #include "esl_config.h"
 
 #include "easel.h"
+#include "esl_buffer.h"
 #include "esl_random.h"
 #include "esl_stack.h"
 
