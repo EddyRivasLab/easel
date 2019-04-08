@@ -39,7 +39,22 @@ and to test:
 ```
    % make check
 ```   
-    
+
+This procedure gives you our `master` branch - the most recent Easel
+release that was packaged with HMMER, Infernal, or other lab
+software. If you want or need a feature that we've put in recently,
+you want our `develop` branch. After the `git clone` and `cd easel`,
+do:
+
+```bash
+   % git checkout develop
+```
+
+and proceed to `autoconf`.
+
+
+
+
 
 
 
