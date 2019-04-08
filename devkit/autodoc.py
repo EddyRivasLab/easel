@@ -60,13 +60,12 @@ def main():
         print('|{0:-^32s}|{1:-^62s}|'.format('', ''))
               
 
-
-    #                       /* Function:  ...    */ ... } to a blank line.   Grabs header + implementation(s)...
+    #                        /* Function:  ...    */   ... } to a blank line.   Grabs header + implementation(s)...
     #                        vv    vvvvvvvv       vv   vvv   vvv   v...      or, grabs subheading line in a comment
     for m in re.finditer(r'^(/\*\s+Function:.+?^ \*/)(.+?^\})\s*$^\s*$|^\s*\*#\s*\d+\..+?$\s*', text, flags=re.MULTILINE | re.DOTALL):
         if m.group(0).startswith('/*'):
             header = m.group(1)    # comment header "/* Function: ... */"
-            impl   = m.group(2)    # implementation(s) 
+            impl   = m.group(2)    # implementation(s) "int myfunc(args){  }\nint func2(args){ }"
 
             m = re.match(r'/\*\s+Function:\s*(.+)$', header, flags=re.MULTILINE)    # Usually one function name, but could also be comma-delimited list    
             funcnames = [ a.lstrip().rstrip() for a in m.group(1).split(',') ]    
@@ -86,18 +85,28 @@ def main():
             m = re.search(r'^\s+\*\s+Throws:\s+(.+?)(?:^ \*/|^ \* \S)', header, flags=re.MULTILINE | re.DOTALL)
             throws = process(m.group(1)) if m else None
 
-            # pull the call syntax (function name, arguments) out of the C implementation.
+            # pull the call syntax (function name, arguments) out of the C implementation;
+            # <syntax> is a list of each documented function and its call syntax, "int foo(double bar)".
             # nontrivial to do well with just regexps, without a real grammar parser,
             # because we're covering the less common case where there's >1 function
             # documented by a single header.
             syntax = []
-            for fname in funcnames:                                 # list of names like "esl_foo_Function()", with the ()
-                fname = fname.rstrip('()')                          # now just "esl_foo_Function"
-                pattern1 = r'^(\S+.+?)\s+' + fname + '\s*(\((?s:.+?)\))\s*\{'
-                m = re.search(pattern1, impl, flags=re.MULTILINE)
-                if m: syntax.append(m.group(1) + ' ' + fname + m.group(2))
-                else: exit("failed to parse out the syntax for {0}".format(fname))
-
+            for fname in funcnames:                                 # list of names like "esl_foo_Function()", with the (). Can also be esl_foo_{DFI}Function()", which needs expansion.
+                fname = fname.rstrip('()')                          # now just "esl_foo_Function" or "esl_foo_{DFI}Function()"
+                m     = re.search(r'\{([DFILC]+)\}', fname)         # "esl_foo_{DFI}Function()" case?
+                if m:                                               #   then expand it, one function name at a time
+                    typelist = m.group(1)                           # "DFI" for example
+                    for c in typelist:
+                        expanded_fname = re.sub(r'\{([DFILC]+)\}', c, fname)
+                        impl_pattern   = r'^(\S+.+?)\s+' + expanded_fname + '\s*(\((?s:.+?)\))\s*\{'
+                        m = re.search(impl_pattern, impl, flags=re.MULTILINE)
+                        if m: syntax.append(m.group(1) + ' ' + expanded_fname + m.group(2))
+                        else: exit("failed to parse out the syntax for {0}".format(expanded_fname))
+                else:
+                    pattern1 = r'^(\S+.+?)\s+' + fname + '\s*(\((?s:.+?)\))\s*\{'
+                    m = re.search(pattern1, impl, flags=re.MULTILINE)
+                    if m: syntax.append(m.group(1) + ' ' + fname + m.group(2))
+                    else: exit("failed to parse out the syntax for {0}".format(fname))
 
             # Now we're done parsing one (or more) documented functions,
             # and it's time to print whatever we're going to print.
