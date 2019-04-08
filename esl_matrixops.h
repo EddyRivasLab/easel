@@ -13,6 +13,10 @@ extern float  **esl_mat_FCreate(int M, int N);
 extern int    **esl_mat_ICreate(int M, int N);
 extern char   **esl_mat_CCreate(int M, int N);
 
+extern double **esl_mat_DClone(double **A, int M, int N);
+extern float  **esl_mat_FClone(float **A,  int M, int N);
+extern int    **esl_mat_IClone(int **A,    int M, int N);
+
 extern int      esl_mat_DGrowTo(double ***ret_A, int M, int N);
 extern int      esl_mat_FGrowTo(float  ***ret_A, int M, int N);
 extern int      esl_mat_IGrowTo(int    ***ret_A, int M, int N);
@@ -26,6 +30,10 @@ extern size_t   esl_mat_CSizeof(int M, int N);
 extern void     esl_mat_DSet(double **A, int M, int N, double value);
 extern void     esl_mat_FSet(float  **A, int M, int N, float  value);
 extern void     esl_mat_ISet(int    **A, int M, int N, int    value);
+
+extern void     esl_mat_DScale(double **A, int M, int N, double x);
+extern void     esl_mat_FScale(float **A,  int M, int N, float x);
+extern void     esl_mat_IScale(int **A, int M, int N, int x);
 
 extern void     esl_mat_DCopy(double **src, int M, int N, double **dest);
 extern void     esl_mat_FCopy(float  **src, int M, int N, float  **dest);

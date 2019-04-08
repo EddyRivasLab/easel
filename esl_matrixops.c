@@ -113,6 +113,46 @@ esl_mat_CCreate(int M, int N)
 }
 
 
+/* Function:  esl_mat_{DFI}Clone()
+ * Synopsis:  Duplicate a 2D matrix
+ * Incept:    SRE, Fri 05 Apr 2019
+ *
+ * Purpose:   Duplicate a matrix, into freshly allocated space.
+ *            Return a ptr to the duplicate.
+ *
+ * Throws:    <NULL> on allocation failure.
+ */
+double **
+esl_mat_DClone(double **A, int M, int N)
+{
+  double **new;
+
+  if ((new = esl_mat_DCreate(M, N)) == NULL) return NULL;
+  esl_mat_DCopy(A, M, N, new);
+  return new;
+}
+float **
+esl_mat_FClone(float **A, int M, int N)
+{
+  float **new;
+
+  if ((new = esl_mat_FCreate(M, N)) == NULL) return NULL;
+  esl_mat_FCopy(A, M, N, new);
+  return new;
+}
+int **
+esl_mat_IClone(int **A, int M, int N)
+{
+  int **new;
+
+  if ((new = esl_mat_ICreate(M, N)) == NULL) return NULL;
+  esl_mat_ICopy(A, M, N, new);
+  return new;
+}
+
+
+
+
 /* Function:  esl_mat_{DFIC}GrowTo()
  * Synopsis:  Increase the allocation for a matrix
  * Incept:    SRE, Fri 06 Jul 2018 [World Cup, France v. Uruguay]
@@ -207,10 +247,14 @@ esl_mat_CGrowTo(char ***ret_A, int M, int N)
 
 
 
+
+
+
+
 /* Function:  esl_mat_{DFIC}Sizeof()
  * Synopsis:  Returns size of a matrix, in bytes.
  * 
- * Note:      Doesn't need a particular matrix to calculate this.
+ * Note:      Doesn't need a particular matrix to calculate this;
  */
 size_t
 esl_mat_DSizeof(int M, int N)
@@ -263,6 +307,27 @@ void
 esl_mat_ISet(int **A, int M, int N, int value)
 {
   esl_vec_ISet(A[0], M*N, value);
+}
+
+
+/* Function:  esl_mat_{DFI}Scale()
+ * Synopsis:  Scale all values in a matrix by one scalar multiplier
+ * Incept:    SRE, Wed 03 Apr 2019
+ */
+void
+esl_mat_DScale(double **A, int M, int N, double x)
+{
+  esl_vec_DScale(A[0], M*N, x);
+}
+void
+esl_mat_FScale(float **A, int M, int N, float x)
+{
+  esl_vec_FScale(A[0], M*N, x);
+}
+void
+esl_mat_IScale(int **A, int M, int N, int x)
+{
+  esl_vec_IScale(A[0], M*N, x);
 }
 
 
