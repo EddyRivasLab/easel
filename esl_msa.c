@@ -2100,7 +2100,7 @@ ERROR:
 }
 
 
-/* Function:  esl_msa_MarkFragments()
+/* Function:  esl_msa_MarkFragments_old()
  * Synopsis:  Heuristically define seq fragments in an alignment.
  *
  * Purpose:   Use a heuristic to define sequence fragments (as opposed
@@ -2128,7 +2128,7 @@ ERROR:
  * Returns:   <eslOK> on success.
  */
 int
-esl_msa_MarkFragments(ESL_MSA *msa, double fragthresh)
+esl_msa_MarkFragments_old(ESL_MSA *msa, double fragthresh)
 {
   int    i;
   int    pos;
