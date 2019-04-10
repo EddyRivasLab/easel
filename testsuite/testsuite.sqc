@@ -11,6 +11,7 @@
 # arr3
 1 exercise avx-utest          @esl_avx_utest@
 1 exercise avx512-utest       @esl_avx512_utest@
+1 exercise bitfield-utest     @esl_bitfield_utest@
 1 exercise buffer-utest       @esl_buffer_utest@
 1 exercise cluster-utest      @esl_cluster_utest@
 # composition
@@ -127,6 +128,7 @@
 # arr3
 3 valgrind avx-utest          @esl_avx_utest@
 3 valgrind avx512-utest       @esl_avx512_utest@
+3 valgrind bitfield-utest     @esl_bitfield_utest@
 3 valgrind buffer-utest       @esl_buffer_utest@
 #    (buffer_utest fails for valgrind <=3.6.1, known valgrind bug #258294 on OS/X; I use valgrind >=3.10.0)
 3 valgrind cluster-utest      @esl_cluster_utest@
