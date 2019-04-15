@@ -7,11 +7,13 @@
 
 #include <stdio.h>
 
-#include "esl_alphabet.h"	/* digital alphabets                         */
-#include "esl_keyhash.h"	/* string hashes, for mapping uniq seq names */
+#include "esl_alphabet.h"	// digital alphabets                        
+#include "esl_bitfield.h"       // large bit fields (esl_msa_MarkFragments()
+#include "esl_keyhash.h"	// string hashes, for mapping uniq seq names
 #include "esl_random.h"
 #include "esl_randomseq.h"
-#include "esl_ssi.h"		/* indexes of large flatfiles on disk        */
+#include "esl_ssi.h"		// indexes of large flatfiles on disk       
+
 #ifdef __cplusplus // magic to make C++ compilers happy
 extern "C" {
 #endif
@@ -133,7 +135,7 @@ typedef struct {
 /* 1. The ESL_MSA object */
 extern ESL_MSA *esl_msa_Create(int nseq, int64_t alen);
 extern int      esl_msa_Expand(ESL_MSA *msa);
-//extern int      esl_msa_Copy (const ESL_MSA *msa, ESL_MSA *new);
+extern int      esl_msa_Copy (const ESL_MSA *msa, ESL_MSA *new);
 extern ESL_MSA *esl_msa_Clone(const ESL_MSA *msa);
 extern void     esl_msa_Destroy(ESL_MSA *msa);
 
@@ -172,6 +174,7 @@ extern int esl_msa_CheckUniqueNames(const ESL_MSA *msa);
 
 /* 4. Miscellaneous functions for manipulating MSAs */
 extern int esl_msa_ReasonableRF(ESL_MSA *msa, double symfrac, int useconsseq, char *rfline);
+extern int esl_msa_MarkFragments (const ESL_MSA *msa, float fragthresh, ESL_BITFIELD **ret_fragassign);
 extern int esl_msa_MarkFragments_old(ESL_MSA *msa, double fragthresh);
 extern int esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new);
 extern int esl_msa_ColumnSubset (ESL_MSA *msa, char *errbuf, const int *useme);
@@ -196,6 +199,7 @@ extern int      esl_msa_Compare         (ESL_MSA *a1, ESL_MSA *a2);
 extern int      esl_msa_CompareMandatory(ESL_MSA *a1, ESL_MSA *a2);
 extern int      esl_msa_CompareOptional (ESL_MSA *a1, ESL_MSA *a2);
 extern int      esl_msa_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int max_nseq, int max_alen, ESL_MSA **ret_msa);
+
 #ifdef __cplusplus // magic to make C++ compilers happy
 }
 #endif

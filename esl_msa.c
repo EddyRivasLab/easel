@@ -22,6 +22,7 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_bitfield.h"
 #include "esl_arr2.h"
 #include "esl_arr3.h"
 #include "esl_keyhash.h"
@@ -2100,6 +2101,79 @@ ERROR:
 }
 
 
+/* Function:  esl_msa_MarkFragments()
+ * Synopsis:  Heuristic definition of sequence fragments in an alignment
+ * Incept:    SRE, Sun 14 Apr 2019 [DL4378 LHR-BOS]
+ *
+ * Purpose:   Heuristically define sequence fragments (as opposed to
+ *            full length sequences) in <msa>. Set bit <i> in <fragassign>
+ *            to <TRUE> if seq <i> is a fragment, else <FALSE>.
+ *            
+ *            The rule is to calculate the fractional "span" of each
+ *            aligned sequence: the aligned length from its first to
+ *            last residue, divided by the total number of aligned
+ *            columns; sequence is defined as a fragment if <aspan/alen
+ *            < fragthresh>.
+ *            
+ *            In a text mode <msa>, any alphanumeric character is
+ *            considered to be a residue, and any non-alphanumeric
+ *            char is considered to be a gap.
+ *
+ *            <fragassign> is allocated here; caller frees.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ *
+ * Xref:      Compare <esl_msaweight>, which uses the same fragment definition
+ *            rule without calling this function, because it's used a little
+ *            differently.
+ */
+int
+esl_msa_MarkFragments(const ESL_MSA *msa, float fragthresh, ESL_BITFIELD **ret_fragassign)
+{
+  ESL_BITFIELD *fragassign = NULL;
+  int           minspan    = (int) ceil(fragthresh * (float) msa->alen); // precalculated span length threshold using <fragthresh>
+  int           idx,lpos,rpos;
+  int           status;
+
+  if (( fragassign = esl_bitfield_Create(msa->nseq)) == NULL) { status = eslEMEM; goto ERROR; }
+
+  /* Digital mode */
+  if (msa->flags & eslMSA_DIGITAL)
+    {
+      for (idx = 0; idx < msa->nseq; idx++)
+	{
+	  for (lpos = 1;         lpos <= msa->alen; lpos++) if (esl_abc_XIsResidue(msa->abc, msa->ax[idx][lpos])) break;
+	  for (rpos = msa->alen; rpos >= 1;         rpos--) if (esl_abc_XIsResidue(msa->abc, msa->ax[idx][rpos])) break;
+	  /* L=0 sequence? lpos == msa->alen+1, rpos == 0; lpos > rpos. 
+	   * alen=0 alignment? lpos == 1, rpos == 0; lpos > rpos.
+	   * so alispan = rpos-lpos+1 could be <= 0 if lpos > rpos
+	   */
+	  if (rpos-lpos+1 < minspan) esl_bitfield_Set(fragassign, idx);
+	}
+    }
+  /* Text mode */
+  else
+    {
+      for (idx = 0; idx < msa->nseq; idx++)
+	{
+	  for (lpos = 0;           lpos < msa->alen; lpos++) if (isalpha(msa->aseq[idx][lpos])) break;
+	  for (rpos = msa->alen-1; rpos >= 0;        rpos--) if (isalpha(msa->aseq[idx][rpos])) break;
+	  if (rpos-lpos+1 < minspan) esl_bitfield_Set(fragassign, idx);
+	}
+    }
+  *ret_fragassign = fragassign;
+  return eslOK;
+
+ ERROR:
+  esl_bitfield_Destroy(fragassign);
+  *ret_fragassign = NULL;
+  return status;
+}
+
+
+
 /* Function:  esl_msa_MarkFragments_old()
  * Synopsis:  Heuristically define seq fragments in an alignment.
  *
@@ -3614,6 +3688,55 @@ utest_NoGaps(char *tmpfile)
   return;
 }  
 
+
+
+static void
+utest_MarkFragments(void)
+{
+  char          msg[]      = "esl_msa MarkFragments utest failed";
+  ESL_BITFIELD *fragassign = NULL;
+  ESL_ALPHABET *abc        = esl_alphabet_Create(eslRNA);
+  int i;
+  ESL_MSA *msa = esl_msa_CreateFromString("# STOCKHOLM 1.0\n"
+					  "seq1 AAAAAAAAAAAAAAAAAAAA\n"
+					  "seq2 .........AAAAAAAAAAA\n"
+					  "seq3 ..........AAAAAAAAAA\n"
+					  "seq4 ...........AAAAAAAAA\n"
+					  "//\n", eslMSAFILE_STOCKHOLM);
+
+  while (1)   // first pass: text mode. second pass: digital mode.
+    {
+      /* At fragthresh of 0.5, seqs with aspan/alen >= 10/20 cols are "full length"
+       * ... that's seq1, seq2, seq3.
+       */
+      if ( esl_msa_MarkFragments(msa, 0.5, &fragassign) != eslOK) esl_fatal(msg);
+      if ( esl_bitfield_IsSet(fragassign, 0))                     esl_fatal(msg);
+      if ( esl_bitfield_IsSet(fragassign, 1))                     esl_fatal(msg);
+      if ( esl_bitfield_IsSet(fragassign, 2))                     esl_fatal(msg);
+      if (!esl_bitfield_IsSet(fragassign, 3))                     esl_fatal(msg);
+      esl_bitfield_Destroy(fragassign);
+
+      /* At fragthresh of 0, all seqs are "full length" */
+      if ( esl_msa_MarkFragments(msa, 0., &fragassign) != eslOK) esl_fatal(msg);
+      for (i = 0; i < msa->nseq; i++)
+	if (esl_bitfield_IsSet(fragassign, i)) esl_fatal(msg);
+      esl_bitfield_Destroy(fragassign);
+
+      /* At fragthresh of 1, only seq1 is "full length" */
+      if ( esl_msa_MarkFragments(msa, 1.0, &fragassign) != eslOK) esl_fatal(msg);
+      if ( esl_bitfield_IsSet(fragassign, 0))                     esl_fatal(msg);
+      for (i = 1; i < msa->nseq; i++)
+	if (! esl_bitfield_IsSet(fragassign, i)) esl_fatal(msg);
+      esl_bitfield_Destroy(fragassign);
+
+      if (msa->flags & eslMSA_DIGITAL) break;
+      if ( esl_msa_Digitize(abc, msa, NULL) != eslOK) esl_fatal(msg);
+    }
+
+  esl_alphabet_Destroy(abc);
+  esl_msa_Destroy(msa);
+}
+
 static void
 utest_SymConvert(char *tmpfile)
 {
@@ -3817,6 +3940,7 @@ main(int argc, char **argv)
   utest_SequenceSubset(msa);
   utest_MinimGaps(tmpfile);
   utest_NoGaps(tmpfile);
+  utest_MarkFragments();
   utest_SymConvert(tmpfile);
   utest_ZeroLengthMSA(tmpfile);	
   utest_Sample(rng);

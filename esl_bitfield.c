@@ -1,4 +1,10 @@
-
+/* esl_bitfield : compact bit flags
+ * 
+ * Contents:
+ *   1. ESL_BITFIELD
+ *   2. Unit tests
+ *   3. Test driver
+ */
 #include "esl_config.h"
 
 #include <string.h>
@@ -7,6 +13,17 @@
 #include "esl_bitfield.h"
 
 
+/*****************************************************************
+ * 1. ESL_BITFIELD
+ *****************************************************************/
+
+/* Function:  esl_bitfield_Create()
+ * Synopsis:  Create a new bitfield.
+ * Incept:    SRE, Sun 14 Apr 2019 [DL4378 LHR-BOS]
+ *
+ * Purpose:   Create a new bitfield of size <nb> bits, with all bits
+ *            initialized to off.
+ */
 ESL_BITFIELD *
 esl_bitfield_Create(int nb)
 {
@@ -20,11 +37,15 @@ esl_bitfield_Create(int nb)
   memset((void *) b, 0, sizeof(uint64_t) * nu);
   return b;
   
- ERROR: // also normal exit
+ ERROR:
   esl_bitfield_Destroy(b);
   return NULL;
 }
 
+
+/* Function:  esl_bitfield_Destroy()
+ * Synopsis:  Frees an <ESL_BITFIELD>
+ */
 void
 esl_bitfield_Destroy(ESL_BITFIELD *b)
 {
