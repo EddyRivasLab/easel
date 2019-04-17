@@ -71,11 +71,13 @@ module foo depend on bar, bar depend on baz, and baz depend on foo.
 The main hierarchy in our graph is by project: Infernal uses HMMER and
 Easel functions, and HMMER uses Easel functions.
 
+<img align="right" width="500" src="figures/easel_techtree.png">
+
 Within a project, modules are organized (implicitly, if not
 explicitly) in groups so that there's a hierarchy of groups, and a
-hierarchy of modules within groups.  There is an explicit graph that I
-maintain in a figure for Easel (the "Easel technology tree") and I'll
-include that figure here someday.
+hierarchy of modules within groups. The figure to the right shows the
+current Easel "technology tree". ("Open in new tab" to embiggen.)
+
 
 
 ### the project prefix

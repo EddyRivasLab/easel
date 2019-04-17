@@ -11,6 +11,11 @@
  *   8. Unit tests
  *   9. Test driver
  *   10. Examples
+ *   
+ * To do:  
+ *   - Remove dependency on ESL_GETOPTS. Use a configuration params _CFG   
+ *     structure instead. (See `msaweight` for example).
+ *     [xref SRE:2019/0415-easel-tech-tree-v3]
  */
 #include "esl_config.h"
 
@@ -21,6 +26,7 @@
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_fileparser.h"
+#include "esl_getopts.h"     // problematic. See TO DO note.
 #include "esl_regexp.h"
 #include "esl_sq.h"
 #include "esl_sqio.h"
