@@ -121,7 +121,7 @@ esl_cmd_filter(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 /* The filter miniapp has a multipart help page.
  * This is a copy of esl_subcmd_CreateDefaultApp() with its help output customized.
  */
-ESL_GETOPTS *
+static ESL_GETOPTS *
 process_cmdline(const char *topcmd, const ESL_SUBCMD *sub, const ESL_OPTIONS *suboptions, int argc, char **argv)
 {
   ESL_GETOPTS *go        = esl_getopts_Create(suboptions);

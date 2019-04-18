@@ -33,13 +33,33 @@ esl_bitfield_Create(int nb)
 
   ESL_DASSERT1(( nb >= 1 ));
 
-  ESL_ALLOC(b, sizeof(uint64_t) * nu);
-  memset((void *) b, 0, sizeof(uint64_t) * nu);
+  ESL_ALLOC(b, sizeof(ESL_BITFIELD));
+  b->b = NULL;
+
+  ESL_ALLOC(b->b, sizeof(uint64_t) * nu);
+  memset((void *) b->b, 0, sizeof(uint64_t) * nu);
+  b->nb = nb;
   return b;
   
  ERROR:
   esl_bitfield_Destroy(b);
   return NULL;
+}
+
+
+/* Function:  esl_bitfield_Count()
+ * Synopsis:  Return the number of bits that are set.
+ * Incept:    SRE, Thu 18 Apr 2019
+ */
+int
+esl_bitfield_Count(const ESL_BITFIELD *b)
+{
+  int n = 0;
+  int i;
+
+  for (i = 0; i < b->nb; i++)
+    if (esl_bitfield_IsSet(b, i)) n++;
+  return n;
 }
 
 
@@ -49,7 +69,7 @@ esl_bitfield_Create(int nb)
 void
 esl_bitfield_Destroy(ESL_BITFIELD *b)
 {
-  free(b);
+  if (b) free(b->b);
 }
 
 
@@ -82,12 +102,18 @@ utest_randpattern(ESL_RANDOMNESS *rng)
   for (i = 0; i < nset; i++) bigflags[deal[i]] = TRUE;
   for (i = 0; i < nset; i++) esl_bitfield_Set(b, deal[i]);
 
+  if (esl_bitfield_Count(b) != nset) esl_fatal(msg);
+
   for (i = 0; i < nb;   i++) if (bigflags[i] != esl_bitfield_IsSet(b, i)) esl_fatal(msg);
   for (i = 0; i < nb;   i++) esl_bitfield_Toggle(b, i);
+
+  if (esl_bitfield_Count(b) != nb - nset) esl_fatal(msg);
+  
   for (i = 0; i < nb;   i++) if (bigflags[i] == esl_bitfield_IsSet(b, i)) esl_fatal(msg);
   for (i = 0; i < nb;   i++) esl_bitfield_Clear(b, i);   // do all bits, to test that clearing 0 bits leaves them 0
 
-  for (i = 0; i < nu;   i++) if (b[i]) esl_fatal(msg);  // note <nu>. this reaches inside the "opaque" ESL_BITFIELD and can break if that structure changes.
+  if (esl_bitfield_Count(b) != 0) esl_fatal(msg);
+  for (i = 0; i < nu;   i++) if (b->b[i]) esl_fatal(msg);  // note <nu>. this reaches inside the "opaque" ESL_BITFIELD and can break if that structure changes.
   
   free(deal);
   free(bigflags);
