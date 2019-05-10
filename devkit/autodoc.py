@@ -120,8 +120,8 @@ def main():
             #   throws:   : optional text about exceptions
             #
             if do_table:
-                if synopsis: print('| {0:30s} | {1:60s} |'.format(funcnames[0], synopsis))
-                else:        print('| {0:30s} | {1:60s} |'.format(funcnames[0], ''))
+                if synopsis: print('| {0:30s} | {1:60s} |'.format('`{}`'.format(funcnames[0]), synopsis))
+                else:        print('| {0:30s} | {1:60s} |'.format('`{}`'.format(funcnames[0]), ''))
             else:
                 for a in funcnames: print("### `{0}`\n".format(a))
                 if synopsis: print("**{0}**\n".format(synopsis.rstrip())) 

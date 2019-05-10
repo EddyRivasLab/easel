@@ -17,7 +17,7 @@ extern "C" {
 /* Defaults for control parameters
  */
 #define eslDSQDATA_CHUNK_MAXSEQ       4096      // max number of sequences in a chunk
-#define eslDSQDATA_CHUNK_MAXPACKET  262144      // max number of uint32 sequence packets in a chunk
+#define eslDSQDATA_CHUNK_MAXPACKET  262144      // max number of uint32 sequence packets in a chunk (1MiB chunks)
 #define eslDSQDATA_UNPACKERS             4      // default number of unpacker threads
 #define eslDSQDATA_UMAX                  4      // max number of unpacker threads (compile-time)
 

@@ -125,8 +125,10 @@ extern float  esl_vec_FEntropy(const float  *p, int n);
 extern double esl_vec_DRelEntropy(const double *p, const double *q, int n);
 extern float  esl_vec_FRelEntropy(const float  *p, const float  *q, int n);
 
-extern double esl_vec_DLogSum(const double *vec, int n);
-extern float  esl_vec_FLogSum(const float  *vec, int n);
+extern double esl_vec_DLogSum (const double *vec, int n);
+extern float  esl_vec_FLogSum (const float  *vec, int n);
+extern double esl_vec_DLog2Sum(const double *vec, int n);
+extern float  esl_vec_FLog2Sum(const float  *vec, int n);
 
 extern void   esl_vec_DCDF(const double *p, int n, double *cdf);
 extern void   esl_vec_FCDF(const float  *p, int n, float  *cdf);

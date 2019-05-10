@@ -187,7 +187,7 @@ esl_vec_LAddScaled(int64_t *vec1, const int64_t *vec2, int64_t a, int n)
  *            
  *            Floating point summations use Kahan compensated
  *            summation, in order to minimize roundoff error
- *            accumulation.  Additionally, I believe they are most
+ *            accumulation.  Additionally, they are most
  *            accurate if vec[] is sorted in increasing order, from
  *            small to large, so you may consider sorting <vec> before
  *            summing it.
@@ -1149,8 +1149,8 @@ esl_vec_FExp(float *vec, int n)
 }
 
 
-/* Function:  esl_vec_DLogSum(), esl_vec_FLogSum()
- * Synopsis:  Given log-p-vector, return log of sum of probabilities.
+/* Function:  esl_vec_DLogSum(), esl_vec_FLogSum(), esl_vec_DLog2Sum(), esl_vec_FLog2Sum()
+ * Synopsis:  Given log p-vector (or log_2), return log (or log_2) of sum of probabilities.
  *
  * Purpose:   <vec> is a log probability vector; return the log of the scalar sum
  *            of the probabilities in <vec>. That is, the <n> elements in <vec>
@@ -1160,6 +1160,16 @@ esl_vec_FExp(float *vec, int n)
  *            
  *            That is: return $\log \sum_i e^{v_i}$, but done in a numerically
  *            stable way.
+ *            
+ *            If you need high accuracy, you should sort <vec> from
+ *            smallest to largest before calling for the logsum. We
+ *            don't do that for you, because we don't want to change
+ *            the order of the input <vec>, and nor do we spend an
+ *            allocation.
+ *
+ *            The <Log2> versions do the same, but where the values
+ *            are base log_2 (bits).
+ *
  */
 double
 esl_vec_DLogSum(const double *vec, int n)
@@ -1191,7 +1201,36 @@ esl_vec_FLogSum(const float *vec, int n)
   sum = logf(sum) + max;
   return sum;
 }
-
+double
+esl_vec_DLog2Sum(const double *vec, int n)
+{
+  double max, sum;
+  int    i;
+  
+  max = esl_vec_DMax(vec, n);
+  if (max == eslINFINITY) return eslINFINITY; /* avoid inf-inf below! */
+  sum = 0.0;
+  for (i = 0; i < n; i++)
+    if (vec[i] > max - 500.)      // DBL_EPSILON ~ 2.2e-16; DBL_MIN ~ 2.2e-308; log2() = -52, -1022
+      sum += exp2(vec[i] - max);
+  sum = log2(sum) + max;
+  return sum;
+}
+float
+esl_vec_FLog2Sum(const float *vec, int n)
+{
+  int i;
+  float max, sum;
+  
+  max = esl_vec_FMax(vec, n);
+  if (max == eslINFINITY) return eslINFINITY; 
+  sum = 0.0;
+  for (i = 0; i < n; i++)
+    if (vec[i] > max - 50.)      // FLT_EPSILON ~ 1.19e-7; FLT_MIN ~ 1.17e-38; log() ~ -23, -126
+      sum += exp2f(vec[i] - max);
+  sum = log2f(sum) + max;
+  return sum;
+}
 
 /* Function:  esl_vec_DEntropy()
  * Synopsis:  Return Shannon entropy of p-vector, in bits.           
