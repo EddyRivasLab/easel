@@ -515,8 +515,8 @@ extern int  esl_DCompare   (double a,  double b, double tol);
 extern int  esl_FCompare   (float  a,  float  b, float  tol);
 extern int  esl_DCompareAbs(double a,  double b, double tol);
 extern int  esl_FCompareAbs(float  a,  float  b, float  tol);
-extern int  esl_DCompareNew(double x0, double x, double rtol, double atol);
-extern int  esl_FCompareNew(float  x0, float  x, float  rtol, float  atol);
+extern int  esl_DCompareNew(double x0, double x, double r_tol, double a_tol);
+extern int  esl_FCompareNew(float  x0, float  x, float  r_tol, float  a_tol);
 extern int  esl_CCompare(char *s1, char *s2);
 
 #endif /*eslEASEL_INCLUDED*/
