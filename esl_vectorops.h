@@ -110,14 +110,20 @@ extern void   esl_vec_I2D(int    *src, int n, double *dst);
 extern void   esl_vec_DNorm(double *vec, int n);
 extern void   esl_vec_FNorm(float  *vec, int n);
 
-extern void   esl_vec_DLogNorm(double *vec, int n);
-extern void   esl_vec_FLogNorm(float  *vec, int n);
+extern void   esl_vec_DLogNorm (double *vec, int n);
+extern void   esl_vec_FLogNorm (float  *vec, int n);
+extern void   esl_vec_DLog2Norm(double *vec, int n);
+extern void   esl_vec_FLog2Norm(float  *vec, int n);
 
-extern void   esl_vec_DLog(double *vec, int n);
-extern void   esl_vec_FLog(float  *vec, int n);
+extern void   esl_vec_DLog (double *vec, int n);
+extern void   esl_vec_FLog (float  *vec, int n);
+extern void   esl_vec_DLog2(double *vec, int n);
+extern void   esl_vec_FLog2(float  *vec, int n);
 
-extern void   esl_vec_DExp(double *vec, int n);
-extern void   esl_vec_FExp(float  *vec, int n);
+extern void   esl_vec_DExp (double *vec, int n);
+extern void   esl_vec_FExp (float  *vec, int n);
+extern void   esl_vec_DExp2(double *vec, int n);
+extern void   esl_vec_FExp2(float  *vec, int n);
 
 extern double esl_vec_DEntropy(const double *p, int n);
 extern float  esl_vec_FEntropy(const float  *p, int n);
@@ -136,11 +142,10 @@ extern void   esl_vec_FCDF(const float  *p, int n, float  *cdf);
 extern int    esl_vec_DValidate(const double *vec, int n, double tol, char *errbuf);
 extern int    esl_vec_FValidate(const float  *vec, int n, float  tol, char *errbuf);
 
-extern int    esl_vec_DLogValidate(const double *vec, int n, double tol, char *errbuf);
-extern int    esl_vec_FLogValidate(const float  *vec, int n, float  tol, char *errbuf);
-
-
-
+extern int    esl_vec_DLogValidate (const double *vec, int n, double tol, char *errbuf);
+extern int    esl_vec_FLogValidate (const float  *vec, int n, float  tol, char *errbuf);
+extern int    esl_vec_DLog2Validate(const double *vec, int n, double tol, char *errbuf);
+extern int    esl_vec_FLog2Validate(const float  *vec, int n, float  tol, char *errbuf);
 
 #endif /* eslVECTOROPS_INCLUDED */
 
