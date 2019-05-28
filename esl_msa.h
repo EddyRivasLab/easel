@@ -135,7 +135,7 @@ typedef struct {
 /* 1. The ESL_MSA object */
 extern ESL_MSA *esl_msa_Create(int nseq, int64_t alen);
 extern int      esl_msa_Expand(ESL_MSA *msa);
-extern int      esl_msa_Copy (const ESL_MSA *msa, ESL_MSA *new);
+extern int      esl_msa_Copy(const ESL_MSA *msa, ESL_MSA *new_msa);
 extern ESL_MSA *esl_msa_Clone(const ESL_MSA *msa);
 extern void     esl_msa_Destroy(ESL_MSA *msa);
 
