@@ -323,7 +323,6 @@ utest_logf(ESL_GETOPTS *go)
   }
   if (isinf(r.x[0]) != 1)  esl_fatal("logf(inf)  should be inf");
   if (! isnan(r.x[1]))     esl_fatal("logf(NaN)  should be NaN");
-
 }
 
 /* utest_expf():  Test range/domain of expf */

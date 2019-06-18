@@ -1762,6 +1762,7 @@ utest_pvectors(void)
   float  p3f[4];
   int    n = 4;
   double result;
+  float resultf;
 
   esl_vec_D2F(p1,  n, p1f);
   esl_vec_F2D(p2f, n, p2);  
@@ -1777,8 +1778,8 @@ utest_pvectors(void)
   result = esl_vec_DRelEntropy(p2,  p1,  n);  if (esl_DCompare(1.0, result, 1e-9) != eslOK) esl_fatal(msg);
   result = esl_vec_FRelEntropy(p2f, p1f, n);  if (esl_DCompare(1.0, result, 1e-9) != eslOK) esl_fatal(msg);
 
-  result = esl_vec_DRelEntropy(p1,  p2,  n);  if (result != eslINFINITY)  esl_fatal(msg);
-  result = esl_vec_FRelEntropy(p1f, p2f, n);  if (result != eslINFINITY)  esl_fatal(msg);
+  result = esl_vec_DRelEntropy(p1,  p2,  n);  if (isfinite(result))  esl_fatal(msg);
+  resultf = esl_vec_FRelEntropy(p1f, p2f, n); if (isfinite(resultf)) esl_fatal(msg);
 
   esl_vec_DLog(p2, n);
   if (esl_vec_DLogValidate(p2, n, 1e-12, NULL) != eslOK) esl_fatal(msg);

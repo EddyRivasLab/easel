@@ -475,6 +475,16 @@ extern int  esl_strtok_adv(char **s, char *delim, char **ret_tok, int *opt_tokle
 extern int  esl_sprintf (char **ret_s, const char *format, ...);
 extern int  esl_vsprintf(char **ret_s, const char *format, va_list *ap);
 extern int  esl_strcmp(const char *s1, const char *s2);
+static inline int esl_isnanf(float x)
+{
+#if !defined(ISNAN_FLOAT_WORKS)
+  int *a = (int*) &x;
+  return (((0xFF << 23) & *a) == (0xFF << 23)) && (0x7FFFFF & *a) != 0;
+#else
+  return isnan(x);
+#endif
+}
+
 
 /* 5.  Portable drop-in replacements for non-standard C functions */
 #ifndef HAVE_STRCASECMP

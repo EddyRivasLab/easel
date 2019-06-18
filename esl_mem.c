@@ -418,7 +418,17 @@ esl_mem_strtof(char *p, esl_pos_t n, int *opt_nc, float *opt_val)
     }
   else
     {
+#if defined(HAVE_IEEE_COMPARISONS)
       if (opt_val) *opt_val = sign * val * powf(10.,expsign*exp);
+#else
+      if (opt_val)
+      {
+	if (esl_isnanf(val))
+	  *opt_val = val;
+	else
+	  *opt_val = sign * val * powf(10.,expsign*exp);
+      }
+#endif
       if (opt_nc)  *opt_nc  = i;
       return eslOK;
     }
@@ -1038,7 +1048,6 @@ utest_mem_strtoi(void)
 }  
 
 
-
 static void
 utest_mem_strtof(void)
 {
@@ -1062,10 +1071,10 @@ utest_mem_strtof(void)
   if (( status = esl_mem_strtof("1234.567E",     9, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare(val, 1234.567, tol) != eslOK ) esl_fatal(msg);  
   if (( status = esl_mem_strtof("infinity",      8, &nc, &val) ) != eslOK || nc != 8  ||  !isinf(val))                               esl_fatal(msg);
   if (( status = esl_mem_strtof("-inf",          4, &nc, &val) ) != eslOK || nc != 4  ||  !isinf(val))                               esl_fatal(msg);
-  if (( status = esl_mem_strtof("NaN",           3, &nc, &val) ) != eslOK || nc != 3  ||  !isnan(val))                               esl_fatal(msg);
+  if (( status = esl_mem_strtof("NaN",           3, &nc, &val) ) != eslOK || nc != 3  ||  !esl_isnanf(val))                          esl_fatal(msg);
   if (( status = esl_mem_strtof("InFiNitY",      8, &nc, &val) ) != eslOK || nc != 8  ||  !isinf(val))                               esl_fatal(msg);
   if (( status = esl_mem_strtof("iNf",           3, &nc, &val) ) != eslOK || nc != 3  ||  !isinf(val))                               esl_fatal(msg);
-  if (( status = esl_mem_strtof("nAn",           3, &nc, &val) ) != eslOK || nc != 3  ||  !isnan(val))                               esl_fatal(msg);
+  if (( status = esl_mem_strtof("nAn",           3, &nc, &val) ) != eslOK || nc != 3  ||  !esl_isnanf(val))                          esl_fatal(msg);
 
   /* same, with trailing text */
   if (( status = esl_mem_strtof("-1.0XYZ",          7, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare(val,  -1.0,    tol) != eslOK ) esl_fatal(msg);
@@ -1082,10 +1091,10 @@ utest_mem_strtof(void)
   if (( status = esl_mem_strtof("1234.567EEEE",    12, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare(val, 1234.567, tol) != eslOK ) esl_fatal(msg);  
   if (( status = esl_mem_strtof("infinityXYZ",     11, &nc, &val) ) != eslOK || nc != 8  ||  !isinf(val))                               esl_fatal(msg);
   if (( status = esl_mem_strtof("-infXYZ",          7, &nc, &val) ) != eslOK || nc != 4  ||  !isinf(val))                               esl_fatal(msg);
-  if (( status = esl_mem_strtof("NaNXYZ",           6, &nc, &val) ) != eslOK || nc != 3  ||  !isnan(val))                               esl_fatal(msg);
+  if (( status = esl_mem_strtof("NaNXYZ",           6, &nc, &val) ) != eslOK || nc != 3  ||  !esl_isnanf(val))                          esl_fatal(msg);
   if (( status = esl_mem_strtof("InFiNitYXYZ",     11, &nc, &val) ) != eslOK || nc != 8  ||  !isinf(val))                               esl_fatal(msg);
   if (( status = esl_mem_strtof("iNfXYZ",           6, &nc, &val) ) != eslOK || nc != 3  ||  !isinf(val))                               esl_fatal(msg);
-  if (( status = esl_mem_strtof("nAnXYZ",           6, &nc, &val) ) != eslOK || nc != 3  ||  !isnan(val))                               esl_fatal(msg);
+  if (( status = esl_mem_strtof("nAnXYZ",           6, &nc, &val) ) != eslOK || nc != 3  ||  !esl_isnanf(val))                          esl_fatal(msg);
 
   /* terrifying edge cases that expose some flaws in our implementation, even aside from roundoff error */
   if (( status = esl_mem_strtof("9999999999999999999999999999999999999999e-10",         44, &nc, &val) ) != eslOK || nc != 44  || val != eslINFINITY)   esl_fatal(msg);   // a real strtof() gets this right: it's 1e30

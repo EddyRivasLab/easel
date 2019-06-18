@@ -2222,7 +2222,6 @@ esl_FCompareAbs(float a, float b, float tol)
   return eslFAIL;
 }
 
-
 /* Function:  esl_{DF}CompareNew()
  * Synopsis:  Compare floating point values for approximate equality, better version.
  * Incept:    SRE, Thu 19 Jul 2018 [Benasque]
@@ -2290,8 +2289,12 @@ esl_DCompareNew(double x0, double x, double r_tol, double a_tol)
 int
 esl_FCompareNew(float x0, float x, float r_tol, float a_tol)
 {
+#if !defined(HAVE_IEEE_COMPARISONS)
+  if (esl_isnanf(x0)) return eslFAIL;
+  if (esl_isnanf(x)) return eslFAIL;
+#endif
   if (isfinite(x0)) { if (fabs(x0 - x) <= r_tol * fabs(x0) + a_tol) return eslOK; }
-  else              { if (x0 == x) return eslOK; }                                   
+  else              { if (x0 == x) return eslOK; }
   return eslFAIL;
 }
 

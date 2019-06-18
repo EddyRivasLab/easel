@@ -676,7 +676,7 @@ esl_json_ReadFloat(const ESL_JSON *pi, int idx, ESL_BUFFER *bf, float *ret_x)
     }
   ESL_DASSERT1(( i == n ));
 
-  *ret_x = sign * val * powf(10.,exponent);  // range errors (over/underflow) aren't checked for; just let it go to +/-inf.
+  *ret_x = sign * val * pow(10.,exponent);  // range errors (over/underflow) aren't checked for; just let it go to +/-inf.
   return eslOK;
 }
   

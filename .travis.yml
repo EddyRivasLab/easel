@@ -1,0 +1,35 @@
+language: minimal
+
+services:
+  - docker
+
+env:
+  global:
+    - PATH=$HOME/bin:$PATH
+
+matrix:
+  include:
+    - env: TARGET=x86_64-pc-linux-gnu
+      name: x86_64-pc-linux-gnu
+    - env: TARGET=powerpc-unknown-linux-gnu
+      name: powerpc-unknown-linux-gnu
+    - os: osx
+      env: TARGET=x86_64-apple-darwin
+      name: x86_64-apple-darwin
+
+before_install:
+  - bash <(curl -fsSL https://raw.githubusercontent.com/horta/port-of-hmmer/master/ci/travis.sh)
+
+script:
+  - sandbox_run autoconf
+  - if [ "$TARGET" == powerpc-unknown-linux-gnu ]; then sandbox_run CFLAGS=-O0 ./configure; fi
+  - if [ "$TARGET" != powerpc-unknown-linux-gnu ]; then sandbox_run ./configure; fi
+  - sandbox_run make
+  - sandbox_run make check
+
+notifications:
+  email:
+    recipients:
+      - danilo.horta@pm.me
+    on_success: never
+    on_failure: always

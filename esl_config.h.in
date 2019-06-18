@@ -36,6 +36,9 @@
 
 #undef HAVE_FLUSH_ZERO_MODE        // on x86 platforms: we can turn off denormalized floating point math,
 #undef HAVE_DENORMALS_ZERO_MODE    //   which often incurs performance penalty. See simdvec.md in HMMER.
+#undef ISNAN_FLOAT_WORKS
+#undef ISNAN_DOUBLE_WORKS
+#undef HAVE_IEEE_COMPARISONS
 
 #undef HAVE_MPI
 #undef HAVE_PTHREAD

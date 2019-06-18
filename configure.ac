@@ -1,5 +1,5 @@
 # process this file with autoconf to produce the Easel configuration script.
-# 
+#
 # reminders to save re-reading autoconf manual for the n'th time:
 #   output variables:
 #      - defined here as normal shell variables, e.g. FOO="my string"
@@ -64,6 +64,9 @@ m4_include([m4/esl_avx.m4])
 m4_include([m4/esl_avx512.m4])
 m4_include([m4/esl_neon.m4])
 m4_include([m4/esl_vmx.m4])
+m4_include([m4/esl_ieee_comp.m4])
+m4_include([m4/esl_isnan_float.m4])
+m4_include([m4/esl_isnan_double.m4])
 
 m4_include([m4/ax_mpi.m4])
 m4_include([m4/ax_pthread.m4])
@@ -77,7 +80,7 @@ AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
 # remember if the user is overriding CFLAGS
 esl_cflags_env_set=no
-if test x"$CFLAGS" != x; then 
+if test x"$CFLAGS" != x; then
   esl_cflags_env_set=yes
 fi
 
@@ -88,7 +91,7 @@ fi
 ################################################################
 #
 # AC_INIT args set these output variables and preprocessor symbols:
-#     PACKAGE_NAME      <package>     e.g. "Easel"                      
+#     PACKAGE_NAME      <package>     e.g. "Easel"
 #     PACKAGE_VERSION   <version>     e.g. "0.44"
 #     PACKAGE_BUGREPORT <bug-report>  e.g. "sean@eddylab.org"
 #     PACKAGE_TARNAME   <tarname>     e.g. "easel"
@@ -129,10 +132,10 @@ AC_DEFINE_UNQUOTED([EASEL_URL],       ["$EASEL_URL"],       [Easel web URL])
 
 
 # Figure out what host we're compiling on.
-# Three GNU scripts must be included in the distro: 
+# Three GNU scripts must be included in the distro:
 #       install.sh, config.guess, config.sub
 # This sets four shell variables:
-#       host            example: i686-pc-linux-gnu      
+#       host            example: i686-pc-linux-gnu
 #       host_cpu        example: i686
 #       host_vendor     example: pc
 #       host_os         example: linux-gnu
@@ -208,12 +211,12 @@ fi
 #  --enable-gcov, --enable-gprof, and --enable-debugging are mutually exclusive.
 #
 if test "$enable_gcov" = "yes"; then
-   if test "$sre_cflags_env_set" = "yes"; then 
+   if test "$sre_cflags_env_set" = "yes"; then
      AC_MSG_ERROR([--enable-gcov overrides CFLAGS, so don't set CFLAGS])
    fi
    CFLAGS="-g -Wall -fprofile-arcs -ftest-coverage"
 elif test "$enable_gprof" = "yes"; then
-   if test "$sre_cflags_env_set" = "yes"; then 
+   if test "$sre_cflags_env_set" = "yes"; then
      AC_MSG_ERROR([--enable-gprof overrides CFLAGS, so don't set CFLAGS])
    fi
    CFLAGS="-O -g -pg"
@@ -228,7 +231,7 @@ fi
 
 # MPI :  set @CC@ to mpicc;
 #        set @MPILIBS@ if needed (usually not; mpicc deals w/ it);
-#        defines HAVE_MPI. 
+#        defines HAVE_MPI.
 if test "$enable_mpi" = "yes"; then
    AX_MPI(,AC_MSG_ERROR([MPI library not found for --enable-mpi]))
    CC=$MPICC
@@ -250,6 +253,12 @@ if test "$enable_threads" != "no"; then
     ])
 fi
 
+ESL_IEEE_COMP
+ESL_ISNAN_FLOAT
+ESL_ISNAN_DOUBLE
+if test "$c_isnan_double_works" == no ; then
+  AC_MSG_FAILURE([isnan is not working for double NaNs. Hint: disable optimizations. Ex.: by defining CFLAGS=-O0.])
+fi
 
 # Support for vector implementations (xref SRE:H3/28)
 #
@@ -264,7 +273,7 @@ fi
 #     "AVX512" requires the F, ER, and BW subsets.
 #
 # If we were explicitly told to enable one ($enable_foo="yes") and we
-# can't, fail with an error. 
+# can't, fail with an error.
 #
 # If we're autodetecting ($enable_foo="check"), set $enable_foo to the
 # result ("yes" or "no").
@@ -377,7 +386,7 @@ AC_MSG_CHECKING([whether flush-to-zero (FTZ) is supported])
 AC_COMPILE_IFELSE(
   [AC_LANG_PROGRAM(
     [#include <xmmintrin.h>],
-    [_MM_SET_FLUSH_ZERO_MODE (_MM_FLUSH_ZERO_ON);])], 
+    [_MM_SET_FLUSH_ZERO_MODE (_MM_FLUSH_ZERO_ON);])],
   [ AC_MSG_RESULT([yes])
     AC_DEFINE([HAVE_FLUSH_ZERO_MODE], 1, [Set to support FTZ, flush-to-zero mode])],
   [ AC_MSG_RESULT([no]) ])
@@ -386,7 +395,7 @@ AC_MSG_CHECKING([whether denormals-are-zero (DAZ) is supported])
 AC_COMPILE_IFELSE(
   [AC_LANG_PROGRAM(
     [#include <pmmintrin.h>],
-    [_MM_SET_DENORMALS_ZERO_MODE (_MM_DENORMALS_ZERO_ON);])], 
+    [_MM_SET_DENORMALS_ZERO_MODE (_MM_DENORMALS_ZERO_ON);])],
   [ AC_MSG_RESULT([yes])
     AC_DEFINE([HAVE_DENORMALS_ZERO_MODE], 1, [Set to support DAZ, denormals-are-zero mode])],
   [ AC_MSG_RESULT([no]) ])
@@ -405,10 +414,10 @@ fi
 
 
 # We need python, specifically python3, for 'make check' and
-# some dev tools. Makefiles check for themselves, but we 
+# some dev tools. Makefiles check for themselves, but we
 # also check in ./configure, so we don't recommend
 # 'make check' to the user if they can't use it.
-# 
+#
 AC_PATH_PROG([PYTHON3], [python3])
 
 
@@ -417,7 +426,7 @@ AC_PATH_PROG([PYTHON3], [python3])
 #################################################################
 LIBGSL=
 AS_IF([test "x$with_gsl" != xno],
-      [AC_CHECK_LIB([gsl], [gsl_expm1], 
+      [AC_CHECK_LIB([gsl], [gsl_expm1],
            [AC_SUBST([LIBGSL], ["-lgsl -lgslcblas"])
             AC_DEFINE([HAVE_LIBGSL], [1], [Define if you have libgsl])
            ],
@@ -453,7 +462,7 @@ AC_CHECK_HEADERS([\
 # <sys/param.h> and autoconf needs special logic to deal w. this as
 # follows.
 AC_CHECK_HEADERS([sys/param.h])
-AC_CHECK_HEADERS([sys/sysctl.h], [], [], 
+AC_CHECK_HEADERS([sys/sysctl.h], [], [],
 [[#ifdef HAVE_SYS_PARAM_H
 #include <sys/param.h>
 #endif
@@ -465,7 +474,7 @@ AC_CHECK_HEADERS([sys/sysctl.h], [], [],
 # 8. Checks for types
 ################################################################
 #    - Define WORDS_BIGENDIAN on bigendian platforms.
-#    - Make sure we have C99 exact-size integer types; 
+#    - Make sure we have C99 exact-size integer types;
 #      ssi uses 16, 32, and 64-bit ints, and we
 #      use 8-bit unsigned chars for digitized sequence.
 #    - Make sure we have off_t.
@@ -491,20 +500,20 @@ AC_TYPE_OFF_T
 #################################################################
 
 # __attribute__() tags on function declarations
-# HAVE_FUNC_ATTRIBUTE_NORETURN 
+# HAVE_FUNC_ATTRIBUTE_NORETURN
 #
 #   The clang static analyzer can't figure out that some of our
 #   varargs-dependent fatal error handlers (esl_fatal(), for example)
 #   cannot return. To tell it so, we take advantage of __attribute__
 #   tags on function declarations, a non-ISO gcc extension, when
 #   available. gcc, clang, and other gcc-like compilers support this.
-# 
+#
 AX_GCC_FUNC_ATTRIBUTE(noreturn)
 
 # HAVE_FUNC_ATTRIBUTE_FORMAT
-#   
+#
 #   We have some printf()-style functions that use varargs.
-#   Apparently when you do something like 
+#   Apparently when you do something like
 #           int64_t bigint;
 #           my_printf("%d", bigint);
 #   a compiler can't normally detect the size mismatch between the
@@ -515,7 +524,6 @@ AX_GCC_FUNC_ATTRIBUTE(noreturn)
 #   compiler to typecheck printf()-like arguments, and warn appropriately.
 #   We only need or use this in development.
 AX_GCC_FUNC_ATTRIBUTE(format)
-
 
 ################################################################
 # 11. Checks for library functions: define HAVE_FOO
@@ -617,13 +625,12 @@ PTHREAD_CFLAGS= $PTHREAD_CFLAGS
     VMX_CFLAGS= $VMX_CFLAGS
 
 Vector implementations enabled:
-           sse: $enable_sse
-          sse4: $enable_sse4
-           avx: $enable_avx
-        avx512: $enable_avx512
-          neon: $enable_neon
-           vmx: $enable_vmx"
-
+           sse= $enable_sse
+          sse4= $enable_sse4
+           avx= $enable_avx
+        avx512= $enable_avx512
+          neon= $enable_neon
+           vmx= $enable_vmx"
 
 if test ${PYTHON3}; then echo "
 Now do 'make' to build Easel, and optionally:

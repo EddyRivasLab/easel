@@ -33,7 +33,7 @@ AC_DEFUN([ESL_VMX], [
       *)    CFLAGS="$save_CFLAGS $esl_vmx_cflags";;
     esac
 
-    AC_LINK_IFELSE(
+    AC_RUN_IFELSE(
       [AC_LANG_SOURCE([[
 #include <altivec.h>
 #include <stdint.h>

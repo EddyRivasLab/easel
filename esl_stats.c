@@ -1034,7 +1034,7 @@ static ESL_OPTIONS options[] = {
   {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                   0},
   {"-s",  eslARG_INT,      "42", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>",         0},
   {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "verbose: show verbose output",          0},
-  {"-N",  eslARG_INT,"10000000", NULL, NULL, NULL, NULL, NULL, "number of trials in LogGamma test",     0},
+  {"-N",  eslARG_INT,  "100000", NULL, NULL, NULL, NULL, NULL, "number of trials in LogGamma test",     0},
   { 0,0,0,0,0,0,0,0,0,0},
 };
 static char usage[]  = "[-options]";
