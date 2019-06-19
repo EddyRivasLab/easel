@@ -279,10 +279,24 @@ esl_msafile_afa_Write(FILE *fp, const ESL_MSA *msa)
   int64_t pos;
   char    buf[61];
   int     acpl;       /* actual number of characters per line */
+  int  make_uniquenames = FALSE;  /* TRUE if we force names to be unique */
+  int  status;
+  int  tmpnseq;
+  int  uniqwidth;
   
+  status = esl_msa_CheckUniqueNames(msa);
+  if (status == eslFAIL) {
+    make_uniquenames = TRUE;
+    for (tmpnseq = msa->nseq; tmpnseq; tmpnseq /= 10) uniqwidth++;  /* how wide the uniqizing numbers need to be */
+  }
+
   for (i = 0; i < msa->nseq; i++)
     {
-      if (fprintf(fp, ">%s", msa->sqname[i])                                                      < 0) ESL_EXCEPTION_SYS(eslEWRITE, "afa msa file write failed");
+      if (make_uniquenames) {
+        if (fprintf(fp, ">%0*d/%s", uniqwidth, i, msa->sqname[i])                                              < 0) ESL_EXCEPTION_SYS(eslEWRITE, "afa msa file write failed");
+      } else {
+        if (fprintf(fp, ">%s", msa->sqname[i])                                                    < 0) ESL_EXCEPTION_SYS(eslEWRITE, "afa msa file write failed");
+      }
       if (msa->sqacc  != NULL && msa->sqacc[i]  != NULL) { if (fprintf(fp, " %s", msa->sqacc[i])  < 0) ESL_EXCEPTION_SYS(eslEWRITE, "afa msa file write failed"); }
       if (msa->sqdesc != NULL && msa->sqdesc[i] != NULL) { if (fprintf(fp, " %s", msa->sqdesc[i]) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "afa msa file write failed"); }
       if (fputc('\n', fp)                                                                         < 0) ESL_EXCEPTION_SYS(eslEWRITE, "afa msa file write failed");
