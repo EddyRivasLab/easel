@@ -1,0 +1,9 @@
+language: c
+
+script:
+  - autoconf
+  - ./configure
+  - make
+  - make dev
+  - make check
+
