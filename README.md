@@ -1,6 +1,6 @@
 # Easel - a library of C functions for biological sequence analysis
 
-[![Travis](https://img.shields.io/travis/com/horta/easel/eddy-develop.svg?label=linux%20%26%20macos%20builds)](https://travis-ci.com/horta/easel)
+[![Travis](https://img.shields.io/travis/com/horta/easel/ppc-fix.svg?label=linux%20%26%20macos%20builds)](https://travis-ci.com/horta/easel)
 
 [Easel](http://bioeasel.org) is an ANSI C code library developed by
 the [Eddy/Rivas laboratory](http://eddylab.org) at Harvard for
