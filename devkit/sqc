@@ -23,6 +23,12 @@
 #
 #
 # Available options:
+#    -e             - exit with status 1 when finished if any test failed.
+#                     (Default is for the script to exit with status 0, having
+#                     succeeded' by reporting any & all failures.) This
+#                     option may also be set by setting the SQC_NONZERO_EXIT
+#                     environment variable to 1.
+# 
 #    -v             - print verbose output, including each command
 #                     after various substitutions.
 #
@@ -236,7 +242,8 @@ use Getopt::Std;
 
 # Parse our command line options
 #
-getopts('vx:VM');
+getopts('evx:VM');
+if ($opt_e) { $do_nonzero_exit  = 1;      }
 if ($opt_v) { $verbose          = 1;      }
 if ($opt_x) { $only_do_test_num = $opt_x; }
 if ($opt_V) { $do_valgrind      = 1;      }
@@ -244,8 +251,9 @@ if ($opt_M) { $do_mpi           = 1;      }
 
 # Parse our environment
 #
-if ($ENV{"SQC_VALGRIND"} != 0) { $do_valgrind = 1; }
-if ($ENV{"SQC_MPI"}      != 0) { $do_mpi      = 1; }
+if ($ENV{"SQC_VALGRIND"}     != 0) { $do_valgrind     = 1; }
+if ($ENV{"SQC_MPI"}          != 0) { $do_mpi          = 1; }
+if ($ENV{"SQC_NONZERO_EXIT"} != 0) { $do_nonzero_exit = 1; }
 
 # Trust but verify
 #
@@ -499,13 +507,18 @@ print `date`;
 print `uname -a`;
 
 
-# Clean up.
+# Clean up and exit
 #
 foreach $tmpfile (keys(%used_tmpfile)) {
     unlink $tmpfile if -e $tmpfile;
 }
 unlink $tmp if -e $tmp;
 unlink "$tmp.stderr" if -e "$tmp.stderr";
+
+if ($do_nonzero_exit && $badtest > 0) { exit 1; } else { exit 0; }
+
+
+
 
 
 sub check_status
