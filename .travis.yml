@@ -11,5 +11,6 @@ script:
   - ./configure
   - make
   - make dev
+  - miniapps/esl-shuffle.itest.py . . foo
   - make check
 
