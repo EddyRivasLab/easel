@@ -3,6 +3,9 @@ language: c
 env:
   - SQC_NONZERO_EXIT=1
 
+before_install:
+  - sudo apt-get install python3
+
 script:
   - autoconf
   - ./configure
