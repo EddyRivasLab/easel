@@ -1,7 +1,5 @@
 language: c
 
-dist: xenial
-
 env:
   - SQC_NONZERO_EXIT=1
 
@@ -10,6 +8,5 @@ script:
   - ./configure
   - make
   - make dev
-  - miniapps/esl-shuffle.itest.py . . foo
   - make check
 

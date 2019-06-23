@@ -257,9 +257,7 @@ if ($ENV{"SQC_NONZERO_EXIT"} != 0) { $do_nonzero_exit = 1; }
 
 # Check software dependencies.
 # Valgrind tests require valgrind; MPI tests require MPI. (Duh.)
-# 
-# Some integrated tests use python3, and moreover require python >=
-# 3.5, because we use subprocess.run.
+# Some integrated tests use python3.
 #
 if ($do_valgrind) 
 {
@@ -273,9 +271,7 @@ if ($do_mpi)
 }
 
 $output = `python3 --version 2>&1`;
-if ($?) { die "Unable to run the test suite. Some tests require python3 (version >= 3.5)\n\n"; }
-$output = `python3 -c 'import subprocess; print("run" in dir(subprocess))' 2>&1`;
-if ($output !~ /True/) { die "Unable to run the test suite. Some tests require python version >= 3.5.\n\n"; }
+if ($?) { die "Unable to run the test suite. Some tests require python3\n\n"; }
 
 
 
