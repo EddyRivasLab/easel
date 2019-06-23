@@ -23,11 +23,11 @@
 #
 #
 # Available options:
-#    -e             - exit with status 1 when finished if any test failed.
-#                     (Default is for the script to exit with status 0, having
-#                     succeeded' by reporting any & all failures.) This
-#                     option may also be set by setting the SQC_NONZERO_EXIT
-#                     environment variable to 1.
+#    -e             - exit with status 1 when finished if any test failed, while
+#                     still running all the tests. (Default is for the script to
+#                     exit with status 0, having 'succeeded' by reporting any
+#                     failures.) This option may also be set by setting env 
+#                     variable SQC_NONZERO_EXIT nonzero.
 # 
 #    -v             - print verbose output, including each command
 #                     after various substitutions.
@@ -255,18 +255,29 @@ if ($ENV{"SQC_VALGRIND"}     != 0) { $do_valgrind     = 1; }
 if ($ENV{"SQC_MPI"}          != 0) { $do_mpi          = 1; }
 if ($ENV{"SQC_NONZERO_EXIT"} != 0) { $do_nonzero_exit = 1; }
 
-# Trust but verify
+# Check software dependencies.
+# Valgrind tests require valgrind; MPI tests require MPI. (Duh.)
+# 
+# Some integrated tests use python3, and moreover require python >=
+# 3.5, because we use subprocess.run.
 #
 if ($do_valgrind) 
 {
     $output = `valgrind --version 2>&1`;
-    if ($?) { die "couldn't run valgrind. Don't set -V cmdline option, don't set SQC_VALGRIND env variable."; }
+    if ($?) { die "couldn't run valgrind. Don't set -V cmdline option, don't set SQC_VALGRIND env variable.\n"; }
 }
 if ($do_mpi)
 {
     $output = `mpiexec -V 2>&1`;
-    if ($?) { die "couldn't run mpiexec. Don't set -M cmdline option, don't set SQC_MPI env variable."; }
+    if ($?) { die "couldn't run mpiexec. Don't set -M cmdline option, don't set SQC_MPI env variable.\n"; }
 }
+
+$output = `python3 --version 2>&1`;
+if ($?) { die "Unable to run the test suite. Some tests require python3 (version >= 3.5)\n\n"; }
+$output = `python3 -c 'import subprocess; print("run" in dir(subprocess))' 2>&1`;
+if ($output !~ /True/) { die "Unable to run the test suite. Some tests require python version >= 3.5.\n\n"; }
+
+
 
 # Parse command line arguments
 #

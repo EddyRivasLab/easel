@@ -405,11 +405,23 @@ fi
 
 
 # We need python, specifically python3, for 'make check' and
-# some dev tools. Makefiles check for themselves, but we 
-# also check in ./configure, so we don't recommend
+# some dev tools; moreover, we need python3 >= 3.5, to
+# support subprocess.run(). sqc checks for itself, but 
+# we also check in ./configure, so we don't recommend
 # 'make check' to the user if they can't use it.
 # 
-AC_PATH_PROG([PYTHON3], [python3])
+AC_CHECK_PROG(HAVE_PYTHON3, python3, yes)
+if test x"$HAVE_PYTHON3" = x"yes"; then
+  AC_MSG_CHECKING([whether python3 supports subprocess.run])
+  output=`python3 -c 'import subprocess; print("run" in dir(subprocess))'`
+  if test x"${output}" = x"True"; then
+    AC_DEFINE([HAVE_PYTHON3_SUBPROCESS_RUN],1,[Support Python >=3.5 subprocess.run()])
+    python3_ok="yes"
+    AC_MSG_RESULT([yes])
+  else
+    AC_MSG_RESULT([no])
+  fi
+fi  
 
 
 ################################################################
@@ -625,11 +637,11 @@ Vector implementations enabled:
            vmx: $enable_vmx"
 
 
-if test ${PYTHON3}; then echo "
+if test x"$python3_ok" = x"yes"; then echo "
 Now do 'make' to build Easel, and optionally:
        'make check' to run self-tests.";
 else echo "
-(No python3 found, so 'make check' self tests are disabled.)
+(No python3 >= version 3.5 found, so 'make check' is disabled.)
 
 Now do 'make' to build Easel.";
 fi
