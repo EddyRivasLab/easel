@@ -54,10 +54,13 @@ WYWYWYWYWYWYWYWYWYWY
 # Until you change the RNG again, anyway. If you do that, all these
 # regressions need to change.
 #
-r = subprocess.run('{0}/miniapps/esl-shuffle --seed 42 {1}.fa'.format(builddir, tmppfx),
-                   shell=True, stdout=subprocess.PIPE, encoding='utf-8')
-if r.returncode != 0:                       sys.exit(errmsg)
-lines = r.stdout.splitlines()
+try:
+    output = subprocess.check_output([ '{}/miniapps/esl-shuffle'.format(builddir), '--seed', '42', '{}.fa'.format(tmppfx) ],
+                                     stderr=subprocess.STDOUT, universal_newlines=True)
+except:
+    sys.exit(errmsg)
+
+lines = output.splitlines()
 if len(lines) != 6:                         sys.exit(errmsg)
 if (lines[0] != '>seq1-shuffled'        or
     lines[1] != 'TIGEYHFWCKVSALQNPDRM'  or
@@ -69,24 +72,31 @@ if (lines[0] != '>seq1-shuffled'        or
 # We had bugs in the -N option at one point.  This test exercises the
 # bugs.
 #
-r = subprocess.run('{0}/miniapps/esl-shuffle --seed 42 -N 2 {1}.fa'.format(builddir, tmppfx),
-                   shell=True, stdout=subprocess.PIPE, encoding='utf-8')
-if r.returncode != 0:                    sys.exit(errmsg)
-lines = r.stdout.splitlines()
+try:
+    output = subprocess.check_output([ '{}/miniapps/esl-shuffle'.format(builddir), '--seed', '42', '-N', '2', '{}.fa'.format(tmppfx) ],
+                                     stderr=subprocess.STDOUT, universal_newlines=True)
+except:
+    sys.exit(errmsg)
+    
+lines = output.splitlines()
 if len(lines) != 12:                     sys.exit(errmsg)
 if (lines[2] != '>seq1-shuffled-1'  or
     lines[3] != 'NTEPDRFIQYKLCMWVHAGS'): sys.exit(errmsg);
 
 # Easel iss #24 was a silly, untested failure of esl-shuffle -A
 #
-r = subprocess.run('{0}/miniapps/esl-shuffle -A --seed 42 {1}.sto'.format(builddir, tmppfx),
-                   shell=True, stdout=subprocess.PIPE, encoding='utf-8')
-if r.returncode != 0:                         sys.exit(errmsg)
-lines = r.stdout.splitlines()
+try:
+    output = subprocess.check_output([ '{}/miniapps/esl-shuffle'.format(builddir), '--seed', '42', '-A', '{}.sto'.format(tmppfx) ],
+                                     stderr=subprocess.STDOUT, universal_newlines=True)
+except:
+    sys.exit(errmsg)
+
+lines = output.splitlines()
 if len(lines) != 9:                           sys.exit(errmsg)
 if (lines[3] != 'seq1 TIGEYHFWCKVSALQNPDRM'): sys.exit(errmsg)
 
 print('ok')
+
 os.remove('{0}.sto'.format(tmppfx))
 os.remove('{0}.fa'.format(tmppfx))
 sys.exit(0)

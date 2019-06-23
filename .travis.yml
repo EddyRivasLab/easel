@@ -1,0 +1,12 @@
+language: c
+
+env:
+  - SQC_NONZERO_EXIT=1
+
+script:
+  - autoconf
+  - ./configure
+  - make
+  - make dev
+  - make check
+
