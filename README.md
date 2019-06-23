@@ -1,11 +1,15 @@
-# Easel - a library of C functions for biological sequence analysis
+# Easel - a C library for biological sequence analysis
+
+[![](https://travis-ci.org/EddyRivasLab/easel.svg?branch=travis-ci)](https://travis-ci.org/EddyRivasLab/easel)
+![](http://img.shields.io/badge/license-BSD-brightgreen.svg)
 
 [Easel](http://bioeasel.org) is an ANSI C code library developed by
-the [Eddy/Rivas laboratory](http://eddylab.org) at Harvard for
-computational analysis of biological sequences using probabilistic
-models. Easel is used by [HMMER](http://hmmer.org), the profile hidden
-Markov model software that underlies several protein and DNA sequence
-family databases such as [Pfam](http://pfam.xfam.org), and by
+the [Eddy/Rivas laboratory](http://eddylab.org) at Harvard. Easel
+supports our work on computational analysis of biological sequences
+using probabilistic models. Easel is used by
+[HMMER](http://hmmer.org), the profile hidden Markov model software
+that underlies several protein and DNA sequence family databases such
+as [Pfam](http://pfam.xfam.org), and by
 [Infernal](http://eddylab.org/infernal), the profile stochastic
 context-free grammar software that underlies the
 [Rfam](http://rfam.xfam.org) RNA family database. Easel aims to make
@@ -19,30 +23,20 @@ To participate in Easel development, visit us at
 [github](https://github.com/EddyRivasLab/easel).
 
 
-### to clone a copy of Easel source from github:
+### to build Easel source code from github:
 
 ```bash
     % git clone https://github.com/EddyRivasLab/easel
     % cd easel
     % autoconf
+    % ./configure
+    % make
+    % make check
 ```
-
-and to build:
-
-```
-   % ./configure
-   % make
-```
-
-and to test:
-
-```
-   % make check
-```   
 
 This procedure gives you our `master` branch - the most recent Easel
-release that was packaged with HMMER, Infernal, or other lab
-software. If you want or need a feature that we've put in recently,
+release that was packaged with a release of HMMER, Infernal, or other
+lab software. If you want a feature that we've put in more recently,
 you want our `develop` branch. After the `git clone` and `cd easel`,
 do:
 
@@ -51,6 +45,7 @@ do:
 ```
 
 and proceed to `autoconf`.
+
 
 
 
