@@ -118,6 +118,7 @@ utest_randpattern(ESL_RANDOMNESS *rng)
   free(deal);
   free(bigflags);
   esl_bitfield_Destroy(b);
+  if (b) free(b);
   return;
 
  ERROR:
