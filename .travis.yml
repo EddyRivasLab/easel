@@ -30,7 +30,7 @@ before_install:
 script:
   - sandbox_run autoconf
   - sandbox_run ./configure
+  - sandbox_run cat config.log
   - sandbox_run make
   - sandbox_run make dev
   - sandbox_run make check
-  - sandbox_run cat config.log
