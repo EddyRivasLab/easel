@@ -46,13 +46,16 @@ AC_DEFUN([ESL_AVX],[
 
     AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <x86intrin.h>
+#include <stdlib.h>
 #include <stdint.h>
 int main(void) {
-  __m256i v1 = _mm256_set1_epi32(42);
-  __m256i v2 = _mm256_set1_epi32(214);
+  int r0 = rand() % 50;
+  int r1 = rand() % 50;
+  __m256i v1 = _mm256_set1_epi32(r0);
+  __m256i v2 = _mm256_set1_epi32(r1);
   union { __m256i v; int32_t x[8]; } v3;
   v3.v = _mm256_add_epi32(v1, v2);
-  int status = ((int) v3.x[2]) == 256;
+  int status = ((int) v3.x[2]) == (r0 + r1) && ((int) v3.x[0]) == (r0 + r1);;
   return !status;
 }
     ]])], [ esl_have_avx=yes; break; ], [])
