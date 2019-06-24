@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+ppc_run()
+{
+  name=$(id -un)
+  sshpass -p "$name" ssh -t -oStrictHostKeyChecking=no 127.0.0.1 -p 22125 -l $name "$@"
+}
+
+if [ "$TARGET" == "powerpc-unknown-linux-gnu" ]
+then
+  DIR=/hostdir/$(basename $TRAVIS_BUILD_DIR)
+  ppc_run "cd $DIR && $@"
+else
+  eval "$@"
+fi

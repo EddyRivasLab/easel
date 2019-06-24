@@ -7,7 +7,7 @@
 # implementations in Easel, HMMER, Infernal, etc; more precisely,
 # we're also checking for AVX2 intrinsic support.
 
-# Tries to compile and link a test program using the current CC,
+# Tries to compile, link, and run a test program using the current CC,
 # CFLAGS, and (optionally) any AVX_CFLAGS passed by the user. If
 # AVX_CFLAGS are not provided, then we try to determine them, by
 # trying nothing (i.e. the compiler deals with AVX intrinsics by
@@ -44,16 +44,17 @@ AC_DEFUN([ESL_AVX],[
       *)    CFLAGS="$save_CFLAGS $esl_avx_cflags";;
     esac
 
-    AC_LINK_IFELSE([AC_LANG_SOURCE([[
+    AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <x86intrin.h>
-#include <stdio.h>
 #include <stdint.h>
 int main(void) {
   __m256i v1 = _mm256_set1_epi32(42);
   __m256i v2 = _mm256_set1_epi32(214);
   union { __m256i v; int32_t x[8]; } v3;
   v3.v = _mm256_add_epi32(v1, v2);
-  printf("%d\n", v3.x[2]);}
+  int status = ((int) v3.x[2]) == 256;
+  return !status;
+}
     ]])], [ esl_have_avx=yes; break; ], [])
   done
 

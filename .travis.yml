@@ -1,12 +1,36 @@
 language: c
 
 env:
-  - SQC_NONZERO_EXIT=1
+  global:
+    - SQC_NONZERO_EXIT=1 PATH=$HOME/bin:$PATH
+
+matrix:
+  include:
+  - name: x86_64-pc-linux-gnu
+    os: linux
+  - name: powerpc-unknown-linux-gnu
+    os: linux
+    dist: xenial
+    env: TARGET=powerpc-unknown-linux-gnu
+  - name: osx
+    os: osx
+
+addons:
+  apt:
+    packages:
+      - openbios-ppc
+      - openssh-client
+      - qemu
+      - qemu-system-ppc
+      - sshpass
+
+before_install:
+  - ci/travis.sh
 
 script:
-  - autoconf
-  - ./configure
-  - make
-  - make dev
-  - make check
-
+  - sandbox_run autoconf
+  - sandbox_run ./configure
+  - sandbox_run make
+  - sandbox_run make dev
+  - sandbox_run make check
+  - sandbox_run cat config.log
