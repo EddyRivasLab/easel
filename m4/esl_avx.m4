@@ -4,9 +4,9 @@
 # implementations (including AVX2).
 #
 # We call this "AVX" in the generic sense of the lab's vector
-# implementations in Easel, HMMER, Infernal, etc; more precisely,
+# implementations in Easel, HMMER, Infernal, etc; but more precisely,
 # we're also checking for AVX2 intrinsic support.
-
+#
 # Tries to compile and link a test program using the current CC,
 # CFLAGS, and (optionally) any AVX_CFLAGS passed by the user. If
 # AVX_CFLAGS are not provided, then we try to determine them, by
@@ -26,6 +26,11 @@
 # (Note that this is correct, even if user provided AVX_CFLAGS;
 #  because if they did, all the macro does is make sure that they
 #  work, and sets esl_avx_cflags=$AVX_CFLAGS.)
+#
+# Do not replace the AC_LINK with an AC_RUN test. This is a test for
+# whether the _compiler_ supports AVX2, not whether the current
+# processor does. Our code uses runtime dispatching to choose an
+# appropriate ISA for the processor being used.
 #
 AC_DEFUN([ESL_AVX],[
   AC_MSG_CHECKING([whether $CC can compile our AVX code])
