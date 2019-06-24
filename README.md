@@ -1,6 +1,6 @@
 # Easel - a C library for biological sequence analysis
 
-[![](https://travis-ci.org/EddyRivasLab/easel.svg?branch=develop)](https://travis-ci.org/EddyRivasLab/easel)
+[![](https://travis-ci.com/EddyRivasLab/easel.svg?branch=develop)](https://travis-ci.com/EddyRivasLab/easel)
 ![](http://img.shields.io/badge/license-BSD-brightgreen.svg)
 
 [Easel](http://bioeasel.org) is an ANSI C code library developed by
