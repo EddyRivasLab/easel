@@ -70,6 +70,7 @@ void
 esl_bitfield_Destroy(ESL_BITFIELD *b)
 {
   if (b) free(b->b);
+  free(b);
 }
 
 
