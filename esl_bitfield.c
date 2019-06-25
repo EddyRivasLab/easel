@@ -88,18 +88,18 @@ utest_randpattern(ESL_RANDOMNESS *rng)
   char msg[]      = "bitfield randpattern utest failed";
   int  nb         = 1 + esl_rnd_Roll(rng, 192); // 1..192; 1-3 uint64_t's. Keep it small to exercise edge cases frequently.
   int  nu         = (nb + 63) / 64;
-  int  nset       = esl_rnd_Roll(rng, nb+1);
+  int  nset       = esl_rnd_Roll(rng, nb+1);    // we'll set between 0 and <nb> of the <nb> bits.
   int *deal       = NULL;                       // sample of <nset> elements out of <nb> that are initially set TRUE
   int *bigflags   = NULL;                       // bigflags[] are 1/0 for set/unset bits 
   ESL_BITFIELD *b = esl_bitfield_Create(nb);
   int  i;
   int  status;
 
-  ESL_ALLOC(deal, sizeof(int) * nset);
+  if (nset > 0) ESL_ALLOC(deal, sizeof(int) * nset); // watch out for nset = 0 case; avoid zero malloc.
   ESL_ALLOC(bigflags, sizeof(int) * nb);
   esl_vec_ISet(bigflags, nb, FALSE);
   
-  esl_rnd_Deal(rng, nset, nb, deal);
+  if (nset > 0) esl_rnd_Deal(rng, nset, nb, deal);
   for (i = 0; i < nset; i++) bigflags[deal[i]] = TRUE;
   for (i = 0; i < nset; i++) esl_bitfield_Set(b, deal[i]);
 
