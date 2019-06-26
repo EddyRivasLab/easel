@@ -4,18 +4,18 @@
 #define eslALPHABET_INCLUDED
 #include "esl_config.h"
 
-#include <ctype.h>		/* isascii() */
+#include <ctype.h>  /* isascii() */
 #include "easel.h"
 
 /* Flags for alphabet types.
  * Do not change, only add, because these codes are used in file formats.
  */
-#define eslUNKNOWN     0        /* 0=unknown is easel-wide convention; don't change */
+#define eslUNKNOWN     0  /* 0=unknown is easel-wide convention; don't change */
 #define eslRNA         1
-#define eslDNA         2		
-#define eslAMINO       3		
-#define eslCOINS       4	/* for toy examples      */
-#define eslDICE        5	/* also for toy examples */
+#define eslDNA         2
+#define eslAMINO       3
+#define eslCOINS       4  /* for toy examples      */
+#define eslDICE        5  /* also for toy examples */
 #define eslNONSTANDARD 6
 /* ... if you add here, change esl_abc_ValidateType() too. */
 
@@ -23,17 +23,15 @@
 /* Structure: ESL_ALPHABET
  */
 typedef struct {
-  int      type;	     /* eslDNA, eslRNA, eslAMINO, eslNONSTANDARD, etc.                 */
-  int      K;		     /* uniq alphabet size: 4 or 20                                    */
-  int      Kp;		     /* total size: alphabet + degen + gap + missing                   */
-  char    *sym;              /* "ACGT-RYMKSWHBVDN*~", for instance    [0..Kp-1]                */
-  ESL_DSQ  inmap[128];       /* inmap['A'] = 0, etc: dsq[] index for a symbol                  */
-  char   **degen;            /* 1/0, which syms inc which res [0..Kp-1][0..K-1]                */
-  int     *ndegen;	     /* # of degenerate residues per code  [0..Kp-1]                   */
-  ESL_DSQ *complement;       /* maps sym to complements, [0..Kp-1]; NULL if <type> not DNA/RNA */
+  int      type;        /* eslDNA, eslRNA, eslAMINO, eslNONSTANDARD, etc.                 */
+  int      K;           /* uniq alphabet size: 4 or 20                                    */
+  int      Kp;          /* total size: alphabet + degen + gap + missing                   */
+  char    *sym;         /* "ACGT-RYMKSWHBVDN*~" , for instance [0..Kp-1]; null-terminated */
+  ESL_DSQ  inmap[128];  /* inmap['A'] = 0, etc: dsq[] index for a symbol                  */
+  char   **degen;       /* 1/0, which syms inc which res [0..Kp-1][0..K-1]                */
+  int     *ndegen;      /* # of degenerate residues per code  [0..Kp-1]                   */
+  ESL_DSQ *complement;  /* maps sym to complements, [0..Kp-1]; NULL if <type> not DNA/RNA */
 } ESL_ALPHABET;
-
-
 
 
 /* 1. An ESL_ALPHABET object.
@@ -76,25 +74,29 @@ extern int    esl_abc_IExpectScore(const ESL_ALPHABET *a, ESL_DSQ x, const int  
 extern float  esl_abc_FExpectScore(const ESL_ALPHABET *a, ESL_DSQ x, const float  *sc, const float  *p);
 extern double esl_abc_DExpectScore(const ESL_ALPHABET *a, ESL_DSQ x, const double *sc, const double *p);
 
-extern int    esl_abc_IAvgScVec   (const ESL_ALPHABET *a, int    *sc);
-extern int    esl_abc_FAvgScVec   (const ESL_ALPHABET *a, float  *sc);
-extern int    esl_abc_DAvgScVec   (const ESL_ALPHABET *a, double *sc);
-extern int    esl_abc_IExpectScVec(const ESL_ALPHABET *a, int    *sc, const float  *p);
-extern int    esl_abc_FExpectScVec(const ESL_ALPHABET *a, float  *sc, const float  *p);
-extern int    esl_abc_DExpectScVec(const ESL_ALPHABET *a, double *sc, const double *p);
-extern int    esl_abc_FCount      (const ESL_ALPHABET *a, float  *ct, ESL_DSQ x, float  wt);
-extern int    esl_abc_DCount      (const ESL_ALPHABET *a, double *ct, ESL_DSQ x, double wt);
-extern int    esl_abc_EncodeType   (char *typestring);
-extern int    esl_abc_EncodeTypeMem(char *type, int n);
-extern char  *esl_abc_DecodeType   (int type);
-extern int    esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int64_t L, char *errbuf);
+extern int          esl_abc_IAvgScVec   (const ESL_ALPHABET *a, int    *sc);
+extern int          esl_abc_FAvgScVec   (const ESL_ALPHABET *a, float  *sc);
+extern int          esl_abc_DAvgScVec   (const ESL_ALPHABET *a, double *sc);
+extern int          esl_abc_IExpectScVec(const ESL_ALPHABET *a, int    *sc, const float  *p);
+extern int          esl_abc_FExpectScVec(const ESL_ALPHABET *a, float  *sc, const float  *p);
+extern int          esl_abc_DExpectScVec(const ESL_ALPHABET *a, double *sc, const double *p);
+extern int          esl_abc_FCount      (const ESL_ALPHABET *a, float  *ct, ESL_DSQ x, float  wt);
+extern int          esl_abc_DCount      (const ESL_ALPHABET *a, double *ct, ESL_DSQ x, double wt);
+extern int          esl_abc_EncodeType   (char *typestring);
+extern int          esl_abc_EncodeTypeMem(char *type, int n);
+extern const char  *esl_abc_DecodeType   (int type);
+extern int          esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int64_t L, char *errbuf);
+
+/* 4. Debugging/development utilities.
+ */
+extern int esl_alphabet_Dump(FILE *fp, const ESL_ALPHABET *a);
 
 /* In the tests below, remember the rules of order in internal alphabets:
- *   Canonical alphabet   Gap   Degeneracies   Any    None    Missing 
+ *   Canonical alphabet   Gap   Degeneracies   Any    None    Missing
  *        0..K-1           K      K+1..Kp-4   (Kp-3)  (Kp-2)   (Kp-1)
  *         ACGT            -     RYMKSWHBVD     N       *        ~           DNA: K=4  Kp=18
  *  ACDEFGHIKLMNPQRSTVWY   -        BJZOU       X       *        ~       protein: K=20 Kp=29
- *                           
+ *
  * ESL_DSQ is an unsigned 8-bit type, so don't test for >= 0 or compilers will complain.
  */
 #define esl_abc_DigitizeSymbol(a, c) ((a)->inmap[(int)c])
