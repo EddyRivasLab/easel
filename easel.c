@@ -437,7 +437,7 @@ esl_Free3D(void ***p, int dim1, int dim2)
  *            <eslEWRITE> on write error.
  */
 int
-esl_banner(FILE *fp, char *progname, char *banner)
+esl_banner(FILE *fp, const char *progname, char *banner)
 {
   char *appname = NULL;
   int   status;
@@ -496,7 +496,7 @@ esl_banner(FILE *fp, char *progname, char *banner)
  *            <eslEWRITE> on write failure.
  */
 int
-esl_usage(FILE *fp, char *progname, char *usage)
+esl_usage(FILE *fp, const char *progname, char *usage)
 {
   char *appname = NULL;
   int   status;
