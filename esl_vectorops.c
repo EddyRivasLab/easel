@@ -476,7 +476,7 @@ esl_vec_LArgMin(const int64_t *vec, int n)
 
 
 
-/* Function:  esl_vec_{DFIL}Copy()
+/* Function:  esl_vec_{DFILWB}Copy()
  * Synopsis:  Set <dest> vector to same values as <src>.
  *
  * Purpose:   Copies <src> to <dest>. <src> is
@@ -506,6 +506,19 @@ esl_vec_LCopy(const int64_t *src, int n, int64_t *dest)
   int i;
   for (i = 0; i < n; i++) dest[i] = src[i];
 }
+void
+esl_vec_WCopy(const int16_t *src, int n, int16_t *dest)
+{
+  int i;
+  for (i = 0; i < n; i++) dest[i] = src[i];
+}
+void
+esl_vec_BCopy(const int8_t *src, int n, int8_t *dest)
+{
+  int i;
+  for (i = 0; i < n; i++) dest[i] = src[i];
+}
+
 
 
 

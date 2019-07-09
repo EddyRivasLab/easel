@@ -65,6 +65,8 @@ extern void   esl_vec_DCopy(const double  *src, int n, double  *dest);
 extern void   esl_vec_FCopy(const float   *src, int n, float   *dest);
 extern void   esl_vec_ICopy(const int     *src, int n, int     *dest);
 extern void   esl_vec_LCopy(const int64_t *src, int n, int64_t *dest);
+extern void   esl_vec_WCopy(const int16_t *src, int n, int16_t *dest);
+extern void   esl_vec_BCopy(const int8_t  *src, int n, int8_t  *dest);
 
 extern void   esl_vec_DSwap(double  *vec1, double  *vec2, int n);
 extern void   esl_vec_FSwap(float   *vec1, float   *vec2, int n);

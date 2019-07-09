@@ -93,11 +93,11 @@ def main():
             syntax = []
             for fname in funcnames:                                 # list of names like "esl_foo_Function()", with the (). Can also be esl_foo_{DFI}Function()", which needs expansion.
                 fname = fname.rstrip('()')                          # now just "esl_foo_Function" or "esl_foo_{DFI}Function()"
-                m     = re.search(r'\{([DFILC]+)\}', fname)         # "esl_foo_{DFI}Function()" case?
+                m     = re.search(r'\{([DFILCWB]+)\}', fname)       # "esl_foo_{DFI}Function()" case?
                 if m:                                               #   then expand it, one function name at a time
                     typelist = m.group(1)                           # "DFI" for example
                     for c in typelist:
-                        expanded_fname = re.sub(r'\{([DFILC]+)\}', c, fname)
+                        expanded_fname = re.sub(r'\{([DFILCWB]+)\}', c, fname)
                         impl_pattern   = r'^(\S+.+?)\s+' + expanded_fname + '\s*(\((?s:.+?)\))\s*\{'
                         m = re.search(impl_pattern, impl, flags=re.MULTILINE)
                         if m: syntax.append(m.group(1) + ' ' + expanded_fname + m.group(2))

@@ -3,6 +3,11 @@
  * Compare:
  *    esl_vectorops: simple vector operations.
  *    esl_dmatrix:   matrix algebra, double precision
+ *    
+ * Note: 
+ * We deliberately don't use <const> qualifiers on input matrices.
+ * The rules in C for using const qualifiers on nested pointers (like
+ * <int **foo>) are arcane and unhelpful.
  */
 #ifndef eslMATRIXOPS_INCLUDED
 #define eslMATRIXOPS_INCLUDED
@@ -35,9 +40,11 @@ extern void     esl_mat_DScale(double **A, int M, int N, double x);
 extern void     esl_mat_FScale(float **A,  int M, int N, float x);
 extern void     esl_mat_IScale(int **A, int M, int N, int x);
 
-extern void     esl_mat_DCopy(double **src, int M, int N, double **dest);
-extern void     esl_mat_FCopy(float  **src, int M, int N, float  **dest);
-extern void     esl_mat_ICopy(int    **src, int M, int N, int    **dest);
+extern void     esl_mat_DCopy(double  **src, int M, int N, double  **dest);
+extern void     esl_mat_FCopy(float   **src, int M, int N, float   **dest);
+extern void     esl_mat_ICopy(int     **src, int M, int N, int     **dest);
+extern void     esl_mat_WCopy(int16_t **src, int M, int N, int16_t **dest);
+extern void     esl_mat_BCopy(int8_t  **src, int M, int N, int8_t  **dest);
 
 extern double   esl_mat_DMax(double **A, int M, int N);
 extern float    esl_mat_FMax(float  **A, int M, int N);

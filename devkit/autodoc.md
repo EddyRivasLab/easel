@@ -179,7 +179,7 @@ Examples:
    
    /* Function:  esl_foo_Func1(), esl_foo_Func2()
    
-   /* Function:  esl_foo_{DFILC}Func()
+   /* Function:  esl_foo_{DFILCWB}Func()
 ```
 
 When the comment header documents a set of related functions instead
@@ -187,10 +187,11 @@ of just one, there's two ways to list the set. One is a
 comma-separated list. The other (see `esl_vectorops` for an example)
 gets used when we have related functions acting on different common
 types. Easel naming conventions attach a one-letter signifier of the
-type: D,F,I,L,C mean `double`, `float`, `int`, `int64_t`, and `char`,
-respectively. If the function name contains a list `\{[DFILC]+\}`, the
-full set of function names will be constructed from this list of
-characters before `autodoc` searches for their syntax.
+type: D,F,I,L,C,W,B mean `double`, `float`, `int`, `int64_t`, `char`,
+`int16_t` (word), and `int8_t` (byte), respectively. If the function
+name contains a list `\{[DFILCWB]+\}`, the full set of function names
+will be constructed from this list of characters before `autodoc`
+searches for their syntax.
 
 ### Synopsis:
 

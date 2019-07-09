@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 # Usage:
-#    easel-techtree.py <depfile>
+#    techtree.py <depfile>
 #
 # Where input <depfile> is created in Easel directory by clang preprocessing:
 #     for cfile in esl_*.c easel.c; do clang -MM -c -I. -DeslENABLE_AVX -DeslENABLE_AVX512 -DeslENABLE_VMX -DeslENABLE_NEON -DeslENABLE_SSE -DHAVE_MPI ${cfile} >> easel.dep; done 
@@ -198,7 +198,7 @@ easeladd = {
 
 def main():
     if (len(sys.argv) != 2):
-        sys.exit("Usage: easel-techtree.py <.dep file>");
+        sys.exit("Usage: techtree.py <.dep file>");
 
     validate_layout()
     Ma = expand_layout()   # Ma[m] is a set of allowable dependencies for module <m>, according to layout
