@@ -1052,7 +1052,7 @@ esl_opt_GetArg(const ESL_GETOPTS *g, int which)
  *            <eslEWRITE> if a write fails.
  */
 int
-esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent,
+esl_opt_DisplayHelp(FILE *ofp, const ESL_GETOPTS *go, int docgroup, int indent,
 		    int textwidth)
 {
   int optwidth     = 0;		/* maximum width for "-foo <n>" options */
