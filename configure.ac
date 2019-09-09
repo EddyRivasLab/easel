@@ -68,6 +68,7 @@ m4_include([m4/esl_vmx.m4])
 m4_include([m4/ax_mpi.m4])
 m4_include([m4/ax_pthread.m4])
 
+m4_include([m4/esl_pic_flags.m4])
 
 ################################################################
 # 2. AC_INIT
@@ -182,6 +183,7 @@ AC_ARG_ENABLE(mpi,     [AS_HELP_STRING([--enable-mpi],     [enable MPI paralleli
 
 AC_ARG_WITH(gsl,       [AS_HELP_STRING([--with-gsl],       [use the GSL, GNU Scientific Library])],     with_gsl=$withval,         with_gsl=no)
 
+AC_ARG_ENABLE(pic,     [AS_HELP_STRING([--enable-pic],     [enable position-independent code])],        enable_pic=$enableval,     enable_pic=no)
 
 
 
@@ -232,6 +234,13 @@ fi
 if test "$enable_mpi" = "yes"; then
    AX_MPI(,AC_MSG_ERROR([MPI library not found for --enable-mpi]))
    CC=$MPICC
+fi
+
+
+
+# PIC :
+if test "$enable_pic" = "yes"; then
+   ESL_PIC_FLAGS
 fi
 
 
@@ -614,6 +623,7 @@ PTHREAD_CFLAGS= $PTHREAD_CFLAGS
  AVX512_CFLAGS= $AVX512_CFLAGS
    NEON_CFLAGS= $NEON_CFLAGS
     VMX_CFLAGS= $VMX_CFLAGS
+    PIC_CFLAGS= $PIC_CFLAGS
 
 Vector implementations enabled:
            sse: $enable_sse
