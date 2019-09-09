@@ -58,6 +58,7 @@ man1ext     = .1
 CC             = @CC@
 CFLAGS         = @CFLAGS@ 
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@ 
+PIC_CFLAGS     = @PIC_CFLAGS@
 SSE_CFLAGS     = @SSE_CFLAGS@ @SSE4_CFLAGS@
 AVX_CFLAGS     = @AVX_CFLAGS@
 AVX512_CFLAGS  = @AVX512_CFLAGS@
@@ -548,7 +549,7 @@ libeasel.a:  ${ALL_OBJS}
 	@${RANLIB} libeasel.a
 
 ${ALL_OBJS}: %.o : %.c ${HDRS} esl_config.h
-	${QUIET_CC}${CC} -I. -I${srcdir} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} -c $<
+	${QUIET_CC}${CC} -I. -I${srcdir} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} -c $<
 
 
 # Driver compilation:
@@ -572,10 +573,10 @@ ${ALL_UTESTS}:  libeasel.a
 	   else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi;\
 	if test ${V} ;\
-	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${UTEST_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
+	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${UTEST_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
+	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
 ${ALL_BENCHMARKS}: libeasel.a
 	@BASENAME=`echo $@ | sed -e 's/_benchmark//'| sed -e 's/^esl_//'` ;\
@@ -586,10 +587,10 @@ ${ALL_BENCHMARKS}: libeasel.a
 	   else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi;\
 	if test ${V} ;\
-	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
+	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
+	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
 ${ALL_EXPERIMENTS}: libeasel.a
 	@BASENAME=`echo $@ | sed -e 's/_experiment//'| sed -e 's/^esl_//'` ;\
@@ -600,10 +601,10 @@ ${ALL_EXPERIMENTS}: libeasel.a
 	   else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi;\
 	if test ${V} ;\
-	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
+	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
+	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
 ${ALL_EXAMPLES}: libeasel.a
 	@BASENAME=`echo $@ | sed -e 's/_example[0-9]*//'| sed -e 's/^esl_//'` ;\
@@ -613,10 +614,10 @@ ${ALL_EXAMPLES}: libeasel.a
            else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi ;\
 	if test ${V}; \
-	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
+	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
+	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
 
 
