@@ -6,7 +6,9 @@
 
 #include <ctype.h>		/* isascii() */
 #include "easel.h"
-
+#ifdef __cplusplus // magic to make C++ compilers happy
+extern "C" {
+#endif
 /* Flags for alphabet types.
  * Do not change, only add, because these codes are used in file formats.
  */
@@ -124,5 +126,7 @@ extern int    esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int64_
 #define esl_abc_CGetUnknown(a)       ((a)->sym[(a)->Kp-3])
 #define esl_abc_CGetNonresidue(a)    ((a)->sym[(a)->Kp-2])
 #define esl_abc_CGetMissing(a)       ((a)->sym[(a)->Kp-1])
-
+#ifdef __cplusplus // magic to make C++ compilers happy
+}
+#endif
 #endif /*eslALPHABET_INCLUDED*/
