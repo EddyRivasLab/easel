@@ -157,12 +157,12 @@ void
 esl_huffman_Destroy(ESL_HUFFMAN *hc)
 {
   if (hc) {
-    free(hc->len);
-    free(hc->code);
-    free(hc->sorted_at);
-    free(hc->dt_len);
-    free(hc->dt_lcode);
-    free(hc->dt_rank);
+    if(hc->len)       free(hc->len);
+    if(hc->code)      free(hc->code);
+    if(hc->sorted_at) free(hc->sorted_at);
+    if(hc->dt_len)    free(hc->dt_len);
+    if(hc->dt_lcode)  free(hc->dt_lcode);
+    if(hc->dt_rank)   free(hc->dt_rank);
     free(hc);
   }
 }
