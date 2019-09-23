@@ -75,17 +75,23 @@ static uint32_t eslDSQDATA_MAGIC_V1SWAP = 0xb1d1d3c4; //  ... as above, but byte
  * Synopsis:  Open a digital sequence database for reading
  * Incept:    SRE, Wed Jan 20 09:50:00 2016 [Amtrak 2150, NYP-BOS]
  *
- * Purpose:   Open digital sequence database <basename> for reading.
- *            Configure it for a specified number of 1 or
- *            more parallelized <nconsumers>. The consumers are one or
- *            more threads that are processing chunks of data in
- *            parallel.
+ * Purpose:   Open dsqdata database <basename> for reading.  The file
+ *            <basename> is a stub describing the database. The bulk
+ *            of the data are in three accompanying binary files: the
+ *            index file <basename>.dsqi, the metadata file
+ *            <basename>.dsqm, and the sequence file <basename>.dsqs.
  *            
- *            The file <basename> is a human-readable stub describing
- *            the database. The bulk of the data are in three
- *            accompanying binary files: the index file
- *            <basename>.dsqi, the metadata file <basename>.dsqm, and
- *            the sequence file <basename>.dsqs.
+ *            <nconsumers> is an upper bound on the number of threads
+ *            in which the caller plans to be calling
+ *            <esl_dsqdata_Read()> -- or, more precisely, the maximum
+ *            number of data chunks that the caller could be working
+ *            on at any given instant.  This is a hint, not a
+ *            commitment. The dsqdata loader uses it to determine the
+ *            maximum number of data chunks that can be in play at
+ *            once (including chunks it is juggling internally, plus
+ *            if all the caller's reader threads are busy on
+ *            theirs). If <nconsumers> is set too small, the loader
+ *            may stall waiting for chunks to come back for recycling.
  *            
  *            Reading digital sequence data requires a digital
  *            alphabet.  You can either provide one (in which case we
@@ -98,25 +104,25 @@ static uint32_t eslDSQDATA_MAGIC_V1SWAP = 0xb1d1d3c4; //  ... as above, but byte
  *            <*byp_abc> is a ptr to an existing alphabet, we use it
  *            for validation. That is, you have two choices:
  *                
- *            \begin{cchunk}
+ *            ```
  *                ESL_ALPHABET *abc = NULL;
  *                esl_dsqdata_Open(&abc, basename...)
  *                // <abc> is now the alphabet of <basename>; 
  *                // now you're responsible for Destroy'ing it
- *            \end{cchunk}
+ *            ```
  *                
  *            or:
  *
- *            \begin{cchunk}
+ *            ```
  *                ESL_ALPHABET *abc = esl_alphabet_Create(eslAMINO);
  *                status = esl_dsqdata_Open(&abc, basename);
  *                // if status == eslEINCOMPAT, alphabet in basename 
  *                // doesn't match caller's expectation
- *            \end{cchunk}
+ *            ```
  *
  * Args:      byp_abc    : expected or created alphabet; pass &abc, abc=NULL or abc=expected alphabet
  *            basename   : data are in files <basename> and <basename.dsq[ism]>
- *            nconsumers : number of consumer threads caller is going to Read() with
+ *            nconsumers : upper bound on number of consumer threads caller is going to Read() with
  *            ret_dd     : RETURN : the new ESL_DSQDATA object.
  *
  * Returns:   <eslOK> on success.
@@ -1725,12 +1731,13 @@ main(int argc, char **argv)
 #include "esl_alphabet.h"
 #include "esl_dsqdata.h"
 #include "esl_getopts.h"
+#include "esl_vectorops.h"
 
 static ESL_OPTIONS options[] = {
   /* name             type          default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",        0 },
-  { "-n",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "no residue counting: faster time version",    0 },
-  { "-t",          eslARG_INT,          "4",  NULL, "n>0", NULL,  NULL, NULL, "set number of threads to <n>",                0 },
+  { "-c",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "report summary of chunk contents",            0 },
+  { "-r",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "report summary of residue counts",            0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
@@ -1740,13 +1747,15 @@ static char banner[] = "example of using ESL_DSQDATA to read sequence db";
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS       *go       = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
-  ESL_ALPHABET      *abc      = NULL;
-  char              *basename = esl_opt_GetArg(go, 1);
-  int                no_count = esl_opt_GetBoolean(go, "-n");
-  int                ncpu     = esl_opt_GetInteger(go, "-t");
-  ESL_DSQDATA       *dd       = NULL;
-  ESL_DSQDATA_CHUNK *chu      = NULL;
+  ESL_GETOPTS       *go         = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
+  ESL_ALPHABET      *abc        = NULL;
+  char              *basename   = esl_opt_GetArg(go, 1);
+  int                do_summary = esl_opt_GetBoolean(go, "-c");
+  int                do_resct   = esl_opt_GetBoolean(go, "-r");
+  int                ncpu       = 1;
+  ESL_DSQDATA       *dd         = NULL;
+  ESL_DSQDATA_CHUNK *chu        = NULL;
+  int                nchunk     = 0;
   int                i;
   int64_t            pos;
   int64_t            ct[128], total;
@@ -1760,18 +1769,25 @@ main(int argc, char **argv)
 
   for (x = 0; x < 127; x++) ct[x] = 0;
 
+  if (do_summary) esl_dataheader(stdout, 8, "idx", 4, "nseq", 8, "nres", 7, "npacket", 0);
+
   while ((status = esl_dsqdata_Read(dd, &chu)) == eslOK)
     {
-      if (! no_count)
+      nchunk++;
+      
+      if (do_resct)
 	for (i = 0; i < chu->N; i++)
 	  for (pos = 1; pos <= chu->L[i]; pos++)
 	    ct[ chu->dsq[i][pos] ]++;
+
+      if (do_summary)
+	printf("%-8d %4d %8" PRId64 " %7d\n", nchunk, chu->N, esl_vec_LSum(chu->L, chu->N), chu->pn);
 
       esl_dsqdata_Recycle(dd, chu);
     }
   if (status != eslEOF) esl_fatal("unexpected error %d in reading dsqdata", status);
 
-  if (! no_count)
+  if (do_resct)
     {
       total = 0;
       for (x = 0; x < abc->Kp; x++) 

@@ -10,10 +10,10 @@
 #      CUDA_CFLAGS=$esl_CUDA_cflags
 #      AC_SUBST(CUDA_CFLAGS)
 # A typical ACTION-IF-NOT-FOUND might be:
-	   NVCC = $CC
-	   AC_SUBST(NVCC)
-	   CUDA_CFLAGS = $CFLAGS
-	   AC_SUBST(CUDA_CFLAGS)
+#	   NVCC = $CC
+#	   AC_SUBST(NVCC)
+#	   CUDA_CFLAGS = $CFLAGS
+#	   AC_SUBST(CUDA_CFLAGS)
 # This ACTION-IF-NOT-FOUND will tell the build system to build stubs for the functions that detect and 
 # configure the CUDA hardware at runtime such that HMMER will always think there is no CUDA hardware present
 

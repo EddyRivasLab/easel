@@ -65,6 +65,8 @@ extern void   esl_vec_DCopy(const double  *src, int n, double  *dest);
 extern void   esl_vec_FCopy(const float   *src, int n, float   *dest);
 extern void   esl_vec_ICopy(const int     *src, int n, int     *dest);
 extern void   esl_vec_LCopy(const int64_t *src, int n, int64_t *dest);
+extern void   esl_vec_WCopy(const int16_t *src, int n, int16_t *dest);
+extern void   esl_vec_BCopy(const int8_t  *src, int n, int8_t  *dest);
 
 extern void   esl_vec_DSwap(double  *vec1, double  *vec2, int n);
 extern void   esl_vec_FSwap(float   *vec1, float   *vec2, int n);
@@ -110,14 +112,20 @@ extern void   esl_vec_I2D(int    *src, int n, double *dst);
 extern void   esl_vec_DNorm(double *vec, int n);
 extern void   esl_vec_FNorm(float  *vec, int n);
 
-extern void   esl_vec_DLogNorm(double *vec, int n);
-extern void   esl_vec_FLogNorm(float  *vec, int n);
+extern void   esl_vec_DLogNorm (double *vec, int n);
+extern void   esl_vec_FLogNorm (float  *vec, int n);
+extern void   esl_vec_DLog2Norm(double *vec, int n);
+extern void   esl_vec_FLog2Norm(float  *vec, int n);
 
-extern void   esl_vec_DLog(double *vec, int n);
-extern void   esl_vec_FLog(float  *vec, int n);
+extern void   esl_vec_DLog (double *vec, int n);
+extern void   esl_vec_FLog (float  *vec, int n);
+extern void   esl_vec_DLog2(double *vec, int n);
+extern void   esl_vec_FLog2(float  *vec, int n);
 
-extern void   esl_vec_DExp(double *vec, int n);
-extern void   esl_vec_FExp(float  *vec, int n);
+extern void   esl_vec_DExp (double *vec, int n);
+extern void   esl_vec_FExp (float  *vec, int n);
+extern void   esl_vec_DExp2(double *vec, int n);
+extern void   esl_vec_FExp2(float  *vec, int n);
 
 extern double esl_vec_DEntropy(const double *p, int n);
 extern float  esl_vec_FEntropy(const float  *p, int n);
@@ -125,8 +133,10 @@ extern float  esl_vec_FEntropy(const float  *p, int n);
 extern double esl_vec_DRelEntropy(const double *p, const double *q, int n);
 extern float  esl_vec_FRelEntropy(const float  *p, const float  *q, int n);
 
-extern double esl_vec_DLogSum(const double *vec, int n);
-extern float  esl_vec_FLogSum(const float  *vec, int n);
+extern double esl_vec_DLogSum (const double *vec, int n);
+extern float  esl_vec_FLogSum (const float  *vec, int n);
+extern double esl_vec_DLog2Sum(const double *vec, int n);
+extern float  esl_vec_FLog2Sum(const float  *vec, int n);
 
 extern void   esl_vec_DCDF(const double *p, int n, double *cdf);
 extern void   esl_vec_FCDF(const float  *p, int n, float  *cdf);
@@ -134,11 +144,10 @@ extern void   esl_vec_FCDF(const float  *p, int n, float  *cdf);
 extern int    esl_vec_DValidate(const double *vec, int n, double tol, char *errbuf);
 extern int    esl_vec_FValidate(const float  *vec, int n, float  tol, char *errbuf);
 
-extern int    esl_vec_DLogValidate(const double *vec, int n, double tol, char *errbuf);
-extern int    esl_vec_FLogValidate(const float  *vec, int n, float  tol, char *errbuf);
-
-
-
+extern int    esl_vec_DLogValidate (const double *vec, int n, double tol, char *errbuf);
+extern int    esl_vec_FLogValidate (const float  *vec, int n, float  tol, char *errbuf);
+extern int    esl_vec_DLog2Validate(const double *vec, int n, double tol, char *errbuf);
+extern int    esl_vec_FLog2Validate(const float  *vec, int n, float  tol, char *errbuf);
 
 #endif /* eslVECTOROPS_INCLUDED */
 

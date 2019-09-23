@@ -537,7 +537,7 @@ check:  ${ALL_UTESTS} .FORCE
 
 # `make dcheck`: run developer testsuite, save output in testsuite/dcheck.report
 dcheck:
-	@command -v python3 >/dev/null 2>&1 || { echo >&2 "python3 is required for 'make check', but is not in your PATH. Aborting."; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { echo >&2 "python3 is required for 'make dcheck', but is not in your PATH. Aborting."; exit 1; }
 	${QUIET_SUBDIR0}testsuite   ${QUIET_SUBDIR1} dcheck
 
 pdf:

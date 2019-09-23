@@ -437,7 +437,7 @@ esl_Free3D(void ***p, int dim1, int dim2)
  *            <eslEWRITE> on write error.
  */
 int
-esl_banner(FILE *fp, char *progname, char *banner)
+esl_banner(FILE *fp, const char *progname, char *banner)
 {
   char *appname = NULL;
   int   status;
@@ -496,7 +496,7 @@ esl_banner(FILE *fp, char *progname, char *banner)
  *            <eslEWRITE> on write failure.
  */
 int
-esl_usage(FILE *fp, char *progname, char *usage)
+esl_usage(FILE *fp, const char *progname, char *usage)
 {
   char *appname = NULL;
   int   status;
@@ -2228,72 +2228,70 @@ esl_FCompareAbs(float a, float b, float tol)
  * Incept:    SRE, Thu 19 Jul 2018 [Benasque]
  *
  * Purpose:   Return <eslOK> if <x0> and <x> are approximately equal within
- *            relative tolerance tolerance <rtol> and absolute
- *            tolerance <atol>;  <eslFAIL> if not.
+ *            relative tolerance tolerance <r_tol> and absolute
+ *            tolerance <a_tol>;  <eslFAIL> if not.
  *            
- *            Equality is defined as $|x0-x| < |x0|*rtol + atol$.
+ *            Equality is defined as $|x0-x| < |x0|*r_tol + a_tol$.
  *            
  *            <x0> is the reference value: the true value or the
- *            better estimate, if appropriate. For example, if you are
- *            comparing a new (better) estimate $x_i$ to a previous
- *            (worse) estimate $x_{i-1}$, <x0> is the new, <x> is the
- *            old.
+ *            better estimate. For example, in an iterative
+ *            optimization, if you are comparing a new (better)
+ *            estimate $x_i$ to a previous (worse) estimate $x_{i-1}$,
+ *            <x0> is the new, <x> is the old.
  *
- *            Tolerances <rtol> and <atol> must be $\geq 0$. For a
- *            strictly relative tolerance test, use <atol=0>; for
- *            strict absolute tolerance, use <rtol=0>.
+ *            Tolerances <r_tol> and <a_tol> must be $\geq 0$. For a
+ *            strictly relative tolerance test, use <a_tol=0>; for
+ *            strict absolute tolerance, use <r_tol=0>.
  *            
  *            "Approximate equality" in floating point math: here be
  *            dragons. Usually you want to compare floating point
- *            values by their relative difference <rtol>. An <rtol> of
- *            $1e-5$ essentially means they agree up to their first
+ *            values by their relative difference <r_tol>. An <r_tol>
+ *            of $1e-5$ essentially means they agree up to their first
  *            five digits, regardless of absolute magnitude. However,
  *            relative difference fails for <x0 ~ 0>.  Using both
- *            <rtol> and <atol>, there is a switch at <|x0| = atol /
- *            rtol>: above this |x0|, <rtol> dominates, and below it,
- *            <atol> does. So you typically want <atol << rtol>, so
- *            the switchover only happens close to zero.
+ *            <r_tol> and <a_tol>, there is a switch at <|x0| = a_tol
+ *            / r_tol>: above this |x0|, <rtol> dominates, and below
+ *            it, <a_tol> does. You typically want <a_tol << r_tol>,
+ *            so the switchover only happens close to zero.
  *            
  *            In floating point math, the smallest possible |x0-x| is
  *            on the order of |x0| times machine epsilon, where
- *            typically <DBL_EPSILON> is 2.2e-16; <FLT_EPSILON>,
- *            1.2e-7, so it does not make sense to set <atol> smaller
- *            than this.
+ *            <DBL_EPSILON> is 2.2e-16 and <FLT_EPSILON> is 1.2e-7, so
+ *            it does not make sense to set <a_tol> smaller than this.
+ *            (If you do, the function will require exact equality.)
  *            
- *            Special values: comparisons involving <NaN> and <inf>
- *            are always <eslFAIL>; <inf> because difference
- *            <inf-inf=inf>, and <NaN> because IEEE754. 
- *            
+ *            Special values follow IEEE754 floating point exact
+ *            comparison rules; <a_tol> and <r_tol> have no
+ *            effect. Any comparison involving <NaN> is
+ *            <eslFAIL>. Equal-signed infinities are <eslOK>:
+ *            <inf==inf>, <-inf==-inf>.
+
  *            Note that <eslOK> has value 0, not TRUE, so you don't want to
  *            write code like <if (esl_DCompare()) ...>; you want to
  *            test explicitly against <eslOK>.
  *
- * Args:      x0   - reference value to compare against (either true, or better estimate)
- *            x    - test value 
- *            rtol - relative tolerance
- *            atol - absolute tolerance
+ * Args:      x0    - reference value to compare against (either true, or better estimate)
+ *            x     - test value 
+ *            r_tol - relative tolerance
+ *            a_tol - absolute tolerance
  *
  * Returns:   <eslOK> if <x0> and <x> are approximately equal.
  *            <eslFAIL> if not.
  *
  * Xref:      H5/116
- *
- * Note:      <, not <=, because with <=, -inf ~= inf (yes really).
- * 
- *            It might be better to rename the arguments <aeps>,
- *            <reps> (eps for epsilon), because "atol" is the name of
- *            a stdlib function.
  */
 int
-esl_DCompareNew(double x0, double x, double rtol, double atol)
+esl_DCompareNew(double x0, double x, double r_tol, double a_tol)
 {
-  if (fabs(x0 - x) < rtol * fabs(x0) + atol) return eslOK;
+  if (isfinite(x0)) { if (fabs(x0 - x) <= r_tol * fabs(x0) + a_tol) return eslOK; }
+  else              { if (x0 == x) return eslOK; }                                   // inf=inf, -inf=-inf;  -inf!=inf, NaN!=(inf,-inf,NaN)
   return eslFAIL;
 }
 int
-esl_FCompareNew(float x0, float x, float rtol, float atol)
+esl_FCompareNew(float x0, float x, float r_tol, float a_tol)
 {
-  if (fabs(x0 - x) < rtol * fabs(x0) + atol)  return eslOK;
+  if (isfinite(x0)) { if (fabs(x0 - x) <= r_tol * fabs(x0) + a_tol) return eslOK; }
+  else              { if (x0 == x) return eslOK; }                                   
   return eslFAIL;
 }
 
@@ -2526,19 +2524,34 @@ utest_compares(void)
   if (esl_DCompare(eslNaN,       0.,            1e-12) != eslFAIL) esl_fatal(msg);
   //  if (esl_DCompare(eslINFINITY,  eslINFINITY,   1e-12) != eslFAIL) esl_fatal(msg);  
 
-  if (esl_DCompareNew(-eslINFINITY, eslINFINITY,   1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   /* -inf != inf of course*/
-  if (esl_DCompareNew(eslINFINITY,  eslINFINITY,   1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   /* inf != inf too, because rel diff = inf */
-  if (esl_DCompareNew(eslNaN,       eslNaN,        1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   /* NaN fails in any comparison */
+  if (esl_DCompareNew(-eslINFINITY, eslINFINITY,   1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   // -inf != inf
+  if (esl_DCompareNew(eslINFINITY,  eslINFINITY,   1e-12, 1e-16) != eslOK)   esl_fatal(msg);   // inf = inf,  even though rel and abs diff = inf!
+  if (esl_DCompareNew(-eslINFINITY,-eslINFINITY,   1e-12, 1e-16) != eslOK)   esl_fatal(msg);   
+  if (esl_DCompareNew(eslNaN,       eslNaN,        1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   // NaN fails in any comparison 
   if (esl_DCompareNew(0.,           eslNaN,        1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   
   if (esl_DCompareNew(eslNaN,       0.,            1e-12, 1e-16) != eslFAIL) esl_fatal(msg);
   if (esl_DCompareNew(0.,           1e-17,         1e-12, 1e-16) != eslOK)   esl_fatal(msg);
 
-  if (esl_FCompareNew(-eslINFINITY, eslINFINITY,   1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   /* -inf != inf of course*/
-  if (esl_FCompareNew(eslINFINITY,  eslINFINITY,   1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   /* inf != inf too, because rel diff = inf */
-  if (esl_FCompareNew(eslNaN,       eslNaN,        1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   /* NaN fails in any comparison */
-  if (esl_FCompareNew(0.,           eslNaN,        1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   
-  if (esl_FCompareNew(eslNaN,       0.,            1e-6, 1e-10) != eslFAIL) esl_fatal(msg);
-  if (esl_DCompareNew(0.,           1e-11,         1e-6, 1e-10) != eslOK)   esl_fatal(msg);
+
+  /* exact comparisons with zero tolerance: eslOK unless a NaN is involved */
+  if (esl_DCompareNew(0.,             0.0,           0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_DCompareNew(eslINFINITY,   eslINFINITY,    0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_DCompareNew(-eslINFINITY, -eslINFINITY,    0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_DCompareNew(eslNaN,        eslNaN,         0.0,   0.0) != eslFAIL) esl_fatal(msg);  
+
+  /* float versions */
+  if (esl_FCompareNew(-eslINFINITY, eslINFINITY,    1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   
+  if (esl_FCompareNew(eslINFINITY,  eslINFINITY,    1e-6, 1e-10) != eslOK)   esl_fatal(msg);   
+  if (esl_FCompareNew(-eslINFINITY,-eslINFINITY,    1e-6, 1e-10) != eslOK)   esl_fatal(msg);   
+  if (esl_FCompareNew(eslNaN,       eslNaN,         1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   
+  if (esl_FCompareNew(0.,           eslNaN,         1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   
+  if (esl_FCompareNew(eslNaN,       0.,             1e-6, 1e-10) != eslFAIL) esl_fatal(msg);
+  if (esl_FCompareNew(0.,           1e-11,          1e-6, 1e-10) != eslOK)   esl_fatal(msg);
+
+  if (esl_FCompareNew(0.,            0.0,            0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_FCompareNew(eslINFINITY,   eslINFINITY,    0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_FCompareNew(-eslINFINITY, -eslINFINITY,    0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_FCompareNew(eslNaN,        eslNaN,         0.0,   0.0) != eslFAIL) esl_fatal(msg);  
 }
 
 

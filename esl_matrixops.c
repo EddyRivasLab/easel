@@ -9,6 +9,11 @@
  * Compare: 
  *    esl_vectorops: simple vector operations
  *    esl_dmatrix:   matrix algebra, double precision
+ *
+ * Note:
+ * Don't use <const> qualifier on input matrices. C's rules
+ * for const qualifier on nested pointers (int **foo) are
+ * problematic.
  */
 #include "esl_config.h"
 
@@ -125,29 +130,29 @@ esl_mat_CCreate(int M, int N)
 double **
 esl_mat_DClone(double **A, int M, int N)
 {
-  double **new;
+  double **B;
 
-  if ((new = esl_mat_DCreate(M, N)) == NULL) return NULL;
-  esl_mat_DCopy(A, M, N, new);
-  return new;
+  if ((B = esl_mat_DCreate(M, N)) == NULL) return NULL;
+  esl_mat_DCopy(A, M, N, B);
+  return B;
 }
 float **
 esl_mat_FClone(float **A, int M, int N)
 {
-  float **new;
+  float **B;
 
-  if ((new = esl_mat_FCreate(M, N)) == NULL) return NULL;
-  esl_mat_FCopy(A, M, N, new);
-  return new;
+  if ((B = esl_mat_FCreate(M, N)) == NULL) return NULL;
+  esl_mat_FCopy(A, M, N, B);
+  return B;
 }
 int **
 esl_mat_IClone(int **A, int M, int N)
 {
-  int **new;
+  int **B;
 
-  if ((new = esl_mat_ICreate(M, N)) == NULL) return NULL;
-  esl_mat_ICopy(A, M, N, new);
-  return new;
+  if ((B = esl_mat_ICreate(M, N)) == NULL) return NULL;
+  esl_mat_ICopy(A, M, N, B);
+  return B;
 }
 
 
@@ -332,7 +337,7 @@ esl_mat_IScale(int **A, int M, int N, int x)
 
 
 
-/* Function:  esl_mat_{DFI}Copy()
+/* Function:  esl_mat_{DFIWB}Copy()
  * Synopsis:  Copy <src> matrix to <dest>.
  */
 void
@@ -350,8 +355,16 @@ esl_mat_ICopy(int  **src, int M, int N, int **dest)
 {
   esl_vec_ICopy(src[0], M*N, dest[0]);
 }
-
-
+void
+esl_mat_WCopy(int16_t **src, int M, int N, int16_t **dest)
+{
+  esl_vec_WCopy(src[0], M*N, dest[0]);
+}
+void
+esl_mat_BCopy(int8_t **src, int M, int N, int8_t **dest)
+{
+  esl_vec_BCopy(src[0], M*N, dest[0]);
+}
 
 
 /* Function:  esl_mat_{DFI}Max()

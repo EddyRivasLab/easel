@@ -141,7 +141,7 @@ esl_fileparser_Create(FILE *fp)
  * Xref:      STL8 p.56.
  */
 ESL_FILEPARSER *
-esl_fileparser_CreateMapped(void *buffer, int size)
+esl_fileparser_CreateMapped(const void *buffer, int size)
 {
   ESL_FILEPARSER *efp = NULL;
 
@@ -529,7 +529,7 @@ nextline(ESL_FILEPARSER *efp)
   if (efp->is_buffer) {
     int   len;
     int   end;
-    char *ptr;
+    const char *ptr;
 
     if (efp->mem_pos >= efp->mem_size) return eslEOF;
 

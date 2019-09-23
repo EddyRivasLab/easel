@@ -458,8 +458,8 @@ extern void esl_Free2D(void  **p, int dim1);
 extern void esl_Free3D(void ***p, int dim1, int dim2);
 
 /* 3. Standard banner for Easel miniapplications. */
-extern int  esl_banner    (FILE *fp, char *progname, char *banner);
-extern int  esl_usage     (FILE *fp, char *progname, char *usage);
+extern int  esl_banner    (FILE *fp, const char *progname, char *banner);
+extern int  esl_usage     (FILE *fp, const char *progname, char *usage);
 extern int  esl_dataheader(FILE *fp, ...);
 
 /* 4. Improved replacements for some C library functions */
@@ -515,8 +515,8 @@ extern int  esl_DCompare   (double a,  double b, double tol);
 extern int  esl_FCompare   (float  a,  float  b, float  tol);
 extern int  esl_DCompareAbs(double a,  double b, double tol);
 extern int  esl_FCompareAbs(float  a,  float  b, float  tol);
-extern int  esl_DCompareNew(double x0, double x, double rtol, double atol);
-extern int  esl_FCompareNew(float  x0, float  x, float  rtol, float  atol);
+extern int  esl_DCompareNew(double x0, double x, double r_tol, double a_tol);
+extern int  esl_FCompareNew(float  x0, float  x, float  r_tol, float  a_tol);
 extern int  esl_CCompare(char *s1, char *s2);
 
 #endif /*eslEASEL_INCLUDED*/

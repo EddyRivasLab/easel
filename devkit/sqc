@@ -23,6 +23,12 @@
 #
 #
 # Available options:
+#    -e             - exit with status 1 when finished if any test failed, while
+#                     still running all the tests. (Default is for the script to
+#                     exit with status 0, having 'succeeded' by reporting any
+#                     failures.) This option may also be set by setting env 
+#                     variable SQC_NONZERO_EXIT nonzero.
+# 
 #    -v             - print verbose output, including each command
 #                     after various substitutions.
 #
@@ -236,7 +242,8 @@ use Getopt::Std;
 
 # Parse our command line options
 #
-getopts('vx:VM');
+getopts('evx:VM');
+if ($opt_e) { $do_nonzero_exit  = 1;      }
 if ($opt_v) { $verbose          = 1;      }
 if ($opt_x) { $only_do_test_num = $opt_x; }
 if ($opt_V) { $do_valgrind      = 1;      }
@@ -244,21 +251,29 @@ if ($opt_M) { $do_mpi           = 1;      }
 
 # Parse our environment
 #
-if ($ENV{"SQC_VALGRIND"} != 0) { $do_valgrind = 1; }
-if ($ENV{"SQC_MPI"}      != 0) { $do_mpi      = 1; }
+if ($ENV{"SQC_VALGRIND"}     != 0) { $do_valgrind     = 1; }
+if ($ENV{"SQC_MPI"}          != 0) { $do_mpi          = 1; }
+if ($ENV{"SQC_NONZERO_EXIT"} != 0) { $do_nonzero_exit = 1; }
 
-# Trust but verify
+# Check software dependencies.
+# Valgrind tests require valgrind; MPI tests require MPI. (Duh.)
+# Some integrated tests use python3.
 #
 if ($do_valgrind) 
 {
     $output = `valgrind --version 2>&1`;
-    if ($?) { die "couldn't run valgrind. Don't set -V cmdline option, don't set SQC_VALGRIND env variable."; }
+    if ($?) { die "couldn't run valgrind. Don't set -V cmdline option, don't set SQC_VALGRIND env variable.\n"; }
 }
 if ($do_mpi)
 {
     $output = `mpiexec -V 2>&1`;
-    if ($?) { die "couldn't run mpiexec. Don't set -M cmdline option, don't set SQC_MPI env variable."; }
+    if ($?) { die "couldn't run mpiexec. Don't set -M cmdline option, don't set SQC_MPI env variable.\n"; }
 }
+
+$output = `python3 --version 2>&1`;
+if ($?) { die "Unable to run the test suite. Some tests require python3\n\n"; }
+
+
 
 # Parse command line arguments
 #
@@ -499,13 +514,18 @@ print `date`;
 print `uname -a`;
 
 
-# Clean up.
+# Clean up and exit
 #
 foreach $tmpfile (keys(%used_tmpfile)) {
     unlink $tmpfile if -e $tmpfile;
 }
 unlink $tmp if -e $tmp;
 unlink "$tmp.stderr" if -e "$tmp.stderr";
+
+if ($do_nonzero_exit && $badtest > 0) { exit 1; } else { exit 0; }
+
+
+
 
 
 sub check_status

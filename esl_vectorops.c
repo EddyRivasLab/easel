@@ -20,7 +20,7 @@
 
 #include "esl_vectorops.h"
 
-/* Function:  esl_vec_DSet(), esl_vec_FSet(), esl_vec_ISet(), esl_vec_LSet()
+/* Function:  esl_vec_{DFIL}Set()
  * Synopsis:  Set all items in vector to scalar value.
  *            
  * Purpose:   Sets all <n> items in <vec> to <value>.
@@ -51,7 +51,7 @@ esl_vec_LSet(int64_t *vec, int n, int64_t value)
 }
 
 
-/* Function:  esl_vec_DScale(), esl_vec_FScale(), esl_vec_IScale(), esl_vec_LScale()
+/* Function:  esl_vec_{DFIL}Scale()
  * Synopsis:  Multiply all items in vector by scalar value.
  *            
  * Purpose:   Multiplies all <n> items in <vec> by <scale>.
@@ -82,7 +82,7 @@ esl_vec_LScale(int64_t *vec, int n, int64_t scale)
 }
 
 
-/* Function:  esl_vec_DIncrement(), esl_vec_FIncrement(), esl_vec_IIncrement(), esl_vec_LIncrement()
+/* Function:  esl_vec_{DFIL}Increment()
  * Synopsis:  Add a scalar to all items in a vector.
  * Incept:    SRE, Mon Mar 21 11:56:57 2005 [St. Louis]
  *
@@ -114,7 +114,7 @@ esl_vec_LIncrement(int64_t *v, int n, int64_t x)
 }
 
 
-/* Function:  esl_vec_DAdd(), esl_vec_FAdd(), esl_vec_IAdd(), esl_vec_LAdd()
+/* Function:  esl_vec_{DFIL}Add()
  * Synopsis:  Vector addition of two vectors.
  *
  * Purpose:   Vector addition. Adds <vec2> to <vec1>, leaving
@@ -147,7 +147,7 @@ esl_vec_LAdd(int64_t *vec1, const int64_t *vec2, int n)
 }
 
 
-/* Function: esl_vec_DAddScaled(), esl_vec_FAddScaled(), esl_vec_IAddScaled(), esl_vec_LAddScaled()
+/* Function: esl_vec_{DFIL}AddScaled()
  * Synopsis: Scale <vec2> and add it to <vec1>.
  * 
  * Purpose:  Scales <vec2> by scalar <a>, and adds that
@@ -180,14 +180,14 @@ esl_vec_LAddScaled(int64_t *vec1, const int64_t *vec2, int64_t a, int n)
 
 
 
-/* Function:  esl_vec_DSum(), esl_vec_FSum(), esl_vec_ISum, esl_vec_LSum()
+/* Function:  esl_vec_{DFIL}Sum()
  * Synopsis:  Returns $\sum_i x_i$. 
  *            
  * Purpose:   Returns the scalar sum of the <n> items in <vec>.
  *            
  *            Floating point summations use Kahan compensated
  *            summation, in order to minimize roundoff error
- *            accumulation.  Additionally, I believe they are most
+ *            accumulation.  Additionally, they are most
  *            accurate if vec[] is sorted in increasing order, from
  *            small to large, so you may consider sorting <vec> before
  *            summing it.
@@ -236,10 +236,7 @@ esl_vec_LSum(const int64_t *vec, int n)
 }
 
 
-
-
-
-/* Function:  esl_vec_DDot(), esl_vec_FDot(), esl_vec_IDot(), esl_vec_LDot()
+/* Function:  esl_vec_{DFIL}Dot()
  * Synopsis:  Return the dot product of two vectors.
  *
  * Purpose:   Returns the scalar dot product <vec1> $\cdot$ <vec2>.
@@ -280,7 +277,7 @@ esl_vec_LDot(const int64_t *vec1, const int64_t *vec2, int n)
 
 
 
-/* Function:  esl_vec_DMax(), esl_vec_FMax(), esl_vec_IMax(), esl_vec_LMax()
+/* Function:  esl_vec_{DFIL}Max()
  * Synopsis:  Return value of the maximum element in a vector.           
  *
  * Purpose:   Returns the maximum value of the <n> values
@@ -329,7 +326,7 @@ esl_vec_LMax(const int64_t *vec, int n)
 
 
 
-/* Function:  esl_vec_DMin(), esl_vec_FMin(), esl_vec_IMin(), esl_vec_LMin()
+/* Function:  esl_vec_{DFIL}Min()
  * Synopsis:  Return value of the minimum element in a vector.           
  *
  * Purpose:   Returns the minimum value of the <n> values
@@ -377,7 +374,7 @@ esl_vec_LMin(const int64_t *vec, int n)
 }
 
 
-/* Function:  esl_vec_DArgMax(), esl_vec_FArgMax(), esl_vec_IArgMax(), esl_vec_LArgMax()
+/* Function:  esl_vec_{DFIL}ArgMax()
  * Synopsis:  Return index of maximum element in a vector.           
  *
  * Purpose:   Returns the index of the maximum value in the <n> values
@@ -431,7 +428,7 @@ esl_vec_LArgMax(const int64_t *vec, int n)
   return best;
 }
 
-/* Function:  esl_vec_DArgMin(), esl_vec_FArgMin(), esl_vec_IArgMin(), esl_vec_LArgMin()
+/* Function:  esl_vec_{DFIL}ArgMin()
  * Synopsis:  Return index of minimum element in a vector.           
  *
  * Purpose:   Returns the index of the minimum value in the <n> values
@@ -479,7 +476,7 @@ esl_vec_LArgMin(const int64_t *vec, int n)
 
 
 
-/* Function:  esl_vec_DCopy(), esl_vec_FCopy(), esl_vec_ICopy(), esl_vec_LCopy()
+/* Function:  esl_vec_{DFILWB}Copy()
  * Synopsis:  Set <dest> vector to same values as <src>.
  *
  * Purpose:   Copies <src> to <dest>. <src> is
@@ -509,10 +506,23 @@ esl_vec_LCopy(const int64_t *src, int n, int64_t *dest)
   int i;
   for (i = 0; i < n; i++) dest[i] = src[i];
 }
+void
+esl_vec_WCopy(const int16_t *src, int n, int16_t *dest)
+{
+  int i;
+  for (i = 0; i < n; i++) dest[i] = src[i];
+}
+void
+esl_vec_BCopy(const int8_t *src, int n, int8_t *dest)
+{
+  int i;
+  for (i = 0; i < n; i++) dest[i] = src[i];
+}
 
 
 
-/* Function:  esl_vec_DSwap(), esl_vec_FSwap(), esl_vec_ISwap(), esl_vec_LSwap()
+
+/* Function:  esl_vec_{DFIL}Swap()
  * Synopsis:  Swap two vectors.
  *
  * Purpose:   Swaps <vec2> and <vec1>, both of size <n>. 
@@ -558,7 +568,7 @@ esl_vec_LSwap(int64_t *vec1, int64_t *vec2, int n)
 }
 
 
-/* Function:  esl_vec_DReverse(), esl_vec_FReverse(), esl_vec_IReverse(), esl_vec_LReverse(), esl_vec_CReverse()
+/* Function:  esl_vec_{DFILC}Reverse()
  * Synopsis:  Reverse a vector (possibly in place).
  *
  * Purpose:   Put the <n> values from vector <vec> in reversed order in
@@ -729,7 +739,7 @@ qsort_LDecreasing(const void *xp1, const void *xp2)
 }
 
 
-/* Function:  esl_vec_DSortIncreasing(), esl_vec_FSortIncreasing(), esl_vec_ISortIncreasing(), esl_vec_LSortIncreasing()
+/* Function:  esl_vec_{DFIL}SortIncreasing()
  * Synopsis:  Sort vector from smallest to largest.          
  * Incept:    SRE, Wed Aug 17 10:44:31 2005 [St. Louis]
  *
@@ -760,7 +770,7 @@ esl_vec_LSortIncreasing(int64_t *vec, int n)
 
 
 
-/* Function:  esl_vec_DSortDecreasing(), esl_vec_FSortDecreasing(), esl_vec_ISortDecreasing(), esl_vec_LSortDecreasing()
+/* Function:  esl_vec_{DFIL}SortDecreasing()
  * Synopsis:  Sort vector from largest to smallest.          
  * Incept:    SRE, Wed Aug 17 10:44:31 2005 [St. Louis]
  *
@@ -790,7 +800,7 @@ esl_vec_LSortDecreasing(int64_t *vec, int n)
 }
 
 
-/* Function:  esl_vec_DShuffle(), esl_vec_FShuffle(), esl_vec_IShuffle(), esl_vec_LShuffle()
+/* Function:  esl_vec_{DFIL}Shuffle()
  * Synopsis:  Shuffle a vector, in place.
  *
  * Purpose:   Shuffle a vector <v> of <n> items, using the
@@ -853,7 +863,7 @@ esl_vec_LShuffle(ESL_RANDOMNESS *r, int64_t *v, int n)
   return eslOK;
 }
 
-/* Function:  esl_vec_DCompare(), esl_vec_FCompare(), esl_vec_ICompare(), esl_vec_LCompare()
+/* Function:  esl_vec_{DFIL}Compare()
  * Synopsis:  Return <eslOK> if two vectors are equal.
  * Incept:    SRE, Mon Nov  6 10:20:28 2006 [Janelia]
  *
@@ -902,7 +912,7 @@ esl_vec_LCompare(const int64_t *vec1, const int64_t *vec2, int n)
 
 
 
-/* Function:  esl_vec_DDump(), esl_vec_FDump(), esl_vec_IDump(), esl_vec_LDump()
+/* Function:  esl_vec_{DFIL}Dump()
  * Synopsis:  Output vector to a stream as text.            
  * Incept:    ER, Thu Jul 21 12:54:56 CDT 2005 [St. Louis]
  *
@@ -1035,7 +1045,7 @@ esl_vec_I2D(int *src, int n, double *dst)
 
 
 
-/* Function:  esl_vec_DNorm(), esl_vec_FNorm()
+/* Function:  esl_vec_{DF}Norm()
  * Synopsis:  Normalize probability vector.           
  *
  * Purpose:   Normalizes a probability vector <vec>,
@@ -1065,11 +1075,11 @@ esl_vec_FNorm(float *vec, int n)
 }
 
 
-/* Function:  esl_vec_DLogNorm()
- * Synopsis:  Normalize a log p-vector, make it a p-vector.           
+/* Function:  esl_vec_{DF}LogNorm(), esl_vec_{DF}Log2Norm()
+ * Synopsis:  Normalize a log (or log_2) p-vector, make it a p-vector.           
  * Incept:    SRE, Thu Apr  7 17:45:39 2005 [St. Louis]
  *
- * Purpose:   Given an unnormalized log probability vector <vec>   
+ * Purpose:   Given an unnormalized log (or log_2) probability vector <vec>   
  *            of length <n>, normalize it and make it a 
  *            probability vector. 
  *
@@ -1083,7 +1093,7 @@ esl_vec_DLogNorm(double *vec, int n)
   denom = esl_vec_DLogSum(vec, n);
   esl_vec_DIncrement(vec, n, -1.*denom);
   esl_vec_DExp (vec, n);
-  esl_vec_DNorm(vec, n);
+  esl_vec_DNorm(vec, n);  // unnecessary in theory, useful in practice.
 }
 void
 esl_vec_FLogNorm(float *vec, int n)
@@ -1095,12 +1105,36 @@ esl_vec_FLogNorm(float *vec, int n)
   esl_vec_FExp (vec, n);
   esl_vec_FNorm(vec, n);
 }
+void
+esl_vec_DLog2Norm(double *vec, int n)
+{
+  double denom;
+  
+  denom = esl_vec_DLog2Sum(vec, n);
+  esl_vec_DIncrement(vec, n, -1.*denom);
+  esl_vec_DExp2 (vec, n);
+  esl_vec_DNorm (vec, n);
+}
+void
+esl_vec_FLog2Norm(float *vec, int n)
+{
+  float denom;
+  
+  denom = esl_vec_FLog2Sum(vec, n);
+  esl_vec_FIncrement(vec, n, -1.*denom);
+  esl_vec_FExp2 (vec, n);
+  esl_vec_FNorm (vec, n);
+}
 
 
-/* Function:  esl_vec_DLog(), esl_vec_FLog()
- * Synopsis:  Convert probability vector elements to log probabilities.           
+
+
+
+
+/* Function:  esl_vec_{DF}Log(), esl_vec_{DF}Log2()
+ * Synopsis:  Convert probability vector elements to log (or log_2) probabilities.           
  *
- * Purpose:   Converts a probability vector <vec> to a log
+ * Purpose:   Converts a probability vector <vec> to a log (or log_2)
  *            probability vector: takes the log of each of the <n> 
  *            values in the vector.
  *
@@ -1120,12 +1154,25 @@ esl_vec_FLog(float *vec, int n)
   for (i = 0; i < n; i++) 
     vec[i] = (vec[i] > 0. ? logf(vec[i]) : -eslINFINITY);
 }
+void
+esl_vec_DLog2(double *vec, int n)
+{
+  int i;
+  for (i = 0; i < n; i++) 
+    vec[i] = (vec[i] > 0. ? log2(vec[i]) : -eslINFINITY);
+}
+void
+esl_vec_FLog2(float *vec, int n)
+{
+  int i;
+  for (i = 0; i < n; i++) 
+    vec[i] = (vec[i] > 0. ? log2f(vec[i]) : -eslINFINITY);
+}
 
-
-/* Function:  esl_vec_DExp(), esl_vec_FExp()
- * Synopsis:  Converts log probability vector elements to probabilities.           
+/* Function:  esl_vec_{DF}Exp(), esl_vec_{DF}Exp2()
+ * Synopsis:  Converts log (or log_2) probability vector elements to probabilities.           
  *
- * Purpose:   Converts a log probability vector <vec> back to a 
+ * Purpose:   Converts a log (or log_2) probability vector <vec> back to a 
  *            probability vector: exponentiates each of the <n> 
  *            values in the vector.
  *            
@@ -1147,10 +1194,21 @@ esl_vec_FExp(float *vec, int n)
   int i;
   for (i = 0; i < n; i++) vec[i] = expf(vec[i]);
 }
+void
+esl_vec_DExp2(double *vec, int n)
+{
+  int i;
+  for (i = 0; i < n; i++) vec[i] = exp2(vec[i]);
+}
+void
+esl_vec_FExp2(float *vec, int n)
+{
+  int i;
+  for (i = 0; i < n; i++) vec[i] = exp2f(vec[i]);
+}
 
-
-/* Function:  esl_vec_DLogSum(), esl_vec_FLogSum()
- * Synopsis:  Given log-p-vector, return log of sum of probabilities.
+/* Function:  esl_vec_{DF}LogSum(), esl_vec_{DF}Log2Sum()
+ * Synopsis:  Given log p-vector (or log_2), return log (or log_2) of sum of probabilities.
  *
  * Purpose:   <vec> is a log probability vector; return the log of the scalar sum
  *            of the probabilities in <vec>. That is, the <n> elements in <vec>
@@ -1160,6 +1218,16 @@ esl_vec_FExp(float *vec, int n)
  *            
  *            That is: return $\log \sum_i e^{v_i}$, but done in a numerically
  *            stable way.
+ *            
+ *            If you need high accuracy, you should sort <vec> from
+ *            smallest to largest before calling for the logsum. We
+ *            don't do that for you, because we don't want to change
+ *            the order of the input <vec>, and nor do we spend an
+ *            allocation.
+ *
+ *            The <Log2> versions do the same, but where the values
+ *            are base log_2 (bits).
+ *
  */
 double
 esl_vec_DLogSum(const double *vec, int n)
@@ -1191,9 +1259,38 @@ esl_vec_FLogSum(const float *vec, int n)
   sum = logf(sum) + max;
   return sum;
 }
+double
+esl_vec_DLog2Sum(const double *vec, int n)
+{
+  double max, sum;
+  int    i;
+  
+  max = esl_vec_DMax(vec, n);
+  if (max == eslINFINITY) return eslINFINITY; /* avoid inf-inf below! */
+  sum = 0.0;
+  for (i = 0; i < n; i++)
+    if (vec[i] > max - 500.)      // DBL_EPSILON ~ 2.2e-16; DBL_MIN ~ 2.2e-308; log2() = -52, -1022
+      sum += exp2(vec[i] - max);
+  sum = log2(sum) + max;
+  return sum;
+}
+float
+esl_vec_FLog2Sum(const float *vec, int n)
+{
+  int i;
+  float max, sum;
+  
+  max = esl_vec_FMax(vec, n);
+  if (max == eslINFINITY) return eslINFINITY; 
+  sum = 0.0;
+  for (i = 0; i < n; i++)
+    if (vec[i] > max - 50.)      // FLT_EPSILON ~ 1.19e-7; FLT_MIN ~ 1.17e-38; log() ~ -23, -126
+      sum += exp2f(vec[i] - max);
+  sum = log2f(sum) + max;
+  return sum;
+}
 
-
-/* Function:  esl_vec_DEntropy()
+/* Function:  esl_vec_{DF}Entropy()
  * Synopsis:  Return Shannon entropy of p-vector, in bits.           
  *
  * Purpose:   Returns the Shannon entropy of a probability vector <p>,
@@ -1224,7 +1321,7 @@ esl_vec_FEntropy(const float *p, int n)
   return H;
 }
 
-/* Function:  esl_vec_DRelEntropy(), esl_vec_FRelEntropy()
+/* Function:  esl_vec_{DF}RelEntropy()
  * Synopsis:  Return relative entropy $D(p \parallel q)$ in bits.
  * Incept:    SRE, Fri May 11 09:03:07 2007 [Janelia]
  *
@@ -1270,7 +1367,7 @@ esl_vec_FRelEntropy(const float *p, const float *q, int n)
 
 
 
-/* Function:  esl_vec_DCDF(), esl_vec_FCDF()
+/* Function:  esl_vec_{DF}CDF()
  * Synopsis:  Calculate cumulative distribution for a discrete prob vector
  * Incept:    SRE, Wed Jan 12 09:09:42 2011 [Janelia]
  *
@@ -1317,7 +1414,7 @@ esl_vec_FCDF(const float *p, int n, float *cdf)
 
 
 
-/* Function:  esl_vec_DValidate(), esl_vec_FValidate()
+/* Function:  esl_vec_{DF}Validate()
  * Synopsis:  Verifies that vector is p-vector.
  * Incept:    ER, Tue Dec  5 09:38:54 EST 2006 [janelia]
  *
@@ -1378,15 +1475,15 @@ esl_vec_FValidate(const float *vec, int n, float tol, char *errbuf)
   return status;
 }
 
-/* Function:  esl_vec_DLogValidate(), esl_vec_FLogValidate()
- * Synopsis:  Verify that vector is a log-p-vector.           
+/* Function:  esl_vec_{DF}LogValidate(), esl_vec_{DF}Log2Validate()
+ * Synopsis:  Verify that vector is a log (or log_2) p-vector.           
  * Incept:    ER,  Tue Dec  5 09:46:51 EST 2006 [janelia]
  *
  * Purpose:   Validate a log probability vector <vec> of length <n>.
  *            The exp of each element has to be between 0 and 1, and
  *            the sum of all elements has to be 1.
  *
- * Args:      v      - log p vector to validate.
+ * Args:      vec    - log p vector to validate.
  *            n      - dimensionality of v
  *            tol    - convergence criterion applied to sum of exp v
  *            errbuf - NULL, or a failure message buffer allocated
@@ -1430,6 +1527,46 @@ esl_vec_FLogValidate(const float *vec, int n, float tol, char *errbuf)
   ESL_ALLOC(expvec, sizeof(float)*n);
   esl_vec_FCopy(vec, n, expvec);
   esl_vec_FExp(expvec, n); 
+  if ((status = esl_vec_FValidate(expvec, n, tol, errbuf)) != eslOK) goto ERROR;
+  free(expvec);
+  return eslOK;
+
+ ERROR:
+  if (expvec != NULL) free(expvec);
+  return eslOK;
+}
+int
+esl_vec_DLog2Validate(const double *vec, int n, double tol, char *errbuf)
+{
+  int     status;
+  double *expvec = NULL;
+
+  if (errbuf) *errbuf = 0;
+  if (n == 0) return eslOK;
+
+  ESL_ALLOC(expvec, sizeof(double)*n);
+  esl_vec_DCopy(vec, n, expvec);
+  esl_vec_DExp2(expvec, n); 
+  if ((status = esl_vec_DValidate(expvec, n, tol, errbuf)) != eslOK) goto ERROR;
+  free(expvec);
+  return eslOK;
+
+ ERROR:
+  if (expvec != NULL) free(expvec);
+  return status;
+}
+int
+esl_vec_FLog2Validate(const float *vec, int n, float tol, char *errbuf)
+{
+  int     status;
+  float  *expvec = NULL;
+
+  if (errbuf) *errbuf = 0;
+  if (n == 0) return eslOK;
+
+  ESL_ALLOC(expvec, sizeof(float)*n);
+  esl_vec_FCopy(vec, n, expvec);
+  esl_vec_FExp2(expvec, n); 
   if ((status = esl_vec_FValidate(expvec, n, tol, errbuf)) != eslOK) goto ERROR;
   free(expvec);
   return eslOK;

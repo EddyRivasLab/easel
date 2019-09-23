@@ -16,6 +16,11 @@
 #      VMX_CFLAGS=$esl_vmx_cflags
 #      AC_SUBST(VMX_CFLAGS)
 #
+# Do not replace the AC_LINK with an AC_RUN test. This is a test for
+# whether the _compiler_ supports Altivec/VMX, not whether the current
+# processor does. Our code uses runtime dispatching to choose an
+# appropriate ISA for the processor being used.
+#
 AC_DEFUN([ESL_VMX], [
   AC_MSG_CHECKING([whether $CC can compile our Altivec/VMX code])
   esl_have_vmx=no

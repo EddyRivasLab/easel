@@ -93,11 +93,11 @@ def main():
             syntax = []
             for fname in funcnames:                                 # list of names like "esl_foo_Function()", with the (). Can also be esl_foo_{DFI}Function()", which needs expansion.
                 fname = fname.rstrip('()')                          # now just "esl_foo_Function" or "esl_foo_{DFI}Function()"
-                m     = re.search(r'\{([DFILC]+)\}', fname)         # "esl_foo_{DFI}Function()" case?
+                m     = re.search(r'\{([DFILCWB]+)\}', fname)       # "esl_foo_{DFI}Function()" case?
                 if m:                                               #   then expand it, one function name at a time
                     typelist = m.group(1)                           # "DFI" for example
                     for c in typelist:
-                        expanded_fname = re.sub(r'\{([DFILC]+)\}', c, fname)
+                        expanded_fname = re.sub(r'\{([DFILCWB]+)\}', c, fname)
                         impl_pattern   = r'^(\S+.+?)\s+' + expanded_fname + '\s*(\((?s:.+?)\))\s*\{'
                         m = re.search(impl_pattern, impl, flags=re.MULTILINE)
                         if m: syntax.append(m.group(1) + ' ' + expanded_fname + m.group(2))
@@ -120,8 +120,8 @@ def main():
             #   throws:   : optional text about exceptions
             #
             if do_table:
-                if synopsis: print('| {0:30s} | {1:60s} |'.format(funcnames[0], synopsis))
-                else:        print('| {0:30s} | {1:60s} |'.format(funcnames[0], ''))
+                if synopsis: print('| {0:30s} | {1:60s} |'.format('`{}`'.format(funcnames[0]), synopsis))
+                else:        print('| {0:30s} | {1:60s} |'.format('`{}`'.format(funcnames[0]), ''))
             else:
                 for a in funcnames: print("### `{0}`\n".format(a))
                 if synopsis: print("**{0}**\n".format(synopsis.rstrip())) 

@@ -769,6 +769,10 @@ esl_rnd_Dirichlet(ESL_RANDOMNESS *rng, const double *alpha, int K, double *p)
  *            Uses the selection sampling algorithm [Knuth, 3.4.2],
  *            which is O(n) time. For more impressive O(m)
  *            performance, see <esl_rand64_Deal()>.
+ *            
+ *            As a special case, if m = 0 (for whatever reason,
+ *            probably an edge-case-exercising unit test), do
+ *            nothing. <deal> is untouched, and can even be <NULL>.
  *
  * Args:      m    - number of integers to sample
  *            n    - range: each sample is 0..n-1
@@ -785,6 +789,8 @@ esl_rnd_Deal(ESL_RANDOMNESS *rng, int m, int n, int *deal)
   int i = 0;
   int j = 0;
 
+  ESL_DASSERT1(( m >= 0 ));  // m=0 is a special case where <deal> can be NULL.
+  ESL_DASSERT1(( n >= 1 )); 
   ESL_DASSERT1(( m <= n ));
 
   for (j = 0; j < n && i < m; j++)

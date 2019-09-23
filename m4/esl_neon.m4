@@ -27,6 +27,11 @@
 #  because if they did, all the macro does is make sure that they
 #  work, and sets esl_neon_cflags=$NEON_CFLAGS.)
 #
+# Do not replace the AC_LINK with an AC_RUN test. This is a test for
+# whether the _compiler_ supports NEON, not whether the current
+# processor does. Our code uses runtime dispatching to choose an
+# appropriate ISA for the processor being used.
+#
 AC_DEFUN([ESL_NEON], [
   AC_MSG_CHECKING([whether $CC can compile our NEON code])
   esl_have_neon=no

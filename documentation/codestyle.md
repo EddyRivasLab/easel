@@ -993,17 +993,71 @@ A unit test function is named `utest_*()`, declared static, and returns void:
 
 	static void utest_something()
 
-Upon any failure, a unit test calls `esl_fatal()` with a+
-developer-oriented error message and terminates. Do not use `abort()`
-or other ways of exiting the test program. Our automated test script
-`sqc`, which is run by a `make check`, traps the output of
+Upon any failure, a unit test calls `esl_fatal()` with a
+developer-oriented error message and terminates. Don't use `abort()`
+or any other way to fail out of the test program. Our automated test
+script `sqc`, which is run by a `make check`, traps the output of
 `esl_fatal()` cleanly.
 
 If you write a new unit test, you just have to slot it into the list
 of unit tests that the test driver `main()` is calling.
 
+###   RNG seeding and dealing with expected stochastic failures
 
-###   dealing with expected stochastic failures
+Many unit tests use random sampling. Where possible, we seed the
+random number generator (RNG) pseudorandomly, so unit tests exercise
+different scenarios as we run them repeatedly. Initializing the RNG
+with `esl_randomness_Create(0)` selects an arbitrary pseudorandom
+seed.
+
+In production code packages that people install, our unit tests should
+never fail unless there's an actual problem.  We don't want to
+frighten civilians, we don't want spurious "bug" reports, and we don't
+want to tell people "just run the test again, it's probably fine and
+won't happen again". However, there are cases where an RNG-dependent
+unit test can't guaranteed success 100% of the time for arbitrary
+seeds. For example, for a normally distributed numerical error, large
+errors may be improbable but not strictly impossible. In cases where
+we expect the test to succeed 99.99+% of the time for arbitrary seeds
+but we need 100% for production code, we define a fixed RNG seed where
+the test is known to work (often "42"). We call these "expected
+stochastic failures".
+
+During development, it might or might not be useful to allow expected
+stochastic failures. On the one hand, it's good to allow arbitrary
+seeds to find unusual problems. On the other hand, you don't want to
+be distracted by rare one-off glitches in code unrelated to what
+you're working on. Test drivers always have an option for setting the
+RNG seed manually (usually `-s`) so one can always do `my_utest -s 0`
+to override a default fixed seed.
+
+When a test does fail with an arbitrary seed, you want to know what
+that arbitrary seed was, so you can reproduce the problem. It isn't
+sufficient to know that the default seed was 0; that just means that
+one of $2^{32}$ possible seeds was chosen. So our tests always print
+the RNG seed using code like this in the test driver:
+
+```
+    fprintf(stderr, "## %s\n", argv[0]);
+    fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
+```	
+
+Because this output is from the `main()` of the test driver, not in
+individual utests, we generally create the RNG in `main()` and pass
+the same RNG to all individual utests, as opposed to passing them a
+seed that might be 0.  Passing a seed to a utest isn't preferred,
+unless there's some other way that you're outputting the arbitrary
+seed that got chosen when your seed was 0.
+
+
+
+
+
+
+
+
+
+
 
 ###   using temp files in unit tests
 

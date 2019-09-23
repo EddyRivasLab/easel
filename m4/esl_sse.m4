@@ -26,6 +26,11 @@
 #  because if they did, all the macro does is make sure that they
 #  work, and sets esl_sse_cflags=$SSE_CFLAGS.)
 #
+# Do not replace the AC_LINK with an AC_RUN test. This is a test for
+# whether the _compiler_ supports SSE, not whether the current
+# processor does. Our code uses runtime dispatching to choose an
+# appropriate ISA for the processor being used.
+#
 AC_DEFUN([ESL_SSE], [
   AC_MSG_CHECKING([whether $CC can compile our SSE code])
   esl_have_sse=no

@@ -33,13 +33,33 @@ esl_bitfield_Create(int nb)
 
   ESL_DASSERT1(( nb >= 1 ));
 
-  ESL_ALLOC(b, sizeof(uint64_t) * nu);
-  memset((void *) b, 0, sizeof(uint64_t) * nu);
+  ESL_ALLOC(b, sizeof(ESL_BITFIELD));
+  b->b = NULL;
+
+  ESL_ALLOC(b->b, sizeof(uint64_t) * nu);
+  memset((void *) b->b, 0, sizeof(uint64_t) * nu);
+  b->nb = nb;
   return b;
   
  ERROR:
   esl_bitfield_Destroy(b);
   return NULL;
+}
+
+
+/* Function:  esl_bitfield_Count()
+ * Synopsis:  Return the number of bits that are set.
+ * Incept:    SRE, Thu 18 Apr 2019
+ */
+int
+esl_bitfield_Count(const ESL_BITFIELD *b)
+{
+  int n = 0;
+  int i;
+
+  for (i = 0; i < b->nb; i++)
+    if (esl_bitfield_IsSet(b, i)) n++;
+  return n;
 }
 
 
@@ -49,6 +69,7 @@ esl_bitfield_Create(int nb)
 void
 esl_bitfield_Destroy(ESL_BITFIELD *b)
 {
+  if (b) free(b->b);
   free(b);
 }
 
@@ -67,27 +88,33 @@ utest_randpattern(ESL_RANDOMNESS *rng)
   char msg[]      = "bitfield randpattern utest failed";
   int  nb         = 1 + esl_rnd_Roll(rng, 192); // 1..192; 1-3 uint64_t's. Keep it small to exercise edge cases frequently.
   int  nu         = (nb + 63) / 64;
-  int  nset       = esl_rnd_Roll(rng, nb+1);
+  int  nset       = esl_rnd_Roll(rng, nb+1);    // we'll set between 0 and <nb> of the <nb> bits.
   int *deal       = NULL;                       // sample of <nset> elements out of <nb> that are initially set TRUE
   int *bigflags   = NULL;                       // bigflags[] are 1/0 for set/unset bits 
   ESL_BITFIELD *b = esl_bitfield_Create(nb);
   int  i;
   int  status;
 
-  ESL_ALLOC(deal, sizeof(int) * nset);
+  if (nset > 0) ESL_ALLOC(deal, sizeof(int) * nset); // watch out for nset = 0 case; avoid zero malloc.
   ESL_ALLOC(bigflags, sizeof(int) * nb);
   esl_vec_ISet(bigflags, nb, FALSE);
   
-  esl_rnd_Deal(rng, nset, nb, deal);
+  if (nset > 0) esl_rnd_Deal(rng, nset, nb, deal);
   for (i = 0; i < nset; i++) bigflags[deal[i]] = TRUE;
   for (i = 0; i < nset; i++) esl_bitfield_Set(b, deal[i]);
 
+  if (esl_bitfield_Count(b) != nset) esl_fatal(msg);
+
   for (i = 0; i < nb;   i++) if (bigflags[i] != esl_bitfield_IsSet(b, i)) esl_fatal(msg);
   for (i = 0; i < nb;   i++) esl_bitfield_Toggle(b, i);
+
+  if (esl_bitfield_Count(b) != nb - nset) esl_fatal(msg);
+  
   for (i = 0; i < nb;   i++) if (bigflags[i] == esl_bitfield_IsSet(b, i)) esl_fatal(msg);
   for (i = 0; i < nb;   i++) esl_bitfield_Clear(b, i);   // do all bits, to test that clearing 0 bits leaves them 0
 
-  for (i = 0; i < nu;   i++) if (b[i]) esl_fatal(msg);  // note <nu>. this reaches inside the "opaque" ESL_BITFIELD and can break if that structure changes.
+  if (esl_bitfield_Count(b) != 0) esl_fatal(msg);
+  for (i = 0; i < nu;   i++) if (b->b[i]) esl_fatal(msg);  // note <nu>. this reaches inside the "opaque" ESL_BITFIELD and can break if that structure changes.
   
   free(deal);
   free(bigflags);
