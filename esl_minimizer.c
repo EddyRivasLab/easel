@@ -297,7 +297,7 @@ esl_min_cfg_Destroy(ESL_MIN_CFG *cfg)
 {
   if (cfg)
     {
-      free(cfg->u);
+      if(cfg->u) free(cfg->u);
       free(cfg);
     }
 }
