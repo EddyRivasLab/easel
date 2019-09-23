@@ -482,7 +482,7 @@ esl_json_Destroy(ESL_JSON *pi)
 {
   if (pi)
     {
-      free(pi->tok);
+      if(pi->tok) free(pi->tok);
       free(pi);
     }
 }
