@@ -81,9 +81,9 @@ esl_mixdchlet_Destroy(ESL_MIXDCHLET *dchl)
 {
   if (dchl)
     {
-      free(dchl->q);
+      if(dchl->q)     free(dchl->q);
       esl_mat_DDestroy(dchl->alpha);
-      free(dchl->postq);
+      if(dchl->postq) free(dchl->postq);
       free(dchl);
     }
 }
