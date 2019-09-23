@@ -249,7 +249,7 @@ esl_randomness_GetSeed(const ESL_RANDOMNESS *r)
 void
 esl_randomness_Destroy(ESL_RANDOMNESS *r)
 {
-  free(r);
+  if(r) free(r);
   return;
 }
 
