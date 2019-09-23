@@ -31,13 +31,15 @@ ERROR:
 }
 
 void esl_red_black_doublekey_Destroy(ESL_RED_BLACK_DOUBLEKEY *tree){
-  if(tree->large != NULL){
-    esl_red_black_doublekey_Destroy(tree->large);
+  if(tree) { 
+    if(tree->large != NULL){
+      esl_red_black_doublekey_Destroy(tree->large);
+    }
+    if(tree->small != NULL){
+      esl_red_black_doublekey_Destroy(tree->small);
+    }
+    free(tree);
   }
-  if(tree->small != NULL){
-    esl_red_black_doublekey_Destroy(tree->small);
-  }
-  free(tree);
 }
 
 void esl_red_black_doublekey_linked_list_Destroy(ESL_RED_BLACK_DOUBLEKEY *tree){
