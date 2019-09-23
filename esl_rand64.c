@@ -145,7 +145,7 @@ esl_rand64_GetSeed(ESL_RAND64 *rng)
 void
 esl_rand64_Destroy(ESL_RAND64 *rng)
 {
-  free(rng);
+  if(rng) free(rng);
 }
 
 
