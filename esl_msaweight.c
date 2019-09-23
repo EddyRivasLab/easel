@@ -569,7 +569,7 @@ esl_msaweight_cfg_Create(void)
 void
 esl_msaweight_cfg_Destroy(ESL_MSAWEIGHT_CFG *cfg)
 {
-  free(cfg);
+  if(cfg) free(cfg);
 }
 
 
