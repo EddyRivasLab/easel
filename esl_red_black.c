@@ -41,6 +41,8 @@ void esl_red_black_doublekey_Destroy(ESL_RED_BLACK_DOUBLEKEY *tree){
 }
 
 void esl_red_black_doublekey_linked_list_Destroy(ESL_RED_BLACK_DOUBLEKEY *tree){
+  if(tree==NULL){return;} /* don't crash on free of empty object */
+
   ESL_RED_BLACK_DOUBLEKEY *next = tree->large;
   if(tree->parent !=NULL){ // need to break the circular list or we'll recurse forever
     tree->parent->large = NULL;
