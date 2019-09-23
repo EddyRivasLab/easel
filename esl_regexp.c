@@ -111,8 +111,10 @@ void
 esl_regexp_Destroy(ESL_REGEXP *machine)
 {
   /* Spencer's clever alloc for the NDFA allows us to free it w/ free()  */
-  if (machine->ndfa != NULL) free(machine->ndfa); 
-  free(machine);
+  if(machine) { 
+    if (machine->ndfa != NULL) free(machine->ndfa); 
+    free(machine);
+  }
   return;
 }
 
