@@ -110,9 +110,11 @@ esl_regexp_Create(void)
 void
 esl_regexp_Destroy(ESL_REGEXP *machine)
 {
-  /* Spencer's clever alloc for the NDFA allows us to free it w/ free()  */
-  if (machine->ndfa != NULL) free(machine->ndfa); 
-  free(machine);
+  if (machine)
+    { /* Spencer's clever alloc for the NDFA allows us to free it w/ free()  */
+      free(machine->ndfa); 
+      free(machine);
+    }
   return;
 }
 

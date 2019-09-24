@@ -30,27 +30,27 @@ ERROR:
   return NULL;
 }
 
-void esl_red_black_doublekey_Destroy(ESL_RED_BLACK_DOUBLEKEY *tree){
-  if(tree->large != NULL){
-    esl_red_black_doublekey_Destroy(tree->large);
-  }
-  if(tree->small != NULL){
-    esl_red_black_doublekey_Destroy(tree->small);
-  }
-  free(tree);
+void
+esl_red_black_doublekey_Destroy(ESL_RED_BLACK_DOUBLEKEY *tree)
+{
+  if (tree)
+    {
+      esl_red_black_doublekey_Destroy(tree->large);
+      esl_red_black_doublekey_Destroy(tree->small);
+      free(tree);
+    }
 }
 
-void esl_red_black_doublekey_linked_list_Destroy(ESL_RED_BLACK_DOUBLEKEY *tree){
-  if(tree==NULL){return;} /* don't crash on free of empty object */
-
-  ESL_RED_BLACK_DOUBLEKEY *next = tree->large;
-  if(tree->parent !=NULL){ // need to break the circular list or we'll recurse forever
-    tree->parent->large = NULL;
-  }
-  free(tree);
-  if(next != NULL){
-    esl_red_black_doublekey_linked_list_Destroy(next);
-  }
+void
+esl_red_black_doublekey_linked_list_Destroy(ESL_RED_BLACK_DOUBLEKEY *tree)
+{
+  if (tree)
+    {
+      ESL_RED_BLACK_DOUBLEKEY *next = tree->large;
+      if (tree->parent) tree->parent->large = NULL; // need to break the circular list or we'll recurse forever
+      free(tree);
+      esl_red_black_doublekey_linked_list_Destroy(next);
+    }
   //note: we don't need to go down the tree->small path because the linked list is a set of nodes where large points to the next node 
   //in the list while small points to the previous, so there are no nodes on the small path that aren't also on the large
 }

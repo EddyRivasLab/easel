@@ -34,7 +34,7 @@ static ESL_SQ *sq_create_from(const char *name, const char *desc, const char *ac
 static ESL_SQ_BLOCK *sq_createblock(int count, int do_digital);
 
 static int  sq_init(ESL_SQ *sq, int do_digital);
-static void sq_free(ESL_SQ *sq);
+
 
 /*****************************************************************
  *# 1. Text version of the <ESL_SQ> object.
@@ -518,31 +518,31 @@ esl_sq_IsText(const ESL_SQ *sq)
 void
 esl_sq_Destroy(ESL_SQ *sq)
 {
-  int   x;        /* index for optional extra residue markups */
-  if (sq == NULL) return;
-
-  if (sq->name   != NULL) free(sq->name);  
-  if (sq->acc    != NULL) free(sq->acc);   
-  if (sq->desc   != NULL) free(sq->desc);  
-  if (sq->seq    != NULL) free(sq->seq);   
-  if (sq->dsq    != NULL) free(sq->dsq);   
-  if (sq->ss     != NULL) free(sq->ss);    
-  if (sq->source != NULL) free(sq->source);
-  if (sq->nxr > 0) {  
-    for (x = 0; x < sq->nxr; x++) {
-      if (sq->xr[x]     != NULL) free(sq->xr[x]);
-      if (sq->xr_tag[x] != NULL) free(sq->xr_tag[x]);
+  if (sq)
+    {
+      int   x;        /* index for optional extra residue markups */
+      free(sq->name);  
+      free(sq->acc);   
+      free(sq->desc);  
+      free(sq->seq);   
+      free(sq->dsq);   
+      free(sq->ss);    
+      free(sq->source);
+      if (sq->nxr) {  
+	for (x = 0; x < sq->nxr; x++) {
+	  free(sq->xr[x]);
+	  free(sq->xr_tag[x]);
+	}
+      }
+      free(sq->xr);
+      free(sq->xr_tag);
+      free(sq);
     }
-    if (sq->xr     != NULL) free(sq->xr);
-    if (sq->xr_tag != NULL) free(sq->xr_tag);
-  }
-  free(sq);
   return;
 }
 
 /* Function:  esl_sq_CreateBlock()
  * Synopsis:  Create a new block of empty <ESL_SQ>.
- * Incept:    
  *
  * Purpose:   Creates a block of empty <ESL_SQ> sequence objects.
  *            
@@ -559,7 +559,6 @@ esl_sq_CreateBlock(int count)
 
 /* Function:  esl_sq_DestroyBlock()
  * Synopsis:  Frees an <ESL_SQ_BLOCK>.
- * Incept:    
  *
  * Purpose:   Free a Create()'d block of <sq>.
  */
@@ -572,7 +571,7 @@ esl_sq_DestroyBlock(ESL_SQ_BLOCK *block)
 
   for (i = 0; i < block->listSize; ++i)
     {
-      sq_free(block->list + i);
+      esl_sq_Destroy(block->list + i);
     }
 
   free(block->list);
@@ -582,12 +581,9 @@ esl_sq_DestroyBlock(ESL_SQ_BLOCK *block)
 
 /* Function:  esl_sq_BlockGrowTo()
  * Synopsis:  Grows a sequence block to hold at least <n> <ESL_SQ>.
- * Incept:    
  *
- * Purpose:   Assure that the list of sequences
- *            can hold up to a total of <n> sequences,
- *            reallocating as needed.
- *            
+ * Purpose:   Assure that the list of sequences can hold up to a total
+ *            of <n> sequences, reallocating as needed.
  *
  * Returns:   <eslOK> on success.
  *
@@ -2234,28 +2230,6 @@ sq_create_from(const char *name, const char *desc, const char *acc)
   esl_sq_Destroy(sq);
   return NULL;
 }
-
-/* Free <ESL_SQ> object */
-static void
-sq_free(ESL_SQ *sq)
-{
-  int   x;        /* index for optional extra residue markups */
-  if (sq->name   != NULL)   free(sq->name);
-  if (sq->acc    != NULL)   free(sq->acc);
-  if (sq->desc   != NULL)   free(sq->desc);
-  if (sq->source != NULL)   free(sq->source);
-  if (sq->seq    != NULL)   free(sq->seq);
-  if (sq->dsq    != NULL)   free(sq->dsq);
-  if (sq->ss     != NULL)   free(sq->ss);
-  if (sq->nxr > 0) {
-    for (x = 0; x < sq->nxr; x++) {
-      if (sq->xr[x]     != NULL) free(sq->xr[x]);
-      if (sq->xr_tag[x] != NULL) free(sq->xr_tag[x]);  
-    }       
-    if (sq->xr     != NULL) free(sq->xr);
-    if (sq->xr_tag != NULL) free(sq->xr_tag); 
-  }    
-}  
 
 /*----------------- end, internal functions ---------------------*/
 
