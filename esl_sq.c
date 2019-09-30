@@ -509,14 +509,13 @@ esl_sq_IsText(const ESL_SQ *sq)
 }
 
 
-/* Function:  esl_sq_Destroy()
- * Synopsis:  Frees an <ESL_SQ>.
- * Incept:    SRE, Thu Dec 23 12:28:07 2004 [Zaragoza]
- *
- * Purpose:   Free a Create()'d <sq>.
+/* sq_free_internals()
+ * Free the insides of an <ESL_SQ> but not the shell.
+ * We need this version in a ESL_SQ_BLOCK, which allocates
+ * an array of ESL_SQ structures, not one at a time.
  */
-void
-esl_sq_Destroy(ESL_SQ *sq)
+static void
+sq_free_internals(ESL_SQ *sq)
 {
   if (sq)
     {
@@ -536,10 +535,28 @@ esl_sq_Destroy(ESL_SQ *sq)
       }
       free(sq->xr);
       free(sq->xr_tag);
+    }
+  return;
+}
+
+
+/* Function:  esl_sq_Destroy()
+ * Synopsis:  Frees an <ESL_SQ>.
+ * Incept:    SRE, Thu Dec 23 12:28:07 2004 [Zaragoza]
+ *
+ * Purpose:   Free a Create()'d <sq>.
+ */
+void
+esl_sq_Destroy(ESL_SQ *sq)
+{
+  if (sq)
+    {
+      sq_free_internals(sq);
       free(sq);
     }
   return;
 }
+
 
 /* Function:  esl_sq_CreateBlock()
  * Synopsis:  Create a new block of empty <ESL_SQ>.
@@ -570,9 +587,7 @@ esl_sq_DestroyBlock(ESL_SQ_BLOCK *block)
   if (block == NULL) return;
 
   for (i = 0; i < block->listSize; ++i)
-    {
-      esl_sq_Destroy(block->list + i);
-    }
+    sq_free_internals(block->list + i);
 
   free(block->list);
   free(block);
