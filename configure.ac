@@ -52,10 +52,6 @@
 # 2.63 was released in 2008.
 AC_PREREQ(2.63)
 
-m4_include([m4/ax_check_gnu_make.m4])
-
-m4_include([m4/ax_compiler_vendor.m4])
-m4_include([m4/ax_check_compile_flag.m4])
 m4_include([m4/ax_gcc_func_attribute.m4])
 
 m4_include([m4/esl_sse.m4])
@@ -194,18 +190,11 @@ AC_ARG_WITH(gsl,       [AS_HELP_STRING([--with-gsl],       [use the GSL, GNU Sci
 ################################################################
 
 AC_PROG_CC
+AC_PROG_CC_STDC
 AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_RANLIB
 AC_PATH_PROG([AR], [ar], [:], [$PATH:/usr/ccs/bin:/usr/xpg4/bin])
-
-
-# AC_PROG_CC_STDC wants to append -c99 to icc; icc doesn't like this.
-# To autodetect icc, we use the AX_COMPILER_VENDOR macro.
-AX_COMPILER_VENDOR
-if test "$ax_cv_c_compiler_vendor" != "intel"; then
-  AC_PROG_CC_STDC
-fi
 
 
 # Select our default optimization flags in CFLAGS.
