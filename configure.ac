@@ -73,7 +73,7 @@ m4_include([m4/esl_pic_flags.m4])
 ################################################################
 # 2. AC_INIT
 ################################################################
-AC_INIT(Easel, 0.45h, sean@eddylab.org, easel)
+AC_INIT(Easel, 0.46h, sean@eddylab.org, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
 # remember if the user is overriding CFLAGS
@@ -110,8 +110,8 @@ fi
 #     EASEL_VERSION    e.g. "1.9a"
 #
 
-EASEL_DATE="July 2018"
-EASEL_COPYRIGHT="Copyright (C) 2018 Howard Hughes Medical Institute"
+EASEL_DATE="Sept 2019"
+EASEL_COPYRIGHT="Copyright (C) 2019 Howard Hughes Medical Institute"
 EASEL_LICENSE="Freely distributed under the BSD open source license."
 EASEL_VERSION=$PACKAGE_VERSION
 EASEL_URL="http://bioeasel.org/"
@@ -181,9 +181,11 @@ AC_ARG_ENABLE(vmx,     [AS_HELP_STRING([--enable-vmx],     [enable our Altivec/V
 AC_ARG_ENABLE(threads, [AS_HELP_STRING([--enable-threads], [enable POSIX threads parallelization])],    enable_threads=$enableval, enable_threads=check)
 AC_ARG_ENABLE(mpi,     [AS_HELP_STRING([--enable-mpi],     [enable MPI parallelization])],              enable_mpi=$enableval,     enable_mpi=no)
 
+AC_ARG_ENABLE(pic,     [AS_HELP_STRING([--enable-pic],     [enable position-independent code])],        enable_pic=$enableval,     enable_pic=no)
+
 AC_ARG_WITH(gsl,       [AS_HELP_STRING([--with-gsl],       [use the GSL, GNU Scientific Library])],     with_gsl=$withval,         with_gsl=no)
 
-AC_ARG_ENABLE(pic,     [AS_HELP_STRING([--enable-pic],     [enable position-independent code])],        enable_pic=$enableval,     enable_pic=no)
+
 
 
 
@@ -238,7 +240,8 @@ fi
 
 
 
-# PIC :
+# PIC (position-independent code) for shared library support
+#
 if test "$enable_pic" = "yes"; then
    ESL_PIC_FLAGS
 fi
