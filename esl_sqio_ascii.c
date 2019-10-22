@@ -1467,8 +1467,7 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
     if (max_residues < 1)
       max_residues = MAX_RESIDUE_COUNT;
 
-    tmpsq = esl_sq_Create();
-
+    tmpsq = esl_sq_CreateDigital(sqBlock->list->abc);
     //if complete flag is set to FALSE, then the prior block must have ended with a window that was a possibly
     //incomplete part of it's full sequence. Read another overlapping window.
     if (! sqBlock->complete )
@@ -1529,8 +1528,11 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
       esl_sq_Reuse(tmpsq);
       esl_sq_Reuse(sqBlock->list + i);
 
-      status = sqascii_ReadWindow(sqfp, 0, request_size , sqBlock->list + i);
-      if (status != eslOK && status != eslEOD) break; /* end of sequences (eslEOF), or we read an empty seq (eslEOD) or error (other)  */
+      status = sqascii_ReadWindow(sqfp, 0, request_size , tmpsq); 
+      int status2 =esl_sq_Copy(tmpsq, sqBlock->list +i);
+      if (status != eslOK && status != eslEOD){
+        break;
+        } /* end of sequences (eslEOF), or we read an empty seq (eslEOD) or error (other)  */
       size += sqBlock->list[i].n - sqBlock->list[i].C;
       sqBlock->list[i].L = sqfp->data.ascii.L;
       ++(sqBlock->count);
