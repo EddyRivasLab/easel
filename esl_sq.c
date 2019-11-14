@@ -594,6 +594,41 @@ esl_sq_DestroyBlock(ESL_SQ_BLOCK *block)
   return;
 }
 
+/* Function: esl_sq_BlockReallocSequences   
+ * Synopsis: Re-allocates the internal data structures of a block's sequences back to their defaults
+ *
+ * Purpose: In some uses of ESL_SQ_BLOCK, fetching long sequences into the block causes the block to grow
+ *          to unacceptable sizes.  This function reallocates the internal data structures of each of a 
+ *          block's sequences back to their default values to shrink the block down to a reasonable size. 
+ *          This destroy's the sequences, so only call this function when the block's contents aren't needed any more.
+ * 
+ * Returns: <eslOK> on success
+ *
+ * Throws: <eslEMEM> on allocation failure
+ */
+int esl_sq_BlockReallocSequences(ESL_SQ_BLOCK *block){  
+  int status;
+  for(int i = 0; i < block->listSize; i++){
+    (block->list+i)->nalloc   = eslSQ_NAMECHUNK; 
+    (block->list+i)->aalloc   = eslSQ_ACCCHUNK;
+    (block->list+i)->dalloc   = eslSQ_DESCCHUNK;
+    (block->list+i)->salloc   = eslSQ_SEQCHUNK; 
+    (block->list+i)->srcalloc = eslSQ_NAMECHUNK; 
+    ESL_REALLOC((block->list+i)->name,   sizeof(char) * (block->list+i)->nalloc);
+    ESL_REALLOC((block->list+i)->acc,    sizeof(char) * (block->list+i)->aalloc);
+    ESL_REALLOC((block->list+i)->desc,   sizeof(char) * (block->list+i)->dalloc);
+    ESL_REALLOC((block->list+i)->source, sizeof(char) * (block->list+i)->srcalloc);
+    if ((block->list+i)->dsq!=NULL) ESL_REALLOC((block->list+i)->dsq,  sizeof(ESL_DSQ) * (block->list+i)->salloc);
+    else            ESL_REALLOC((block->list+i)->seq,  sizeof(char)    * (block->list+i)->salloc);
+    if ((block->list+i)->ss != NULL){
+      ESL_REALLOC((block->list+i)->ss,  sizeof(char)    * (block->list+i)->salloc);
+    }
+  } 
+  return(eslOK);  
+ERROR:  
+  return(status);
+}
+
 /* Function:  esl_sq_BlockGrowTo()
  * Synopsis:  Grows a sequence block to hold at least <n> <ESL_SQ>.
  *
