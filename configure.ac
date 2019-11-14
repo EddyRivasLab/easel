@@ -69,7 +69,7 @@ m4_include([m4/esl_pic_flags.m4])
 ################################################################
 # 2. AC_INIT
 ################################################################
-AC_INIT(Easel, 0.46h, sean@eddylab.org, easel)
+AC_INIT(Easel, 0.46, sean@eddylab.org, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
 # remember if the user is overriding CFLAGS
@@ -106,7 +106,7 @@ fi
 #     EASEL_VERSION    e.g. "1.9a"
 #
 
-EASEL_DATE="Sept 2019"
+EASEL_DATE="Nov 2019"
 EASEL_COPYRIGHT="Copyright (C) 2019 Howard Hughes Medical Institute"
 EASEL_LICENSE="Freely distributed under the BSD open source license."
 EASEL_VERSION=$PACKAGE_VERSION
