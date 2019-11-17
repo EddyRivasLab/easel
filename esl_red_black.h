@@ -33,7 +33,7 @@ ESL_RED_BLACK_DOUBLEKEY * esl_red_black_doublekey_Create();
 void esl_red_black_doublekey_Destroy(ESL_RED_BLACK_DOUBLEKEY *tree);
 
 // Destroys an ESL_RED_BLACK_DOUBLEKEY tree that has been converted into a doubly-linked list
-void esl_red_black_doublekey_linked_list_Destroy(ESL_RED_BLACK_DOUBLEKEY *tree);
+void esl_red_black_doublekey_linked_list_Destroy(ESL_RED_BLACK_DOUBLEKEY *head, ESL_RED_BLACK_DOUBLEKEY *tail);
 
 // Creates and initializes <number> esl_red_black_doublekey objects, links them into a list
 // using their larger pointers, and returns a pointer to the head of the list.  Allocates
