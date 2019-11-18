@@ -578,6 +578,7 @@ AC_CONFIG_FILES([ \
   miniapps/esl-construct.man   \
   miniapps/esl-histplot.man    \
   miniapps/esl-mask.man        \
+  miniapps/esl-mixdchlet.man   \
   miniapps/esl-reformat.man    \
   miniapps/esl-selectn.man     \
   miniapps/esl-seqrange.man    \

@@ -1529,7 +1529,7 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
       esl_sq_Reuse(sqBlock->list + i);
 
       status = sqascii_ReadWindow(sqfp, 0, request_size , tmpsq); 
-      int status2 =esl_sq_Copy(tmpsq, sqBlock->list +i);
+      esl_sq_Copy(tmpsq, sqBlock->list +i);
       if (status != eslOK && status != eslEOD){
         break;
         } /* end of sequences (eslEOF), or we read an empty seq (eslEOD) or error (other)  */
