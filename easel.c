@@ -437,7 +437,7 @@ esl_Free3D(void ***p, int dim1, int dim2)
  *            <eslEWRITE> on write error.
  */
 int
-esl_banner(FILE *fp, char *progname, char *banner)
+esl_banner(FILE *fp, const char *progname, char *banner)
 {
   char *appname = NULL;
   int   status;
@@ -496,7 +496,7 @@ esl_banner(FILE *fp, char *progname, char *banner)
  *            <eslEWRITE> on write failure.
  */
 int
-esl_usage(FILE *fp, char *progname, char *usage)
+esl_usage(FILE *fp, const char *progname, char *usage)
 {
   char *appname = NULL;
   int   status;
@@ -588,7 +588,7 @@ esl_dataheader(FILE *fp, ...)
       s   = va_arg(ap, char *);
       len = strlen(s);
       if (len > width) {
-	if (col == 0) ESL_XEXCEPTION(eslEINVAL, "esl_dataheader(): first arg (%s) too wide for %d-char column ('# ' leader took 2 chars)", col, s, width+2);
+	if (col == 0) ESL_XEXCEPTION(eslEINVAL, "esl_dataheader(): first arg (%s) too wide for %d-char column ('# ' leader took 2 chars)", s, width);
 	else          ESL_XEXCEPTION(eslEINVAL, "esl_dataheader(): arg %d (%s) too wide for %d-char column", col, s, width);
       }
 
@@ -632,6 +632,7 @@ esl_dataheader(FILE *fp, ...)
 /******************************************************************************
  * 4. Replacements for C library functions
  *  fgets()   ->  esl_fgets()     fgets() with dynamic allocation
+ *  printf()  ->  esl_printf()    printf() wrapped in our exception handling
  *  strdup()  ->  esl_strdup()    strdup() is not ANSI
  *  strcat()  ->  esl_strcat()    strcat() with dynamic allocation
  *  strtok()  ->  esl_strtok()    threadsafe strtok()
@@ -732,6 +733,77 @@ esl_fgets(char **buf, int *n, FILE *fp)
   *n   = 0;
   return status;
 }
+
+
+/* Function:  esl_fprintf()
+ * Synopsis:  fprintf() wrapped in our exception handling
+ * Incept:    SRE, Thu Jun 14 09:43:59 2018 
+ *
+ * Purpose:   <fprintf()> wrapped in Easel exception handling. See
+ *            <esl_printf()> for rationale.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEWRITE> on failure.
+ */
+int
+esl_fprintf(FILE *fp, const char *format, ...)
+{
+  if (fp && format)
+    {
+      va_list argp;
+      va_start(argp, format);
+      if ( vfprintf(fp, format, argp) < 0 ) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
+      va_end(argp);
+    }
+  return eslOK;
+}
+
+
+
+/* Function:  esl_printf()
+ * Synopsis:  printf() wrapped in our exception handling
+ * Incept:    SRE, Thu Jun 14 09:17:17 2018 
+ *
+ * Purpose:   <printf()> wrapped in Easel exception handling. 
+ *
+ *            Rarely and insidiously, <printf()> can fail -- for
+ *            example, when output is redirected to a file and a disk
+ *            fills up. Every <printf()> needs to guard against this,
+ *            else output could silently fail. It seems slightly
+ *            cleaner to use Easel's idiomatic:
+ *
+ *            ```
+ *               if ((status = esl_printf(...)) != eslOK) return status; // no cleanup
+ *               if ((status = esl_printf(...)) != eslOK) goto ERROR;    // with cleanup
+ *            ```
+ *
+ *            as opposed to having to invoke
+ *            <ESL_EXCEPTION_SYS(eslEWRITE, "write failed")> each
+ *            time.
+ *
+ * Returns:   <eslOK> on success. 
+ *
+ * Throws:    <eslEWRITE> on failure.
+ */
+int
+esl_printf(const char *format, ...)
+{
+  if (format)
+    {
+      va_list argp;
+      va_start(argp, format);
+      if ( vprintf(format, argp) < 0 ) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
+      va_end(argp);
+    }
+  return eslOK;
+}
+
+
+
+
+
+
 
 /* Function: esl_strdup()
  *
@@ -1995,7 +2067,7 @@ esl_tmpfile_named(char *basename6X, FILE **ret_fp)
 
   *ret_fp = NULL;
   old_mode = umask(077);
-  if ((fd = mkstemp(basename6X)) <  0)    return eslFAIL;
+  if ((fd = mkstemp(basename6X)) <  0)  return eslFAIL;
   umask(old_mode);
   if ((fp = fdopen(fd, "w+b")) == NULL) return eslFAIL;
 
@@ -2068,7 +2140,8 @@ esl_getcwd(char **ret_cwd)
  * 8. Typed comparison routines.
  *****************************************************************/
 
-/* Function:  esl_DCompare()
+/* Function:  esl_{DF}Compare()
+ * OBSOLETE. Use esl_{DF}CompareNew() instead.
  *
  * Purpose:   Compare two floating point scalars <a> and <b> for approximate equality.
  *            Return <eslOK> if equal, <eslFAIL> if not.
@@ -2109,6 +2182,7 @@ esl_FCompare(float a, float b, float tol)
 }
 
 /* Function:  esl_DCompareAbs()
+ * OBSOLETE. Use esl_{DF}CompareNew() instead.
  *
  * Purpose:   Compare two floating point scalars <a> and <b> for
  *            approximate equality, by absolute difference.  Return
@@ -2148,6 +2222,78 @@ esl_FCompareAbs(float a, float b, float tol)
   return eslFAIL;
 }
 
+
+/* Function:  esl_{DF}CompareNew()
+ * Synopsis:  Compare floating point values for approximate equality, better version.
+ * Incept:    SRE, Thu 19 Jul 2018 [Benasque]
+ *
+ * Purpose:   Return <eslOK> if <x0> and <x> are approximately equal within
+ *            relative tolerance tolerance <r_tol> and absolute
+ *            tolerance <a_tol>;  <eslFAIL> if not.
+ *            
+ *            Equality is defined as $|x0-x| < |x0|*r_tol + a_tol$.
+ *            
+ *            <x0> is the reference value: the true value or the
+ *            better estimate. For example, in an iterative
+ *            optimization, if you are comparing a new (better)
+ *            estimate $x_i$ to a previous (worse) estimate $x_{i-1}$,
+ *            <x0> is the new, <x> is the old.
+ *
+ *            Tolerances <r_tol> and <a_tol> must be $\geq 0$. For a
+ *            strictly relative tolerance test, use <a_tol=0>; for
+ *            strict absolute tolerance, use <r_tol=0>.
+ *            
+ *            "Approximate equality" in floating point math: here be
+ *            dragons. Usually you want to compare floating point
+ *            values by their relative difference <r_tol>. An <r_tol>
+ *            of $1e-5$ essentially means they agree up to their first
+ *            five digits, regardless of absolute magnitude. However,
+ *            relative difference fails for <x0 ~ 0>.  Using both
+ *            <r_tol> and <a_tol>, there is a switch at <|x0| = a_tol
+ *            / r_tol>: above this |x0|, <rtol> dominates, and below
+ *            it, <a_tol> does. You typically want <a_tol << r_tol>,
+ *            so the switchover only happens close to zero.
+ *            
+ *            In floating point math, the smallest possible |x0-x| is
+ *            on the order of |x0| times machine epsilon, where
+ *            <DBL_EPSILON> is 2.2e-16 and <FLT_EPSILON> is 1.2e-7, so
+ *            it does not make sense to set <a_tol> smaller than this.
+ *            (If you do, the function will require exact equality.)
+ *            
+ *            Special values follow IEEE754 floating point exact
+ *            comparison rules; <a_tol> and <r_tol> have no
+ *            effect. Any comparison involving <NaN> is
+ *            <eslFAIL>. Equal-signed infinities are <eslOK>:
+ *            <inf==inf>, <-inf==-inf>.
+
+ *            Note that <eslOK> has value 0, not TRUE, so you don't want to
+ *            write code like <if (esl_DCompare()) ...>; you want to
+ *            test explicitly against <eslOK>.
+ *
+ * Args:      x0    - reference value to compare against (either true, or better estimate)
+ *            x     - test value 
+ *            r_tol - relative tolerance
+ *            a_tol - absolute tolerance
+ *
+ * Returns:   <eslOK> if <x0> and <x> are approximately equal.
+ *            <eslFAIL> if not.
+ *
+ * Xref:      H5/116
+ */
+int
+esl_DCompareNew(double x0, double x, double r_tol, double a_tol)
+{
+  if (isfinite(x0)) { if (fabs(x0 - x) <= r_tol * fabs(x0) + a_tol) return eslOK; }
+  else              { if (x0 == x) return eslOK; }                                   // inf=inf, -inf=-inf;  -inf!=inf, NaN!=(inf,-inf,NaN)
+  return eslFAIL;
+}
+int
+esl_FCompareNew(float x0, float x, float r_tol, float a_tol)
+{
+  if (isfinite(x0)) { if (fabs(x0 - x) <= r_tol * fabs(x0) + a_tol) return eslOK; }
+  else              { if (x0 == x) return eslOK; }                                   
+  return eslFAIL;
+}
 
 
 
@@ -2299,7 +2445,6 @@ utest_strtok(void)
   if (*s != '\0')                                                    esl_fatal(msg);
 
   free(teststring);
-  return;
 }
   
 static void
@@ -2348,7 +2493,6 @@ utest_FileExists(void)
 
   remove(tmpfile);
   if (esl_FileExists(tmpfile))   esl_fatal(msg);
-  return;
 }
 
 static void
@@ -2367,8 +2511,50 @@ utest_tmpfile_named(void)
   if (strcmp(buf, "Unit test.\n")  != 0)     esl_fatal(msg);
   fclose(fp);
   remove(tmpfile);
-  return;
 }
+
+static void
+utest_compares(void)
+{
+  char msg[] = "easel utest_compares failed";
+
+  // if (esl_DCompare(-eslINFINITY, eslINFINITY, 1e-5) != eslFAIL) esl_fatal(msg);   /* -inf != inf */
+  // if (esl_DCompare(eslNaN, eslNaN, 1e-5) != eslFAIL) esl_fatal(msg);              /* NaN fails in any comparison */
+  if (esl_DCompare(0.,           eslNaN,        1e-12) != eslFAIL) esl_fatal(msg);
+  if (esl_DCompare(eslNaN,       0.,            1e-12) != eslFAIL) esl_fatal(msg);
+  //  if (esl_DCompare(eslINFINITY,  eslINFINITY,   1e-12) != eslFAIL) esl_fatal(msg);  
+
+  if (esl_DCompareNew(-eslINFINITY, eslINFINITY,   1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   // -inf != inf
+  if (esl_DCompareNew(eslINFINITY,  eslINFINITY,   1e-12, 1e-16) != eslOK)   esl_fatal(msg);   // inf = inf,  even though rel and abs diff = inf!
+  if (esl_DCompareNew(-eslINFINITY,-eslINFINITY,   1e-12, 1e-16) != eslOK)   esl_fatal(msg);   
+  if (esl_DCompareNew(eslNaN,       eslNaN,        1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   // NaN fails in any comparison 
+  if (esl_DCompareNew(0.,           eslNaN,        1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   
+  if (esl_DCompareNew(eslNaN,       0.,            1e-12, 1e-16) != eslFAIL) esl_fatal(msg);
+  if (esl_DCompareNew(0.,           1e-17,         1e-12, 1e-16) != eslOK)   esl_fatal(msg);
+
+
+  /* exact comparisons with zero tolerance: eslOK unless a NaN is involved */
+  if (esl_DCompareNew(0.,             0.0,           0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_DCompareNew(eslINFINITY,   eslINFINITY,    0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_DCompareNew(-eslINFINITY, -eslINFINITY,    0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_DCompareNew(eslNaN,        eslNaN,         0.0,   0.0) != eslFAIL) esl_fatal(msg);  
+
+  /* float versions */
+  if (esl_FCompareNew(-eslINFINITY, eslINFINITY,    1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   
+  if (esl_FCompareNew(eslINFINITY,  eslINFINITY,    1e-6, 1e-10) != eslOK)   esl_fatal(msg);   
+  if (esl_FCompareNew(-eslINFINITY,-eslINFINITY,    1e-6, 1e-10) != eslOK)   esl_fatal(msg);   
+  if (esl_FCompareNew(eslNaN,       eslNaN,         1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   
+  if (esl_FCompareNew(0.,           eslNaN,         1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   
+  if (esl_FCompareNew(eslNaN,       0.,             1e-6, 1e-10) != eslFAIL) esl_fatal(msg);
+  if (esl_FCompareNew(0.,           1e-11,          1e-6, 1e-10) != eslOK)   esl_fatal(msg);
+
+  if (esl_FCompareNew(0.,            0.0,            0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_FCompareNew(eslINFINITY,   eslINFINITY,    0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_FCompareNew(-eslINFINITY, -eslINFINITY,    0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_FCompareNew(eslNaN,        eslNaN,         0.0,   0.0) != eslFAIL) esl_fatal(msg);  
+}
+
+
 
 #endif /*eslEASEL_TESTDRIVE*/
 
@@ -2396,6 +2582,8 @@ int main(void)
   utest_sprintf();
   utest_FileExists();
   utest_tmpfile_named();
+  utest_compares();
+  
   return eslOK;
 }
 #endif /*eslEASEL_TESTDRIVE*/

@@ -452,7 +452,6 @@ esl_mixgev_Sample(ESL_RANDOMNESS *r, ESL_MIXGEV *mg)
 struct mixgev_data {
   double *x;
   int     n;
-  double *wrk;	    /* workspace vector               [0..K-1]*/
   ESL_MIXGEV *mg;
 };
 
@@ -629,56 +628,48 @@ esl_mixgev_FitGuess(ESL_RANDOMNESS *r, double *x, int n, ESL_MIXGEV *mg)
 int
 esl_mixgev_FitComplete(double *x, int n, ESL_MIXGEV *mg)
 {
+  ESL_MIN_CFG *cfg = NULL;
   struct mixgev_data data;
   int     status;
   double *p = NULL;
-  double *u = NULL;
-  double *wrk = NULL;
-  double  tol;
   int     np;
   double  fx;
   int     k;
   int     i;
 
-  tol = 1e-6;
-
-  /* Determine number of free parameters and allocate 
-   */
+  /* Determine number of free parameters and allocate  */
   np = mg->K-1;			/* K-1 mix coefficients free */
   for (k = 0; k < mg->K; k++)
     np += (mg->isgumbel[k])? 2 : 3;
   ESL_ALLOC(p,   sizeof(double) * np);
-  ESL_ALLOC(u,   sizeof(double) * np);
-  ESL_ALLOC(wrk, sizeof(double) * np * 4);
+
+  /* Customize the minimizer */
+  cfg = esl_min_cfg_Create(np);
+  cfg->cg_rtol = 1e-6;
+  i = 0;
+  for (k = 1; k < mg->K; k++) cfg->u[i++] = 1.0;
+  for (k = 0; k < mg->K; k++)
+    {
+      cfg->u[i++] = 1.0;
+      cfg->u[i++] = 1.0;
+      if (! mg->isgumbel[k]) cfg->u[i++] = 0.02;
+    }
+  ESL_DASSERT1( (np == i) );
+
 
   /* Copy shared info into the "data" structure
    */
   data.x   = x;
   data.n   = n;
-  data.wrk = wrk;
   data.mg  = mg;
 
   /* From mg, create the parameter vector.
    */
   mixgev_pack_paramvector(p, np, mg);
 
-  /* Define the step size vector u.
-   */
-  i = 0;
-  for (k = 1; k < mg->K; k++) u[i++] = 1.0;
-  for (k = 0; k < mg->K; k++)
-    {
-      u[i++] = 1.0;
-      u[i++] = 1.0;
-      if (! mg->isgumbel[k]) u[i++] = 0.02;
-    }
-  ESL_DASSERT1( (np == i) );
-
-  /* Feed it all to the mighty optimizer.
-   */
-
-  status = esl_min_ConjugateGradientDescent(p, u, np, &mixgev_complete_func, NULL,
-					    (void *) (&data), tol, wrk, &fx);
+  /* Feed it all to the mighty optimizer. */
+  status = esl_min_ConjugateGradientDescent(cfg, p, np, &mixgev_complete_func, NULL,
+					    (void *) (&data), &fx, NULL);
   if (status != eslOK) goto ERROR;
 
   /* Convert the final parameter vector back to a mixture GEV
@@ -686,14 +677,12 @@ esl_mixgev_FitComplete(double *x, int n, ESL_MIXGEV *mg)
   mixgev_unpack_paramvector(p, np, mg);
   
   free(p);
-  free(u);
-  free(wrk);
+  esl_min_cfg_Destroy(cfg);
   return eslOK;
 
  ERROR:
-  if (p != NULL)   free(p);
-  if (u != NULL)   free(u);
-  if (wrk != NULL) free(wrk);
+  free(p);
+  esl_min_cfg_Destroy(cfg);
   return status;
 }
 /*--------------------------- end fitting ----------------------------------*/

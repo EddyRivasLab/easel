@@ -1515,15 +1515,9 @@ msa_median_length(ESL_MSA *msa)
     esl_sq_GetFromMSA(msa, i, sq);
     len[i] = sq->n;
     esl_sq_Reuse(sq);
-    /* printf("i: %d len: %d\n", i, len[i]);*/
   }
 
   qsort(len, msa->nseq, sizeof(int), compare_ints);
-
-  /* for (i = 0; i < msa->nseq; i++) {
-    printf("i: %d len: %d\n", i, len[i]);
-  }
-  */
 
   median = len[msa->nseq / 2];
   free(len);
@@ -1533,7 +1527,7 @@ msa_median_length(ESL_MSA *msa)
 
  ERROR:
   esl_fatal("msa_median_length() memory allocation error.");
-  return 0.; /* NEVERREACHED */
+  return 0.; /*NOTREACHED*/
 }
 
 

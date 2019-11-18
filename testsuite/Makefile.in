@@ -28,12 +28,15 @@ endif
 .PHONY: check dcheck clean distclean
 
 check:
+	@command -v python3 >/dev/null 2>&1 || { echo >&2 "python3 is required for 'make check', but is not in your PATH. Aborting."; exit 1; }
 	@echo 
 	@echo Running Easel test suite...
 	@echo
 	@${srcdir}/../devkit/sqc ${SQCLEVEL} ${srcdir}/testsuite.sqc .. ${srcdir}/..
 
 dcheck: 
+	@command -v python3 >/dev/null 2>&1 || { echo >&2 "python3 is required for 'make dcheck', but is not in your PATH. Aborting."; exit 1; }
+	@echo
 	@echo    Running developer testsuite...
 	@echo -n Compiling for unit tests and valgrind tests...
 	@(cd ..; make clean > /dev/null; testsuite/${top_srcdir}/configure --enable-debugging >/dev/null; make dev > /dev/null)       

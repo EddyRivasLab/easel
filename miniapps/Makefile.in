@@ -56,6 +56,7 @@ PROGS = esl-afetch\
 	esl-construct\
 	esl-histplot\
 	esl-mask\
+	esl-mixdchlet\
 	esl-reformat\
 	esl-selectn\
 	esl-seqrange\
@@ -65,6 +66,11 @@ PROGS = esl-afetch\
 	esl-ssdraw\
         esl-translate\
 	esl-weight
+
+SUBCMDOBJS = \
+	cmd_alistat.o    \
+	cmd_downsample.o \
+	cmd_filter.o
 
 # beautification magic stolen from git 
 #
@@ -82,15 +88,22 @@ endif
 
 .PHONY: all dev tests check install uninstall clean distclean 
 
-all: 	${PROGS}
-dev:    ${PROGS}
-tests:  ${PROGS}
-check:  ${PROGS}
+all: 	${PROGS} easel
+dev:    ${PROGS} easel
+tests:  ${PROGS} easel
+check:  ${PROGS} easel
+
+easel:  % : %.c ../libeasel.a ${SUBCMDOBJS}
+	${QUIET_GEN}${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ $< ${SUBCMDOBJS} ${LIBS}
 
 ${PROGS}: % : %.c ../libeasel.a 
 	${QUIET_GEN}${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ $< ${LIBS}
 
+${SUBCMDOBJS}: %.o : %.c ../libeasel.a
+	${QUIET_CC}${CC} -I. -I.. -I${srcdir} -I${srcdir}/.. ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} -c $<
+
 install: ${PROGS} 
+	${INSTALL} -m 0755 easel ${DESTDIR}${bindir}/
 	for file in ${PROGS}; do \
 	   ${INSTALL} -m 0755 $$file ${DESTDIR}${bindir}/ ;\
 	done
@@ -99,6 +112,7 @@ install: ${PROGS}
 	done
 
 uninstall:
+	rm ${DESTDIR}${bindir}/easel
 	for file in $(PROGS); do \
 	   rm ${DESTDIR}${bindir}/$$file ;\
 	done
@@ -107,7 +121,7 @@ uninstall:
 	done
 
 clean:
-	-rm -f ${PROGS}
+	-rm -f ${PROGS} easel
 	-rm -f *.o *~
 	-rm -f *.gcno *.gcda *.gcov
 	-rm -f TAGS

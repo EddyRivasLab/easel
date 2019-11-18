@@ -898,6 +898,7 @@ utest_gibberish(ESL_RANDOMNESS *rng)
   if ( esl_msa_Compare(msa, msa2)                                          != eslOK) esl_fatal(msg);
   esl_msafile_Close(msafp);
 
+  remove(a2mfile);
   esl_msa_Destroy(msa);
   esl_msa_Destroy(msa2);
   esl_alphabet_Destroy(abc);

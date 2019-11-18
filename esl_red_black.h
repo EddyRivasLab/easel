@@ -28,6 +28,13 @@ typedef struct esl_red_black_doublekey_s {
 // it was unable to allocate memory
 ESL_RED_BLACK_DOUBLEKEY * esl_red_black_doublekey_Create();
 
+
+// Destroys an ESL_RED_BLACK_DOUBLEKEY object by recursively freeing all of the nodes in the tree
+void esl_red_black_doublekey_Destroy(ESL_RED_BLACK_DOUBLEKEY *tree);
+
+// Destroys an ESL_RED_BLACK_DOUBLEKEY tree that has been converted into a doubly-linked list
+void esl_red_black_doublekey_linked_list_Destroy(ESL_RED_BLACK_DOUBLEKEY *head, ESL_RED_BLACK_DOUBLEKEY *tail);
+
 // Creates and initializes <number> esl_red_black_doublekey objects, links them into a list
 // using their larger pointers, and returns a pointer to the head of the list.  Allocates
 // all of the memory required in one malloc, so should be faster than calling

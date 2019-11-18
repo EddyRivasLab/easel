@@ -18,7 +18,7 @@ esl\-sfetch \- retrieve (sub-)sequences from a sequence file
 \fBesl\-sfetch \-Cf \fR[\fIoptions\fR] \fIseqfile subseq\-coord\-file\fR
   (retrieve multiple subsequences using file of keys and coords)
 
-\fBesl\-afetch \-\-index\fR\fI msafile\fR
+\fBesl\-sfetch \-\-index\fR\fI msafile\fR
   (index a sequence file for retrievals)
 .fi
 

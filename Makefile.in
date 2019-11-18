@@ -58,6 +58,7 @@ man1ext     = .1
 CC             = @CC@
 CFLAGS         = @CFLAGS@ 
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@ 
+PIC_CFLAGS     = @PIC_CFLAGS@
 SSE_CFLAGS     = @SSE_CFLAGS@ @SSE4_CFLAGS@
 AVX_CFLAGS     = @AVX_CFLAGS@
 AVX512_CFLAGS  = @AVX512_CFLAGS@
@@ -75,7 +76,6 @@ COMPRESS = gzip
 AR       = @AR@
 RANLIB   = @RANLIB@
 INSTALL  = @INSTALL@
-
 
 
 # beautification magic, stolen from git
@@ -100,6 +100,7 @@ HDRS = 	easel.h\
 	esl_alphabet.h\
 	esl_arr2.h\
 	esl_arr3.h\
+	esl_bitfield.h\
 	esl_avx.h\
 	esl_avx512.h\
 	esl_buffer.h\
@@ -116,15 +117,19 @@ HDRS = 	easel.h\
 	esl_gencode.h\
 	esl_getopts.h\
 	esl_gev.h\
+	esl_graph.h\
 	esl_gumbel.h\
 	esl_heap.h\
 	esl_histogram.h\
 	esl_hmm.h\
 	esl_huffman.h\
 	esl_hyperexp.h\
+	esl_json.h\
 	esl_keyhash.h\
+	esl_matrixops.h\
 	esl_mem.h\
 	esl_minimizer.h\
+	esl_mixdchlet.h\
 	esl_mixgev.h\
 	esl_mpi.h\
 	esl_msa.h\
@@ -145,6 +150,7 @@ HDRS = 	easel.h\
 	esl_quicksort.h\
 	esl_paml.h\
 	esl_random.h\
+	esl_rand64.h\
 	esl_randomseq.h\
 	esl_ratematrix.h\
 	esl_recorder.h\
@@ -162,8 +168,10 @@ HDRS = 	easel.h\
 	esl_stats.h\
 	esl_stopwatch.h\
 	esl_stretchexp.h\
+	esl_subcmd.h\
 	esl_threads.h\
 	esl_tree.h\
+	esl_varint.h\
 	esl_vectorops.h\
 	esl_vmx.h\
 	esl_weibull.h\
@@ -175,6 +183,7 @@ OBJS =	easel.o\
 	esl_alphabet.o\
 	esl_arr2.o\
 	esl_arr3.o\
+	esl_bitfield.o\
 	esl_buffer.o\
 	esl_cluster.o\
 	esl_composition.o\
@@ -189,15 +198,19 @@ OBJS =	easel.o\
 	esl_gencode.o\
 	esl_getopts.o\
 	esl_gev.o\
+	esl_graph.o\
 	esl_gumbel.o\
 	esl_heap.o\
 	esl_histogram.o\
 	esl_hmm.o\
 	esl_huffman.o\
 	esl_hyperexp.o\
+	esl_json.o\
 	esl_keyhash.o\
+	esl_matrixops.o\
 	esl_mem.o\
 	esl_minimizer.o\
+	esl_mixdchlet.o\
 	esl_mixgev.o\
 	esl_mpi.o\
 	esl_msa.o\
@@ -217,6 +230,7 @@ OBJS =	easel.o\
 	esl_paml.o\
 	esl_quicksort.o\
 	esl_random.o\
+	esl_rand64.o\
 	esl_randomseq.o\
 	esl_ratematrix.o\
 	esl_recorder.o\
@@ -233,8 +247,10 @@ OBJS =	easel.o\
 	esl_stats.o\
 	esl_stopwatch.o\
 	esl_stretchexp.o\
+	esl_subcmd.o\
 	esl_threads.o\
 	esl_tree.o\
+	esl_varint.o\
 	esl_vectorops.o\
 	esl_weibull.o\
 	esl_workqueue.o\
@@ -264,6 +280,7 @@ UTESTS =\
 	easel_utest\
 	esl_alloc_utest\
 	esl_alphabet_utest\
+	esl_bitfield_utest\
 	esl_buffer_utest\
 	esl_cluster_utest\
 	esl_cpu_utest\
@@ -276,14 +293,19 @@ UTESTS =\
 	esl_gamma_utest\
 	esl_gencode_utest\
 	esl_getopts_utest\
+	esl_graph_utest\
 	esl_gumbel_utest\
 	esl_heap_utest\
 	esl_histogram_utest\
 	esl_hmm_utest\
 	esl_huffman_utest\
 	esl_hyperexp_utest\
+	esl_json_utest\
 	esl_keyhash_utest\
+	esl_matrixops_utest\
 	esl_mem_utest\
+	esl_minimizer_utest\
+	esl_mixdchlet_utest\
 	esl_msa_utest\
 	esl_msacluster_utest\
 	esl_msafile_utest\
@@ -299,6 +321,7 @@ UTESTS =\
 	esl_normal_utest\
 	esl_quicksort_utest\
 	esl_random_utest\
+	esl_rand64_utest\
 	esl_randomseq_utest\
 	esl_ratematrix_utest\
 	esl_red_black_utest\
@@ -313,11 +336,11 @@ UTESTS =\
 	esl_stats_utest\
 	esl_stretchexp_utest\
 	esl_tree_utest\
+	esl_varint_utest\
 	esl_vectorops_utest\
 	esl_weibull_utest\
 	esl_wuss_utest
 #	gev_utest\
-#	minimizer_utest\
 #	mixgev_utest\
 #	mpi_utest\
 #	paml_utest\
@@ -367,7 +390,8 @@ BENCHMARKS =\
 	esl_buffer_benchmark  \
 	esl_keyhash_benchmark \
 	esl_mem_benchmark     \
-	esl_random_benchmark
+	esl_random_benchmark  \
+	esl_rand64_benchmark
 
 SSE_BENCHMARKS     = esl_sse_benchmark
 AVX_BENCHMARKS     = esl_avx_benchmark
@@ -421,8 +445,10 @@ EXAMPLES = \
         esl_hmm_example\
 	esl_huffman_example\
         esl_hyperexp_example\
+	esl_json_example\
         esl_keyhash_example\
         esl_minimizer_example\
+	esl_mixdchlet_example\
         esl_mixgev_example\
         esl_msafile_example\
 	esl_msafile_a2m_example\
@@ -444,6 +470,7 @@ EXAMPLES = \
         esl_msaweight_example\
         esl_normal_example\
         esl_random_example\
+        esl_rand64_example\
 	esl_regexp_example\
 	esl_regexp_example2\
 	esl_regexp_example3\
@@ -466,6 +493,7 @@ EXAMPLES = \
         esl_threads_example2\
         esl_tree_example\
         esl_tree_example2\
+	esl_varint_example\
         esl_vectorops_example\
         esl_weibull_example\
         esl_workqueue_example
@@ -504,11 +532,13 @@ tests:  ${ALL_UTESTS}
 	${QUIET_SUBDIR0}miniapps ${QUIET_SUBDIR1} tests
 
 check:  ${ALL_UTESTS} .FORCE
+	@command -v python3 >/dev/null 2>&1 || { echo >&2 "python3 is required for 'make check', but is not in your PATH. Aborting."; exit 1; }
 	${QUIET_SUBDIR0}miniapps  ${QUIET_SUBDIR1} check
 	${QUIET_SUBDIR0}testsuite ${QUIET_SUBDIR1} check
 
 # `make dcheck`: run developer testsuite, save output in testsuite/dcheck.report
 dcheck:
+	@command -v python3 >/dev/null 2>&1 || { echo >&2 "python3 is required for 'make dcheck', but is not in your PATH. Aborting."; exit 1; }
 	${QUIET_SUBDIR0}testsuite   ${QUIET_SUBDIR1} dcheck
 
 pdf:
@@ -519,7 +549,7 @@ libeasel.a:  ${ALL_OBJS}
 	@${RANLIB} libeasel.a
 
 ${ALL_OBJS}: %.o : %.c ${HDRS} esl_config.h
-	${QUIET_CC}${CC} -I. -I${srcdir} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} -c $<
+	${QUIET_CC}${CC} -I. -I${srcdir} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} -c $<
 
 
 # Driver compilation:
@@ -543,10 +573,10 @@ ${ALL_UTESTS}:  libeasel.a
 	   else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi;\
 	if test ${V} ;\
-	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${UTEST_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
+	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${UTEST_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
+	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
 ${ALL_BENCHMARKS}: libeasel.a
 	@BASENAME=`echo $@ | sed -e 's/_benchmark//'| sed -e 's/^esl_//'` ;\
@@ -557,10 +587,10 @@ ${ALL_BENCHMARKS}: libeasel.a
 	   else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi;\
 	if test ${V} ;\
-	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
+	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
+	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
 ${ALL_EXPERIMENTS}: libeasel.a
 	@BASENAME=`echo $@ | sed -e 's/_experiment//'| sed -e 's/^esl_//'` ;\
@@ -571,10 +601,10 @@ ${ALL_EXPERIMENTS}: libeasel.a
 	   else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi;\
 	if test ${V} ;\
-	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
+	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
+	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
 ${ALL_EXAMPLES}: libeasel.a
 	@BASENAME=`echo $@ | sed -e 's/_example[0-9]*//'| sed -e 's/^esl_//'` ;\
@@ -584,10 +614,10 @@ ${ALL_EXAMPLES}: libeasel.a
            else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi ;\
 	if test ${V}; \
-	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
+	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
+	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
 
 

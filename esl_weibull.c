@@ -358,11 +358,8 @@ esl_wei_FitComplete(double *x, int n, double *ret_mu,
 {
   struct wei_data data;
   double p[2];			/* parameter vector                  */
-  double u[2];			/* max initial step size vector      */
-  double wrk[8];		/* 4 tmp vectors of length 2         */
   double mean;
   double mu, lambda, tau;      	/* initial param guesses             */
-  double tol = 1e-6;		/* convergence criterion for CG      */
   double fx;			/* f(x) at minimum; currently unused */
   int    status;
 
@@ -387,15 +384,10 @@ esl_wei_FitComplete(double *x, int n, double *ret_mu,
   p[0] = log(lambda);		
   p[1] = log(tau);
 
-  u[0] = 1.0;
-  u[1] = 1.0;
-
-  /* pass problem to the optimizer
-   */
-  status = esl_min_ConjugateGradientDescent(p, u, 2, 
+  /* pass problem to the optimizer  */
+  status = esl_min_ConjugateGradientDescent(NULL, p, 2, 
 					    &wei_func, NULL,
-					    (void *)(&data),
-					    tol, wrk, &fx);
+					    (void *)(&data), &fx, NULL);
   *ret_mu     = mu;
   *ret_lambda = exp(p[0]);
   *ret_tau    = exp(p[1]);
@@ -482,15 +474,12 @@ esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double *ret_mu,
 {
   struct wei_binned_data data;
   double p[2];			/* parameter vector                  */
-  double u[2];			/* max initial step size vector      */
-  double wrk[8];		/* 4 tmp vectors of length 2         */
   double mean;
   double mu, lambda, tau;      	/* initial param guesses             */
-  double tol = 1e-6;		/* convergence criterion for CG      */
   double fx;			/* f(x) at minimum; currently unused */
-  int    status;
   int    i;
   double ai;
+  int    status;
 
   /* Set the fixed mu.
    * Make a good initial guess of lambda, based on exponential fit.
@@ -523,15 +512,11 @@ esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double *ret_mu,
   p[0] = log(lambda);		
   p[1] = log(tau);
 
-  u[0] = 1.0;
-  u[1] = 1.0;
-
   /* pass problem to the optimizer
    */
-  status = esl_min_ConjugateGradientDescent(p, u, 2, 
+  status = esl_min_ConjugateGradientDescent(NULL, p, 2, 
 					    &wei_binned_func, NULL,
-					    (void *)(&data),
-					    tol, wrk, &fx);
+					    (void *)(&data), &fx, NULL);
   *ret_mu     = mu;
   *ret_lambda = exp(p[0]);
   *ret_tau    = exp(p[1]);

@@ -52,10 +52,6 @@
 # 2.63 was released in 2008.
 AC_PREREQ(2.63)
 
-m4_include([m4/ax_check_gnu_make.m4])
-
-m4_include([m4/ax_compiler_vendor.m4])
-m4_include([m4/ax_check_compile_flag.m4])
 m4_include([m4/ax_gcc_func_attribute.m4])
 
 m4_include([m4/esl_sse.m4])
@@ -68,11 +64,12 @@ m4_include([m4/esl_vmx.m4])
 m4_include([m4/ax_mpi.m4])
 m4_include([m4/ax_pthread.m4])
 
+m4_include([m4/esl_pic_flags.m4])
 
 ################################################################
 # 2. AC_INIT
 ################################################################
-AC_INIT(Easel, 0.45h, sean@eddylab.org, easel)
+AC_INIT(Easel, 0.46, sean@eddylab.org, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
 # remember if the user is overriding CFLAGS
@@ -109,8 +106,8 @@ fi
 #     EASEL_VERSION    e.g. "1.9a"
 #
 
-EASEL_DATE="June 2018"
-EASEL_COPYRIGHT="Copyright (C) 2018 Howard Hughes Medical Institute"
+EASEL_DATE="Nov 2019"
+EASEL_COPYRIGHT="Copyright (C) 2019 Howard Hughes Medical Institute"
 EASEL_LICENSE="Freely distributed under the BSD open source license."
 EASEL_VERSION=$PACKAGE_VERSION
 EASEL_URL="http://bioeasel.org/"
@@ -121,10 +118,12 @@ AC_SUBST(EASEL_LICENSE)
 AC_SUBST(EASEL_VERSION)
 AC_SUBST(EASEL_URL)
 
-AC_DEFINE_UNQUOTED([EASEL_DATE],      ["$EASEL_DATE"],      [Release date])
-AC_DEFINE_UNQUOTED([EASEL_COPYRIGHT], ["$EASEL_COPYRIGHT"], [Brief copyright statement])
-AC_DEFINE_UNQUOTED([EASEL_LICENSE],   ["$EASEL_LICENSE"],   [Brief license statement])
-AC_DEFINE_UNQUOTED([EASEL_VERSION],   ["$EASEL_VERSION"],   [Version number])
+AC_DEFINE_UNQUOTED([EASEL_DATE],      ["$EASEL_DATE"],      [Easel release date])
+AC_DEFINE_UNQUOTED([EASEL_COPYRIGHT], ["$EASEL_COPYRIGHT"], [Easel brief copyright statement])
+AC_DEFINE_UNQUOTED([EASEL_LICENSE],   ["$EASEL_LICENSE"],   [Easel brief license statement])
+AC_DEFINE_UNQUOTED([EASEL_VERSION],   ["$EASEL_VERSION"],   [Easel version number])
+AC_DEFINE_UNQUOTED([EASEL_URL],       ["$EASEL_URL"],       [Easel web URL])
+
 
 # Figure out what host we're compiling on.
 # Three GNU scripts must be included in the distro: 
@@ -178,7 +177,10 @@ AC_ARG_ENABLE(vmx,     [AS_HELP_STRING([--enable-vmx],     [enable our Altivec/V
 AC_ARG_ENABLE(threads, [AS_HELP_STRING([--enable-threads], [enable POSIX threads parallelization])],    enable_threads=$enableval, enable_threads=check)
 AC_ARG_ENABLE(mpi,     [AS_HELP_STRING([--enable-mpi],     [enable MPI parallelization])],              enable_mpi=$enableval,     enable_mpi=no)
 
+AC_ARG_ENABLE(pic,     [AS_HELP_STRING([--enable-pic],     [enable position-independent code])],        enable_pic=$enableval,     enable_pic=no)
+
 AC_ARG_WITH(gsl,       [AS_HELP_STRING([--with-gsl],       [use the GSL, GNU Scientific Library])],     with_gsl=$withval,         with_gsl=no)
+
 
 
 
@@ -188,18 +190,11 @@ AC_ARG_WITH(gsl,       [AS_HELP_STRING([--with-gsl],       [use the GSL, GNU Sci
 ################################################################
 
 AC_PROG_CC
+AC_PROG_CC_STDC
 AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_RANLIB
 AC_PATH_PROG([AR], [ar], [:], [$PATH:/usr/ccs/bin:/usr/xpg4/bin])
-
-
-# AC_PROG_CC_STDC wants to append -c99 to icc; icc doesn't like this.
-# To autodetect icc, we use the AX_COMPILER_VENDOR macro.
-AX_COMPILER_VENDOR
-if test "$ax_cv_c_compiler_vendor" != "intel"; then
-  AC_PROG_CC_STDC
-fi
 
 
 # Select our default optimization flags in CFLAGS.
@@ -230,6 +225,14 @@ fi
 if test "$enable_mpi" = "yes"; then
    AX_MPI(,AC_MSG_ERROR([MPI library not found for --enable-mpi]))
    CC=$MPICC
+fi
+
+
+
+# PIC (position-independent code) for shared library support
+#
+if test "$enable_pic" = "yes"; then
+   ESL_PIC_FLAGS
 fi
 
 
@@ -402,6 +405,13 @@ else
 fi
 
 
+# We need python 3 for 'make check' and some dev tools. sqc checks
+# too, as does the Makefile, but we also check in ./configure, so we
+# don't recommend 'make check' to the user if they can't use it.
+# 
+AC_CHECK_PROG(HAVE_PYTHON3, python3, yes)
+
+
 ################################################################
 # 6. Checks for libraries
 #################################################################
@@ -568,6 +578,7 @@ AC_CONFIG_FILES([ \
   miniapps/esl-construct.man   \
   miniapps/esl-histplot.man    \
   miniapps/esl-mask.man        \
+  miniapps/esl-mixdchlet.man   \
   miniapps/esl-reformat.man    \
   miniapps/esl-selectn.man     \
   miniapps/esl-seqrange.man    \
@@ -605,6 +616,7 @@ PTHREAD_CFLAGS= $PTHREAD_CFLAGS
  AVX512_CFLAGS= $AVX512_CFLAGS
    NEON_CFLAGS= $NEON_CFLAGS
     VMX_CFLAGS= $VMX_CFLAGS
+    PIC_CFLAGS= $PIC_CFLAGS
 
 Vector implementations enabled:
            sse: $enable_sse
@@ -612,8 +624,15 @@ Vector implementations enabled:
            avx: $enable_avx
         avx512: $enable_avx512
           neon: $enable_neon
-           vmx: $enable_vmx
+           vmx: $enable_vmx"
 
-Do 'make' to build Easel.
-Then (optionally) do 'make check' to run self-tests.
-"
+
+if test x"$HAVE_PYTHON3" = x"yes"; then echo "
+Now do 'make' to build Easel, and optionally:
+       'make check' to run self-tests.";
+else echo "
+(No python3 found, so 'make check' is disabled.)
+
+Now do 'make' to build Easel.";
+fi
+

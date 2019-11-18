@@ -13,10 +13,11 @@
 
 /* Version info.
  */
-#undef EASEL_VERSION    
-#undef EASEL_DATE      
-#undef EASEL_COPYRIGHT 
-#undef EASEL_LICENSE   
+#undef EASEL_VERSION
+#undef EASEL_DATE 
+#undef EASEL_COPYRIGHT
+#undef EASEL_LICENSE
+#undef EASEL_URL
 
 /* Debugging/assertion hooks & verbosity level (0=none;3=most verbose) */
 #undef eslDEBUGLEVEL
@@ -30,6 +31,8 @@
 #undef eslENABLE_VMX
 
 #undef eslHAVE_NEON_AARCH64
+
+#undef eslENABLE_CUDA  // Should we build CUDA acceleration?
 
 #undef HAVE_FLUSH_ZERO_MODE        // on x86 platforms: we can turn off denormalized floating point math,
 #undef HAVE_DENORMALS_ZERO_MODE    //   which often incurs performance penalty. See simdvec.md in HMMER.

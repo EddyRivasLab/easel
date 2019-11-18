@@ -1133,11 +1133,18 @@ esl_msafile_Write(FILE *fp, ESL_MSA *msa, int fmt)
  *            alignment format <fmt>, convert it to an <ESL_MSA>.
  *            
  *            For example, 
- *            {\small\begin{verbatim}
- *            esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nseq1 AAAAA\nseq2 AAAAA\n//\n", 
- *                                     eslMSAFILE_STOCKHOLM)
- *            \end{verbatim}}
+ *            ```
+ *              esl_msa_CreateFromString("# STOCKHOLM 1.0\n"
+ *                                       "seq1 AAAAA\n"
+ *                                       "seq2 AAAAA\n"
+ *                                       "//\n", eslMSAFILE_STOCKHOLM);
+ *            ```
  *            creates an ungapped alignment of two AAAAA sequences.
+ *            (Using string concatenation in C99 makes for a cleaner 
+ *            looking multi-line string.)
+ *            
+ *            The <msa> is in text mode. If you want it in digital
+ *            mode, use <esl_msa_Digitize()> on it.
  *
  * Returns:   a pointer to the new <ESL_MSA> on success.
  *

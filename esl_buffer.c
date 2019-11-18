@@ -795,22 +795,24 @@ esl_buffer_SetStableAnchor(ESL_BUFFER *bf, esl_pos_t offset)
  *            anchored, this position ought to be in the current
  *            buffer window. If an anchor is in effect in <bf>, 
  *            <offset> should be at or distal to that anchor.
+ *            
+ *            The buffer's memory and position are not changed yet.  A
+ *            caller can raise an anchor and still assume that the
+ *            buffer contains all data from that anchor, until the
+ *            next call to something that would alter the buffer.
  *
  * Args:      bf      - input buffer
  *            offset  - absolute position in input, <0..len-1>
  *
  * Returns:   <eslOK> on success.
- *
- * Throws:    <eslEINVAL> if <offset> is outside current buffer window,
- *            or if it is proximal to the active anchor in <bf>.
+ * 
+ * Throws:    (none)
  */
 int
 esl_buffer_RaiseAnchor(ESL_BUFFER *bf, esl_pos_t offset)
 {
-  if (offset < bf->baseoffset || offset > bf->baseoffset + bf->n)
-    ESL_EXCEPTION(eslEINVAL, "anchor is outside current buffer window? can't happen.");
-  if (bf->anchor > offset - bf->baseoffset)
-    ESL_EXCEPTION(eslEINVAL, "anchor is proximal to current active anchor");
+  ESL_DASSERT1(( offset >= bf->baseoffset && offset <= bf->baseoffset + bf->n ));
+  ESL_DASSERT1(( bf->anchor <= offset - bf->baseoffset ));
 
   if (bf->anchor ==  offset - bf->baseoffset) {
     bf->nanchor--;
@@ -1596,15 +1598,23 @@ buffer_init_file_slurped(ESL_BUFFER *bf, esl_pos_t filesize)
 {
   int status;
 
-  ESL_ALLOC(bf->mem, sizeof(char) * filesize);
-  bf->balloc = filesize;
+  if (filesize > 0) 
+    {
+      ESL_ALLOC(bf->mem, sizeof(char) * filesize);
+      bf->balloc = filesize;
 
-  bf->n = fread(bf->mem, sizeof(char), filesize, bf->fp);
-  if (bf->n < filesize)
-    ESL_XEXCEPTION(eslESYS, "failed to slurp %s\n", bf->filename);
+      bf->n = fread(bf->mem, sizeof(char), filesize, bf->fp);
+      if (bf->n < filesize)
+	ESL_XEXCEPTION(eslESYS, "failed to slurp %s\n", bf->filename);
+    }
+  else /* empty file, NULL buffer, 0 length */
+    {
+      bf->mem    = NULL;
+      bf->balloc = 0;
+      bf->n      = 0;
+    }
 
   bf->mode_is = eslBUFFER_ALLFILE;
-
   fclose(bf->fp);   /* open fp no longer needed - close it. */
   bf->fp = NULL;
   return eslOK;
@@ -1892,8 +1902,9 @@ buffer_counttok(ESL_BUFFER *bf, const char *sep, esl_pos_t *ret_nc)
 #include "esl_stopwatch.h"
 
 static ESL_OPTIONS options[] = {
-  /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
-  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                            0},
+  /* name                      type   default  env  range togs  reqs  incomp       help                                       docgrp */
+  { "-h",              eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                                0},
+  { "--with-oneread",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "run single slurp times too (<infile> fits in RAM)",  0},
   { 0,0,0,0,0,0,0,0,0,0},
 };
 static char usage[]  = "[-options] <infile>";
@@ -2134,8 +2145,10 @@ main(int argc, char **argv)
   esl_stopwatch_Start(w);  benchmark_mmap               (infile, filesize, counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "mmap():                      ");
   esl_stopwatch_Start(w);  benchmark_buffer_stream_raw  (infile,           counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "ESL_BUFFER (stream, raw):    ");
   esl_stopwatch_Start(w);  benchmark_buffer_raw         (infile,           counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "ESL_BUFFER (mmap, raw):      ");
-  esl_stopwatch_Start(w);  benchmark_one_read           (infile, filesize, counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "one read():                  ");
-  esl_stopwatch_Start(w);  benchmark_one_fread          (infile, filesize, counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "one fread():                 ");
+  if (esl_opt_GetBoolean(go, "--with-oneread")) {
+    esl_stopwatch_Start(w);  benchmark_one_read         (infile, filesize, counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "one read():                  ");
+    esl_stopwatch_Start(w);  benchmark_one_fread        (infile, filesize, counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "one fread():                 ");
+  }
   esl_stopwatch_Start(w);  benchmark_fgets              (infile,           counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "fgets():                     ");
   esl_stopwatch_Start(w);  benchmark_esl_fgets          (infile,           counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "esl_fgets():                 ");
   esl_stopwatch_Start(w);  benchmark_buffer_lines       (infile,           counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "ESL_BUFFER (mmap, lines):    ");

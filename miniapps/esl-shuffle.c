@@ -22,12 +22,11 @@
 
 static char banner[] = "shuffling or generating random sequences";
 static char usage1[] = "   [options] <seqfile>  (shuffles individual sequences)";
-static char usage2[] = "-A [options] <msafile>  (shuffles alignment columnwise)";
-static char usage3[] = "-Q [options] <qrnafile> (shuffles QRNA pairwise alignments)";
-static char usage4[] = "-G [options]            (generates random sequences)";
+static char usage2[] = "-A [options] <msafile>  (shuffles msa columnwise)";
+static char usage3[] = "-G [options]            (generates random sequences)";
 
 
-#define MODE_OPTS "-S,-A,-G,-Q"	           /* toggle group, modes (seqfile, msafile, none) */
+#define MODE_OPTS "-S,-A,-G"	           /* toggle group, modes (seqfile, msafile, none) */
 #define SHUF_OPTS "-m,-d,-k,-0,-1,-r,-w"   /* toggle group, seq shuffling options          */
 #define ALPH_OPTS "--rna,--dna,--amino"    /* toggle group, alphabet type options          */
 
@@ -47,8 +46,9 @@ static ESL_OPTIONS options[] = {
   { "-r",         eslARG_NONE,    FALSE, NULL, NULL, SHUF_OPTS, "-S", NULL, "reverse each input",                                  2 },
   { "-w",         eslARG_INT,     FALSE, NULL,"n>0", SHUF_OPTS, "-S", NULL, "regionally shuffle inputs in window size <n>",        2 },
 
-  /* Options for shuffling multiple alignments column-wise */
+  /* Options for shuffling multiple alignments (default w/ -A is to shuffle columns) */
   { "-b",         eslARG_NONE,    FALSE, NULL, NULL,      NULL, "-A", NULL, "take bootstrapping samples",                          3 },
+  { "-v",         eslARG_NONE,    FALSE, NULL, NULL,      NULL, "-A", NULL, "shuffle residues in each column independently",       3 },
 
   /* Options for generating sequences de novo */
   { "--rna",      eslARG_NONE,"default", NULL, NULL, ALPH_OPTS, "-G", NULL, "generate RNA sequence",                               4 },
@@ -62,8 +62,8 @@ static ESL_OPTIONS options[] = {
   /* "undocumented" options (these are documented w/ command line usage, and implemented as options) */
   { "-S",         eslARG_NONE,"default", NULL, NULL, MODE_OPTS, NULL, NULL, "shuffle individual input sequences",                  99 },
   { "-A",         eslARG_NONE,    FALSE, NULL, NULL, MODE_OPTS, NULL, NULL, "input is an <msafile> to be shuffled by columns",     99 },
-  { "-G",         eslARG_NONE,    FALSE, NULL, NULL, MODE_OPTS, "-L", NULL, "generate de novo (the following options are valid)",  99 },
-  { "-Q",         eslARG_NONE,    FALSE, NULL, NULL, MODE_OPTS, NULL, NULL, "shuffle input QRNA FASTA file",                       99 },
+  { "-G",         eslARG_NONE,    FALSE, NULL, NULL, MODE_OPTS, "-L", NULL, "generate de novo random sequences",                   99 },
+
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
@@ -79,7 +79,6 @@ cmdline_failure(char *argv0, char *format, ...)
   esl_usage(stdout, argv0, usage1);
   esl_usage(stdout, argv0, usage2);
   esl_usage(stdout, argv0, usage3);
-  esl_usage(stdout, argv0, usage4);
   printf("\nTo see more help on available options, do %s -h\n\n", argv0);
   exit(1);
 }
@@ -91,11 +90,12 @@ cmdline_help(char *argv0, ESL_GETOPTS *go)
   esl_usage (stdout, argv0, usage1);
   esl_usage (stdout, argv0, usage2);
   esl_usage (stdout, argv0, usage3);
-  esl_usage (stdout, argv0, usage4);
   puts("\n where general options are:");
   esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
   puts("\n options for shuffling input sequences (default mode):");
   esl_opt_DisplayHelp(stdout, go, 2, 2, 80);
+  puts("\n options for shuffling alignments (-A mode):");
+  esl_opt_DisplayHelp(stdout, go, 3, 2, 80);
   puts("\n options for generating sequences de novo (w/ -G option):");
   esl_opt_DisplayHelp(stdout, go, 4, 2, 80);
   puts("\n other infrequently used options:");
@@ -113,6 +113,7 @@ msa_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 {
   char         *msafile = esl_opt_GetArg(go, 1);
   int           infmt   = eslMSAFILE_UNKNOWN;
+  ESL_ALPHABET *abc     = NULL;
   ESL_MSAFILE  *afp     = NULL;
   ESL_MSA      *msa     = NULL;
   ESL_MSA      *shuf    = NULL;
@@ -120,8 +121,12 @@ msa_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
   int           i;
   int           status;
 
-  if ( (status = esl_msafile_Open(NULL, msafile, NULL, infmt, NULL, &afp)) != eslOK)
-    esl_msafile_OpenFailure(afp, status);
+  if (esl_opt_IsOn(go, "--informat") &&
+      (infmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
+    esl_fatal("%s is not a valid MSA file format for --informat", esl_opt_GetString(go, "--informat"));
+
+  status = esl_msafile_Open(&abc, msafile, NULL, infmt, NULL, &afp);
+  if (status != eslOK) esl_msafile_OpenFailure(afp, status);
   
   while ((status = esl_msafile_Read(afp, &msa)) != eslEOF)
     {
@@ -131,12 +136,13 @@ msa_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 
       for (i = 0; i < N; i++)
 	{
-	  if (esl_opt_GetBoolean(go, "--boot")) esl_msashuffle_Bootstrap(r, msa, shuf);
-	  else                                  esl_msashuffle_Shuffle  (r, msa, shuf);
+	  if      (esl_opt_GetBoolean(go, "-v")) esl_msashuffle_VShuffle (r, msa, shuf);
+	  else if (esl_opt_GetBoolean(go, "-b")) esl_msashuffle_Bootstrap(r, msa, shuf);
+	  else                                   esl_msashuffle_Shuffle  (r, msa, shuf);
 
 	  /* Set the name of the shuffled alignment */
 	  if (msa->name != NULL) {
-	    if (esl_opt_GetBoolean(go, "--boot")) {
+	    if (esl_opt_GetBoolean(go, "-b")) {
 	      if (N > 1) esl_msa_FormatName(shuf, "%s-sample-%d", msa->name, i);
 	      else       esl_msa_FormatName(shuf, "%s-sample",    msa->name);
 	    } else {
@@ -144,7 +150,7 @@ msa_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 	      else       esl_msa_FormatName(shuf, "%s-shuffle",    msa->name);
 	    }
 	  } else {
-	    if (esl_opt_GetBoolean(go, "--boot")) {
+	    if (esl_opt_GetBoolean(go, "-b")) {
 	      if (N > 1) esl_msa_FormatName(shuf, "sample-%d", i);
 	      else       esl_msa_FormatName(shuf, "sample");
 	    } else {
@@ -359,25 +365,19 @@ main(int argc, char **argv)
   r = esl_randomness_Create(esl_opt_GetInteger(go, "--seed"));
 
   /* Hand off execution to one of the three modes */
-  if (esl_opt_GetBoolean(go, "-A"))   /* Alignment shuffling */
+  if (esl_opt_GetBoolean(go, "-A"))   /* Column shuffling ("horizontal") */
     {
-      if (esl_opt_ArgNumber(go) != 1) 
-	cmdline_failure(argv[0], "Incorrect number of command line arguments.\n"); 
-
+      if (esl_opt_ArgNumber(go) != 1) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n"); 
       msa_shuffling(go, r, ofp, outfmt);
     }
   else if (esl_opt_GetBoolean(go, "-G")) /* Sequence generation */
     {
-      if (esl_opt_ArgNumber(go) != 0) 
-	cmdline_failure(argv[0], "Incorrect number of command line arguments.\n"); 
-
+      if (esl_opt_ArgNumber(go) != 0) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n"); 
       seq_generation(go, r, ofp, outfmt);
     }
   else if (esl_opt_GetBoolean(go, "-S")) /* Sequence shuffling */
     {
-      if (esl_opt_ArgNumber(go) != 1) 
-	cmdline_failure(argv[0], "Incorrect number of command line arguments.\n"); 
-
+      if (esl_opt_ArgNumber(go) != 1) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n"); 
       seq_shuffling(go, r, ofp, outfmt);
     }
 

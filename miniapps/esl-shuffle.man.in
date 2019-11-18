@@ -13,17 +13,14 @@ esl\-shuffle \- shuffling sequences or generating random ones
   (generate random sequences)
 
 \fBesl\-shuffle \-A \fR[\fIoptions\fR] \fImsafile\fR
-  (shuffle multiple sequence alignments columnwise)
-
-\fBesl\-shuffle \-Q \fR[\fIoptions\fR] \fIqrna\-alignment\-file\fR
-  (shuffle QRNA pairwise alignments)
+  (shuffle multiple sequence alignments)
 .fi
 
 .SH DESCRIPTION
 
 .PP
 .B esl\-shuffle
-is capable of four different modes of operation.
+has three different modes of operation.
 
 .PP
 By default, 
@@ -59,18 +56,10 @@ option,
 .B esl\-shuffle
 reads one or more multiple alignments from
 .I msafile
-and shuffles them columnwise.
-
-
-.PP 
-Finally, the
-.B \-Q 
-option is for shuffling pairwise alignments in QRNA input files.  A
-QRNA input file is a quasi-FASTA file, where each successive pair of
-sequences is interpreted as a pairwise alignment; sequences may
-contain gap characters (period, dash, or underscore: .\-_) and these
-pairs of sequences must have exactly the same aligned length.
-
+shuffles them, and outputs the shuffled alignments.
+By default, the alignment is shuffled columnwise
+(i.e. column order is permuted).
+Other options are listed below.
 
 
 .SH GENERAL OPTIONS
@@ -151,6 +140,11 @@ residues, preserving exact monoresidue composition in each window.
 .B \-b
 Sample columns with replacement, in order to generate a
 bootstrap-resampled alignment dataset. 
+
+.TP
+.B \-v
+Shuffle residues with each column independently; i.e., permute residue
+order in each column ("vertical" shuffling).
 
 
 .SH SEQUENCE GENERATION OPTIONS

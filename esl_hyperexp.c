@@ -856,47 +856,32 @@ int
 esl_hxp_FitComplete(double *x, int n, ESL_HYPEREXP *h)
 {
   struct hyperexp_data data;
-  int     status;
   double *p   = NULL;
-  double *u   = NULL;
-  double *wrk = NULL;
-  double  tol;
   int     np;
   double  fx;
   int     i;
+  int     status;
 
-  tol = 1e-6;
-
-  /* Determine number of free parameters and allocate 
-   */
+  /* Determine number of free parameters and allocate */
   np = 0;
   if (! h->fixmix) np += h->K-1;  /* K-1 mix coefficients...     */
   for (i = 0; i < h->K; i++)      /* ...and up to K lambdas free */
     if (! h->fixlambda[i]) np++;	
   ESL_ALLOC(p,   sizeof(double) * np);
-  ESL_ALLOC(u,   sizeof(double) * np);
-  ESL_ALLOC(wrk, sizeof(double) * np * 4);
 
-  /* Copy shared info into the "data" structure
-   */
+  /* Copy shared info into the "data" structure */
   data.x   = x;
   data.n   = n;
   data.h   = h;
 
-  /* From h, create the parameter vector.
-   */
+  /* From h, create the parameter vector. */
   hyperexp_pack_paramvector(p, np, h);
 
-  /* Define the step size vector u.
-   */
-  for (i = 0; i < np; i++) u[i] = 1.0;
-
-  /* Feed it all to the mighty optimizer.
-   */
-  status = esl_min_ConjugateGradientDescent(p, u, np, 
+  /* Feed it all to the mighty optimizer. */
+  status = esl_min_ConjugateGradientDescent(NULL, p, np, 
 					    &hyperexp_complete_func, 
 					    &hyperexp_complete_gradient,
-					    (void *) (&data), tol, wrk, &fx);
+					    (void *) (&data), &fx, NULL);
   if (status != eslOK) goto ERROR;
 
   /* Convert the final parameter vector back to a hyperexponential
@@ -904,15 +889,11 @@ esl_hxp_FitComplete(double *x, int n, ESL_HYPEREXP *h)
   hyperexp_unpack_paramvector(p, np, h);
   
   free(p);
-  free(u);
-  free(wrk);
   esl_hyperexp_SortComponents(h);
   return eslOK;
 
  ERROR:
-  if (p   != NULL) free(p);
-  if (u   != NULL) free(u);
-  if (wrk != NULL) free(wrk);
+  free(p);
   return status;
 }
 
@@ -1087,14 +1068,11 @@ int
 esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
 {
   struct hyperexp_binned_data data;
-  int     status;
   double *p   = NULL;
-  double *u   = NULL;
-  double *wrk = NULL;
   double  fx;
   int     i;
-  double  tol = 1e-6;
   int     np;
+  int     status;
 
   np = 0;
   if (! h->fixmix) np = h->K-1;  /* K-1 mix coefficients...      */
@@ -1102,8 +1080,6 @@ esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
     if (! h->fixlambda[i]) np++;
 
   ESL_ALLOC(p,   sizeof(double) * np);
-  ESL_ALLOC(u,   sizeof(double) * np);
-  ESL_ALLOC(wrk, sizeof(double) * np * 4);
 
   /* Copy shared info into the "data" structure  */
   data.g     = g;
@@ -1112,16 +1088,11 @@ esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
   /* From h, create the parameter vector. */
   hyperexp_pack_paramvector(p, np, h);
 
-  /* Define the step size vector u.
-   */
-  for (i = 0; i < np; i++) u[i] = 1.0;
-
-  /* Feed it all to the mighty optimizer.
-   */
-  status = esl_min_ConjugateGradientDescent(p, u, np, 
+  /* Feed it all to the mighty optimizer. */
+  status = esl_min_ConjugateGradientDescent(NULL, p, np, 
 					    &hyperexp_complete_binned_func, 
 					    &hyperexp_complete_binned_gradient,
-					    (void *) (&data), tol, wrk, &fx);
+					    (void *) (&data), &fx, NULL);
   if (status != eslOK) goto ERROR;
 
   /* Convert the final parameter vector back to a hyperexponential
@@ -1129,15 +1100,11 @@ esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
   hyperexp_unpack_paramvector(p, np, h);
   
   free(p);
-  free(u);
-  free(wrk);
   esl_hyperexp_SortComponents(h);
   return eslOK;
 
  ERROR:
-  if (p   != NULL) free(p);
-  if (u   != NULL) free(u);
-  if (wrk != NULL) free(wrk);
+  free(p);
   return status;
 }
 /*--------------------------- end fitting ----------------------------------*/

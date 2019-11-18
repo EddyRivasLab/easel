@@ -3,7 +3,7 @@
 
 #include "easel.h"
 #include "esl_red_black.h"
-
+#define TEST_ITERATIONS 10000
 //#define P7_CHECK_RED_BLACK // check tree for invariants after every change
 
 #if defined(P7_CHECK_RED_BLACK) || defined(eslRED_BLACK_TESTDRIVE) // only compile these if we're using them in tests in order
@@ -30,7 +30,43 @@ ERROR:
   return NULL;
 }
 
+void
+esl_red_black_doublekey_Destroy(ESL_RED_BLACK_DOUBLEKEY *tree)
+{
+  if (tree)
+    {
+      esl_red_black_doublekey_Destroy(tree->large);
+      esl_red_black_doublekey_Destroy(tree->small);
+      free(tree->contents);
+      free(tree);
+    }
+}
 
+void
+esl_red_black_doublekey_linked_list_Destroy(ESL_RED_BLACK_DOUBLEKEY *head, ESL_RED_BLACK_DOUBLEKEY *tail)
+{
+  //int count=0; 
+ if (head){ 
+   ESL_RED_BLACK_DOUBLEKEY *node = head;
+   while(node != tail){ // iterate around the circular loop until we 
+     // get to where we started
+     ESL_RED_BLACK_DOUBLEKEY *next = node->small;
+     free(node->contents);
+     free(node);
+     node=next;
+     //count++;
+   }
+ }
+ // now free the tail node
+ free(tail->contents);
+ free(tail);
+ //count++;
+ //printf("esl_red_black_doublekey_linked_list_destroy freed %d nodes\n", count);
+//note: we don't need to go down the tree->small path because the linked list is a set of nodes where large points to the next node 
+  //in the list while small points to the previous, so there are no nodes on the small path that aren't also on the large
+}
+  
+ 
 ESL_RED_BLACK_DOUBLEKEY * esl_red_black_doublekey_pool_Create(int number){
   int status; //return code from ESL_ALLOC.  Needs to be declared so that the macro will compile
   ESL_RED_BLACK_DOUBLEKEY *new_node;
@@ -403,7 +439,8 @@ int esl_red_black_doublekey_convert_to_sorted_linked(ESL_RED_BLACK_DOUBLEKEY *tr
   // clear the head and tail pointers to avoid confusion if they were previously used
   *head = NULL;
   *tail = NULL;
-  // recursively sort the large side of the tree
+  esl_red_black_doublekey_convert_to_sorted_linked_recurse(tree, head, tail);
+  /*// recursively sort the large side of the tree
   esl_red_black_doublekey_convert_to_sorted_linked_recurse(tree->large, head, tail);
 
   // add the current node to the sorted list
@@ -419,6 +456,7 @@ int esl_red_black_doublekey_convert_to_sorted_linked(ESL_RED_BLACK_DOUBLEKEY *tr
   *tail = tree; //root of the tree is now the smallest node in the list
 
   esl_red_black_doublekey_convert_to_sorted_linked_recurse(tree->small, head, tail);
+  */
   return eslOK;
 
 }
@@ -501,11 +539,14 @@ int esl_red_black_doublekey_linked_list_test(ESL_RED_BLACK_DOUBLEKEY **head, ESL
     printf("Invalid head or tail pointer passed to esl_red_black_doublekey_linked_list_test\n");
     return eslFAIL;
   }
+  int count1=0;
+  int count2=0;
   ESL_RED_BLACK_DOUBLEKEY *head_ptr = *head;
   ESL_RED_BLACK_DOUBLEKEY *tail_ptr = *tail;
   ESL_RED_BLACK_DOUBLEKEY *prev;
   //start at the small end of the chain
   while(tail_ptr != NULL){
+    count1++;
     prev = tail_ptr;
     if(tail_ptr->large != NULL){
       if(tail_ptr->large->key <= tail_ptr->key){
@@ -528,6 +569,7 @@ int esl_red_black_doublekey_linked_list_test(ESL_RED_BLACK_DOUBLEKEY **head, ESL
   head_ptr = *head;
   tail_ptr = *tail;
   while(head_ptr != NULL){
+    count2++;
     prev = head_ptr;
     if(head_ptr->small != NULL){
       if(head_ptr->small->key >= head_ptr->key){
@@ -545,9 +587,15 @@ int esl_red_black_doublekey_linked_list_test(ESL_RED_BLACK_DOUBLEKEY **head, ESL
     printf("Traversing list from large to small didn't reach tail in esl_red_black_doublekey_linked_list_test\n");
     return eslFAIL;
   }
-
+  if (count1 != count2){
+    printf("Found %i nodes when going from large->small, but %i going in the other direction in esl_red_black_doublekey_linked_list_testn\n", count1, count2);
+    return eslFAIL;
+  }
+  else{
+    //    printf("Found %i nodes going in both directions in esl_red_black_doublekey_linked_list_testn\n", count1);
   // If we get here, we haven't failed any of the tests, so have succeeded
-  return eslOK;
+    return eslOK;
+  }
 }
 
 /* Computes the maximum depth (depth of the deepest leaf) of a red-black tree */
@@ -583,7 +631,7 @@ uint32_t esl_red_black_doublekey_min_depth(ESL_RED_BLACK_DOUBLEKEY *tree){
 #endif
 
 /*******************************************************************************************/
-/* Unit test.  Creates a million-node red-black tree. Verifies that the tree obeys the */
+/* Unit test.  Creates a red-black tree. Verifies that the tree obeys the */
 /* red-black invariant.  Finally, converts the tree into */
 /* a sorted linked list and verifies the correctness of that list */
 /*******************************************************************************************/
@@ -603,7 +651,7 @@ int
 main(int argc, char **argv)
 {
 
-  ESL_RED_BLACK_DOUBLEKEY *tree, *node, **head, **tail;
+  ESL_RED_BLACK_DOUBLEKEY *tree, *new_tree, *node, **head, **tail;
   int i; 
   ESL_RED_BLACK_DOUBLEKEY *head_ptr, *tail_ptr;
 
@@ -615,13 +663,19 @@ main(int argc, char **argv)
   int runs;
   for(runs = 0; runs < 2; runs++){
     tree = NULL;
-    for(i=0; i < 100000; i++){
-      my_key = ((double)rand()/(double)RAND_MAX) * 1000;
-      // generate "random" floating-point number between 0 and 100000
+    for(i=0; i < TEST_ITERATIONS; i++){
       node = esl_red_black_doublekey_Create(); // get a new node
-      node->key = my_key; // set its key
-      node->contents = (void *) &my_key;
-      tree = esl_red_black_doublekey_insert(tree, node);
+      new_tree = NULL;
+      double *contents = malloc(sizeof(double)); 
+      while(new_tree == NULL){ // handle the case where we generate the
+        // same random number twice
+        my_key = ((double)rand()/(double)RAND_MAX) * 1000;
+        node->key = my_key; // set its key
+        *contents = my_key;
+        node->contents = contents;
+        new_tree = esl_red_black_doublekey_insert(tree, node);
+      }
+      tree = new_tree;      
       if(0){  
         double *foo = (double *) esl_red_black_doublekey_lookup(tree, my_key); 
         if(foo == NULL || *foo != my_key){
@@ -647,8 +701,55 @@ main(int argc, char **argv)
     }
     if(esl_red_black_doublekey_linked_list_test(head, tail) != eslOK){
       esl_fatal("Linked list failed consistency check\n");
-    } 
+    }
+    esl_red_black_doublekey_linked_list_Destroy(*head, *tail);
   }
+  for(runs = 0; runs < 2; runs++){
+    tree = NULL;
+    double keys[TEST_ITERATIONS];
+    for(i=0; i < TEST_ITERATIONS; i++){
+      // generate "random" floating-point number between 0 and 100000
+      node = esl_red_black_doublekey_Create(); // get a new node
+      double *contents = malloc(sizeof(double));
+      new_tree = NULL;
+      while(new_tree == NULL){ // handle the case where we generate the
+	// same random number twice
+	my_key = ((double)rand()/(double)RAND_MAX) * 1000;
+	node->key = my_key; // set its key
+	*contents = my_key;
+	keys[i] = my_key;
+	node->contents = contents;
+	new_tree = esl_red_black_doublekey_insert(tree, node);
+      }
+      tree = new_tree;
+      if(0){  
+        double *foo = (double *) esl_red_black_doublekey_lookup(tree, my_key); 
+        if(foo == NULL || *foo != my_key){
+          esl_fatal("Failed to find key %lf after insertion\n", my_key);
+        }
+        if(esl_red_black_doublekey_max_depth(tree) > (2 * esl_red_black_doublekey_min_depth(tree))){
+          esl_fatal("Unbalanced tree found on iteration %d: maximum depth was %d, tree minimum depth was %d\n",i, esl_red_black_doublekey_max_depth(tree), esl_red_black_doublekey_min_depth(tree)); 
+        }
+        /* Check generated tree for consistency */
+        if(esl_red_black_doublekey_check_invariants(tree) != eslOK){
+          esl_fatal("Generated tree did not obey red-black invariants\n");
+        } 
+      }
+    }
+    //printf("Tree maximum depth was %d, tree minimum depth was %d\n", esl_red_black_doublekey_max_depth(tree), esl_red_black_doublekey_min_depth(tree));
+    /* Check generated tree for consistency */
+    if(esl_red_black_doublekey_check_invariants(tree) != eslOK){
+      esl_fatal("Generated tree did not obey red-black invariants\n");
+    }
+
+    for(i = 0; i < TEST_ITERATIONS; i++){
+      double *foo = (double *) esl_red_black_doublekey_lookup(tree, keys[i]);
+      if(foo == NULL || *foo != keys[i]){
+	esl_fatal("Failed to find key %lf at end of test 2, got %lf instead\n", keys[i], foo);
+      }
+    }
+    esl_red_black_doublekey_Destroy(tree);
+  }  
 return 0;
 }
 

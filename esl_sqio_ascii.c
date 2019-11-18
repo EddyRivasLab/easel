@@ -395,8 +395,8 @@ sqascii_GuessFileFormat(ESL_SQFILE *sqfp, int *ret_fmt)
    */
   
   /* Attempt to guess file format based on file name suffix. */
-  if      (strncmp(sfx, ".fa",  3) == 0)  { *ret_fmt = eslSQFILE_FASTA;      return eslOK; }
-  else if (strncmp(sfx, ".gb",  3) == 0)  { *ret_fmt = eslSQFILE_GENBANK;    return eslOK; }
+  if      (nsfx && strcmp(sfx, ".fa") == 0)  { *ret_fmt = eslSQFILE_FASTA;      return eslOK; }
+  else if (nsfx && strcmp(sfx, ".gb") == 0)  { *ret_fmt = eslSQFILE_GENBANK;    return eslOK; }
     
   /* If that didn't work, we'll have a peek at the stream; 
    * turn recording on, and set for line based input.
@@ -1467,8 +1467,7 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
     if (max_residues < 1)
       max_residues = MAX_RESIDUE_COUNT;
 
-    tmpsq = esl_sq_Create();
-
+    tmpsq = esl_sq_CreateDigital(sqBlock->list->abc);
     //if complete flag is set to FALSE, then the prior block must have ended with a window that was a possibly
     //incomplete part of it's full sequence. Read another overlapping window.
     if (! sqBlock->complete )
@@ -1529,8 +1528,11 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
       esl_sq_Reuse(tmpsq);
       esl_sq_Reuse(sqBlock->list + i);
 
-      status = sqascii_ReadWindow(sqfp, 0, request_size , sqBlock->list + i);
-      if (status != eslOK && status != eslEOD) break; /* end of sequences (eslEOF), or we read an empty seq (eslEOD) or error (other)  */
+      status = sqascii_ReadWindow(sqfp, 0, request_size , tmpsq); 
+      esl_sq_Copy(tmpsq, sqBlock->list +i);
+      if (status != eslOK && status != eslEOD){
+        break;
+        } /* end of sequences (eslEOF), or we read an empty seq (eslEOD) or error (other)  */
       size += sqBlock->list[i].n - sqBlock->list[i].C;
       sqBlock->list[i].L = sqfp->data.ascii.L;
       ++(sqBlock->count);
@@ -2519,6 +2521,7 @@ inmap_embl(ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap)
 
   if (abc_inmap != NULL) {
     for (x = 0; x < 128; x++) sqfp->inmap[x] = abc_inmap[x];
+    sqfp->inmap['-']  = eslDSQ_ILLEGAL;                      // don't let the abc_inmap map the gap char; this is an ungapped file format
   } else {
     for (x =  0;  x < 128;  x++) sqfp->inmap[x] = eslDSQ_ILLEGAL;
     for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x;
@@ -2526,11 +2529,11 @@ inmap_embl(ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap)
   }
   for (x = '0'; x <= '9'; x++)
     sqfp->inmap[x] = eslDSQ_IGNORED;    /* EMBL DNA sequence format puts coordinates after each line */
-  sqfp->inmap['*']  = '*';         /* accept * as a nonresidue/stop codon character */
+  sqfp->inmap['*']  = '*';              /* accept * as a nonresidue/stop codon character */
   sqfp->inmap[' ']  = eslDSQ_IGNORED;
   sqfp->inmap['\t'] = eslDSQ_IGNORED;
   sqfp->inmap['\n'] = eslDSQ_IGNORED;
-  sqfp->inmap['\r'] = eslDSQ_IGNORED;/* DOS eol compatibility */
+  sqfp->inmap['\r'] = eslDSQ_IGNORED;  /* DOS eol compatibility */
   sqfp->inmap['/']  = eslDSQ_EOD;
 }
 
@@ -2767,6 +2770,7 @@ inmap_genbank(ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap)
 
   if (abc_inmap != NULL) {
     for (x = 0; x < 128; x++) sqfp->inmap[x] = abc_inmap[x];
+    sqfp->inmap['-']  = eslDSQ_ILLEGAL;                      // don't let the abc_inmap map the gap char; this is an ungapped file format
   } else {
     for (x =  0;  x < 128;  x++) sqfp->inmap[x] = eslDSQ_ILLEGAL;
     for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x;
@@ -2940,6 +2944,7 @@ inmap_fasta(ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap)
 
   if (abc_inmap != NULL) {
     for (x = 0; x < 128; x++) sqfp->inmap[x] = abc_inmap[x];
+    sqfp->inmap['-']  = eslDSQ_ILLEGAL;                      // don't let the abc_inmap map the gap char; this is an ungapped file format
   } else {
     for (x =  0;  x < 128;  x++) sqfp->inmap[x] = eslDSQ_ILLEGAL;
     for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x;
@@ -3183,6 +3188,7 @@ inmap_daemon(ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap)
 
   if (abc_inmap != NULL) {
     for (x = 0; x < 128; x++) sqfp->inmap[x] = abc_inmap[x];
+    sqfp->inmap['-']  = eslDSQ_ILLEGAL;                      // don't let the abc_inmap map the gap char; this is an ungapped file format
   } else {
     for (x =  0;  x < 128;  x++) sqfp->inmap[x] = eslDSQ_ILLEGAL;
     for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x;

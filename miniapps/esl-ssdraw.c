@@ -7223,14 +7223,20 @@ typedef struct nt2sort_s {
 } nt2sort_t;
 
 
-int compare_by_ntfreq(const void *a_void, const void *b_void) {
+int
+compare_by_ntfreq(const void *a_void, const void *b_void)
+{
   nt2sort_t *a, *b;
+
   a = (nt2sort_t *) a_void;
   b = (nt2sort_t *) b_void;
+
   if      (a->ntfreq > b->ntfreq) return -1;
   else if (a->ntfreq < b->ntfreq) return  1;
-  else                          return  0;
+  else                            return  0;
 }
+
+
 
 /* Function: get_consensus_nucleotide()
  * Date:     EPN, Wed Apr  7 07:39:57 2010

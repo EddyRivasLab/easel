@@ -74,7 +74,15 @@ foreach $module (@modules) {
 	} else {
 	    print("ok.\n");
 	}
-    } else { print "<< problem parsing valgrind output >>\n"; }                      
+    } 
+    elsif ($output =~ /All heap blocks were freed -- no leaks are possible/)
+    {
+	print("ok.\n");
+    }                      
+    else
+    {
+	print "<< problem parsing valgrind output >>\n"; 
+    }
 }
 
 printf("\nOf %d total modules in Easel:\n", $nmodules);

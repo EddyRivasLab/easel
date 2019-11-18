@@ -214,9 +214,23 @@
 /* Sometimes a shared function API dictates arguments that a function
  * doesn't use, and we want to silence compiler warnings about this.
  * Putting ESL_UNUSED(x) in the function, for an unused argument <x>,
- * should silence the compiler, and should generate a no-op.
+ * satisfies the compiler while generating a no-op.
  */
 #define ESL_UNUSED(x) (void)(sizeof((x)))
+
+/* Sometimes we need a macro's value as a string constant
+ * instead of a number. For example we might have
+ *    #define eslFOO_DEFAULT 42
+ * and we want to use that default value in an esl_getopts OPTIONS
+ * array, where the default needs to be specified as a string constant
+ * "42" not a number 42.  We can use a C preprocessor trick for this,
+ * using the stringize `#` preprocessor operator. It requires two
+ * steps: one to expand the macro, another to convert the expanded
+ * value to a string constant.  You call ESL_STR(eslFOO_DEFAULT). The
+ * ESL_XSTR() macro is just to make the trick work.
+ */
+#define ESL_XSTR(x) #x
+#define ESL_STR(x)  ESL_XSTR(x)
 
 
 /*****************************************************************
@@ -402,9 +416,10 @@ typedef uint8_t ESL_DSQ;
 #define ESL_MIN(a,b)          (((a)<(b))?(a):(b))
 #define ESL_MAX(a,b)          (((a)>(b))?(a):(b))
 
-static inline float esl_log (double x) { return (x == 0.0 ? -eslINFINITY : log(x));  } /* avoid fp exceptions; log(0) = -inf is fine */
-static inline float esl_logf(float x)  { return (x == 0.0 ? -eslINFINITY : logf(x)); }
-static inline float esl_log2f(float x) { return (x == 0.0 ? -eslINFINITY : eslCONST_LOG2R * logf(x)); }
+static inline float esl_log  (double x) { return (x == 0.0 ? -eslINFINITY : log(x));  } /* avoid fp exceptions; log(0) = -inf is fine */
+static inline float esl_log2 (double x) { return (x == 0.0 ? -eslINFINITY : log2(x)); } 
+static inline float esl_logf (float x)  { return (x == 0.0 ? -eslINFINITY : logf(x)); }
+static inline float esl_log2f(float x)  { return (x == 0.0 ? -eslINFINITY : log2f(x)); }
 
 /* Typedef: <esl_pos_t> 
  * 
@@ -443,12 +458,14 @@ extern void esl_Free2D(void  **p, int dim1);
 extern void esl_Free3D(void ***p, int dim1, int dim2);
 
 /* 3. Standard banner for Easel miniapplications. */
-extern int  esl_banner    (FILE *fp, char *progname, char *banner);
-extern int  esl_usage     (FILE *fp, char *progname, char *usage);
+extern int  esl_banner    (FILE *fp, const char *progname, char *banner);
+extern int  esl_usage     (FILE *fp, const char *progname, char *usage);
 extern int  esl_dataheader(FILE *fp, ...);
 
 /* 4. Improved replacements for some C library functions */
 extern int  esl_fgets(char **buf, int *n, FILE *fp);
+extern int  esl_fprintf(FILE *fp, const char *format, ...);
+extern int  esl_printf(const char *format, ...);
 extern int  esl_strdup(const char *s, int64_t n, char **ret_dup);
 extern int  esl_strcat(char **dest, int64_t ldest, const char *src, int64_t lsrc);
 extern int  esl_strmapcat        (const ESL_DSQ *inmap, char **dest, int64_t *ldest, const char *src, esl_pos_t lsrc);
@@ -494,10 +511,12 @@ extern int  esl_tmpfile_named(char *basename6X, FILE **ret_fp);
 extern int  esl_getcwd(char **ret_cwd);
 
 /* 8. Typed comparison routines. */
-extern int  esl_DCompare   (double a, double b, double tol);
-extern int  esl_FCompare   (float  a, float  b, float  tol);
-extern int  esl_DCompareAbs(double a, double b, double tol);
-extern int  esl_FCompareAbs(float  a, float  b, float  tol);
+extern int  esl_DCompare   (double a,  double b, double tol);
+extern int  esl_FCompare   (float  a,  float  b, float  tol);
+extern int  esl_DCompareAbs(double a,  double b, double tol);
+extern int  esl_FCompareAbs(float  a,  float  b, float  tol);
+extern int  esl_DCompareNew(double x0, double x, double r_tol, double a_tol);
+extern int  esl_FCompareNew(float  x0, float  x, float  r_tol, float  a_tol);
 extern int  esl_CCompare(char *s1, char *s2);
 
 #endif /*eslEASEL_INCLUDED*/
