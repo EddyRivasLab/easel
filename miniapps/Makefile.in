@@ -94,13 +94,13 @@ tests:  ${PROGS} easel
 check:  ${PROGS} easel
 
 easel:  % : %.c ../libeasel.a ${SUBCMDOBJS}
-	${QUIET_GEN}${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ $< ${SUBCMDOBJS} ${LIBS}
+	${QUIET_GEN}${CC} ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ $< ${SUBCMDOBJS} ${LIBS}
 
 ${PROGS}: % : %.c ../libeasel.a 
-	${QUIET_GEN}${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ $< ${LIBS}
+	${QUIET_GEN}${CC} ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ $< ${LIBS}
 
 ${SUBCMDOBJS}: %.o : %.c ../libeasel.a
-	${QUIET_CC}${CC} -I. -I.. -I${srcdir} -I${srcdir}/.. ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} -c $<
+	${QUIET_CC}${CC} -I. -I.. -I${srcdir} -I${srcdir}/.. ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} -c $<
 
 install: ${PROGS} 
 	${INSTALL} -m 0755 easel ${DESTDIR}${bindir}/
