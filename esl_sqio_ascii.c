@@ -1425,7 +1425,7 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
  * 
  *            If <long_target> is true and <max_init_window> is TRUE,
  *            the first window read from each sequence (of length L)
- *            is always max(L, <max_residues>). If <max_init_window>
+ *            is always min(L, <max_residues>). If <max_init_window>
  *            is FALSE, then the length of the first window read from
  *            each sequence is calculated differently as 
  *            max(<max_residues> - <size>, <max_residues> * .05);
