@@ -643,7 +643,7 @@ clean:
 	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} clean
 	${QUIET}-rm -f ${ALL_OBJS} libeasel.a
 	${QUIET}-rm -f ${ALL_UTESTS} ${ALL_BENCHMARKS} ${ALL_EXAMPLES} ${ALL_EXPERIMENTS}
-	${QUIET}-rm -f *~ TAGS
+	${QUIET}-rm -f *~ TAGS TAGS.part
 	${QUIET}-rm -f *.gcno *.gcda *.gcov
 	${QUIET}-rm -f cscope.out
 	${QUIET}-rm -f core.[0-9]*
