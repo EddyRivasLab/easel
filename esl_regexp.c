@@ -364,11 +364,11 @@ esl_regexp_SubmatchCoords(ESL_REGEXP *machine, char *origin, int elem,
  *            <eslFAIL> if the start or end values are not parsed.
  */
 int
-esl_regexp_ParseCoordString(const char *cstring, uint32_t *ret_start, uint32_t *ret_end)
+esl_regexp_ParseCoordString(const char *cstring, int64_t *ret_start, int64_t *ret_end)
 {
   ESL_REGEXP *re = esl_regexp_Create();
-  char        tok1[32];
-  char        tok2[32];
+  char        tok1[20];   // max length of int64_t in char = 18 + '-' + '\0' = 20
+  char        tok2[20];
   int         status;
 
   if (esl_regexp_Match(re, "^(\\d+)\\D+(\\d*)$", cstring) != eslOK) { status = eslESYNTAX; goto ERROR; }
