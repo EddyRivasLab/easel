@@ -131,6 +131,17 @@ static int  msaweight_PB_txt(ESL_MSA *msa);
  *            be changed using the <esl_msaweight_PB_adv()> "advanced"
  *            version.
  *
+ *            Using RF-annotated consensus columns by default is not
+ *            always desirable. In HMMER and Infernal, default "fast"
+ *            model construction may define a different set of
+ *            consensus columns than Easel does, which means that the
+ *            same MSA can give different parameterizations, depending
+ *            on whether that MSA has RF annotation or not. We decided
+ *            this is undesirable [HMMER iss #180]. Both HMMER and
+ *            Infernal use esl_msaweight_PB_adv(), using a
+ *            ESL_MSAWEIGHT_CFG that sets ignore_rf to TRUE in
+ *            default, FALSE with --hand.
+ *
  * Returns:   <eslOK> on success. <msa->wgt[]> now contains weights for
  *            each sequence. <eslMSA_HASWGTS> flag is raised in
  *            <msa->flags>. 
