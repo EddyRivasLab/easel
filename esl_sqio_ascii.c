@@ -1559,7 +1559,7 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
         status = skip_whitespace(sqfp);
         if ( status != eslOK ) { // either EOD or end of buffer (EOF) was reached before the next character was seen
           sqBlock->complete = TRUE;
-          status = eslOK;
+          status = sqfp->data.ascii.parse_end(sqfp, sqBlock->list+i);
         }
 
         if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
