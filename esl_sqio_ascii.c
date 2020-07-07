@@ -2274,13 +2274,15 @@ seebuf(ESL_SQFILE *sqfp, int64_t maxn, int64_t *opt_nres, int64_t *opt_endpos)
          if (ascii->currpl != -1) ascii->currpl += nres - nres2;
          nres2        += nres - nres2;
 
-         if (ascii->rpl != 0 && ascii->prvrpl != -1) { /* need to ignore counts on last line in record, hence cur/prv */
-           if      (ascii->rpl    == -1)        ascii->rpl = ascii->prvrpl; /* init */
-           else if (ascii->prvrpl != ascii->rpl) ascii->rpl = 0;           /* inval*/
+         if (ascii->rpl != 0 && ascii->prvrpl != -1) { /* need to treat counts on last line in record differently (can be shorter but not longer), hence cur/prv */
+           if      (ascii->rpl    == -1)         ascii->rpl = ascii->prvrpl; /* init  */
+           else if (ascii->prvrpl != ascii->rpl) ascii->rpl = 0;             /* inval */
+           else if (ascii->currpl  > ascii->rpl) ascii->rpl = 0;             /* inval, this covers case when final line is longer */
          }
          if (ascii->bpl != 0 && ascii->prvbpl != -1) {
-           if      (ascii->bpl    == -1)        ascii->bpl = ascii->prvbpl; /* init  */
-           else if (ascii->prvbpl != ascii->bpl) ascii->bpl = 0;            /* inval */
+           if      (ascii->bpl    == -1)         ascii->bpl = ascii->prvbpl; /* init  */
+           else if (ascii->prvbpl != ascii->bpl) ascii->bpl = 0;             /* inval */
+           else if (ascii->curbpl  > ascii->bpl) ascii->bpl = 0;             /* inval, this covers case when final line is longer */
          }
 
          ascii->prvbpl  = ascii->curbpl;
