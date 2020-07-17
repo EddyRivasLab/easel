@@ -148,6 +148,8 @@ shuffle_array(ESL_RANDOMNESS *r, int a[], int n)
   return eslOK;
 }
 
+
+
 void print_array(int array[], int n)
 {
     int i;
@@ -158,6 +160,87 @@ void print_array(int array[], int n)
     printf("\n");
 }
 
+static int check_iset( void *base, size_t n, size_t size, 
+			  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+			   int *assignments)
+{
+   //printf("check iset called\n");
+   //printf("param is %lf\n", *(double *) param);
+   int i,j;
+   int status;
+   int do_link; 
+   int passed=1;
+   //print_array(assignments, n);
+   for (i = 0; i < n; i++){
+     for (j= i+1; j<n; j++){
+        if (assignments[i]==1 && assignments[j]==1) {
+            //printf("evaluating pair %d , %d \t", i,j);
+           if ((status = (*linkfunc)( (char *) base + j*size, (char *) base + i*size, param, &do_link)) != eslOK) goto ERROR;
+	       if (do_link){
+              printf("FAILED iset test on pair %d , %d \n", i,j);
+              passed=0;
+           }
+           //else printf("pair ok\n");
+            
+        }
+         
+         
+     }    
+       
+   }    
+    if (passed==1) printf("PASSED iset test!\n");   
+   
+     ERROR:
+   return status;
+    
+    
+
+}
+
+
+static int check_bi_iset( void *base, size_t n, size_t size, 
+			  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+			   int *assignments)
+{
+   //printf("check iset called\n");
+   //printf("param is %lf\n", *(double *) param);
+   int i,j;
+   int status;
+   int do_link; 
+   int passed=1;
+   //print_array(assignments, n);
+   for (i = 0; i < n; i++){
+     for (j= i+1; j<n; j++){
+        if (assignments[i]==1 && assignments[j]==2) {
+            //printf("evaluating pair %d , %d \t", i,j);
+           if ((status = (*linkfunc)( (char *) base + j*size, (char *) base + i*size, param, &do_link)) != eslOK) goto ERROR;
+	       if (do_link){
+              printf("FAILED bi_iset test on pair %d , %d \t", i,j);
+              passed=0;
+           }
+        }
+          else if (assignments[i]==2 && assignments[j]==1) {
+            //printf("evaluating pair %d , %d \t", i,j);
+           if ((status = (*linkfunc)( (char *) base + j*size, (char *) base + i*size, param, &do_link)) != eslOK) goto ERROR;
+	       if (do_link){
+              printf("FAILED bi_iset test on pair %d , %d \n", i,j);
+              passed=0;
+           }
+           //else printf("pair ok\n");
+            
+        }
+         
+         
+     }    
+       
+   }    
+    if (passed==1) printf("PASSED bi_iset test!\n");   
+   
+     ERROR:
+   return status;
+    
+}
+
 int
 esl_iset_Cobalt(void *base, size_t n, size_t size, 
 			  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
@@ -165,9 +248,8 @@ esl_iset_Cobalt(void *base, size_t n, size_t size,
 {
   int *a = NULL;		/* stack of available vertices (still unconnected)       */
   int nb, *b = NULL; 		/* stack of connected but unextended vertices            */
-  int nc, *c = NULL;		/* array of results: # clusters, assignments to clusters */
-  int v,w;			/* indices of vertices                                   */
-  int i;			/* counter over the available list                       */
+  int *c = NULL;		/*  assignments to groups */
+  int v;			/* indices of vertices                                   */
   int do_link;
   int status;
 
@@ -195,10 +277,11 @@ esl_iset_Cobalt(void *base, size_t n, size_t size,
     int adj;
     
    for (int j = 0; j<n; j++){
+       //print_array(b,n);
        v = a[j];	/* to decide whether v goes in iset */
        
      /*check if adjacent to any vertex in b*/
-        adj=FALSE;
+       adj=FALSE;
        for (int i = n; i < n+nb; i++){
            if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + a[i]*size, param, &do_link)) != eslOK) goto ERROR;
 	       if (do_link) /* is adjacent */
@@ -223,16 +306,189 @@ esl_iset_Cobalt(void *base, size_t n, size_t size,
             
      
      }
+    //esl_iset_Cobalt((void *) msa->aseq, (size_t) msa->nseq, sizeof(char *),
+				      // msacluster_clinkage, (void *) &maxid, 
+				       //workspace, assignment, r);
+    //printf("param is %lf \n", *(double *) param);
+
+    //check_iset( base, n, size, linkfunc, param, assignments);
     return eslOK;
 
  ERROR:
    return status;
 }
-/*------------------ end, Cobalt clustering -------------*/
+
+
+
+int
+esl_bi_iset_Cobalt(void *base, size_t n, size_t size, 
+int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r)
+{
+  int *a = NULL;    /* stack of available vertices (still unconnected)       */
+  int nb1, *b1 = NULL;    /* stack of connected but unextended vertices            */
+  int nb2, *b2 = NULL;    /* stack of connected but unextended vertices            */
+  int  *c = NULL;    /* array of results: # clusters, assignments to clusters */
+  int v;      /* indices of vertices                                   */
+  int do_link;
+  int status;
+  int larger;
+
+
+  a = workspace;
+  b1 = workspace + n; 
+  b2 = workspace + 2*n;
+  c = assignments; /*1 if in b1, 2 if in b2, 0 if in neither*/
 
 
 
 
+  //printf("called esl_bi_iset_Cobalt \n");
+
+  for (v = 0; v < n; v++) a[v] = n-v-1; /* initialize by pushing all vertices into an array*/
+  nb1 = 0;
+  nb2 = 0;
+
+  /* shuffle  vertices randomly */
+
+  shuffle_array(r, a, n);
+
+
+  int adj1, adj2;
+    //printf("this is a\n")
+  //print_array(a,n);
+
+  for (int j = 0; j<n; j++){
+    // print_array(b1,n);
+   // print_array(b2,n);
+
+    v = a[j]; /* to decide whether v goes in iset */
+    //printf("current vertex %d\n", v);
+    double roll = esl_random(r);  /* uniform 0.0 <= x < 1.0 */
+
+    if (roll<=0.5){ 
+      /* first try to put v in b2 */
+      /*check if v is adjacent to any vertex in b1*/
+      //printf("trying to add to b2\n");
+
+      adj1=FALSE;
+      for (int i = n; i < n+nb1; i++){
+        if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + a[i]*size, param, &do_link)) != eslOK) goto ERROR;
+        if (do_link){ /* is adjacent */
+          /* adjacent, break out of loop  */    
+          adj1=TRUE;
+          break;
+        }
+      }
+
+
+      /* if exited loop early, v is adjacent to a vertex in b1, v will not go in b2; try putting v in b1*/
+      if (adj1) {
+        //printf("v adjacent to vertex in b1 \n");
+
+        adj2=FALSE;
+        for (int i = 2*n; i < 2*n+nb2; i++){
+          if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + a[i]*size, param, &do_link)) != eslOK) goto ERROR;
+          if (do_link){ /* is adjacent */
+            /* adjacent, break out of loop  */    
+             adj2=TRUE;
+             break;
+          }
+        }
+
+        /*  v is adjacent to something in b2, v will not go in b1*/
+        if (adj2){
+          c[v]=0;
+        }
+        /*  v is not adjacent to something in b2, v will go in b1*/
+        else{
+          c[v]=1;
+          b1[nb1]= v;  
+          nb1++;
+        }
+      }
+
+
+      /*if ran through loop without exiting early, v is not adjacent to any vertex in b1, v will go in b2*/
+      else{
+        c[v]=2;
+        b2[nb2]= v;  
+        nb2++;
+      }
+
+    }
+
+    /*roll is > 0.5 */
+    else{ 
+    /* first try to put v in b1 */
+    /*check if v is adjacent to any vertex in b2*/
+      adj2=FALSE;
+      for (int i = 2*n; i < 2*n+nb2; i++){
+        if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + a[i]*size, param, &do_link)) != eslOK) goto ERROR;
+        if (do_link){ /* is adjacent */
+        /* adjacent, break out of loop  */    
+         adj2=TRUE;
+         break;
+        }
+      }
+
+
+      /* if exited loop early, v is adjacent to a vertex in b2, v will not go in b1; try putting v in b2*/
+      if (adj2) {
+        adj1=FALSE;
+        for (int i = n; i < n+nb1; i++){
+          if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + a[i]*size, param, &do_link)) != eslOK) goto ERROR;
+          if (do_link){ /* is adjacent */
+            /* adjacent, break out of loop  */    
+             adj1=TRUE;
+             break;
+          }
+        }
+
+        /*  v is adjacent to something in b1, v will not go in b2*/
+        if (adj1){
+          c[v]=0;
+        }
+        /*  v is not adjacent to something in b1, v will go in b2*/
+        else{
+          c[v]=2;
+          b2[nb2]= v;  
+          nb2++;
+        }
+
+
+      }
+
+
+      /*if ran through loop without exiting early, v is not adjacent to any vertex in b2, v will go in b1*/
+      else{
+        c[v]=1;
+        b1[nb1]= v;  
+        nb1++;
+      }
+
+    }
+
+
+
+
+  }
+
+     
+
+  if (nb1>= nb2) larger=1;
+  else larger=2;
+    
+  *ret_larger=larger;
+  //check_bi_iset( base, n, size, linkfunc, param, assignments);
+
+  return eslOK;
+
+  ERROR:
+  return status;
+}
+    
+    
 /*****************************************************************
  * 2. Unit tests
  *****************************************************************/
