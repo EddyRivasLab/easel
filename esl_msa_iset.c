@@ -7,7 +7,7 @@
  *    4. Unit tests
  *    5. Test driver
  *    6. Example
- *  
+ *
  * (Wondering why isn't this just part of the cluster or MSA modules?
  * esl_cluster itself is a core module, dependent only on easel. MSA
  * clustering involves at least the distance, cluster, and msa
@@ -26,7 +26,7 @@
 #include "esl_msa_iset.h"
 #include "esl_iset.h"
 
-/* These functions are going to get defined in an internal regression 
+/* These functions are going to get defined in an internal regression
  * testing section further below:
  */
 #if defined(eslMSACLUSTER_REGRESSION) || defined(eslMSAWEIGHT_REGRESSION)
@@ -36,7 +36,7 @@ static double squid_xdistance(ESL_ALPHABET *a, ESL_DSQ *x1, ESL_DSQ *x2);
 #endif
 
 /* These functions will define linkage between a pair of text or
- *  digital aseq's: 
+ *  digital aseq's:
  */
 static int msacluster_clinkage(const void *v1, const void *v2, const void *p, int *ret_link);
 static int msacluster_xlinkage(const void *v1, const void *v2, const void *p, int *ret_link);
@@ -58,11 +58,11 @@ struct msa_param_s {
  * Synopsis:  Single linkage clustering by percent identity.
  * Incept:    SRE, Sun Nov  5 10:11:45 2006 [Janelia]
  *
- * Purpose:   Perform single link clustering of the sequences in 
+ * Purpose:   Perform single link clustering of the sequences in
  *            multiple alignment <msa>. Any pair of sequences with
  *            percent identity $\geq$ <maxid> are linked (using
  *            the definition from the \eslmod{distance} module).
- *            
+ *
  *            The resulting clustering is optionally returned in one
  *            or more of <opt_c>, <opt_nin>, and <opt_nc>.  The
  *            <opt_c[0..nseq-1]> array assigns a cluster index
@@ -73,22 +73,22 @@ struct msa_param_s {
  *
  *            Importantly, this algorithm runs in $O(N)$ memory, and
  *            produces one discrete clustering. Compare to
- *            <esl_tree_SingleLinkage()>, which requires an $O(N^2)$ 
+ *            <esl_tree_SingleLinkage()>, which requires an $O(N^2)$
  *            adjacency matrix, and produces a hierarchical clustering
  *            tree.
- *            
+ *
  *            The algorithm is worst case $O(LN^2)$ time, for $N$
  *            sequences of length $L$. However, the worst case is no
  *            links at all, and this is unusual. More typically, time
  *            scales as about $LN \log N$. The best case scales as
  *            $LN$, when there is just one cluster in a completely
  *            connected graph.
- *            
+ *
  * Args:      msa     - multiple alignment to cluster
  *            maxid   - pairwise identity threshold: cluster if $\geq$ <maxid>
  *            opt_c   - optRETURN: cluster assignments for each sequence, [0..nseq-1]
- *            opt_nin - optRETURN: number of seqs in each cluster, [0..nc-1] 
- *            opt_nc  - optRETURN: number of clusters        
+ *            opt_nin - optRETURN: number of seqs in each cluster, [0..nc-1]
+ *            opt_nc  - optRETURN: number of clusters
  *
  * Returns:   <eslOK> on success; the <opt_c[0..nseq-1]> array contains
  *            cluster indices <0..nc-1> assigned to each sequence; the
@@ -97,7 +97,7 @@ struct msa_param_s {
  *            clusters. The <opt_c> array and <opt_nin> arrays will be
  *            allocated here, if non-<NULL>, and must be free'd by the
  *            caller. The input <msa> is unmodified.
- *            
+ *
  *            The caller may pass <NULL> for either <opt_c> or
  *            <opt_nc> if it is only interested in one of the two
  *            results.
@@ -106,9 +106,10 @@ struct msa_param_s {
  *            comparison is invalid (which means the MSA is corrupted, so it
  *            shouldn't happen). In either case, <opt_c> and <opt_nin> are set to <NULL>
  *            and <opt_nc> is set to 0, and the <msa> is unmodified.
+
  */
 int
-esl_msa_iset_Cobalt(const ESL_MSA *msa, double maxid, 
+esl_msa_iset_Cobalt(const ESL_MSA *msa, double maxid,
 			     int **opt_c, int **opt_nin, ESL_RANDOMNESS *r)
 
 {
@@ -125,14 +126,14 @@ esl_msa_iset_Cobalt(const ESL_MSA *msa, double maxid,
   /* call to SLC API: */
   if (! (msa->flags & eslMSA_DIGITAL))
     status = esl_iset_Cobalt((void *) msa->aseq, (size_t) msa->nseq, sizeof(char *),
-				       msacluster_clinkage, (void *) &maxid, 
+				       msacluster_clinkage, (void *) &maxid,
 				       workspace, assignment, r);
   else {
     param.maxid = maxid;
     param.abc   = msa->abc;
 //    printf("calling esl_iset_Cobalt in else\n");
     status = esl_iset_Cobalt((void *) msa->ax, (size_t) msa->nseq, sizeof(ESL_DSQ *),
-				       msacluster_xlinkage, (void *) &param, 
+				       msacluster_xlinkage, (void *) &param,
 				       workspace, assignment, r);
   }
   if (status != eslOK) goto ERROR;
@@ -154,8 +155,9 @@ esl_msa_iset_Cobalt(const ESL_MSA *msa, double maxid,
 }
 
 
+
 int
-esl_msa_bi_iset_Cobalt(const ESL_MSA *msa, double maxid, 
+esl_msa_bi_iset_Cobalt(const ESL_MSA *msa, double maxid,
 			     int **opt_c, int **opt_nin, int *ret_larger, ESL_RANDOMNESS *r)
 
 {
@@ -165,7 +167,7 @@ esl_msa_bi_iset_Cobalt(const ESL_MSA *msa, double maxid,
   int  *nin        = NULL;
   int   larger;
   struct msa_param_s param;
-  
+
   /* Allocations */
   ESL_ALLOC(workspace,  sizeof(int) * msa->nseq*3);
   ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
@@ -173,14 +175,14 @@ esl_msa_bi_iset_Cobalt(const ESL_MSA *msa, double maxid,
   /* call to SLC API: */
   if (! (msa->flags & eslMSA_DIGITAL))
     status = esl_bi_iset_Cobalt((void *) msa->aseq, (size_t) msa->nseq, sizeof(char *),
-				       msacluster_clinkage, (void *) &maxid, 
+				       msacluster_clinkage, (void *) &maxid,
 				       workspace, assignment, &larger, r);
   else {
     param.maxid = maxid;
     param.abc   = msa->abc;
 //    printf("calling esl_iset_Cobalt in else\n");
     status = esl_bi_iset_Cobalt((void *) msa->ax, (size_t) msa->nseq, sizeof(ESL_DSQ *),
-				       msacluster_xlinkage, (void *) &param, 
+				       msacluster_xlinkage, (void *) &param,
 				       workspace, assignment, &larger, r);
   }
   if (status != eslOK) goto ERROR;
@@ -200,7 +202,51 @@ esl_msa_bi_iset_Cobalt(const ESL_MSA *msa, double maxid,
   return status;
 }
 
+int
+esl_msa_iset_Cyan(const ESL_MSA *msa, double maxid,
+			     int **opt_c, int **opt_nin, ESL_RANDOMNESS *r)
 
+{
+  int   status;
+  int  *workspace  = NULL;
+  int  *assignment = NULL;
+  int  *nin        = NULL;
+  struct msa_param_s param;
+
+  /* Allocations */
+  ESL_ALLOC(workspace,  sizeof(int) * msa->nseq * 4);
+  ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
+ 
+  /* call to SLC API: */
+  if (! (msa->flags & eslMSA_DIGITAL))
+    status = esl_iset_Cyan((void *) msa->aseq, (size_t) msa->nseq, sizeof(char *),
+				       msacluster_clinkage, (void *) &maxid,
+				       workspace, assignment, r);
+  else {
+    param.maxid = maxid;
+    param.abc   = msa->abc;
+//    printf("calling esl_iset_Cobalt in else\n");
+    status = esl_iset_Cyan((void *) msa->ax, (size_t) msa->nseq, sizeof(ESL_DSQ *),
+				       msacluster_xlinkage, (void *) &param,
+				       workspace, assignment, r);
+  }
+  if (status != eslOK) goto ERROR;
+
+
+
+
+  /* cleanup and return */
+  free(workspace);
+  if (opt_c  != NULL) *opt_c  = assignment; else free(assignment);
+  return eslOK;
+
+ ERROR:
+  if (workspace  != NULL) free(workspace);
+  if (assignment != NULL) free(assignment);
+  if (nin        != NULL) free(nin);
+  if (opt_c  != NULL) *opt_c  = NULL;
+  return status;
+}
 
 
 
@@ -220,14 +266,14 @@ msacluster_clinkage(const void *v1, const void *v2, const void *p, int *ret_link
 
 #if defined(eslMSACLUSTER_REGRESSION) || defined(eslMSAWEIGHT_REGRESSION)
   pid = 1. - squid_distance(as1, as2);
-#else  
+#else
   if ((status = esl_dst_CPairId(as1, as2, &pid, NULL, NULL)) != eslOK) return status;
 #endif
 
-  *ret_link = (pid >= maxid ? TRUE : FALSE); 
+  *ret_link = (pid >= maxid ? TRUE : FALSE);
   return status;
 }
-  
+
 /* Definition of % id linkage in digital aligned seqs (>= maxid) */
 static int
 msacluster_xlinkage(const void *v1, const void *v2, const void *p, int *ret_link)
@@ -240,11 +286,11 @@ msacluster_xlinkage(const void *v1, const void *v2, const void *p, int *ret_link
 
 #if defined(eslMSACLUSTER_REGRESSION) || defined(eslMSAWEIGHT_REGRESSION)
   pid = 1. - squid_xdistance(param->abc, ax1, ax2);
-#else  
+#else
   if ( (status = esl_dst_XPairId(param->abc, ax1, ax2, &pid, NULL, NULL)) != eslOK) return status;
 #endif
 
-  *ret_link = (pid >= param->maxid ? TRUE : FALSE); 
+  *ret_link = (pid >= param->maxid ? TRUE : FALSE);
   return status;
 }
 
@@ -254,11 +300,11 @@ msacluster_xlinkage(const void *v1, const void *v2, const void *p, int *ret_link
  *****************************************************************/
 
 /* When regression testing against squid, we have to replace
- * Easel's distance calculations with a simpler, (even) less robust 
+ * Easel's distance calculations with a simpler, (even) less robust
  * calculation that squid did.
  */
 #if defined(eslMSACLUSTER_REGRESSION) || defined(eslMSAWEIGHT_REGRESSION)
-static double 
+static double
 squid_distance(char *s1, char *s2)
 {
   int diff  = 0;
@@ -400,7 +446,7 @@ int
 main(int argc, char **argv)
 {
   char        *filename   = argv[1];
-  int          fmt        = eslMSAFILE_UNKNOWN; 
+  int          fmt        = eslMSAFILE_UNKNOWN;
   ESL_ALPHABET *abc       = NULL;
   ESL_MSAFILE  *afp       = NULL;
   ESL_MSA      *msa       = NULL;
@@ -408,7 +454,7 @@ main(int argc, char **argv)
   int         *assignment = NULL;
   int         *nin        = NULL;
   int          nclusters;
-  int          c, i;		  
+  int          c, i;
   int          status;
 
   /* Open; guess alphabet; set to digital mode */
