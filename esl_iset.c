@@ -178,7 +178,7 @@ static int check_iset( void *base, size_t n, size_t size,
    int i,j;
    int status;
    int do_link;
-   int passed=1;
+   //int passed=1;
    //print_array(assignments, n);
    for (i = 0; i < n; i++){
      for (j= i+1; j<n; j++){
@@ -186,8 +186,8 @@ static int check_iset( void *base, size_t n, size_t size,
             //printf("evaluating pair %d , %d \t", i,j);
            if ((status = (*linkfunc)( (char *) base + j*size, (char *) base + i*size, param, &do_link)) != eslOK) goto ERROR;
 	       if (do_link){
-              printf("FAILED iset test on pair %d , %d \n", i,j);
-              passed=0;
+              esl_fatal("FAILED iset test on pair %d , %d \n", i,j);
+              //passed=0;
            }
            //else printf("pair ok\n");
 
@@ -197,7 +197,7 @@ static int check_iset( void *base, size_t n, size_t size,
      }
 
    }
-    if (passed==1) printf("PASSED iset test!\n");
+    //if (passed==1) printf("PASSED iset test!\n");
 
      ERROR:
    return status;
@@ -216,7 +216,7 @@ static int check_bi_iset( void *base, size_t n, size_t size,
    int i,j;
    int status;
    int do_link;
-   int passed=1;
+   //int passed=1;
    //print_array(assignments, n);
    for (i = 0; i < n; i++){
      for (j= i+1; j<n; j++){
@@ -224,16 +224,16 @@ static int check_bi_iset( void *base, size_t n, size_t size,
             //printf("evaluating pair %d , %d \t", i,j);
            if ((status = (*linkfunc)( (char *) base + j*size, (char *) base + i*size, param, &do_link)) != eslOK) goto ERROR;
 	       if (do_link){
-              printf("FAILED bi_iset test on pair %d , %d \t", i,j);
-              passed=0;
+              esl_fatal("FAILED bi_iset test on pair %d , %d \n", i,j);
+              //passed=0;
            }
         }
           else if (assignments[i]==2 && assignments[j]==1) {
             //printf("evaluating pair %d , %d \t", i,j);
            if ((status = (*linkfunc)( (char *) base + j*size, (char *) base + i*size, param, &do_link)) != eslOK) goto ERROR;
 	       if (do_link){
-              printf("FAILED bi_iset test on pair %d , %d \n", i,j);
-              passed=0;
+              esl_fatal("FAILED bi_iset test on pair %d , %d \n", i,j);
+              //passed=0;
            }
            //else printf("pair ok\n");
 
@@ -243,7 +243,7 @@ static int check_bi_iset( void *base, size_t n, size_t size,
      }
 
    }
-    if (passed==1) printf("PASSED bi_iset test!\n");
+  //  if (passed==1) printf("PASSED bi_iset test!\n");
 
      ERROR:
    return status;
@@ -272,6 +272,9 @@ esl_iset_Cobalt(void *base, size_t n, size_t size,
   b = workspace + n;
   c = assignments; /*1 if in ISET 0 if not*/
 
+  for ( int i=0; i<n; i++){
+    c[i]=0;
+  }
 
    //printf("starting cobalt iset construction\n");
 
@@ -352,7 +355,9 @@ int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r)
   c = assignments; /*1 if in b1, 2 if in b2, 0 if in neither*/
 
 
-
+  for ( int i=0; i<n; i++){
+    c[i]=0;
+  }
 
   //printf("called esl_bi_iset_Cobalt \n");
 
@@ -533,7 +538,7 @@ i_select(void *base, size_t n, size_t size, int k,
 
     /* check if adjacent to any vertex in to_add*/
     adj=FALSE;
-    for (j=0; j< lta; j++){
+    for (j=status_d[v]; j< lta; j++){
       /* if v is adjacent to to_add[j], remove v from graph and break out of loop*/
       //printf("checking adjacencies with vertices in to_add\n");
       if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + to_add[j]*size, param, &do_link)) != eslOK) goto ERROR;
@@ -728,6 +733,7 @@ esl_iset_Cyan(void *base, size_t n, size_t size,
     dec_o[i]=i;
     label_o[i]=i;
     status_d[i]=0;
+    assignments[i]=0;
   }
 
 
@@ -745,6 +751,481 @@ esl_iset_Cyan(void *base, size_t n, size_t size,
   //printf("finishing esl_iset_cyan\n");
   //print_array(assignments,n);
   check_iset( base, n, size, linkfunc, param, assignments);
+  ERROR:
+    return status;
+
+ return eslOK;
+}
+
+
+
+
+
+
+
+static int
+determine_1_elig(const int v, void *base, const int n, const size_t size,  int (*linkfunc)(const void *, const void *, const void *, int *), void *param, int *status_d, const int *to_add, int *elig, const int lta2){
+
+  int status, do_link;
+  /* v should be a 1-candidate meaning status_d[v]<0*/
+  if (status_d[v]>=0){
+//    printf("calling determine_1_elig requires status_d[v]<0\n");
+    return FALSE;
+  }
+
+  /* check if v is adjacent to any vertex in 2-side of to_add*/
+  int is_elig=TRUE;
+  //printf("status_d[%d]= %d \n", v, status_d[v]);
+  //printf("this is n: %d\n", n);
+  //printf("this is lta2: %d\n", lta2);
+  //printf("bounds of for loop in determine_1_elig j=%d to j>=%d \n",n+status_d[v],  n-lta2);
+  for (int j=n+status_d[v]; j>= n-lta2; j--){
+    /* if v is adjacent to to_add[j], remove v's 1-candidacy and break out of loop*/
+    //printf("checking adjacencies with vertices in to_add\n");
+    //printf("checking adjacency with vertex %d\n", to_add[j]);
+    if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + to_add[j]*size, param, &do_link)) != eslOK) goto ERROR;
+    if (do_link){ /* is adjacent */
+      status_d[v]= 0;
+      elig[v]=elig[v]-1;
+      is_elig=FALSE;
+      break;
+    }
+  }
+  if (is_elig){
+    status_d[v]= -lta2-1; /* next time check adjacencies between v and 2-side of to_add, start at index n -lta-1 */
+  }
+  return is_elig;
+  ERROR:
+    //printf("in error\n");
+    return status;
+
+
+}
+
+static int
+determine_2_elig(const int v, void *base, const int n, const size_t size, int (*linkfunc)(const void *, const void *, const void *, int *), void *param, int *status_d, const int *to_add, int *elig, const int lta1){
+  int status, do_link;
+
+  /* v should be a 2-candidate meaning status_d[v]>0*/
+  if (status_d[v]<=0){
+  //  printf("call determine_2_elig requires status_d[v]>0\n");
+    return FALSE;
+  }
+
+  /* check if v is adjacent to any vertex in 2-side of to_add*/
+  int is_elig=TRUE;
+  //printf("status_d[%d]= %d \n", v, status_d[v]);
+  //printf("this is n: %d\n", n);
+  //printf("this is lta1: %d\n", lta1);
+  //printf("bounds of for loop in determine_2_elig l=%d to l<%d \n",status_d[v]-1, lta1);
+
+  for(int l=status_d[v]-1; l< lta1; l++){
+    //printf("checking adjacency with vertex %d\n", to_add[l]);
+
+    if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + to_add[l]*size, param, &do_link)) != eslOK) goto ERROR;
+    if (do_link){
+      /* remove w's 2-candidacy and eligibilty*/
+      status_d[v]=0;
+      elig[v]=elig[v]-2;
+      is_elig=FALSE;
+      break;
+    }
+  }
+
+  if (is_elig){
+    status_d[v]= lta1+1; /* next time check adjacencies between v and 1-side of to_add, start at index lta1*/
+
+  }
+  return is_elig;
+  ERROR:
+    //printf("in error\n");
+    return status;
+
+}
+
+
+
+static int
+bi_select(void *base, int n, size_t size, int k,
+			  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+			   int *dec_o, int *label_o, int *status_d, int *to_add, int *elig, int *ret_lta1, int *ret_lta2)
+{
+
+  int v, w;			/* vertices  */
+  int lta1=0, lta2=0; /* length of to_add */
+  int do_link, is_1_elig, is_2_elig;
+  int status;
+  int adj; /* keeps track if adjacency is found*/
+  int found_self=FALSE; /* keeps track of whether have found self in label_o*/
+  int i,j; /*indices for for loops*/
+
+
+  //printf("bi select called \n");
+  for(i=0; i<k; i++){
+
+    v=dec_o[i]; /* decide fate of this vertex v*/
+  //  printf("deciding vertex %d\n", v);
+    //printf("status_d[%d]=%d\n", v, status_d[v]);
+    /* if vertex v has already been removed from candidacy, nothing to decide so skip this iteration */
+    if (status_d[v]==0) continue;
+
+    /* v is a side 1 candidate */
+    else if (status_d[v]<0) {
+    //  printf("vertex %d is a 1-candidate\n", v);
+    //  printf("status_d[%d]=%d\n", v, status_d[v]);
+
+      /* check if adjacent to any vertex in 2-side of to_add*/
+      is_1_elig= determine_1_elig(v, base, n, size, linkfunc, param, status_d, to_add, elig, lta2);
+
+      /* check if v is not adjacent to any 2-side candidate vertex with a lower label*/
+      if (is_1_elig){
+        //printf("vertex %d is 1-elig\n", v);
+      //  printf("status_d[%d]=%d\n", v, status_d[v]);
+
+        adj=FALSE; /* becomes true when v is determined to be adjacent to a vertex with a lower label that is still a side 2 candidate*/
+        found_self=FALSE; /* becomes true when v is reached in label_o */
+
+        /* iterate through label_o until find v or find that v is adjacent to a vertex with a lower label hat is still a 2 candidate*/
+        j=0;
+        while (!found_self && !adj){
+          w=label_o[j]; /*w is a vertex with a lower label than v's label*/
+
+          /* check if w is v, if so break*/
+          if (w==v){
+            found_self=TRUE;
+            break;
+          }
+
+          /*only compare v and w if w is a side 2 candidate*/
+          if (status_d[w] >0 ){
+
+            /* check whether w and v are adjacent */
+            //printf("checking w and v adjacency\n");
+
+            if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + w*size, param, &do_link)) != eslOK) goto ERROR;
+            if (do_link){ /* is adjacent */
+              /* check whether w should really still be a 2 candidate*/
+              /* w is still a 2-candidate and so v does not get added to iset (since it is adjacent to w, which is a vertex in the graph with a lower label)*/
+              if (determine_2_elig(w,base, n, size, linkfunc, param, status_d, to_add, elig, lta1)){
+                adj=TRUE;
+                break;
+              }
+            }
+          }
+
+          j++;
+        }
+
+      /* if v is not adjacent to any 2- candidate vertex with a lower label, v should be added to 1-side */
+      if (found_self){
+        //printf("ADDING vertex %d to 1-side\n", v);
+        to_add[lta1]=v;
+        lta1++;
+        status_d[v]=0;
+        elig[v]=0;
+      }
+     }
+    }
+
+    /* v is a side 2 candidate */
+    else if (status_d[v]>0) {
+    //  printf("vertex %d is a 2-candidate\n", v);
+    //  printf("status_d[%d]=%d\n", v, status_d[v]);
+
+
+      /* check if adjacent to any vertex in 1-side of to_add*/
+      is_2_elig= determine_2_elig(v, base, n, size, linkfunc, param, status_d, to_add, elig, lta1);
+
+      /* check if v is not adjacent to any 1-side candidate vertex with a lower label*/
+      if (is_2_elig){
+        //printf("vertex %d is 2-elig\n", v);
+        //printf("status_d[%d]=%d\n", v, status_d[v]);
+
+        adj=FALSE; /* becomes true when v is determined to be adjacent to a vertex with a lower label that is still a side 1 candidate*/
+        found_self=FALSE; /* becomes true when v is reached in label_o */
+
+        /* iterate through label_o until find v or find that v is adjacent to a vertex with a lower label hat is still a side 1 candidate*/
+        j=0;
+        while (!found_self && !adj){
+          w=label_o[j]; /*w is a vertex with a lower label than v's label*/
+
+          /* check if w is v, if so break*/
+          if (w==v){
+            found_self=TRUE;
+            break;
+          }
+
+          /*only compare v and w if w is a side 1 candidate*/
+          if (status_d[w] < 0 ){
+
+            /* check whether w and v are adjacent */
+            //printf("checking w and v adjacency\n");
+
+            if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + w*size, param, &do_link)) != eslOK) goto ERROR;
+            if (do_link){ /* is adjacent */
+              /* check whether w should really still be a 1 candidate*/
+              /* w is still a 1-candidate and so v does not get added to iset (since it is adjacent to w, which is a vertex in the graph with a lower label)*/
+              if (determine_1_elig(w, base,  n, size, linkfunc, param, status_d, to_add, elig, lta2)){
+                adj=TRUE;
+                break;
+              }
+            }
+          }
+
+          j++;
+        }
+
+      /* if v is not adjacent to any 1- candidate vertex with a lower label, v should be added to 2-side */
+      if (found_self){
+        //printf("ADDING vertex %d to 2-side\n", v);
+        to_add[n-lta2-1]=v;
+        lta2++;
+        status_d[v]=0;
+        elig[v]=0;
+      }
+     }
+    }
+
+ }
+
+  /* update eligibilty of all remaining vertices*/
+  for(i=0; i<k; i++){
+    //printf("checking adjacencies with vertices added later\n");
+    v=dec_o[i]; /* vertex to check v*/
+    //printf("this is v\t%d\n", v);
+    //printf("this is status_d[v]\t%d\n", status_d[v]);
+
+   /* check if still 2- candidate*/
+    if (status_d[v]>0){
+      determine_2_elig(v, base, n, size, linkfunc, param, status_d, to_add, elig, lta1);
+
+      /* if 1-eligible, check if still holds */
+      if (elig[v]==1 || elig[v] == 3){
+        /* to apply determine_1_elig must pretend to be a 1 candidate*/
+        status_d[v]=-1;
+        determine_1_elig(v, base,  n, size, linkfunc, param, status_d, to_add, elig, lta2);
+      }
+    }
+
+    /* check if still 1- candidate*/
+    else if (status_d[v]<0){
+       determine_1_elig(v, base, n, size, linkfunc, param, status_d, to_add, elig, lta2);
+       /* if 2-eligible, check if still holds */
+       if (elig[v]==2 || elig[v] == 3){
+         /* to apply determine_2_elig must pretend to be a 2 candidate*/
+         status_d[v]=1;
+         determine_2_elig(v, base, n, size, linkfunc, param, status_d, to_add, elig, lta1);
+       }
+    }
+
+
+    /*status_d[v]=0 so elig must be 0,1,2*/
+    /*check if still 1-eligible*/
+    else if (elig[v]==1){
+      /* to apply determine_1_elig must pretend to be a 1 candidate*/
+      status_d[v]=-1;
+      determine_1_elig(v,  base, n, size, linkfunc, param, status_d, to_add, elig, lta2);
+    }
+
+
+    else if (elig[v]==2){
+      /* to apply determine_2_elig must pretend to be a 2 candidate*/
+      status_d[v]=1;
+      determine_2_elig(v, base, n, size, linkfunc, param, status_d, to_add, elig, lta1);
+    }
+
+    else if (elig[v]!=0) printf(" some thing strange happened to elig. If status_d[v]=0, then elig[v] should be in {0,1,2}");
+  }
+
+  *ret_lta1=lta1;
+  *ret_lta2=lta2;
+
+  //printf("end of i_select\n");
+  //printf("eligibilty\n");
+
+ //for (i=0; i<n; i++){
+   //printf("%d : %d \n", i, elig[i]);
+ //}
+ //printf("to_add\n");
+ //print_array(to_add, n);
+
+
+ return eslOK;
+
+ ERROR:
+   //printf("in error\n");
+   return status;
+}
+
+
+
+static void
+bi_update_workspace(int *dec_o, int *label_o, int *status_d, int *to_add, int *elig, int *assignments, int n, int *k, int *lta1, int *lta2, int *nb1, int *nb2, ESL_RANDOMNESS *r){
+
+  int i;
+  int d=0;
+
+  //printf("bi update workspace called \n");
+
+  /* add all vertices on left side of to_add to side 1 and clear to_add*/
+  //printf("adding the following vertices to side 1\n");
+  for (i=0; i<*lta1; i++){
+  //  printf("%d \n ", to_add[i]);
+    assignments[to_add[i]]=1;
+    (*nb1)++;
+    to_add[i]=0;
+  }
+
+  /* add all vertices on right side of to_add to side 2 and clear to_add*/
+  //printf("adding the following vertices to side 2\n");
+  //printf("this is n-*lta2: %d\n", n-*lta2);
+  for (i=n-1; i>= n-*lta2; i--){
+    //printf("printing to_add[%d]\n", i);
+    //printf("%d \n ", to_add[i]);
+    assignments[to_add[i]]=2;
+    (*nb2)++;
+    to_add[i]=0;
+  }
+  //printf("done adding vertices to side 2 \n");
+
+  /* clear decison order */
+  for (i=0; i<*k; i++){
+    dec_o[i]=0;
+  }
+
+  /*put all vertices left in graph (i.e. elig =1,2,3) into decision order */
+  for (i=0; i<*k; i++){
+
+  //  printf("considering status update for %d \n ", label_o[i]);
+
+    /* no longer eligible for either side*/
+    if (elig[label_o[i]]==0){
+      label_o[i]=0;
+    //  printf("not eligible no update\n");
+      continue;
+    }
+
+    /*make 1 candidate*/
+    if (elig[label_o[i]]==1){
+    //  printf("made 1 candidate");
+      status_d[label_o[i]]=-1;
+    }
+
+    /*make 2 candidate*/
+    else if (elig[label_o[i]]==2){
+    //  printf("made 2 candidate");
+      status_d[label_o[i]]=1;
+    }
+
+    /* flip coin to decide if 1 or 2 candidate*/
+    else if (elig[label_o[i]]==3){
+      if (esl_random(r)< .5) status_d[label_o[i]]=-1;
+      else status_d[label_o[i]]=1;
+    }
+    dec_o[d]=label_o[i];
+    d++;
+    label_o[i]=0;
+  }
+
+  /* copy decision order to label order */
+  for (i=0; i<d; i++){
+    label_o[i]=dec_o[i];
+  }
+
+  /*shuffle label_o and dec_o */
+  shuffle_array(r, dec_o, d);
+  shuffle_array(r, label_o, d);
+
+
+  *k=d;
+  *lta1=0;
+  *lta2=0;
+
+//  printf("status_d at end of update workspace\n");
+  //for (i=0; i<n; i++){
+    //printf("%d : %d \n", i, status_d[i]);
+  //}
+
+
+}
+
+
+
+int
+esl_bi_iset_Cyan(void *base, size_t n, size_t size,
+			  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+			  int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r)
+{
+  int k=n;
+  int i;
+  int status;
+  int larger;
+  int nb1=0; /* number of vertices selected for 1-side*/
+  int nb2=0; /* number of vertices selected for 2-side*/
+  int lta1=0, lta2=0; /*length of to_add*/
+  int *dec_o = NULL;	/* vertices in order in which decisions about them will be made */
+  int *label_o = NULL; 	/* vertices in order of smallest to largest label */
+  int *status_d = NULL;		/* keeps track of current status of each vertex like a dictionary; status_d[i] is the status of vertex i */
+  /* -1 in iset, -3 removed from graph, >=0 still in graph- value is (most recent index of to_add checked against) + 1 */
+  int *to_add= NULL;  /* vertices to add to independent set */
+  int *elig= NULL;  /* "dictionary to keep track of eligibility of the vertices" */
+  /* 0 removed from graph (in one side of iset or disqualified because no longer eligibile for either side), 1 eligibile for 1 only, 2 eligible for 2 only, 3 eligible for both 1 and 2 */
+
+
+  dec_o = workspace;
+  label_o = workspace + n;
+  status_d= workspace +2*n;
+  to_add= workspace +3*n;
+  elig= workspace +4*n;
+
+  /* initialize assignments to avoid funny business; assignments should not have 0 or 1*/
+  /* initialize to_add*/
+  for (i=0; i<n; i++){
+    assignments[i]=0;
+    to_add[i]=-1; /*should never try to add vertex -1*/
+
+  }
+  //printf("called esl_iset_cyan\n");
+  //printf("k:\t%d\n",k);
+
+  for (i=0; i<n; i++){
+    dec_o[i]=i;
+    label_o[i]=i;
+    /* randomly assign to a side: -1 is a 1-candidate and 1 is a 2-candidate */
+    if (esl_random(r)< .5) status_d[i]=-1;
+    else status_d[i]=1;
+    /*all vertices eligible for each side*/
+    elig[i]=3;
+  }
+
+
+  shuffle_array(r, dec_o, (int) n);
+  shuffle_array(r, label_o, (int) n);
+  //int rounds=0;
+  while (k>0){
+    //printf("top of while loop\n");
+    //print_array(assignments,n);
+    //rounds++;
+    if ((status=bi_select(base, (int) n, size, k, linkfunc, param, dec_o, label_o ,status_d, to_add, elig, &lta1, &lta2))!= eslOK) goto ERROR;
+    //printf("i select done... calling update workspace\n");
+    bi_update_workspace(dec_o, label_o ,status_d, to_add, elig, assignments, (int) n, &k, &lta1,&lta2, &nb1, &nb2, r);
+    //printf("bottom of while loop\n");
+    //printf("k:\t%d\n",k);
+    //print_array(assignments,n);
+  }
+//  printf("took %d rounds\n",rounds);
+  //printf("finishing esl_iset_cyan\n");
+  //print_array(assignments,n);
+
+  if (nb1>= nb2) larger=1;
+  else larger=2;
+
+  *ret_larger=larger;
+  //printf("assignments\n");
+  //for (i=0; i<n; i++){
+    //printf("%d : %d \n", i, assignments[i]);
+  //}
+  check_bi_iset( base, n, size, linkfunc, param, assignments);
   ERROR:
     return status;
 

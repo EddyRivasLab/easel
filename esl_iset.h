@@ -14,11 +14,15 @@ extern int esl_iset_Cobalt(void *base, size_t n, size_t size,
 
 extern int esl_bi_iset_Cobalt(void *base, size_t n, size_t size,
 			  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
-			  int *workspace, int *assignments, int *larger, ESL_RANDOMNESS *r);
+			  int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r);
 
 extern int	esl_iset_Cyan(void *base, size_t n, size_t size,
 							  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
 							  int *workspace, int *assignments, ESL_RANDOMNESS *r);
+
+extern int esl_bi_iset_Cyan(void *base, size_t n, size_t size,
+											  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+											  int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r);
 
 extern int shuffle_array(ESL_RANDOMNESS *r, int a[], int n);
 #endif /*eslISET_INCLUDED*/
