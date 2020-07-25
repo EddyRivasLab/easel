@@ -1512,10 +1512,12 @@ esl_sq_XAddResidue(ESL_SQ *sq, ESL_DSQ x)
  *
  *            The <start/end> coords in <sq> are swapped in the
  *            source-tracking coordinate info. If <sq> is length 1,
- *            because we're unable to unambiguously differentiate
- *            forward vs. reverse strand in Easel's
- *            1-offset/closed-interval/no-flag coord system,
- *            source-tracking coordinate info is *deleted*.
+ *            we're unable to unambiguously differentiate forward
+ *            vs. reverse strand in Easel's
+ *            1-offset/closed-interval/no-flag coord system (see
+ *            comments in esl_sq.h), so caller needs to hack some way
+ *            of remembering for itself that the sequence is reverse
+ *            complemented.
  *
  * Returns:   <eslOK> on success.
  *            
@@ -1602,15 +1604,6 @@ esl_sq_ReverseComplement(ESL_SQ *sq)
     free(sq->xr_tag); sq->xr_tag = NULL;
     free(sq->xr);     sq->xr     = NULL;
   }   
-  /* revcomp of length 1 seq invalidates source-tracking coord info */
-  if (sq->n == 1) {
-    sq->start = -1;
-    sq->end   = -1;
-    sq->C     = -1;
-    sq->W     = -1;
-    sq->L     = -1;
-    sq->source[0] = '\0';
-  }
   return status;
 
  ERROR:

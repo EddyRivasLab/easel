@@ -88,9 +88,7 @@
  * unambiguously represent fwd/rev strand for a subsequence of length
  * 1, where start=end. So in the case of start=end, Easel always
  * assumes fwd strand; if rev strand is needed, there will be some
- * sort of patchy workaround. For example, in
- * esl_sq_ReverseComplement(), you can revcomp an ESL_SQ of length 1,
- * but its source-tracking coordinate info is deleted.
+ * sort of patchy workaround. 
  */
 typedef struct {
   /*::cexcerpt::sq_sq::begin::*/
