@@ -58,7 +58,7 @@ typedef struct esl_sqio_s {
   int   (*read_window)     (struct esl_sqio_s *sqfp, int C, int W, ESL_SQ *sq);
   int   (*echo)            (struct esl_sqio_s *sqfp, const ESL_SQ *sq, FILE *ofp);
 
-  int   (*read_block)      (struct esl_sqio_s *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int long_target);
+  int   (*read_block)      (struct esl_sqio_s *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int max_init_window, int long_target);
 
   int   (*open_ssi)        (struct esl_sqio_s *sqfp, const char *ssifile_hint);
   int   (*pos_by_key)      (struct esl_sqio_s *sqfp, const char *key);
@@ -132,7 +132,7 @@ extern int   esl_sqio_Read        (ESL_SQFILE *sqfp, ESL_SQ *sq);
 extern int   esl_sqio_ReadInfo    (ESL_SQFILE *sqfp, ESL_SQ *sq);
 extern int   esl_sqio_ReadWindow  (ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq);
 extern int   esl_sqio_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq);
-extern int   esl_sqio_ReadBlock   (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int long_target);
+extern int   esl_sqio_ReadBlock   (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int max_init_window, int long_target);
 extern int   esl_sqio_Parse       (char *buffer, int size, ESL_SQ *s, int format);
 
 extern int   esl_sqio_Write       (FILE *fp, ESL_SQ *s, int format, int update);

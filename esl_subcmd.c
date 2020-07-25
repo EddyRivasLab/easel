@@ -14,6 +14,38 @@
 #include "esl_getopts.h"
 #include "esl_subcmd.h"
 
+
+/* Function:  esl_subcmd_CreateDefaultApp()
+ * Synopsis:  Process cmdline options for a subcommand
+ *
+ * Purpose:   For a subcommand <sub> of main program <topcmd>, with
+ *            subcommand options <suboptions>, process a command line
+ *            <argc>/<argv>; return a new <ESL_GETOPTS> object on
+ *            success. 
+ *
+ *            If there's a problem with the user's command line, print
+ *            informative message and `exit(1)`. If the subcommand
+ *            options include `-h`, print help and `exit(0)`.
+ *
+ *            <sub> is one <ESL_SUBCMD> structure from the main
+ *            application's table of subcommands. <topcmd> is a
+ *            string, usually the same as <argv[0]>. <suboptions>
+ *            is a table of <ESL_OPTIONS> for the subcommand.
+ *
+ *            If <topcmd> is a path, e.g. "/foo/bar/easel", the
+ *            leading path is removed, leaving just "easel" as the
+ *            name of the main program.
+ *
+ * Args:      topcmd     - name of the main command, e.g. "easel" (= argv[0], probably)
+ *            sub        - ESL_SUBCMD table entry for this subcommand
+ *            suboptions - ESL_OPTIONS table for this subcommand
+ *            argc       - number of args on the commandline
+ *            argv       - array of args on the commandline
+ *
+ * Returns:   ptr to new <ESL_GETOPTS> object
+ *
+ * Throws:    NULL on allocation failures.
+ */
 ESL_GETOPTS *
 esl_subcmd_CreateDefaultApp(const char *topcmd, const ESL_SUBCMD *sub, const ESL_OPTIONS *suboptions, int argc, char **argv)
 {

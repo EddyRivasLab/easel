@@ -45,7 +45,7 @@ static int   sqascii_Read           (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int   sqascii_ReadInfo       (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int   sqascii_ReadSequence   (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int   sqascii_ReadWindow     (ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq);
-static int   sqascii_ReadBlock      (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int long_target);
+static int   sqascii_ReadBlock      (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int max_init_window, int long_target);
 static int   sqascii_Echo           (ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp);
 
 static int   sqascii_IsRewindable   (const ESL_SQFILE *sqfp);
@@ -1413,7 +1413,8 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
  *            expected to be protein - individual sequences won't be long
  *            so read them in one-whole-sequence at a time. If <max_sequences> is set
  *            to a number > 0 read <max_sequences> sequences, up to at most
- *            MAX_RESIDUE_COUNT residues.
+ *            MAX_RESIDUE_COUNT residues. <max_init_window> value is irrelevant
+ *            if <long_target> is false.
  *
  *            If <long_target> is true, the sequences are expected to be DNA.
  *            Because sequences in a DNA database can exceed MAX_RESIDUE_COUNT,
@@ -1421,6 +1422,20 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
  *            larger than <max_residues>, and must allow for the possibility that a
  *            request will be made to continue reading a partly-read
  *            sequence. This case also respects the <max_sequences> limit.
+ * 
+ *            If <long_target> is true and <max_init_window> is TRUE,
+ *            the first window read from each sequence (of length L)
+ *            is always min(L, <max_residues>). If <max_init_window>
+ *            is FALSE, then the length of the first window read from
+ *            each sequence is calculated differently as 
+ *            max(<max_residues> - <size>, <max_residues> * .05);
+ *            where <size> is total number of residues already existing
+ *            in the block. <max_init_window> == TRUE mode was added
+ *            to ensure that the window boundaries read are not dependent
+ *            on the order of the sequence in the file, thus ensuring
+ *            reproducibility if (for example) a user extracts one
+ *            sequence from a file and reruns a program on it (and all
+ *            else remains equal).
  *
  * Returns:   <eslOK> on success; the new sequence is stored in <sqBlock>.
  * 
@@ -1436,7 +1451,7 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
  *            <eslEINCONCEIVABLE> on internal error.
  */
 static int
-sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int long_target)
+sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int max_init_window, int long_target)
 {
   int     i = 0;
   int     size = 0;
@@ -1523,7 +1538,7 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
        * which can result in a window with ~2*max_residues ... or we can end up with absurdly
        * short fragments at the end of blocks
        */
-      int request_size = ESL_MAX(max_residues-size, max_residues * .05);
+      int request_size = (max_init_window) ? max_residues : ESL_MAX(max_residues-size, max_residues * .05);
 
       esl_sq_Reuse(tmpsq);
       esl_sq_Reuse(sqBlock->list + i);
@@ -2259,13 +2274,15 @@ seebuf(ESL_SQFILE *sqfp, int64_t maxn, int64_t *opt_nres, int64_t *opt_endpos)
          if (ascii->currpl != -1) ascii->currpl += nres - nres2;
          nres2        += nres - nres2;
 
-         if (ascii->rpl != 0 && ascii->prvrpl != -1) { /* need to ignore counts on last line in record, hence cur/prv */
-           if      (ascii->rpl    == -1)        ascii->rpl = ascii->prvrpl; /* init */
-           else if (ascii->prvrpl != ascii->rpl) ascii->rpl = 0;           /* inval*/
+         if (ascii->rpl != 0 && ascii->prvrpl != -1) { /* need to treat counts on last line in record differently (can be shorter but not longer), hence cur/prv */
+           if      (ascii->rpl    == -1)         ascii->rpl = ascii->prvrpl; /* init  */
+           else if (ascii->prvrpl != ascii->rpl) ascii->rpl = 0;             /* inval */
+           else if (ascii->currpl  > ascii->rpl) ascii->rpl = 0;             /* inval, this covers case when final line is longer */
          }
          if (ascii->bpl != 0 && ascii->prvbpl != -1) {
-           if      (ascii->bpl    == -1)        ascii->bpl = ascii->prvbpl; /* init  */
-           else if (ascii->prvbpl != ascii->bpl) ascii->bpl = 0;            /* inval */
+           if      (ascii->bpl    == -1)         ascii->bpl = ascii->prvbpl; /* init  */
+           else if (ascii->prvbpl != ascii->bpl) ascii->bpl = 0;             /* inval */
+           else if (ascii->curbpl  > ascii->bpl) ascii->bpl = 0;             /* inval, this covers case when final line is longer */
          }
 
          ascii->prvbpl  = ascii->curbpl;

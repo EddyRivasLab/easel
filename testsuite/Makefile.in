@@ -10,7 +10,6 @@ CPPFLAGS       = @CPPFLAGS@
 LDFLAGS        = @LDFLAGS@
 DEFS           = @DEFS@
 LIBS           = @LIBGSL@ @LIBS@ -lm
-MPILIBS        = @MPILIBS@
 
 SQCLEVEL = 2
 

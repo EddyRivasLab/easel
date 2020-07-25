@@ -89,7 +89,7 @@ static void multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQFILE *sq
 static void onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_SQFILE *sqfp);
 static void multifetch_subseq(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQFILE *sqfp);
 static void onefetch_subseq(ESL_GETOPTS *go, FILE *ofp, ESL_SQFILE *sqfp, char *newname, 
-			    char *key, uint32_t given_start, uint32_t given_end);
+			    char *key, int64_t given_start, int64_t given_end);
 
 int
 main(int argc, char **argv)
@@ -184,14 +184,14 @@ main(int argc, char **argv)
       /* -c: subsequence retrieval; else full sequence retrieval */
       if (cstring != NULL)
 	{
-	  uint32_t start, end;
+	  int64_t start, end;
 
 	  status = esl_regexp_ParseCoordString(cstring, &start, &end);
 	  if (status == eslESYNTAX) esl_fatal("-c takes arg of subseq coords <from>..<to>; %s not recognized", cstring);
 	  if (status == eslFAIL)    esl_fatal("Failed to find <from> or <to> coord in %s", cstring);
 
 	  onefetch_subseq(go, ofp, sqfp, newname, key, start, end);
-	  if (ofp != stdout) printf("\n\nRetrieved subsequence %s/%d-%d.\n",  key, start, end);
+	  if (ofp != stdout) printf("\n\nRetrieved subsequence %s/%" PRId64 "-%" PRId64 ".\n",  key, start, end);
 	}
       else 
 	{
@@ -423,7 +423,7 @@ multifetch_subseq(ESL_GETOPTS *go, FILE *ofp, char *gdffile, ESL_SQFILE *sqfp)
   char           *newname;
   char           *s;
   int             n1, n2;
-  int             start, end;
+  int64_t         start, end;
   char           *source;
  
   if (esl_fileparser_Open(gdffile, NULL, &efp) != eslOK)  esl_fatal("Failed to open key file %s\n", gdffile);
@@ -436,15 +436,15 @@ multifetch_subseq(ESL_GETOPTS *go, FILE *ofp, char *gdffile, ESL_SQFILE *sqfp)
 
       if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
 	esl_fatal("Failed to read start coord on line %d of file %s\n", efp->linenumber, gdffile);
-      start = atoi(s);
-      if(start <= 0) 
-	esl_fatal("Read invalid start coord %d on line %d of file %s (must be positive integer)\n", start, efp->linenumber, gdffile);
+      start = atol(s);
+      if (start <= 0) 
+	esl_fatal("Read invalid start coord %" PRId64 " on line %d of file %s (must be positive integer)\n", start, efp->linenumber, gdffile);
 
       if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
 	esl_fatal("Failed to read end coord on line %d of file %s\n", efp->linenumber, gdffile);
-      end   = atoi(s);
-      if(end < 0)
-	esl_fatal("Read invalid end coord %d on line %d of file %s (must be positive integer, or 0 for full length)\n", end, efp->linenumber, gdffile);
+      end   = atol(s);
+      if (end < 0)
+	esl_fatal("Read invalid end coord %" PRId64 " on line %d of file %s (must be positive integer, or 0 for full length)\n", end, efp->linenumber, gdffile);
 
       if (esl_fileparser_GetTokenOnLine(efp, &source, &n2) != eslOK)
 	esl_fatal("Failed to read source seq name on line %d of file %s\n", efp->linenumber, gdffile);
@@ -455,10 +455,10 @@ multifetch_subseq(ESL_GETOPTS *go, FILE *ofp, char *gdffile, ESL_SQFILE *sqfp)
 }
 
 static void
-onefetch_subseq(ESL_GETOPTS *go, FILE *ofp, ESL_SQFILE *sqfp, char *newname, char *key, uint32_t given_start, uint32_t given_end)
+onefetch_subseq(ESL_GETOPTS *go, FILE *ofp, ESL_SQFILE *sqfp, char *newname, char *key, int64_t given_start, int64_t given_end)
 {
-  int    start, end;
-  int    do_revcomp;
+  int64_t start, end;
+  int     do_revcomp;
   ESL_SQ *sq = esl_sq_Create();
 
   if (sqfp->data.ascii.ssi == NULL) esl_fatal("no ssi index");
@@ -473,7 +473,7 @@ onefetch_subseq(ESL_GETOPTS *go, FILE *ofp, ESL_SQFILE *sqfp, char *newname, cha
   if (esl_sqio_FetchSubseq(sqfp, key, start, end, sq) != eslOK) esl_fatal(esl_sqfile_GetErrorBuf(sqfp));
 
   if      (newname != NULL) esl_sq_SetName(sq, newname);
-  else                      esl_sq_FormatName(sq, "%s/%u-%" PRId64, key, given_start, (given_end == 0) ? sq->L : given_end);
+  else                      esl_sq_FormatName(sq, "%s/%" PRId64 "-%" PRId64, key, given_start, (given_end == 0) ? sq->L : given_end);
 
   /* Two ways we might have been asked to revcomp: by coord, or by -r option */
   /* (If both happen, they'll cancel each other out) */

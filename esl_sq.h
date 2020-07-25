@@ -77,7 +77,18 @@
  * acc, desc info is now deprecated. Cannot distinguish empty string
  * from lack of annotation. Should use NULL ptr instead. Fix this in
  * future.  (21 Nov 09 xref J5/114)
- *    
+ *
+ * Easel dsq coordinates are "1-offset, closed-interval, no-flag".
+ * 1-offset means 1..n, as opposed to 0..n-1. Closed-interval means
+ * that start/end coords i..j refers to subseq x_i..x_j, not
+ * x_i..x_j-1 (as in half-open coords of Python lists, for example).
+ * No-flag means that we don't keep a flag for forward vs. reverse
+ * strand on DNA/RNA sequences; instead, start>end means reverse
+ * strand. A flaw in such a coord system is that we cannot
+ * unambiguously represent fwd/rev strand for a subsequence of length
+ * 1, where start=end. So in the case of start=end, Easel always
+ * assumes fwd strand; if rev strand is needed, there will be some
+ * sort of patchy workaround. 
  */
 typedef struct {
   /*::cexcerpt::sq_sq::begin::*/
@@ -91,7 +102,7 @@ typedef struct {
   int64_t  n;              /* length of seq (or dsq) and ss                    */
   /*::cexcerpt::sq_sq::end::*/
 
-  /* Coordinate info for:                                       seq       subseq     window     info */
+  /* Source-tracking coordinate info for:                       seq       subseq     window     info */
   /*                                                           ----       ------     ------    ----- */
   int64_t  start;  /* coord of seq[0],dsq[1] on source  [1..L]    1      1<=i<=L    1<=i<=L      0   */
   int64_t  end;    /* coord of seq[n-1],dsq[n] on source[1..L]    L      1<=j<=L    1<=j<=L      0   */
@@ -109,7 +120,7 @@ typedef struct {
   int64_t  salloc;         /* alloc for seq or dsq, and ss if present          */
   int      srcalloc;	   /* allocated length for source name                 */
 
-  /* Disk offset bookkeeping:                                                  */
+  /* Disk-tracking offset bookkeeping:                                         */
   int64_t  idx;           /* ctr for which # seq this is; -1 if not counting   */
   off_t    roff;          /* record offset (start of record); -1 if none       */
   off_t    hoff;          /* offset to last byte of header; -1 if unknown      */
