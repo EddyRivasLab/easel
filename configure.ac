@@ -61,7 +61,7 @@ m4_include([m4/esl_avx512.m4])
 m4_include([m4/esl_neon.m4])
 m4_include([m4/esl_vmx.m4])
 
-m4_include([m4/ax_mpi.m4])
+m4_include([m4/ax_prog_cc_mpi.m4])
 m4_include([m4/ax_pthread.m4])
 
 m4_include([m4/esl_pic_flags.m4])
@@ -193,7 +193,7 @@ AC_ARG_WITH(gsl,       [AS_HELP_STRING([--with-gsl],       [use the GSL, GNU Sci
 #   AX_PROG_CC_MPI will call AC_PROG_CC if enable_mpi is "no".
 #
 AX_PROG_CC_MPI([test x"$enable_mpi" = xyes],
-    [AC_DEFINE(HAVE_MPI,  1, [Use MPI parallelization])
+    [AC_DEFINE(HAVE_MPI,  1, [Use MPI parallelization])],
     [ if test x"$enable_mpi" = xyes; then
         AC_MSG_ERROR([MPI library not found for --enable-mpi]);
       fi])
