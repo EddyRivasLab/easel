@@ -1728,11 +1728,10 @@ esl_bi_iset_Cyan2(void *base, size_t n, size_t size,
 
 static void
 bi_update_workspace_blue(int *dec_o, int *label_o, int *status_d, int *to_add, int *elig, int *assignments, int n, int *d, int *l, int *lta1, int *lta2, int *nb1, int *nb2, ESL_RANDOMNESS *r){
-
-  int i;
-
-
   
+  *d=0;
+  *l=0;
+  int i;
 
   //printf("bi update workspace blue called \n");
 
@@ -1742,7 +1741,7 @@ bi_update_workspace_blue(int *dec_o, int *label_o, int *status_d, int *to_add, i
   //  printf("%d \n ", to_add[i]);
     assignments[to_add[i]]=1;
     (*nb1)++;
-    to_add[i]=0;
+    to_add[i]=-1;
   }
 
   /* add all vertices on right side of to_add to side 2 and clear to_add*/
@@ -1753,7 +1752,7 @@ bi_update_workspace_blue(int *dec_o, int *label_o, int *status_d, int *to_add, i
     //printf("%d \n ", to_add[i]);
     assignments[to_add[i]]=2;
     (*nb2)++;
-    to_add[i]=0;
+    to_add[i]=-1;
   }
   //printf("done adding vertices to side 2 \n");
 
@@ -1790,7 +1789,7 @@ bi_update_workspace_blue(int *dec_o, int *label_o, int *status_d, int *to_add, i
   }
 
   /* right side of dec_o is the label order*/
-  label_o=dec_o+ n-*l;
+  label_o=dec_o+n-*l;
 
   /*place 1-side candidates in label order*/
   for (i=0; i<*d; i++){
@@ -1805,44 +1804,45 @@ bi_update_workspace_blue(int *dec_o, int *label_o, int *status_d, int *to_add, i
 
   *lta1=0;
   *lta2=0;
-
-//  printf("status_d at end of update workspace\n");
-  //for (i=0; i<n; i++){
-    //printf("%d : %d \n", i, status_d[i]);
-  //}
-
-
+  
 }
 
 
 
 
 static int
-update_2_elig(int j, void *base, int n, size_t size, int k,
+update_2_elig(int j, void *base, int n, size_t size,
         int (*linkfunc)(const void *, const void *, const void *, int *), void *param,int *label_o, int *status_d, int *to_add, int *elig, const int lta1)
 {
   int w,v,i;
   int do_link;
   int status;
-
+ 
+  
   w=label_o[j];
+  //printf("considering 2-elig of %d\n", w);
+  //printf("currently elig[%d]=%d", w, elig[w]);
   /* not 2-eligible, nothing to do */
-  if (status_d[w]==2 || status_d[w]==3) {
+  if (elig[w]==2 || elig[w]==3) {
 
     /* check 1- side of to_add for adjacencies with w */
     for (i=status_d[w]; i< lta1; i++){
       v=to_add[i];
       /* if v has a higher label than j, v and u were already compared and determined to be non-adjacent before v was added to_add */
-      if (status_d[v]<j){
+      if (status_d[v]<=j){
       if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + w*size, param, &do_link)) != eslOK) goto ERROR;
         if (do_link){ /* is adjacent */
             elig[w]=elig[w]-2;
             status_d[w]=lta1;
+           // printf("is not 2-elig because adj to %d\n", v);
+ //           printf("now elig[%d]=%d\n", w, elig[w]);
             break;
         }
       }
     }
   }
+
+ // printf("elig[%d]=%d\n", w, elig[w]);
 
   return eslOK;
 
@@ -1853,7 +1853,7 @@ update_2_elig(int j, void *base, int n, size_t size, int k,
 }
 
 static int
-bi_select_blue(void *base, int n, size_t size, int k,
+bi_select_blue(void *base, int n, size_t size, 
         int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
          int *dec_o, int *label_o, int *status_d, int *to_add, int *elig, const int d, const int l, int *ret_lta1, int *ret_lta2)
 {
@@ -1862,27 +1862,28 @@ bi_select_blue(void *base, int n, size_t size, int k,
   int lta1=0, lta2=0; /* length of to_add */
   int do_link;
   int status;
-  int i,j; /*indices for for loops*/
+  int i,j,k; /*indices for for loops*/
   int should_add;
 
   /* select 1-candidates for 1-side */
   /* iterate over 1-candidates, all of which are in dec_o*/
+  //printf("SELECTING 1-candidates\n");
   for(i=0; i<d; i++){
 
     v=dec_o[i]; /* decide fate of this vertex v*/
-  
+    //printf("considering vertex %d\n",v);
     /* iterate over 2-candidate vertices that have a smaller label than v */
     should_add=TRUE;
     for (j=0; j< status_d[v]; j++){
       
-      update_2_elig(j, base, n, size, k, linkfunc, param, label_o, status_d, to_add, elig, lta1); /*update eligibility of w*/
+      update_2_elig(j, base, n, size, linkfunc, param, label_o, status_d, to_add, elig, lta1); /*update eligibility of w*/
       w=label_o[j];
 
       /* if w is still 2-eligible and is adjacent to v, v should not be added*/
       if (elig[w]==2 || elig[w]==3){
         if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + w*size, param, &do_link)) != eslOK) goto ERROR;
         if (do_link){ /* is adjacent */
-            status_d[v]=-i; /*keep track that v got up to i in label order*/
+            status_d[v]= j; /*keep track that v got up to j in label order*/
             should_add=FALSE;
             break;
         }
@@ -1896,15 +1897,19 @@ bi_select_blue(void *base, int n, size_t size, int k,
     }
 
   }
+    
+    //printf("SELECTING 2-candidates\n");
+
 
   /* select 2-candidates for 2-side */
   /* iterate over 2-candidates, all of which are in label_o*/
   for (j=0; j<l; j++){
     
-    update_2_elig(j, base, n, size, k, linkfunc, param, label_o, status_d, to_add, elig, lta1);
+    update_2_elig(j, base, n, size, linkfunc, param, label_o, status_d, to_add, elig, lta1);
     w=label_o[j]; /* decide whether w goes into 2-side*/
-
-    if (elig[w]==2 || elig[1]==3){
+   // printf("elig[%d]=%d\n", w, elig[w]);
+    if (elig[w]==2 || elig[w]==3){
+      //printf("adding %d to 2-side\n",w);
       /* add to 2-side*/
       to_add[n-1-lta2]=w;
       lta2++;
@@ -1944,8 +1949,8 @@ bi_select_blue(void *base, int n, size_t size, int k,
 
   /* remove 2-elig of 1-candidates that are adjacent to a vertex in 1-side of to_add */
   for (i=0; i<d; i++){
-    v=label_o[i];
-    if (elig[w]==2 || elig[w]==3){
+    v=dec_o[i];
+    if (elig[v]==2 || elig[v]==3){
       for (k=0; k< lta1; k++){
         u=to_add[k];
         if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + u*size, param, &do_link)) != eslOK) goto ERROR;
@@ -1960,11 +1965,11 @@ bi_select_blue(void *base, int n, size_t size, int k,
   *ret_lta1=lta1;
   *ret_lta2=lta2;
 
-  //printf("end of i_select\n");
-  //printf("eligibilty\n");
+//  printf("end of bi select\n");
+ // printf("eligibilty\n");
 
- //for (i=0; i<n; i++){
-   //printf("%d : %d \n", i, elig[i]);
+// for (i=0; i<n; i++){
+///   printf("%d : %d \n", i, elig[i]);
  //}
  //printf("to_add\n");
  //print_array(to_add, n);
@@ -1987,7 +1992,6 @@ esl_bi_iset_Blue(void *base, size_t n, size_t size,
         int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
         int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r)
 {
-  int k=n;
   int i;
   int status;
   int larger;
@@ -2005,6 +2009,7 @@ esl_bi_iset_Blue(void *base, size_t n, size_t size,
   /* 0 removed from graph (in one side of iset or disqualified because no longer eligibile for either side), 1 eligibile for 1 only, 2 eligible for 2 only, 3 eligible for both 1 and 2 */
 
 
+  label_o=workspace;
   dec_o = workspace;
   status_d= workspace +n;
   to_add= workspace +2*n;
@@ -2025,16 +2030,40 @@ esl_bi_iset_Blue(void *base, size_t n, size_t size,
   }
 
   bi_update_workspace_blue(dec_o, label_o, status_d, to_add, elig, assignments, (int) n, &d, &l, &lta1, &lta2, &nb1, &nb2, r);
+  label_o=dec_o+n-l;  
+    
+ // printf("\n AFTER WORKSPACE UPDATE \n");
+ // printf("this is dec_o\n");
+ // print_array(dec_o,d);
+  //printf("this is label_o\n");
+ // print_array(label_o,l);
+ // printf("this is status_d\n");
+ // for (i=0; i<n; i++){
+ //   printf("%d : %d \n", i, status_d[i]);
+ // }
 
+ 
   
   while (l+d>0){
-    //printf("top of while loop\n");
+      
     //print_array(assignments,n);
     //rounds++;
-    if ((status=bi_select_blue(base, (int) n, size, k, linkfunc, param, dec_o, label_o ,status_d, to_add, elig, d, l, &lta1, &lta2))!= eslOK) goto ERROR;
-    //printf("i select done... calling update workspace\n");
+    if ((status=bi_select_blue(base, (int) n, size, linkfunc, param, dec_o, label_o ,status_d, to_add, elig, d, l, &lta1, &lta2))!= eslOK) goto ERROR;
+      
     bi_update_workspace_blue(dec_o, label_o, status_d, to_add, elig, assignments, (int) n, &d, &l, &lta1,&lta2, &nb1, &nb2, r);
-    //printf("bottom of while loop\n");
+    label_o=dec_o+n-l;  
+      
+     // printf("\n AFTER WORKSPACE UPDATE \n");
+     // printf("this is dec_o\n");
+     // print_array(dec_o,d);
+     // printf("this is label_o\n");
+     // print_array(label_o,l);
+      //printf("this is status_d\n");
+      //for (i=0; i<n; i++){
+     //   printf("%d : %d \n", i, status_d[i]);
+     // }
+
+      //printf("bottom of while loop\n");
     //printf("k:\t%d\n",k);
     //print_array(assignments,n);
   }
