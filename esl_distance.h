@@ -51,6 +51,8 @@ extern int esl_dst_CAverageMatch(char **as, int N, int max_comparisons, double *
 
 extern int esl_dst_XAverageId   (const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_comparisons, double *ret_id);
 extern int esl_dst_XAverageMatch(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_comparisons, double *ret_match);
+extern int esl_dst_Connectivity(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_comparisons, double *ret_id, double thresh);
+
 
 #endif /*eslDISTANCE_INCLUDED*/
 

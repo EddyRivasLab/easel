@@ -18,4 +18,14 @@ extern int esl_msa_iset_Cyan(const ESL_MSA *msa, double maxid,
 extern int esl_msa_bi_iset_Cyan(const ESL_MSA *msa, double maxid,
 			     int **opt_c, int **opt_nin, int *larger, ESL_RANDOMNESS *r);
 
+
+extern int esl_msa_iset_Cyan2(const ESL_MSA *msa, double maxid,
+					 			     int **opt_c, int **opt_nin, ESL_RANDOMNESS *r);
+
+extern int esl_msa_bi_iset_Cyan2(const ESL_MSA *msa, double maxid,
+			     int **opt_c, int **opt_nin, int *larger, ESL_RANDOMNESS *r);
+
+extern int esl_msa_bi_iset_Blue(const ESL_MSA *msa, double maxid,
+           int **opt_c, int **opt_nin, int *ret_larger, ESL_RANDOMNESS *r);
+
 #endif /*eslMSA_ISET_INCLUDED*/

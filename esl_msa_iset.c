@@ -294,6 +294,148 @@ esl_msa_bi_iset_Cyan(const ESL_MSA *msa, double maxid,
   return status;
 }
 
+
+int
+esl_msa_bi_iset_Blue(const ESL_MSA *msa, double maxid,
+           int **opt_c, int **opt_nin, int *ret_larger, ESL_RANDOMNESS *r)
+
+{
+  int   status;
+  int  *workspace  = NULL;
+  int  *assignment = NULL;
+  int  *nin        = NULL;
+  int   larger;
+  struct msa_param_s param;
+
+  /* Allocations */
+  ESL_ALLOC(workspace,  sizeof(int) * msa->nseq*5);
+  ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
+
+  /* call to SLC API: */
+  if (! (msa->flags & eslMSA_DIGITAL))
+    status = esl_bi_iset_Blue((void *) msa->aseq, (size_t) msa->nseq, sizeof(char *),
+               msacluster_clinkage, (void *) &maxid,
+               workspace, assignment, &larger, r);
+  else {
+    param.maxid = maxid;
+    param.abc   = msa->abc;
+//    printf("calling esl_iset_Cobalt in else\n");
+    status = esl_bi_iset_Blue((void *) msa->ax, (size_t) msa->nseq, sizeof(ESL_DSQ *),
+               msacluster_xlinkage, (void *) &param,
+               workspace, assignment, &larger, r);
+  }
+  if (status != eslOK) goto ERROR;
+
+  /* cleanup and return */
+  free(workspace);
+  if (ret_larger != NULL) *ret_larger = larger;
+  if (opt_c  != NULL) *opt_c  = assignment; else free(assignment);
+  return eslOK;
+
+ ERROR:
+  if (workspace  != NULL) free(workspace);
+  if (assignment != NULL) free(assignment);
+  if (nin        != NULL) free(nin);
+  if (ret_larger != NULL) *ret_larger = 0;
+  if (opt_c  != NULL) *opt_c  = NULL;
+  return status;
+}
+
+
+int
+esl_msa_iset_Cyan2(const ESL_MSA *msa, double maxid,
+           int **opt_c, int **opt_nin, ESL_RANDOMNESS *r)
+
+{
+  int   status;
+  int  *workspace  = NULL;
+  int  *assignment = NULL;
+  int  *nin        = NULL;
+  struct msa_param_s param;
+
+  /* Allocations */
+  ESL_ALLOC(workspace,  sizeof(int) * msa->nseq * 4);
+  ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
+
+  /* call to SLC API: */
+  if (! (msa->flags & eslMSA_DIGITAL))
+    status = esl_iset_Cyan2((void *) msa->aseq, (size_t) msa->nseq, sizeof(char *),
+               msacluster_clinkage, (void *) &maxid,
+               workspace, assignment, r);
+  else {
+    param.maxid = maxid;
+    param.abc   = msa->abc;
+//    printf("calling esl_iset_Cobalt in else\n");
+    status = esl_iset_Cyan2((void *) msa->ax, (size_t) msa->nseq, sizeof(ESL_DSQ *),
+               msacluster_xlinkage, (void *) &param,
+               workspace, assignment, r);
+  }
+  if (status != eslOK) goto ERROR;
+
+
+
+
+  /* cleanup and return */
+  free(workspace);
+  if (opt_c  != NULL) *opt_c  = assignment; else free(assignment);
+  return eslOK;
+
+ ERROR:
+  if (workspace  != NULL) free(workspace);
+  if (assignment != NULL) free(assignment);
+  if (nin        != NULL) free(nin);
+  if (opt_c  != NULL) *opt_c  = NULL;
+  return status;
+}
+
+int
+esl_msa_bi_iset_Cyan2(const ESL_MSA *msa, double maxid,
+           int **opt_c, int **opt_nin, int *ret_larger, ESL_RANDOMNESS *r)
+
+{
+  int   status;
+  int  *workspace  = NULL;
+  int  *assignment = NULL;
+  int  *nin        = NULL;
+  int   larger;
+  struct msa_param_s param;
+
+  /* Allocations */
+  ESL_ALLOC(workspace,  sizeof(int) * msa->nseq*5);
+  ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
+
+  /* call to SLC API: */
+  if (! (msa->flags & eslMSA_DIGITAL))
+    status = esl_bi_iset_Cyan2((void *) msa->aseq, (size_t) msa->nseq, sizeof(char *),
+               msacluster_clinkage, (void *) &maxid,
+               workspace, assignment, &larger, r);
+  else {
+    param.maxid = maxid;
+    param.abc   = msa->abc;
+//    printf("calling esl_iset_Cobalt in else\n");
+    status = esl_bi_iset_Cyan2((void *) msa->ax, (size_t) msa->nseq, sizeof(ESL_DSQ *),
+               msacluster_xlinkage, (void *) &param,
+               workspace, assignment, &larger, r);
+  }
+  if (status != eslOK) goto ERROR;
+
+  /* cleanup and return */
+  free(workspace);
+  if (ret_larger != NULL) *ret_larger = larger;
+  if (opt_c  != NULL) *opt_c  = assignment; else free(assignment);
+  return eslOK;
+
+ ERROR:
+  if (workspace  != NULL) free(workspace);
+  if (assignment != NULL) free(assignment);
+  if (nin        != NULL) free(nin);
+  if (ret_larger != NULL) *ret_larger = 0;
+  if (opt_c  != NULL) *opt_c  = NULL;
+  return status;
+}
+
+
+
 /*****************************************************************
  * 2. Internal functions, interface to the clustering API
  *****************************************************************/
