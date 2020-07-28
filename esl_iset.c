@@ -325,7 +325,7 @@ esl_iset_Cobalt(void *base, size_t n, size_t size,
 				       //workspace, assignment, r);
     //printf("param is %lf \n", *(double *) param);
 
-    check_iset( base, n, size, linkfunc, param, assignments);
+   // check_iset( base, n, size, linkfunc, param, assignments);
     return eslOK;
 
  ERROR:
@@ -496,7 +496,7 @@ int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r)
   else larger=2;
 
   *ret_larger=larger;
-  check_bi_iset( base, n, size, linkfunc, param, assignments);
+  //check_bi_iset( base, n, size, linkfunc, param, assignments);
 
   return eslOK;
 
@@ -750,7 +750,7 @@ esl_iset_Cyan(void *base, size_t n, size_t size,
 
   //printf("finishing esl_iset_cyan\n");
   //print_array(assignments,n);
-  check_iset( base, n, size, linkfunc, param, assignments);
+  //check_iset( base, n, size, linkfunc, param, assignments);
   ERROR:
     return status;
 
@@ -1225,7 +1225,7 @@ esl_bi_iset_Cyan(void *base, size_t n, size_t size,
   //for (i=0; i<n; i++){
     //printf("%d : %d \n", i, assignments[i]);
   //}
-  check_bi_iset( base, n, size, linkfunc, param, assignments);
+  //check_bi_iset( base, n, size, linkfunc, param, assignments);
   ERROR:
     return status;
 
@@ -1413,7 +1413,7 @@ esl_iset_Cyan2(void *base, size_t n, size_t size,
 
   //printf("finishing esl_iset_cyan\n");
   //print_array(assignments,n);
-  check_iset( base, n, size, linkfunc, param, assignments);
+  //check_iset( base, n, size, linkfunc, param, assignments);
   ERROR:
     return status;
 
@@ -1709,7 +1709,7 @@ esl_bi_iset_Cyan2(void *base, size_t n, size_t size,
   //for (i=0; i<n; i++){
     //printf("%d : %d \n", i, assignments[i]);
   //}
-  check_bi_iset( base, n, size, linkfunc, param, assignments);
+  //check_bi_iset( base, n, size, linkfunc, param, assignments);
   ERROR:
     return status;
 
@@ -2079,7 +2079,7 @@ esl_bi_iset_Blue(void *base, size_t n, size_t size,
   //for (i=0; i<n; i++){
     //printf("%d : %d \n", i, assignments[i]);
   //}
-  check_bi_iset( base, n, size, linkfunc, param, assignments);
+  //check_bi_iset( base, n, size, linkfunc, param, assignments);
   ERROR:
     return status;
 
