@@ -235,6 +235,52 @@ static int check_bi_iset( void *base, size_t n, size_t size,
 
 }
 
+/*****************************************************************
+ * Random split algorithm
+*****************************************************************/
+
+int
+esl_bi_iset_Random(void *base, size_t n, size_t size,
+			  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+			  int *assignments, ESL_RANDOMNESS *r, double t_prob)
+{
+
+  int i,j;			/* indices  */
+  int do_link;
+  int status;
+ 
+  for (i=0; i<n; i++){
+      if (esl_random(r)< t_prob) assignments[i]=1;
+      else assignments[i]=2;
+  }
+    
+  for (i=0; i<n; i++){
+      if (assignments[i]==2){
+          /*check if adjacent to anyone on side 1*/
+          for (j = 0; j<n; j++){
+              if (assignments[j]==1){
+                  if ((status = (*linkfunc)( (char *) base + j*size, (char *) base + i*size, param, &do_link)) != eslOK) goto ERROR;
+                  if (do_link){ /* is adjacent */
+                      /* adjacent, break out of loop  */
+                      assignments[i]=0;
+                      break;
+                  }
+              }
+          }
+      }
+  }
+                  
+
+   
+  //check_bi_iset( base, n, size, linkfunc, param, assignments);
+  return eslOK;
+
+  ERROR:
+    return status;
+
+}
+
+
 
 /*****************************************************************
  * Cobalt iset algorithm

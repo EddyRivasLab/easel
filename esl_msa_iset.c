@@ -108,6 +108,48 @@ struct msa_param_s {
  *            and <opt_nc> is set to 0, and the <msa> is unmodified.
 
  */
+
+int
+esl_msa_bi_iset_Random(const ESL_MSA *msa, double maxid,
+			     int **opt_c, int **opt_nin, ESL_RANDOMNESS *r, double t_prob)
+
+{
+  int   status;
+  int  *assignment = NULL;
+  int  *nin        = NULL;
+  struct msa_param_s param;
+
+  /* Allocations */
+  ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
+
+  /* call to SLC API: */
+  if (! (msa->flags & eslMSA_DIGITAL))
+    status = esl_bi_iset_Random((void *) msa->aseq, (size_t) msa->nseq, sizeof(char *),
+				       msacluster_clinkage, (void *) &maxid,
+				        assignment, r, t_prob);
+  else {
+    param.maxid = maxid;
+    param.abc   = msa->abc;
+//    printf("calling esl_iset_Cobalt in else\n");
+    status = esl_bi_iset_Random((void *) msa->ax, (size_t) msa->nseq, sizeof(ESL_DSQ *),
+				       msacluster_xlinkage, (void *) &param,
+				       assignment, r, t_prob);
+  }
+  if (status != eslOK) goto ERROR;
+
+  /* cleanup and return */
+  if (opt_c  != NULL) *opt_c  = assignment; else free(assignment);
+  return eslOK;
+
+ ERROR:
+  if (assignment != NULL) free(assignment);
+  if (nin        != NULL) free(nin);
+  if (opt_c  != NULL) *opt_c  = NULL;
+  return status;
+}
+
+
+
 int
 esl_msa_iset_Cobalt(const ESL_MSA *msa, double maxid,
 			     int **opt_c, int **opt_nin, ESL_RANDOMNESS *r)
@@ -201,6 +243,7 @@ esl_msa_bi_iset_Cobalt(const ESL_MSA *msa, double maxid,
   if (opt_c  != NULL) *opt_c  = NULL;
   return status;
 }
+
 
 int
 esl_msa_iset_Blue(const ESL_MSA *msa, double maxid,

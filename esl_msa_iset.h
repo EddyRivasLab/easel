@@ -18,4 +18,7 @@ extern int esl_msa_iset_Blue(const ESL_MSA *msa, double maxid,
 extern int esl_msa_bi_iset_Blue(const ESL_MSA *msa, double maxid,
            int **opt_c, int **opt_nin, int *ret_larger, ESL_RANDOMNESS *r);
 
+extern int esl_msa_bi_iset_Random(const ESL_MSA *msa, double maxid,
+			     int **opt_c, int **opt_nin, ESL_RANDOMNESS *r, double t_prob);
+
 #endif /*eslMSA_ISET_INCLUDED*/

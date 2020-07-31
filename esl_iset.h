@@ -24,6 +24,11 @@ extern int esl_bi_iset_Blue(void *base, size_t n, size_t size,
 											  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
 											  int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r);
 
+extern int
+esl_bi_iset_Random(void *base, size_t n, size_t size,
+			  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+			  int *assignments, ESL_RANDOMNESS *r, double t_prob);
+
 static int shuffle_array(ESL_RANDOMNESS *r, int a[], int n);
 
 static void print_array(int array[], int n);
