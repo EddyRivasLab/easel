@@ -1056,6 +1056,37 @@ esl_dst_XAverageIdCross(const ESL_ALPHABET *abc, ESL_DSQ **axa, int Na,  ESL_DSQ
 }
 
 
+int
+esl_dst_PrintIdCross(const ESL_ALPHABET *abc, ESL_DSQ **axa, int Na,  ESL_DSQ **axb, int Nb, int max_comparisons, FILE *file)
+{
+  int    status;
+  double id;
+  int    i,j;
+  
+ // if (N <= 1) { *ret_id = 1.; return eslOK; }
+
+
+  /* Is N small enough that we can average over all pairwise comparisons? 
+     watch out for numerical overflow in this: Pfam N's easily overflow when squared
+   */
+  if (Na <= max_comparisons &&
+      Nb <=  max_comparisons &&
+      (Na * Nb) <= max_comparisons)
+    {
+  fprintf(file, "FAM \n");
+  for (i = 0; i < Na; i++){
+    for (j = 0; j < Nb; j++){
+      if ((status = esl_dst_XPairId(abc, axa[i], axb[j], &id, NULL, NULL)) != eslOK) return status;
+      fprintf(file, "%.2f \t", id);
+    }
+    fprintf(file, "\n");
+  }
+    }
+
+  return eslOK;
+}
+
+
 /* Function:  esl_dst_Connectivity()
  * Synopsis:  Calculate/estimate the fraction of pairs of sequences in a digital MSA with >= threshold PID  
  *
