@@ -11,6 +11,7 @@
 #include "esl_alphabet.h"	
 #include "esl_dmatrix.h"	
 #include "esl_random.h"  
+#include "esl_msa.h"
 
 /* 1. Pairwise distances for aligned text sequences.
  */
@@ -53,7 +54,7 @@ extern int esl_dst_XAverageId   (const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, i
 extern int esl_dst_XAverageMatch(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_comparisons, double *ret_match);
 extern int esl_dst_Connectivity(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_comparisons, double *ret_id, double thresh);
 extern int esl_dst_XAverageIdCross(const ESL_ALPHABET *abc, ESL_DSQ **axa, int Na,  ESL_DSQ **axb, int Nb, int max_comparisons, double *ret_id);
-extern int esl_dst_PrintIdCross(const ESL_ALPHABET *abc, ESL_DSQ **axa, int Na,  ESL_DSQ **axb, int Nb, int max_comparisons,  FILE *file);
+extern int esl_dst_PrintIdCross(const ESL_ALPHABET *abc, ESL_DSQ **axa, int Na,  ESL_DSQ **axb, int Nb, int max_comparisons,  FILE *file, ESL_MSA *msa);
 
 
 #endif /*eslDISTANCE_INCLUDED*/

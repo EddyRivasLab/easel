@@ -1057,7 +1057,7 @@ esl_dst_XAverageIdCross(const ESL_ALPHABET *abc, ESL_DSQ **axa, int Na,  ESL_DSQ
 
 
 int
-esl_dst_PrintIdCross(const ESL_ALPHABET *abc, ESL_DSQ **axa, int Na,  ESL_DSQ **axb, int Nb, int max_comparisons, FILE *file)
+esl_dst_PrintIdCross(const ESL_ALPHABET *abc, ESL_DSQ **axa, int Na,  ESL_DSQ **axb, int Nb, int max_comparisons, FILE *file, ESL_MSA *msa)
 {
   int    status;
   double id;
@@ -1073,11 +1073,11 @@ esl_dst_PrintIdCross(const ESL_ALPHABET *abc, ESL_DSQ **axa, int Na,  ESL_DSQ **
       Nb <=  max_comparisons &&
       (Na * Nb) <= max_comparisons)
     {
-  fprintf(file, "FAM \n");
+  fprintf(file, "FAM \t %-20s \n", msa->name);
   for (i = 0; i < Na; i++){
     for (j = 0; j < Nb; j++){
       if ((status = esl_dst_XPairId(abc, axa[i], axb[j], &id, NULL, NULL)) != eslOK) return status;
-      fprintf(file, "%.2f \t", id);
+      fprintf(file, "%.3f \t", id);
     }
     fprintf(file, "\n");
   }
