@@ -1010,88 +1010,12 @@ esl_dst_XAverageId(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_compari
 }
 
 
-int
-esl_dst_XAverageIdCross(const ESL_ALPHABET *abc, ESL_DSQ **axa, int Na,  ESL_DSQ **axb, int Nb, int max_comparisons, double *ret_id)
-{
-  int    status;
-  double id;
-  double sum = 0.;
-  int    i,j,n;
-  
- // if (N <= 1) { *ret_id = 1.; return eslOK; }
-  *ret_id = 0.;
-
-  /* Is N small enough that we can average over all pairwise comparisons? 
-     watch out for numerical overflow in this: Pfam N's easily overflow when squared
-   */
-  if (Na <= max_comparisons &&
-      Nb <=  max_comparisons &&
-      (Na * Nb) <= max_comparisons)
-    {
-      for (i = 0; i < Na; i++)
-  for (j = 0; j < Nb; j++)
-    {
-      if ((status = esl_dst_XPairId(abc, axa[i], axb[j], &id, NULL, NULL)) != eslOK) return status;
-      sum += id;
-    }
-      sum /= (double) (Na * Nb);
-    }
-
-  /* If nseq is large, calculate average over a stochastic sample. */
-  else        
-    {
-      ESL_RANDOMNESS *r = esl_randomness_Create(42);  /* fixed seed, suppress stochastic variation */
-      for (n = 0; n < max_comparisons; n++)
-  {
-    do { i = esl_rnd_Roll(r, Na); j = esl_rnd_Roll(r, Nb); } while (j == i); /* make sure j != i */
-    if ((status = esl_dst_XPairId(abc, axa[i], axb[j], &id, NULL, NULL)) != eslOK) return status;
-    sum += id;
-  }
-      sum /= (double) max_comparisons;
-      esl_randomness_Destroy(r);
-    }
-
-  *ret_id = sum;
-  return eslOK;
-}
-
-
-int
-esl_dst_PrintIdCross(const ESL_ALPHABET *abc, ESL_DSQ **axa, int Na,  ESL_DSQ **axb, int Nb, int max_comparisons, FILE *file, ESL_MSA *msa)
-{
-  int    status;
-  double id;
-  int    i,j;
-  
- // if (N <= 1) { *ret_id = 1.; return eslOK; }
-
-
-  /* Is N small enough that we can average over all pairwise comparisons? 
-     watch out for numerical overflow in this: Pfam N's easily overflow when squared
-   */
-  if (Na <= max_comparisons &&
-      Nb <=  max_comparisons &&
-      (Na * Nb) <= max_comparisons)
-    {
-  fprintf(file, "FAM \t %-20s \n", msa->name);
-  for (i = 0; i < Na; i++){
-    for (j = 0; j < Nb; j++){
-      if ((status = esl_dst_XPairId(abc, axa[i], axb[j], &id, NULL, NULL)) != eslOK) return status;
-      fprintf(file, "%.3f \t", id);
-    }
-    fprintf(file, "\n");
-  }
-    }
-
-  return eslOK;
-}
-
-
 /* Function:  esl_dst_Connectivity()
  * Synopsis:  Calculate/estimate the fraction of pairs of sequences in a digital MSA with >= threshold PID  
- *
- * Purpose:   Calculates the average pairwise fractional identity in
- *            a digital multiple sequence alignment <ax>, consisting of <N>
+ * Incept:    SNP, Sept 28 02:44:05 EDT 2020 ???
+
+ * Purpose:   Calculates the fraction of pairs of sequences with >= threshold PID
+ *            in a digital multiple sequence alignment <ax>, consisting of <N>
  *            aligned digital sequences of identical length.
  *            
  *            If an exhaustive calculation would require more than
