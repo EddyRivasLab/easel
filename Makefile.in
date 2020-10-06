@@ -67,7 +67,7 @@ VMX_CFLAGS     = @VMX_CFLAGS@
 CPPFLAGS       = @CPPFLAGS@
 LDFLAGS        = @LDFLAGS@
 LIBGSL         = @LIBGSL@
-LIBS           = @LIBS@ @PTHREAD_LIBS@
+LIBS           = @LIBS@ @PTHREAD_LIBS@ @LIBGSL@
 
 
 # Other tools
