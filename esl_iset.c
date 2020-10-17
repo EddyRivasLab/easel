@@ -1,10 +1,15 @@
-/* Generalized single linkage clustering.
+/* Find subset of vertices such that no pair is adjacent (independent set)
+ * Or find a pair of disjoint subsets X and Y such that no pair 
+ * one in X and one in Y are adjacent (bipartite independent pair)
+ * (A pair of vertices are adjacent if their corresponding sequences are
+ * >t% indentical)
  *
  * Contents:
- *     1. Single linkage clustering, generalized
- *     2. Unit tests
- *     3. Test driver
- *     4. Example
+ *     1. Array tools: print and shuffle
+ *     2. Functions for validating independent sets and bipartite independent pairs
+ *     3. Random splitting algorithm 
+ *     4. Cobalt splitting algorithms
+ *     5. Blue splitting algorithms
  */
 #include "esl_config.h"
 
@@ -16,129 +21,27 @@
 #include "esl_iset.h"
 
 
-/*****************************************************************
- * 1. Single linkage clustering, generalized
+ /*****************************************************************
+  * 1. Array tools: print and shuffle
  *****************************************************************/
 
-/* Function:  esl_cluster_SingleLinkage()
- * Synopsis:  Generalized single linkage clustering.
- * Incept:    SRE, Mon Jan  7 08:35:10 2008 [Janelia]
+/* Function: shuffle_array()
+ * Synopsis: Randomly permutes the elements in an array
+ * Incept:   SNP, Oct 16, 2020
  *
- * Purpose:   Given a set of vertices, cluster them by single-linkage
- *            clustering.
+ * Purpose:  To place the elements of an array in a random order
  *
- *            The data describing each vertex is provided in an array
- *            starting at <base>, consisting of <n> vertices. Each
- *            vertex can be of any type (structure, scalar, pointer)
- *            so long as each vertex element is of fixed size <n>
- *            bytes.
+ * Notes:    Implements Fisher-Yates algorithm
  *
- *            A pointer to the clustering function is provided in
- *            <(*linkfunc)()>, and a pointer to any necessary
- *            parameters for that function (for example, any
- *            thresholds) is provided in <param>.
+ * Args:     a - array
+ *           n - shuffle first n elements of array
+ *           r - source of randomness
  *
- *            The <int (*linkfunc)()> must be written by the
- *            caller. It takes arguments <(void *v1, void *v2, void
- *            *param, int *ret_link)>: pointers to two vertices to
- *            test for linkage and a pointer to any necessary
- *            parameters, and it passes the answer <TRUE> (1) or
- *            <FALSE> (0) back in <*ret_link>. The <(*linkfunc)()>
- *            returns <eslOK> (0) on success, and a nonzero error code
- *            on failure (see <easel.h> for a list of Easel's error
- *            codes).
+ * Returns:   <eslOK> on success; 
  *
- *            The caller provides an allocated <workspace> with space
- *            for at least <2n> integers. (Allocation in the caller
- *            allows the caller to reuse memory and save
- *            allocation/free cycles, if it has many rounds of
- *            clustering to do.)
- *
- *            The caller also provides allocated space in
- *            <assignments> for <n> integers which, upon successful
- *            return, contains assignments of the <0..n-1> vertices to
- *            <0..C-1> clusters. That is, if <assignments[42] = 1>,
- *            that means vertex 42 is assigned to cluster 1.  The
- *            total number of clusters is returned in <ret_C>.
- *
- *            The algorithm runs in $O(N)$ memory; importantly, it
- *            does not require a $O(N^2)$ adjacency matrix. Worst case
- *            time complexity is $O(N^2)$ (multiplied by any
- *            additional complexity in the <(*linkfunc()> itself), but
- *            the worst case (no links at all; <C=n> clusters) should
- *            be unusual. More typically, time scales as about $N \log
- *            N$. Best case is $N$, for a completely connected graph
- *            in which all vertices group into one cluster. (More
- *            precisely, best case complexity arises when vertex 0 is
- *            connected to all other <n-1> vertices.)
- *
- * Notes:    I don't know if this algorithm is published. I
- *           haven't seen it in graph theory books, but that might
- *           be because it's so obvious that nobody's bothered.
- *
- *           In brief, we're going to do a breadth-first search of the
- *           graph, and we're going to calculate links on the fly
- *           rather than precalculating them into a standard adjacency
- *           matrix.
- *
- *           While working, we keep two stacks of maximum length N:
- *                a : list of vertices that are still unconnected.
- *                b : list of vertices that we've connected to
- *                    in our current breadth level, but we haven't
- *                    yet tested for other connections to a.
- *           The current length (number of elements in) a and b are
- *           kept in na, nb.
- *
- *           We store our results in an array of length N:
- *                c : assigns each vertex to a component. for example
- *                    c[4] = 1 means that vertex 4 is in component 1.
- *                    nc is the number of components. Components
- *                    are numbered from 0 to nc-1. We return c and nc
- *                    to our caller.
- *
- *           The algorithm is:
- *
- *           Initialisation:
- *                a  <-- all the vertices
- *                na <-- N
- *                b  <-- empty set
- *                nb <-- 0
- *                nc <-- 0
- *
- *           Then:
- *                while (a is not empty)
- *                  pop a vertex off a, push onto b
- *                  while (b is not empty)
- *                    pop vertex v off b
- *                    assign c[v] = nc
- *                    for each vertex w in a:
- *                       compare v,w. If w is linked to v, remove w
- *                       from a, push onto b.
- *                  nc++
- *           q.e.d.
- *
- * Args:      base        - pointer to array of n fixed-size vertices to be clustered.
- *            n           - number of vertices
- *            size        - size of each vertex element
- *            linkfunc    - pointer to caller's function for defining linked pairs
- *            param       - pointer to any data that needs to be provided to <(*linkfunc)>
- *            workspace   - caller provides at least 2n*sizeof(int) of workspace
- *            assignments - RETURN: assignments to clusters (caller provides n*sizeof(int) space)
- *            ret_C       - RETURN: number of clusters
- *
- * Returns:   <eslOK> on success; <assignments[0..n-1]> contains cluster assigments
- *            <0..C-1> for each vertex, and <*ret_C> contains the number of clusters
- *            <C>
- *
- * Throws:    status codes from the caller's <(*linkfunc)> on failure; in this case,
- *            the contents of <*assignments> is undefined, and <*ret_C> is 0.
+ * Throws:   error codes of esl_rnd_Roll or ESL_SWAP if applicable
  */
 
-
-
- /*****************************************************************
-  * Array tools: print and shuffle
- *****************************************************************/
 
 static int
 shuffle_array(ESL_RANDOMNESS *r, int a[], int n)
@@ -152,7 +55,15 @@ shuffle_array(ESL_RANDOMNESS *r, int a[], int n)
   return eslOK;
 }
 
-
+/* Function: print_array()
+ * Synopsis: print the elements in an array
+ * Incept:   SNP, Oct 16, 2020
+ *
+ * Purpose:  Print out array; useful for debugging. Not required for iset algorithms.
+ *
+ * Args:     a - array
+ *           n - print first n elements of array
+ */
 
 static void print_array(int array[], int n)
 {
@@ -166,8 +77,29 @@ static void print_array(int array[], int n)
 
 
 /*****************************************************************
- * Functions to check accuracy of sets found (for debugging)
+ * 2. Functions for validating independent sets and bipartite independent pairs
+      (For debugging only)
 *****************************************************************/
+
+/* Function: check_iset()
+ * Synopsis: Verify that a subset of vertices is an independent set
+ * Incept:   SNP, Oct 16 2020
+ *
+ * Purpose:  Given a subset of vertices, verify whether they form an 
+ *           independent set 
+ *
+ * Args:     base        - pointer to array of n fixed-size vertices in graph
+ *           n           - number of vertices
+ *           size        - size of each vertex element
+ *           linkfunc    - pointer to caller's function for defining linked pairs (edges)
+ *           param       - pointer to any data that needs to be provided to <(*linkfunc)>
+ *           assignments - array of 0/1s; 1 indicates a vertex is in the subset, 0 indicates
+ *                         vertex not in the subset
+ *
+ * Returns:   <eslOK> if the subset is an independent set 
+ *
+ * Throws:   esl_fatal error if not an independent set
+ */
 
 static int check_iset( void *base, size_t n, size_t size,
 			  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
@@ -188,16 +120,34 @@ static int check_iset( void *base, size_t n, size_t size,
         }
      }
    }
-
    return eslOK;
 
    ERROR:
    return status;
 
-
-
 }
 
+/* Function: check_bi_iset()
+ * Synopsis: Verify that a pair of subsets of vertices form a bipartite independent
+ *           pair
+ *
+ * Incept:   SNP, Oct 16 2020
+ *
+ * Purpose:  Given a pair of disjoint subsets of vertices, verify that the pair is a 
+ *           bipartite independent pair 
+ *
+ * Args:     base        - pointer to array of n fixed-size vertices in graph
+ *           n           - number of vertices
+ *           size        - size of each vertex element
+ *           linkfunc    - pointer to caller's function for defining linked pairs (edges)
+ *           param       - pointer to any data that needs to be provided to <(*linkfunc)>
+ *           assignments - array of 0/1/2s; 1 indicates the vertex is in one subset, 2 indicates a
+ *                         the vertex in in the other subset, 0 indicates the vertex is in neither
+ *
+ * Returns:   <eslOK> if the pair forms a bipartite independent pair 
+ *
+ * Throws:   esl_fatal error if not a bipartite independent set pair
+ */
 
 static int check_bi_iset( void *base, size_t n, size_t size,
 			  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
@@ -236,8 +186,42 @@ static int check_bi_iset( void *base, size_t n, size_t size,
 }
 
 /*****************************************************************
- * Random split algorithm
+ * 3. Random splitting algorithm
 *****************************************************************/
+
+/* Function:  esl_bi_iset_Random()
+ * Synopsis:  Random bipartite independent pair algorithm
+ * Incept:    SNP,  Oct  16 2020
+ *
+ * Purpose:   Produces a bipartite independent pair by randomly selecting
+ *            vertices for one group and placing all eligible vertices 
+ *            in the other group.
+ *
+ *            For each vertex v:
+ *                With probability t_prob, place vertex v in set 1 
+ *            For each vertex w not in set 1:
+ *                If w is not adjacent to any vertex in set 1, place w in set 2
+ *
+ *            Two vertices are adjacent if their corresponding sequences are >t% identical
+ *
+ * Args:      base        - pointer to array of n fixed-size vertices to be clustered.
+ *            n           - number of vertices
+ *            size        - size of each vertex element
+ *            linkfunc    - pointer to caller's function for defining linked pairs
+ *            param       - pointer to any data that needs to be provided to <(*linkfunc)>
+ *            assignments - RETURN: assignments to sets (caller provides n*sizeof(int) space)
+ *            r           - source of randomness
+ *            t_prob      - probability of set 1
+ *
+ * Returns:   <eslOK> on success; the <assignments[0..nseq-1]> array contains
+ *            set indices: 
+ *            0 - vertex not in bipartite independent pair
+ *            1 - vertex in one set of bipartite independent pair
+ *            2 - vertex in other set of bipartite independent pair
+ *
+ * Throws:    status codes from the caller's <(*linkfunc)> on failure; in this case,
+ *            the contents of <*assignments> is undefined, and <*ret_C> is 0.
+ */
 
 int
 esl_bi_iset_Random(void *base, size_t n, size_t size,
@@ -270,8 +254,6 @@ esl_bi_iset_Random(void *base, size_t n, size_t size,
       }
   }
                   
-
-   
   //check_bi_iset( base, n, size, linkfunc, param, assignments);
   return eslOK;
 
@@ -283,8 +265,38 @@ esl_bi_iset_Random(void *base, size_t n, size_t size,
 
 
 /*****************************************************************
- * Cobalt iset algorithm
+ * 4. Cobalt splitting algorithms
 *****************************************************************/
+
+/* Function:  esl_iset_Cobalt()
+ * Synopsis:  Greedy algorithm for independent set, with a random order
+ * Incept:    SNP,  Oct  16 2020
+ *
+ * Purpose:   Produces an independent set.
+ *
+ *            U= empty set
+ *            For each vertex v:
+ *                If v is not adjacent to any vertex in U, add v to U
+ *            return U
+ *
+ *            Two vertices are adjacent if their corresponding sequences are >t% identical
+ *
+ * Args:      base        - pointer to array of n fixed-size vertices to be clustered.
+ *            n           - number of vertices
+ *            size        - size of each vertex element
+ *            linkfunc    - pointer to caller's function for defining linked pairs
+ *            param       - pointer to any data that needs to be provided to <(*linkfunc)>
+ *            assignments - RETURN: assignments to sets (caller provides n*sizeof(int) space)
+ *            r           - source of randomness
+ *
+ * Returns:   <eslOK> on success; the <assignments[0..nseq-1]> array contains
+ *            set indices: 
+ *            0 - vertex not in independent set
+ *            1 - vertex is in independent set
+ *
+ * Throws:    status codes from the caller's <(*linkfunc)> on failure; in this case,
+ *            the contents of <*assignments> is undefined, and <*ret_C> is 0.
+ */
 
 int
 esl_iset_Cobalt(void *base, size_t n, size_t size,
@@ -299,7 +311,6 @@ esl_iset_Cobalt(void *base, size_t n, size_t size,
   int status;
   int adj;
 
-
   a = workspace;
   b = workspace + n;
   c = assignments; 
@@ -307,7 +318,6 @@ esl_iset_Cobalt(void *base, size_t n, size_t size,
   for (i=0; i<n; i++){
     c[i]=0;
   }
-
 
   for (v = 0; v < n; v++) a[v] = n-v-1; /* initialize by putting all vertices into an array*/
   nb = 0;
@@ -333,7 +343,6 @@ esl_iset_Cobalt(void *base, size_t n, size_t size,
     /* if exited loop early, v is adjacent to a vertex in b, v will not go in iset*/
     if (adj) c[v]=0;
 
-
     /*if ran through loop without exiting early, v is not adjacent to any vertex in b, v will go in iset*/
     else{
       c[v]=1;
@@ -350,9 +359,42 @@ esl_iset_Cobalt(void *base, size_t n, size_t size,
 
 }
 
-/*****************************************************************
- * Cobalt bi_iset algorithm
-*****************************************************************/
+/* Function:  esl_bi_iset_Cobalt()
+ * Synopsis:  Greedy algorithm for bipartite independent set, with a random order
+ * Incept:    SNP,  Oct  16 2020
+ *
+ * Purpose:   Produces an bipartite independent pair
+ *
+ *            S= empty set
+ *            T= empty set
+ *            for each vertex v:
+ *                With probability 1/2:
+ *                    if v is not adjacent to any vertex in S, add v to S
+ *                    else, if v is not adjacent to any vertex in T, add v to T
+ *                Alternately (with probability 1/2):
+ *                    if v is not adjacent to any vertex in T, add v to T
+ *                    else, if v is not adjacent to any vertex in S, add v to S
+ *            return S,T
+ *
+ *            Two vertices are adjacent if their corresponding sequences are >t% identical
+ *
+ * Args:      base        - pointer to array of n fixed-size vertices to be clustered.
+ *            n           - number of vertices
+ *            size        - size of each vertex element
+ *            linkfunc    - pointer to caller's function for defining linked pairs
+ *            param       - pointer to any data that needs to be provided to <(*linkfunc)>
+ *            assignments - RETURN: assignments to sets (caller provides n*sizeof(int) space)
+ *            r           - source of randomness
+ *
+ * Returns:   <eslOK> on success; the <assignments[0..nseq-1]> array contains
+ *            set indices: 
+ *            0 - vertex not in bipartite independent pair
+ *            1 - vertex is in set S of bipartite independent pair
+ *            2 - vertex is in set T of bipartite independent pair
+ *
+ * Throws:    status codes from the caller's <(*linkfunc)> on failure; in this case,
+ *            the contents of <*assignments> is undefined, and <*ret_C> is 0.
+ */
 
 
 int
@@ -370,12 +412,10 @@ int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r)
   int larger;
   int adj1, adj2;
 
-
   a = workspace;
   b1 = workspace + n;
   b2 = workspace + 2*n;
   c = assignments; 
-
 
   for (i=0; i<n; i++){
     c[i]=0;
@@ -409,7 +449,6 @@ int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r)
         }
       }
 
-
       /* if exited loop early, v is adjacent to a vertex in b1, v will not go in b2; try putting v in b1*/
       if (adj1) {
 
@@ -435,7 +474,6 @@ int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r)
         }
       }
 
-
       /*if ran through loop without exiting early, v is not adjacent to any vertex in b1, v will go in b2*/
       else{
         c[v]=2;
@@ -458,7 +496,6 @@ int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r)
          break;
         }
       }
-
 
       /* if exited loop early, v is adjacent to a vertex in b2, v will not go in b1; try putting v in b2*/
       if (adj2) {
@@ -484,7 +521,6 @@ int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r)
         }
       }
 
-
       /*if ran through loop without exiting early, v is not adjacent to any vertex in b2, v will go in b1*/
       else{
         c[v]=1;
@@ -493,8 +529,6 @@ int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r)
       }
     }
   }
-
-
 
   if (nb1>= nb2) larger=1;
   else larger=2;
@@ -511,8 +545,120 @@ int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r)
 
 
 /*****************************************************************
- * Blue iset algorithm
+ * 4. Blue splitting algorithms
 *****************************************************************/
+
+/* Function:  esl_iset_Blue()
+ * Synopsis:  Algorithm for independent set via a multi-round election process
+ * Incept:    SNP,  Oct  16 2020
+ *
+ * Purpose:   Produces an independent set.
+ *
+ *            U= empty set
+ *            L= all vertices
+ *            while L is non-empty:
+ *                Place vertices of L in a random order v_1,...v_k
+ *                Assign each vertex in L a value ~ unif[0,1]
+ *                for i=1 to k:
+ *                    if label of v_i < label of w for all neighbors w of v_i in L:
+ *                        Add v_i to U
+ *                        Remove all neighbors of v_i from L
+ *            return U
+ *
+ *            Two vertices are adjacent if their corresponding sequences are >t% identical
+ *
+ * Notes:     Pseudocode above is given for intuition. Here we implement the following pseudocode
+ *            which produces the same result as the above pseudocode with fewer edge queries. 
+ *
+ *            U= empty set
+ *            status_d = dictionary with keys=vertices; all values initially 0
+ *                    // keeps track of current status: status_d[i] = -1 if i in iset, -3 if i removed from graph, 
+ *                    // >=0 if i still eligible, value is next position of to_add that needs to be checked
+ *            k= number of vertices still in graph // will represent number of eligible vertices (i.e. the number
+ *                                                 // of vertices for which status_d[v] is non-negative)
+ *
+ *            while k>0:
+ *                dec_o= array with eligible vertices placed in a random order // order in which we will make 
+ *                                                                             // decisions about vertices
+ *                label_o= array with eligible vertices placed in a random order // instead of labeling the vertices with
+ *                                                                               // random values, place them in a random 
+ *                                                                               // order representing lowest to highest label
+ *                to_add = empty array // array of vertices to be added to iset in this round
+ *                lta= 0 //length of to_add array
+ *                
+ *                Iterate through the vertices v according to dec_o:
+ *                    if status_d[v] <0, continue // vertex already removed, nothing to do here
+ *
+ *                    //first check if v is adjacent to a vertex in to_add                     
+ *                    for i=status_d[v] to lta:
+ *                        if to_add[i] is adjacent to v:
+ *                            status_d[v]=-3 // remove v's eligibility since v is adjacent to vertex in iset
+ *                            break
+ *                    
+ *                    status_d[v]=lta // next time checking for adjacencies between v and vertices in to_add, start at lta
+ *                  
+ *                    //now check if v is adjacent to a vertex with a lower label
+ *                    found_self=False //will become true after v is reached during iteration through label_o
+ *                    adj=False //will become true if v is adjcent to a vertex in label_o that is eligible
+ *                    j=0// current vertex in label order being evaluated
+ *                   
+ *                    while !found_self && !adj:
+ *                        w=label_o[j]
+ *                        if w==v, found_self=TRUE break
+ *                        if status_d[w]>=0: //nothing to do in other cases; if status_d[w], w no longer eligible
+ *                                           //we already know that v is not adjacent to any vertex in to_add
+ *                             if w and v are adjacent:
+ *                                // need to check if w is actually eligible (or whether w is ineligible because an adjacency in to_add)
+ *                                w_there=True
+ *                                for l=status_d[w] to lta:
+ *                                    if w and to_add[l]:
+ *                                        status_d[w]=-3 // w is not eligible
+ *                                        w_there=False
+ *                                        break
+ *                                if w_there==True:
+ *                                    status_d[w]=lta // next time checking for adjacencies between w and vertices 
+ *                                                    // in to_add, start at lta
+ *                                    adj=True // v is adjacent to a vertex (w) with a lower label
+ *                                    break
+ *                        j++
+ *
+ *                    if found_self==True: // v is not adjacent to a vertex with a lower label, can add v to iset!
+ *                        to_add[lta]=v
+ *                        lta++
+ *                        status_d[v]=-1
+ *
+ *                // Remove eligibility of vertices adjacent to vertices in to_add (This is necesary when a vertex y
+ *                // in to_add is adjacent to an eligible vertex x whose fate was decided before y)
+ *                for i=0 to k:
+ *                    v=dec_o[i] //check whether v is adjacent to any vertex in to_add
+ *                    for j=status_d[v] to lta:
+ *                        if to_add[j] and v are adjacent:
+ *                            status_d[v]=-3 //remove eligibility of v    
+ *            
+ *                Add all vertices in to_add to U 
+ *                Reset status_d[v]=0 for all eligible vertices (i.e. vertices with status_d[v]>=0)
+ *                k=number of eligible vertices remaining
+ *                Clear dec_o, label_o
+ *            
+ *            return U
+ *                     
+ *
+ * Args:      base        - pointer to array of n fixed-size vertices to be clustered.
+ *            n           - number of vertices
+ *            size        - size of each vertex element
+ *            linkfunc    - pointer to caller's function for defining linked pairs
+ *            param       - pointer to any data that needs to be provided to <(*linkfunc)>
+ *            assignments - RETURN: assignments to sets (caller provides n*sizeof(int) space)
+ *            r           - source of randomness
+ *
+ * Returns:   <eslOK> on success; the <assignments[0..nseq-1]> array contains
+ *            set indices: 
+ *            0 - vertex not in independent set
+ *            1 - vertex is in independent set
+ *
+ * Throws:    status codes from the caller's <(*linkfunc)> on failure; in this case,
+ *            the contents of <*assignments> is undefined, and <*ret_C> is 0.
+ */
 
 int
 esl_iset_Blue(void *base, size_t n, size_t size,
@@ -559,8 +705,7 @@ esl_iset_Blue(void *base, size_t n, size_t size,
 }
 
 
-
-
+/* Helper function for esl_iset_Blue() that fills to_add */
 
 static int
 i_select(void *base, size_t n, size_t size, int k,
@@ -677,6 +822,7 @@ i_select(void *base, size_t n, size_t size, int k,
 }
 
 
+/* Helper function for esl_iset_Blue() that resets dec_o, label_o, and status_d */
 
 static void
 i_update_workspace(int *dec_o, int *label_o, int *status_d, int *to_add, int *assignments, size_t n, int *k, int *lta, ESL_RANDOMNESS *r){
@@ -725,10 +871,161 @@ i_update_workspace(int *dec_o, int *label_o, int *status_d, int *to_add, int *as
 }
 
 
-
-/*****************************************************************
- * Blue Algorithm
-*****************************************************************/
+/* Function:  esl_bi_iset_Blue()
+ * Synopsis:  Algorithm for bipartite independent pair via a multi-round election process
+ * Incept:    SNP,  Oct  16 2020
+ *
+ * Purpose:   Produces an bipartite independent pair.
+ *
+ *            S,T= empty set
+ *            L_S, L_T= all vertices // represent eligibility for S and T sets 
+ *            while L_T or L_S is non-empty:
+ *                
+ *                C_S, C_T = empty set // represents S-candidates and T-candidates for the round
+ *                For each vertex that is in L_S, but not in L_T, add the vertex to C_S
+ *                For each vertex that is in L_T, but not in L_S, add the vertex to C_T
+ *                For each vertex in both L_S and L_T, randomly assign to C_S (exclusive) or C_T
+ *
+ *                
+ *                Place vertices of C_S in a random order v_1,...v_k
+ *                Assign each vertex in L a value ~ unif[0,1]
+ *                For i=1 to k:
+ *                    If label of v_i < label of w for all neighbors w of v_i in both L_T and C_T:
+ *                        Add v_i to S
+ *                        Remove all neighbors of v_i from L_T
+ *                        Remove v_i from L_T and L_S
+ *                
+ *                For all vertices w in both L_T and C_T:
+ *                    Add w to T, remove w from L_T, remove w and all of its neighbors from L_S
+ *                
+ *            Return S, T
+ *
+ *            Two vertices are adjacent if their corresponding sequences are >t% identical
+ *
+ * Notes:     Pseudocode above is given for intuition. Here we implement the following pseudocode
+ *            which produces the same result as the above pseudocode with fewer edge queries. 
+ *            
+ *            S,T=empty set
+ *
+ *            elig= dictionary with key=vertices; all values initially 3 // keeps track of eligibility of the vertices
+ *                  // 0 removed from graph (in one side of iset or disqualified because no longer eligibile for either side)
+ *                  // 1 eligibile for 1 only, 2 eligible for 2 only, 3 eligible for both 1 and 2 
+ *            
+ *            while some vertices are still eligible: 
+                d=0 // number of 1-side candidates
+ *              l=0 // number of 2-side candidate
+ *              dec_o= empty array of length number of total vertices // will store 1-candidates on left side, and 2-candidates on right side
+ *              // assign candidacy to vertices
+ *              for each vertex:
+ *                  if v is 1-eligible and not 2-eligible:
+ *                      // make v 1-candidate by placing v in next open spot of dec_o on left side
+ *                      dec_o[d]=v
+ *                      d++
+ *                  if v is 2-eligible and not 1-eligible:
+ *                      // make v a 2-candidate by placing v in next open spot of dec_o on right side
+ *                      dec_o=[n-1-l]=v
+ *                      l++
+ *                  if v is 1-eligible and 2-eligible:
+ *                      with prob 1/2 make v 1-candidate by placing v in the next open spot of dec_o on left side (dec_o[d]=v, d++)
+ *                      alternately make v a 2-candidate by placing v in the next open spot of dec_o on right side (dec_o=[n-1-l]=v, l++)
+ *            
+ *              label_o= dec_o+n-l // to avoid indexing from the right, we break off the dec_o array into an array called label_o
+ *              status_d=dictionary with keys=vertices; 
+ *                        //if v is a 1-candidate, v is before position status_d[i] in label order (there is never a need to compare
+ *                        //the labels of two 1-candidates, so it is fine if multiple 1-candidates are in the same position of the label order) 
+ *                        //if v is a 2-candidate, value of status_d[v] is next position of to_add that needs to be checked 
+ *              for all 2-candidates, initialize status_d[v]=0
+ *              for all 1-candidates, status_d[v]= random integer in [0, l+1]
+ *
+ *              shuffle 1-candidates within dec_0 (i.e. apply random permutation to first d elements of dec_o)
+ *              shuffle 2-candidates within label_0 (i.e. apply random permutation to the l elements of label_o)
+ *
+ *             // elect vertices to 1-side
+ *             lta1=0, lta2=0 // length of to_add for each of the sides
+ *             to_add=empty array // left side will store vertices added to 1-side, right side will store vertices added to 2-side
+ *             Iterate through the vertices v according to dec_o (only the 1-candidates):
+ *                  should_add=True
+ *                  for j=0 to status_d[v]: //check if v is adjacent to a vertex that is a 2-candidate with a lower label
+ *                      w=label_o[j]
+ *                      update_2_elig(j) // see helper function below, updates 2-elig of label_o[j]
+ *                      if elig[w]==2 or 3 // then w is 2-eligible
+ *                          if w and v are adjacent:
+ *                              status_d[v]=j // keep track that v has been compared to first j vertices in label order (new meaning)
+ *                              should_add=False
+ *                              break
+ *                  if should_add:
+ *                      to_add[lta1]=v; lta++; elig[v]=0
+ *
+ *              // add vertices to 2-side
+ *              for j=0 to l:
+ *                  w=label_o[j] // 2-candidate vertex to decide 
+ *                  update_2_elig(j) // see helper function below, updates 2-elig of label_o[j]
+ *               
+ *                  if elig[w]==2 or 3 // then w is 2-eligible so add w to 2-side
+ *                      to_add[n-1-lta2]=w; lta2++; elig[w]=0
+ *                      
+ *                      //remove eligibility of 1-side candidates that are adjacent to w
+ *                      for i=0 to d:
+ *                          v=dec_o[d] // decide 2-eligibility of v
+ *                          if elig[v]==1 or 3:  
+ *                              // since v was not added to 1-side, status_d[v] has new meaning, v is not adjacent to first j-1 vertices                       
+ *                              // of label_o and is adjacent to label_o[j]
+ *                              if status_d[v]==j, elig[v]=elig[v]-1 // w is adj to v, w is on 2-side, so must remove 1-eligibility of v
+ *                              else if status_d[v]< j:
+ *                                  if v and w are adjacent, elig[v]=elig[v]-1 // w is adj to v, w is on 2-side, so must remove 1-eligibility of v
+ *
+ *              // remove 1-elig of 2-candidates that are adjacent ot a vertex in 2-side of to-add
+ *              for j=0 to l:
+ *                  w=label_o[j]
+ *                  if elig[w]==1 or 3:
+ *                      for k=n-1 to n-1-lta2: //iterate through vertices added to 2-side
+ *                          u=to_add[k]
+ *                          if u and w are adjacent, elig[w]=elig[w]-1, break // w is adajcent to u (which is in 2-side), so w is no longer 1-eligible
+ *
+ *              // remove 2-elig of 1-candidates that are adjacent to a vertex in 1-side of to_add
+ *              for i=0 to d:
+ *                  v=dec_o[i]
+ *                  if elig[v]==2 or 3: //iterate through vertices added to 1-side
+ *                      for k=0 to lta1:
+ *                          u=to_add[k]
+ *                            if u and v are adjacent, elig[v]=elig[v]-2 // v is adjacent to u (which is in 1-side) so must remove 2-elig of v
+ *            
+ *              add vertices on left side of to_add (positions 0 to lta1) to S
+ *              add vertices on right side of to add (position n-lta2 to n-1) to T
+ *        
+ *          return S,T
+ *
+ *          PSEUDOCODE for update_2_elig
+ *          
+ *          update_2_elig(j):
+ *              w=label_o[j]
+ *              if elig[w]==2 or 3:
+ *                  //check 1-side of to_add for adjacencies with w
+ *                  for i=status_d[w] to lta:
+ *                       v=to_add[i]
+ *                       // if v has a higher label that j, v and u were already compared and determined to be non-adjacent before v was added 
+ *                      if status_d[v]<=j:
+ *                          if v and w are adjacent, elig[w]=elig[w]-2, status_d[w]=lta1, break // w is not 2 eligible because it is adjacent 
+ *                                                                                              // to v, which is in 1-side of to_add
+ *
+ *
+ * Args:      base        - pointer to array of n fixed-size vertices to be clustered.
+ *            n           - number of vertices
+ *            size        - size of each vertex element
+ *            linkfunc    - pointer to caller's function for defining linked pairs
+ *            param       - pointer to any data that needs to be provided to <(*linkfunc)>
+ *            assignments - RETURN: assignments to sets (caller provides n*sizeof(int) space)
+ *            r           - source of randomness
+ *
+ * Returns:   <eslOK> on success; the <assignments[0..nseq-1]> array contains
+ *            set indices: 
+ *            0 - vertex not in bipartite independent pair
+ *            1 - vertex is in set S of bipartite independent pair
+ *            2 - vertex is in set T of bipartite independent pair
+ *
+ * Throws:    status codes from the caller's <(*linkfunc)> on failure; in this case,
+ *            the contents of <*assignments> is undefined, and <*ret_C> is 0.
+ */
 
 int
 esl_bi_iset_Blue(void *base, size_t n, size_t size,
@@ -798,6 +1095,8 @@ esl_bi_iset_Blue(void *base, size_t n, size_t size,
 
 
 }
+
+/* Helper function for esl_bi_iset_Blue() */
 
 static void
 bi_update_workspace_blue(int *dec_o, int *label_o, int *status_d, int *to_add, int *elig, int *assignments, int n, int *d, int *l, int *lta1, int *lta2, int *nb1, int *nb2, ESL_RANDOMNESS *r){
@@ -873,6 +1172,7 @@ bi_update_workspace_blue(int *dec_o, int *label_o, int *status_d, int *to_add, i
 
 
 
+/* Helper function for esl_bi_iset_Blue() */
 
 static int
 update_2_elig(int j, void *base, int n, size_t size,
@@ -992,7 +1292,7 @@ bi_select_blue(void *base, int n, size_t size,
         u=to_add[k];
         if ((status = (*linkfunc)( (char *) base + u*size, (char *) base + w*size, param, &do_link)) != eslOK) goto ERROR;
         if (do_link){ 
-          elig[w]=elig[w]-1; /* v is adjacent to w, which is in 2-side, so remove 1-elig of v */
+          elig[w]=elig[w]-1; /* w is adjacent to u, which is in 2-side, so remove 1-elig of w */
           break;
         }
       }
@@ -1007,7 +1307,7 @@ bi_select_blue(void *base, int n, size_t size,
         u=to_add[k];
         if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + u*size, param, &do_link)) != eslOK) goto ERROR;
         if (do_link){ 
-          elig[v]=elig[v]-2; /* v is adjacent to w, which is in 2-side, so remove 1-elig of v */
+          elig[v]=elig[v]-2; /* v is adjacent to u, which is in 1-side, so remove 2-elig of v */
           break;
         }
       }
@@ -1026,147 +1326,3 @@ bi_select_blue(void *base, int n, size_t size,
 
 
 
-/*****************************************************************
- * 2. Unit tests
- *****************************************************************/
-#ifdef eslCLUSTER_TESTDRIVE
-#include <math.h>
-
-static int
-test_linkage_definition(const void *v1, const void *v2, const void *param, int *ret_link)
-{
-  double a         = *((double *) v1); /* you have to cast a void ptr before you can dereference it */
-  double b         = *((double *) v2);
-  double threshold = *((double *) param);
-
-  *ret_link =  ((fabs(a-b) <= threshold) ? TRUE : FALSE);
-  return eslOK;
-}
-
-static void
-utest_singlelinkage(double *testdata, int n, double threshold, int *correct_assignment, int correct_C)
-{
-  int   *workspace;
-  int   *assignment;
-  int    C;
-  int    v;
-
-  if ((workspace  = malloc(sizeof(int) * n * 2)) == NULL) esl_fatal("allocation failed");
-  if ((assignment = malloc(sizeof(int) * n))     == NULL) esl_fatal("allocation failed");
-
-  if (esl_cluster_SingleLinkage(testdata, n, sizeof(double),
-				test_linkage_definition, &threshold,
-				workspace, assignment, &C) != eslOK) esl_fatal("single linkage clustering failed");
-
-  if (C != correct_C) esl_fatal("expected %d clusters, but got %d\n", correct_C, C);
-  for (v = 0; v < n; v++)
-    if (correct_assignment[v] != assignment[v])
-      esl_fatal("expected vertex %d to be in cluster %d, but it's in %d\n", v, correct_assignment[v], assignment[v]);
-
-  free(workspace);
-  free(assignment);
-}
-#endif /* eslCLUSTER_TESTDRIVE */
-
-
-
-
-/*****************************************************************
- * 3. Test driver
- *****************************************************************/
-#ifdef eslCLUSTER_TESTDRIVE
-/* gcc -g -Wall -o test -I. -L. -DeslCLUSTER_TESTDRIVE esl_cluster.c -leasel -lm
- */
-#include "esl_config.h"
-
-#include <stdio.h>
-#include <math.h>
-
-#include "easel.h"
-#include "esl_getopts.h"
-#include "esl_cluster.h"
-
-static ESL_OPTIONS options[] = {
-  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
-  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",          0 },
-  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-};
-static char usage[]  = "[-options]";
-static char banner[] = "test driver for cluster module";
-
-int
-main(int argc, char **argv)
-{
-  ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
-  double vertex[]      = { 1.0, 2.0, 4.0, 5.0, 7.0, 8.0 };
-  int    na1 = 3, a1[] = { 0,   0,   1,   1,   2,   2   };     /* correct answer when threshold = 1.5 */
-  int    na2 = 6, a2[] = { 0,   1,   2,   3,   4,   5   };     /* correct answer when threshold < 1.0 */
-  int    na3 = 1, a3[] = { 0,   0,   0,   0,   0,   0   };     /* correct answer when threshold > 2.0 */
-  int    n         = sizeof(vertex) / sizeof(double);
-
-  utest_singlelinkage(vertex, n, 1.5, a1, na1);
-  utest_singlelinkage(vertex, n, 0.5, a2, na2);
-  utest_singlelinkage(vertex, n, 2.5, a3, na3);
-
-  esl_getopts_Destroy(go);
-  return 0;
-}
-#endif /* eslCLUSTER_TESTDRIVE*/
-
-
-
-
-
-/*****************************************************************
- * 4. Example
- *****************************************************************/
-#ifdef eslCLUSTER_EXAMPLE
-/*::cexcerpt::cluster_example::begin::*/
-/* gcc -g -Wall -o example -I. -L. -DeslCLUSTER_EXAMPLE esl_cluster.c easel.c -lm  */
-#include "esl_config.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-
-#include "easel.h"
-#include "esl_cluster.h"
-
-static int
-my_linkage_definition(const void *v1, const void *v2, const void *param, int *ret_link)
-{
-  double a         = *((double *) v1); /* you have to cast a void ptr before you can dereference it */
-  double b         = *((double *) v2);
-  double threshold = *((double *) param);
-
-  *ret_link =  ((fabs(a-b) <= threshold) ? TRUE : FALSE);
-  return eslOK;
-}
-
-int
-main(int argc, char **argv)
-{
-  double vertex[]  = { 1.0, 2.0, 4.0, 5.0, 7.0, 8.0 };
-  int    n         = sizeof(vertex) / sizeof(double);
-  double threshold = 1.5;
-  int   *workspace;
-  int   *assignment;
-  int    C;
-  int    v;
-
-  workspace  = malloc(sizeof(int) * n * 2);
-  assignment = malloc(sizeof(int) * n);
-
-  esl_cluster_SingleLinkage(vertex, n, sizeof(double),
-			    my_linkage_definition, &threshold,
-			    workspace, assignment, &C);
-
-  printf("There are %d clusters.\n", C);
-  for (v = 0; v < n; v++) printf("vertex %d is in cluster %d\n", v, assignment[v]);
-
-  free(workspace);
-  free(assignment);
-  return 0;
-}
-/*::cexcerpt::cluster_example::end::*/
-#endif /*eslCLUSTER_EXAMPLE*/
