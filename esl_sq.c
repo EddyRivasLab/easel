@@ -2186,8 +2186,15 @@ sq_init(ESL_SQ *sq, int do_digital)
   ESL_ALLOC(sq->acc,    sizeof(char) * sq->aalloc);
   ESL_ALLOC(sq->desc,   sizeof(char) * sq->dalloc);
   ESL_ALLOC(sq->source, sizeof(char) * sq->srcalloc);
-  if (do_digital) ESL_ALLOC(sq->dsq,  sizeof(ESL_DSQ) * sq->salloc);
-  else            ESL_ALLOC(sq->seq,  sizeof(char)    * sq->salloc);
+  if (do_digital)
+    {
+      ESL_ALLOC(sq->dsq,  sizeof(ESL_DSQ) * sq->salloc);
+    }
+  else 
+    {
+      ESL_ALLOC(sq->seq,  sizeof(char)    * sq->salloc);
+      sq->abc = NULL;
+    }
 
   esl_sq_Reuse(sq);	/* initialization of sq->n, offsets, and strings */
   return eslOK;
