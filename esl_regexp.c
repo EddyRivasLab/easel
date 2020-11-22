@@ -1686,7 +1686,7 @@ regescape(struct comp *cp, char c)
 
 
 /*****************************************************************
- * 3 code examples, and the test driver 
+ * Three code examples, and the test driver 
  *****************************************************************/
 
 #ifdef eslREGEXP_EXAMPLE

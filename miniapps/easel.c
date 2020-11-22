@@ -1,3 +1,14 @@
+/* easel - little utilities for biological sequence analysis
+ *
+ * A single program with many subcommands, subsuming the former Easel
+ * miniapps.
+ *
+ * For the implementations of individual miniapps:
+ *   cmd_alistat.c     alignment summary statistics
+ *   cmd_downsample.c  downsampling random subsets of things
+ *   cmd_filter.c      remove similar seqs from an MSA
+ *   cmd_index.c       create SSI index for sequence file
+ */
 #include "esl_config.h"
 
 #include <string.h>
@@ -5,17 +16,33 @@
 #include "easel.h"
 #include "esl_subcmd.h"
 
+
+/* Each subcommand has an implementation in a separate `cmd_*.c`
+ * file, using an interface dictated by `esl_subcmd`.
+ */
 extern int esl_cmd_alistat   (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  // cmd_alistat.c
 extern int esl_cmd_downsample(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  // cmd_downsample.c
 extern int esl_cmd_filter    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  // cmd_filter.c
+extern int esl_cmd_index     (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  // cmd_index.c
 
+
+
+/* The ESL_SUBCMD array associates subcommand names with their
+ * implementations and command-line help strings.
+ */
 ESL_SUBCMD subcommands[] = {
   /* function            subcmd_name  nargs        arg_description               help_line */
   { esl_cmd_alistat,    "alistat",       1, "[-options] <msafile>",         "summary statistics for a multiple seq alignment file"     },
   { esl_cmd_downsample, "downsample",    2, "[-options] <m> <infile>",      "downsample <m> things from larger <infile> of n things"   },
   { esl_cmd_filter,     "filter",        2, "[-options] <maxid> <msafile>", "remove seqs >= <maxid> fractional identity from MSA"      },
+  { esl_cmd_index,      "index",         1, "[-options] <infile>",          "create SSI fast lookup index for sequence/alignment file" },
 };
 
+
+
+/* `easel` has its own options; each subcommand also has its own
+ * options (specified in `cmd_*.c` files)
+ */
 static ESL_OPTIONS top_options[] = {
    /* name         type          default  env  range tog's   reqs incomp  help                       docgroup*/
   { "-h",         eslARG_NONE,   FALSE, NULL, NULL,  NULL, NULL,   NULL, "show overall brief help summary", 1  },
@@ -23,6 +50,7 @@ static ESL_OPTIONS top_options[] = {
   { "--help",     eslARG_NONE,   FALSE, NULL, NULL,  NULL, NULL,   NULL, "show overall brief help summary", 99 },  // accept --help as an undocumented special case
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
+
 
 static int
 top_usage(const char *topcmd)
