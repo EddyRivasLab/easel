@@ -384,7 +384,12 @@ onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_SQFILE *sqfp)
       else if (status != eslOK)      esl_fatal("Unexpected error %d reading sequence file %s",
 					       status, sqfp->filename);
 
-      if (strcmp(key, sq->name) != 0 && strcmp(key, sq->acc) != 0) 
+      /* Sanity check that we got the right sequence. 
+       * (Maybe the .ssi index doesn't correspond to the seqfile.)
+       * strstr() check is because sq->name could be uniprot "db|acc|id" style, and
+       * we may have indexed the id (and maybe acc) as additional secondary keys.
+       */
+      if (strcmp(key, sq->name) != 0 && strcmp(key, sq->acc) != 0 && strstr(sq->name, key) == NULL)
 	esl_fatal("whoa, internal error; found the wrong sequence %s, not %s", sq->name, key);
     }  
   else 

@@ -18,9 +18,10 @@
 
 static ESL_OPTIONS cmd_options[] = {
   /* name             type          default  env  range toggles reqs incomp  help                                       docgroup*/
-  { "-h",          eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "show brief help on version and usage",                       0 },
-  { "-U",          eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "also index accession, id alone for UniProt db|acc|id names", 0 },
-  { "--informat",  eslARG_STRING,   FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "specify that input file is in format <s>",                   0 },
+  { "-h",          eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "show brief help on version and usage",                         0 },
+  { "-a",          eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "index accessions too, if present",                             0 },
+  { "-u",          eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "parse UniProt db|acc|id names; index id too (and acc, w/ -a)", 0 },
+  { "--informat",  eslARG_STRING,   FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "specify that input file is in format <s>",                     0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
@@ -50,7 +51,8 @@ esl_cmd_index(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   char           *seqfile            = esl_opt_GetArg(go, 1);
   char           *ssifile            = NULL;
   int             infmt              = eslSQFILE_UNKNOWN;
-  int             parse_uniprot_name = esl_opt_GetBoolean(go, "-U");
+  int             do_accessions      = esl_opt_GetBoolean(go, "-a");
+  int             do_uniprot         = esl_opt_GetBoolean(go, "-u");
   ESL_SQFILE     *sqfp               = NULL;
   ESL_NEWSSI     *ssifp              = NULL;
   ESL_SQ         *sq                 = esl_sq_Create();
@@ -86,6 +88,9 @@ esl_cmd_index(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   printf("Creating SSI index %s for sequence file %s...    ", ssifile, sqfp->filename); 
   fflush(stdout);
 
+  /* Precompile the regexp pattern for a little efficiency */
+  esl_regexp_Compile(rem, "^.+\\|(.+)\\|(.+)$");
+
   /* Read each sequence, index names */
   while ((status = esl_sqio_ReadInfo(sqfp, sq)) == eslOK)
     {
@@ -96,26 +101,27 @@ esl_cmd_index(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
       if (esl_newssi_AddKey(ssifp, sq->name, fh, sq->roff, sq->doff, sq->L) != eslOK)
 	esl_fatal("Failed to add name %s to SSI index primary keys", sq->name);
 
-      if (sq->acc[0] != '\0')
+      if (do_accessions && sq->acc[0] != '\0')
         {
           if (esl_newssi_AddAlias(ssifp, sq->acc, sq->name) != eslOK)
             esl_fatal("Failed to add accession %s to SSI index secondary keys", sq->acc);
         }
 
-      if (parse_uniprot_name)
+      if (do_uniprot)
         {
-          if (esl_regexp_Match(rem, "^.+\\|(.+)\\|(.+)$", sq->name) == eslOK)
+          if (esl_regexp_Match(rem, NULL, sq->name) == eslOK)  // NULL because pattern was precompiled, same every time
             {
-              acc = esl_regexp_SubmatchDup(rem, 1);
-              id  = esl_regexp_SubmatchDup(rem, 2);
+              if (do_accessions)
+                {
+                  acc = esl_regexp_SubmatchDup(rem, 1);
+                  if (esl_newssi_AddAlias(ssifp, acc, sq->name) != eslOK)
+                    esl_fatal("Failed to add parsed accession %s to SSI index secondary keys", acc);
+                  free(acc);
+                }
 
-              if (esl_newssi_AddAlias(ssifp, acc, sq->name) != eslOK)
-                esl_fatal("Failed to add parsed accession %s to SSI index secondary keys", acc);
-              if (esl_newssi_AddAlias(ssifp, id,  sq->name) != eslOK)
+              id = esl_regexp_SubmatchDup(rem, 2);
+              if (esl_newssi_AddAlias(ssifp, id, sq->name) != eslOK)
                 esl_fatal("Failed to add parsed id %s to SSI index secondary keys", id);
-
-              free(acc);
-              free(id);
             }
         }
       esl_sq_Reuse(sq);
