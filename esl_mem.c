@@ -1279,7 +1279,7 @@ utest_memstrcontains(void)
 #include "esl_getopts.h"
 
 static ESL_OPTIONS options[] = {
-   /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
+   /* name  type         default  env   range togs  reqs  incomp  help                                  docgrp */
   { "-h",  eslARG_NONE,    FALSE, NULL, NULL,  NULL,  NULL, NULL, "show help and usage",                     0},
   { "-s",  eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",           0 },
   { "-x",  eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "allow bad luck (stochastic failures)",    0 },
