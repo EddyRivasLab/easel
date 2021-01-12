@@ -2000,6 +2000,46 @@ esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq)
  *# 5. Debugging/development tools 
  *****************************************************************/
 
+/* Function:  esl_sq_Validate()
+ * Synopsis:  Validate an ESL_SQ object
+ * Incept:    SRE, Tue 12 Jan 2021 [H9/136]
+ */
+int
+esl_sq_Validate(ESL_SQ *sq, char *errmsg)
+{
+  if (sq->name == NULL) ESL_FAIL(eslFAIL, errmsg, "seq name can't be NULL");
+  if (sq->acc  == NULL) ESL_FAIL(eslFAIL, errmsg, "optional accession must be '\0' empty string if missing, not NULL");
+  if (sq->desc == NULL) ESL_FAIL(eslFAIL, errmsg, "optional desc line must be '\0' empty string if missing, not NULL");
+  if (sq->tax_id < -1)  ESL_FAIL(eslFAIL, errmsg, "optional tax_id must be -1 or an NCBI taxid");
+
+  if (sq->dsq != NULL)
+    { // digital seq
+      if (sq->seq                 != NULL)  ESL_FAIL(eslFAIL, errmsg, "seq must be digital or text, not both");
+      if (esl_abc_dsqlen(sq->dsq) != sq->n) ESL_FAIL(eslFAIL, errmsg, "digital seq length doesn't agree with sq->n");
+      if (sq->ss ) {
+        if (sq->ss[0]             != '\0')  ESL_FAIL(eslFAIL, errmsg, "ss annotation for a digital seq is 1..n with \0 at 0,n+1");
+        if (strlen(sq->ss+1)      != sq->n) ESL_FAIL(eslFAIL, errmsg, "ss annotation length (for digital seq) doesn't agree with sq->n");
+      }
+      if (!sq->abc)                         ESL_FAIL(eslFAIL, errmsg, "digital seq needs a non-NULL alphabet");
+    }
+  else
+    { // text seq
+      if (sq->dsq                  != NULL)  ESL_FAIL(eslFAIL, errmsg, "seq must be digital or text, not both");
+      if (strlen(sq->seq)          != sq->n) ESL_FAIL(eslFAIL, errmsg, "text seq length doesn't agree with sq->n");
+      if (sq->ss && strlen(sq->ss) != sq->n) ESL_FAIL(eslFAIL, errmsg, "ss annotation length (for text seq) doesn't agree with sq->n");
+      if (sq->abc)                           ESL_FAIL(eslFAIL, errmsg, "text seq mustn't have a digital alphabet");
+    }
+
+  // TK TK TK
+  //  ... should check source-tracking info 
+  //  ... and memory allocation
+  //  ... and disk offset bookkeeping
+  //  ... and optional residue markup
+  return eslOK;
+}
+
+
+
 /* Function:  esl_sq_Sample()
  * Synopsis:  Sample a random, ugly <ESL_SQ> for test purposes.
  * Incept:    SRE, Tue Feb 23 08:32:54 2016 [H1/83]
