@@ -640,7 +640,7 @@ headers, see [`devkit/autodoc.md`](../devkit/autodoc.md).
 	reallocation strategy (often by doubling). Returns `eslOK` on
     success. Throws `eslEMEM` on allocation failure.
 	
-* **_GrowTo():** increase object's allocation to a given size, if necessary
+* **_GrowTo(n):** increase object's allocation to a given size, if necessary
 
 		int esl_foo_GrowTo(ESL_FOO *obj, int n)
 		
@@ -648,6 +648,45 @@ headers, see [`devkit/autodoc.md`](../devkit/autodoc.md).
     reallocates to at least that size. Returns `eslOK` on success.
 	Throws `eslEMEM` on allocation failure.
 
+* **_GrowFor(n):** increase object's allocation to hold at least n elements
+
+		int esl_foo_GrowFor(ESL_FOO *obj, int n)
+
+    Check to see if `obj` can hold `n` elements, and increase the 
+	allocation if needed. If the allocation is already large enough,
+	do nothing.
+	
+	`<n>` does not include sentinels, if any. For an array of elements
+    1..n with sentinels at 0 and n+1, for example, you pass n as 
+    the argument, and the object is reallocated for at least n+2.
+	
+	A `_GrowFor()` gets used when we're building a large object
+    incrementally by appending several elements at once. **All data must
+    remain unchanged.** Only things having to do with allocation can be
+    changed.
+	
+    In general we reallocate by doubling. However, if
+	we're already very large (over redline), we don't want to pay the 2x
+    cost of a redoubling strategy. Also, it's reasonable (and harmless)
+	to guess that if the object is empty, maybe the caller is only
+	going to resize us once, not build us incrementally, so we can make
+    the first reallocation at the exactly requested size. So
+    in pseudocode:
+```
+      if (n+s < redline || obj not empty): 
+        reallocate by doubling until nalloc >= n+s
+	  else
+	    reallocate for n+s exactly
+```
+
+    When using redoubling strategies, be careful not to pathologically
+    overflow the allocation size:
+```
+      if (n+s > INT32_MAX/2) ESL_XEXCEPTION(eslERANGE, "n too large");
+```
+
+    Example: `h4_anchorset_GrowFor()`  
+    [xref J14/1]
 
 ### reusing objects
 
