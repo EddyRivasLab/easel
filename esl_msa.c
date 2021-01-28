@@ -1035,8 +1035,8 @@ int
 esl_msa_SetName(ESL_MSA *msa, const char *s, esl_pos_t n)
 {
   if (msa->name) free(msa->name); 
-  if (n > 0) return esl_memstrdup(s,  n, &(msa->name)); 
-  else       return esl_strdup(   s, -1, &(msa->name)); 
+  if (n >= 0) return esl_memstrdup(s,  n, &(msa->name)); 
+  else        return esl_strdup(   s, -1, &(msa->name)); 
 }
 
 
@@ -1063,8 +1063,8 @@ int
 esl_msa_SetDesc(ESL_MSA *msa, const char *s, esl_pos_t n)
 {
   if (msa->desc) free(msa->desc);
-  if (n > 0) return esl_memstrdup(s,  n, &(msa->desc)); 
-  else       return esl_strdup(   s, -1, &(msa->desc)); 
+  if (n >= 0) return esl_memstrdup(s,  n, &(msa->desc)); 
+  else        return esl_strdup(   s, -1, &(msa->desc)); 
 }
 
 /* Function:  esl_msa_SetAccession()
@@ -1090,8 +1090,8 @@ int
 esl_msa_SetAccession(ESL_MSA *msa, const char *s, esl_pos_t n)
 {
   if (msa->acc) free(msa->acc);
-  if (n > 0) return esl_memstrdup(s,  n, &(msa->acc)); 
-  else       return esl_strdup(   s, -1, &(msa->acc)); 
+  if (n >= 0) return esl_memstrdup(s,  n, &(msa->acc)); 
+  else        return esl_strdup(   s, -1, &(msa->acc)); 
 }
 
 
@@ -1118,8 +1118,8 @@ int
 esl_msa_SetAuthor(ESL_MSA *msa, const char *s, esl_pos_t n)
 {
   if (msa->au) free(msa->au);
-  if (n > 0) return esl_memstrdup(s,  n, &(msa->au)); 
-  else       return esl_strdup(   s, -1, &(msa->au)); 
+  if (n >= 0) return esl_memstrdup(s,  n, &(msa->au)); 
+  else        return esl_strdup(   s, -1, &(msa->au)); 
 }
 
 
@@ -1150,8 +1150,8 @@ esl_msa_SetSeqName(ESL_MSA *msa, int idx, const char *s, esl_pos_t n)
   if (s == NULL)            ESL_EXCEPTION(eslEINCONCEIVABLE, "seq names are mandatory; NULL is not a valid name");
 
   if (msa->sqname[idx]) free(msa->sqname[idx]);
-  if (n > 0) return esl_memstrdup(s,  n, &(msa->sqname[idx])); 
-  else       return esl_strdup(   s, -1, &(msa->sqname[idx])); 
+  if (n >= 0) return esl_memstrdup(s,  n, &(msa->sqname[idx])); 
+  else        return esl_strdup(   s, -1, &(msa->sqname[idx])); 
 }
 
 /* Function:  esl_msa_SetSeqAccession()
@@ -1197,8 +1197,8 @@ esl_msa_SetSeqAccession(ESL_MSA *msa, int idx, const char *s, esl_pos_t n)
     for (i = 0; i < msa->sqalloc; i++) msa->sqacc[i] = NULL;
   } 
 
-  if (n > 0) status = esl_memstrdup(s,  n, &(msa->sqacc[idx])); 
-  else       status = esl_strdup(   s, -1, &(msa->sqacc[idx])); 
+  if (n >= 0) status = esl_memstrdup(s,  n, &(msa->sqacc[idx])); 
+  else        status = esl_strdup(   s, -1, &(msa->sqacc[idx])); 
 
   return status;
   
@@ -1249,8 +1249,8 @@ esl_msa_SetSeqDescription(ESL_MSA *msa, int idx, const char *s, esl_pos_t n)
     for (i = 0; i < msa->sqalloc; i++) msa->sqdesc[i] = NULL;
   } 
 
-  if (n > 0) status = esl_memstrdup(s,  n, &(msa->sqdesc[idx])); 
-  else       status = esl_strdup(   s, -1, &(msa->sqdesc[idx])); 
+  if (n >= 0) status = esl_memstrdup(s,  n, &(msa->sqdesc[idx])); 
+  else        status = esl_strdup(   s, -1, &(msa->sqdesc[idx])); 
 
  ERROR:
   return status;
