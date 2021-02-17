@@ -3231,7 +3231,7 @@ esl_msa_CompareMandatory(ESL_MSA *a1, ESL_MSA *a2)
   for (i = 0; i < a1->nseq; i++)
     {
       if (strcmp(a1->sqname[i], a2->sqname[i])        != 0)     return eslFAIL;
-      if (esl_DCompare(a1->wgt[i], a2->wgt[i], 0.001) != eslOK) return eslFAIL;
+      if (esl_DCompare_old(a1->wgt[i], a2->wgt[i], 0.001) != eslOK) return eslFAIL;
 
       if ((a1->flags & eslMSA_DIGITAL) &&
 	  memcmp(a1->ax[i], a2->ax[i], sizeof(ESL_DSQ) * (a1->alen+2)) != 0) 
@@ -3289,7 +3289,7 @@ esl_msa_CompareOptional(ESL_MSA *a1, ESL_MSA *a2)
   for (i = 0; i < eslMSA_NCUTS; i++)
     {
       if (a1->cutset[i] && a2->cutset[i]) {
-	if (esl_FCompare(a1->cutoff[i], a2->cutoff[i], 0.01) != eslOK) return eslFAIL;
+	if (esl_FCompare_old(a1->cutoff[i], a2->cutoff[i], 0.01) != eslOK) return eslFAIL;
       } else if (a1->cutset[i] || a2->cutset[i]) return eslFAIL;
     }
   return eslOK;

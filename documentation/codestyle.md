@@ -810,16 +810,19 @@ objects.
 
 * **_Compare():** compare two objects for equality
 
-		int esl_foo_Compare(const ESL_FOO *obj1, const ESL_FOO *obj2, float rtol, float atol)
+		int esl_foo_Compare(const ESL_FOO *obj1, const ESL_FOO *obj2, float r_tol, float a_tol)
 		
 	Returns `eslOK` if contents of `obj1` and `obj2` are judged to be
     identical; returns `eslFAIL` if they differ. 
 	
-	Floating point number comparisons call `esl_FCompareNew()` with
-	relative tolerance `rtol` and absolute tolerance `atol` with the
+	Floating point number comparisons call `esl_FCompare()` with
+	relative tolerance `r_tol` and absolute tolerance `a_tol` with the
 	`obj1` value treated as the reference
-	($x_0$)). `esl_FCompareNew()` defines floating point equality as
-	$|x_0-x| < |x_0|*\mbox{rtol} + \mbox{atol}$,
+	($x_0$)). `esl_FCompare()` defines floating point equality as
+	$|x_0-x| < |x_0|*\mbox{r_tol} + \mbox{a_tol}$,
+
+    (Do not use `atol` as a variable name, because it can get confused
+	 with the atol() function.)
 
 	`eslFAIL` can arise in normal use, for example when a `_Compare()`
 	routine is used to test for convergence of an iterative algorithm.

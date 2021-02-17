@@ -1048,18 +1048,19 @@ utest_mem_strtof(void)
   int   nc;
   int   status;
 
-  if (( status = esl_mem_strtof("-1.0",          4, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare(val,  -1.0,    tol) != eslOK ) esl_fatal(msg);
-  if (( status = esl_mem_strtof("  -1.0",        6, &nc, &val) ) != eslOK || nc != 6  || esl_FCompare(val,  -1.0,    tol) != eslOK ) esl_fatal(msg);  // leading space
-  if (( status = esl_mem_strtof("+1.0",          4, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare(val,   1.0,    tol) != eslOK ) esl_fatal(msg);  // + is a valid sign
-  if (( status = esl_mem_strtof("1234",          4, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare(val, 1234.,    tol) != eslOK ) esl_fatal(msg);  // no decimal point
-  if (( status = esl_mem_strtof("1234.",         5, &nc, &val) ) != eslOK || nc != 5  || esl_FCompare(val, 1234.,    tol) != eslOK ) esl_fatal(msg);  // decimal point, no fraction
-  if (( status = esl_mem_strtof("1234.567",      8, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare(val, 1234.567, tol) != eslOK ) esl_fatal(msg);  // mantissa doesn't have to be normalized
-  if (( status = esl_mem_strtof("1234.e-1",      8, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare(val, 123.4,    tol) != eslOK ) esl_fatal(msg);  
-  if (( status = esl_mem_strtof("1234.e-01",     9, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare(val, 123.4,    tol) != eslOK ) esl_fatal(msg);  
-  if (( status = esl_mem_strtof("1234.e+01",     9, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare(val, 12340,    tol) != eslOK ) esl_fatal(msg);  
-  if (( status = esl_mem_strtof("1234.E+01",     9, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare(val, 12340,    tol) != eslOK ) esl_fatal(msg);  
-  if (( status = esl_mem_strtof("1234.567E+01", 12, &nc, &val) ) != eslOK || nc != 12 || esl_FCompare(val, 12345.67, tol) != eslOK ) esl_fatal(msg);  
-  if (( status = esl_mem_strtof("1234.567E",     9, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare(val, 1234.567, tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("-1.0",          4, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare_old(val,  -1.0,    tol) != eslOK ) esl_fatal(msg);
+  if (( status = esl_mem_strtof("  -1.0",        6, &nc, &val) ) != eslOK || nc != 6  || esl_FCompare_old(val,  -1.0,    tol) != eslOK ) esl_fatal(msg);  // leading space
+  if (( status = esl_mem_strtof("+1.0",          4, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare_old(val,   1.0,    tol) != eslOK ) esl_fatal(msg);  // + is a valid sign
+  if (( status = esl_mem_strtof("1234",          4, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare_old(val, 1234.,    tol) != eslOK ) esl_fatal(msg);  // no decimal point
+  if (( status = esl_mem_strtof("1234.",         5, &nc, &val) ) != eslOK || nc != 5  || esl_FCompare_old(val, 1234.,    tol) != eslOK ) esl_fatal(msg);  // decimal point, no fraction
+  if (( status = esl_mem_strtof("1234.567",      8, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare_old(val, 1234.567, tol) != eslOK ) esl_fatal(msg);  // mantissa doesn't have to be normalized
+  if (( status = esl_mem_strtof("1234.e-1",      8, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare_old(val, 123.4,    tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.e-01",     9, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare_old(val, 123.4,    tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.e+01",     9, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare_old(val, 12340,    tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.E+01",     9, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare_old(val, 12340,    tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.567E+01", 12, &nc, &val) ) != eslOK || nc != 12 || esl_FCompare_old(val, 12345.67, tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.567E",     9, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare_old(val, 1234.567, tol) != eslOK ) esl_fatal(msg);  
+
   if (( status = esl_mem_strtof("infinity",      8, &nc, &val) ) != eslOK || nc != 8  ||  !isinf(val))                               esl_fatal(msg);
   if (( status = esl_mem_strtof("-inf",          4, &nc, &val) ) != eslOK || nc != 4  ||  !isinf(val))                               esl_fatal(msg);
   if (( status = esl_mem_strtof("NaN",           3, &nc, &val) ) != eslOK || nc != 3  ||  !isnan(val))                               esl_fatal(msg);
@@ -1068,18 +1069,19 @@ utest_mem_strtof(void)
   if (( status = esl_mem_strtof("nAn",           3, &nc, &val) ) != eslOK || nc != 3  ||  !isnan(val))                               esl_fatal(msg);
 
   /* same, with trailing text */
-  if (( status = esl_mem_strtof("-1.0XYZ",          7, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare(val,  -1.0,    tol) != eslOK ) esl_fatal(msg);
-  if (( status = esl_mem_strtof("  -1.0XYZ",        9, &nc, &val) ) != eslOK || nc != 6  || esl_FCompare(val,  -1.0,    tol) != eslOK ) esl_fatal(msg);
-  if (( status = esl_mem_strtof("+1.0XYZ",          7, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare(val,   1.0,    tol) != eslOK ) esl_fatal(msg);
-  if (( status = esl_mem_strtof("1234XYZ",          7, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare(val, 1234.,    tol) != eslOK ) esl_fatal(msg);
-  if (( status = esl_mem_strtof("1234.XYZ",         8, &nc, &val) ) != eslOK || nc != 5  || esl_FCompare(val, 1234.,    tol) != eslOK ) esl_fatal(msg);
-  if (( status = esl_mem_strtof("1234.567XYZ",     11, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare(val, 1234.567, tol) != eslOK ) esl_fatal(msg);
-  if (( status = esl_mem_strtof("1234.e-1XYZ",     11, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare(val, 123.4,    tol) != eslOK ) esl_fatal(msg);  
-  if (( status = esl_mem_strtof("1234.e-01XYZ",    12, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare(val, 123.4,    tol) != eslOK ) esl_fatal(msg);  
-  if (( status = esl_mem_strtof("1234.e+01XYZ",    12, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare(val, 12340,    tol) != eslOK ) esl_fatal(msg);  
-  if (( status = esl_mem_strtof("1234.E+01XYZ",    12, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare(val, 12340,    tol) != eslOK ) esl_fatal(msg);  
-  if (( status = esl_mem_strtof("1234.567E+01XYZ", 15, &nc, &val) ) != eslOK || nc != 12 || esl_FCompare(val, 12345.67, tol) != eslOK ) esl_fatal(msg);  
-  if (( status = esl_mem_strtof("1234.567EEEE",    12, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare(val, 1234.567, tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("-1.0XYZ",          7, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare_old(val,  -1.0,    tol) != eslOK ) esl_fatal(msg);
+  if (( status = esl_mem_strtof("  -1.0XYZ",        9, &nc, &val) ) != eslOK || nc != 6  || esl_FCompare_old(val,  -1.0,    tol) != eslOK ) esl_fatal(msg);
+  if (( status = esl_mem_strtof("+1.0XYZ",          7, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare_old(val,   1.0,    tol) != eslOK ) esl_fatal(msg);
+  if (( status = esl_mem_strtof("1234XYZ",          7, &nc, &val) ) != eslOK || nc != 4  || esl_FCompare_old(val, 1234.,    tol) != eslOK ) esl_fatal(msg);
+  if (( status = esl_mem_strtof("1234.XYZ",         8, &nc, &val) ) != eslOK || nc != 5  || esl_FCompare_old(val, 1234.,    tol) != eslOK ) esl_fatal(msg);
+  if (( status = esl_mem_strtof("1234.567XYZ",     11, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare_old(val, 1234.567, tol) != eslOK ) esl_fatal(msg);
+  if (( status = esl_mem_strtof("1234.e-1XYZ",     11, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare_old(val, 123.4,    tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.e-01XYZ",    12, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare_old(val, 123.4,    tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.e+01XYZ",    12, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare_old(val, 12340,    tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.E+01XYZ",    12, &nc, &val) ) != eslOK || nc != 9  || esl_FCompare_old(val, 12340,    tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.567E+01XYZ", 15, &nc, &val) ) != eslOK || nc != 12 || esl_FCompare_old(val, 12345.67, tol) != eslOK ) esl_fatal(msg);  
+  if (( status = esl_mem_strtof("1234.567EEEE",    12, &nc, &val) ) != eslOK || nc != 8  || esl_FCompare_old(val, 1234.567, tol) != eslOK ) esl_fatal(msg);  
+
   if (( status = esl_mem_strtof("infinityXYZ",     11, &nc, &val) ) != eslOK || nc != 8  ||  !isinf(val))                               esl_fatal(msg);
   if (( status = esl_mem_strtof("-infXYZ",          7, &nc, &val) ) != eslOK || nc != 4  ||  !isinf(val))                               esl_fatal(msg);
   if (( status = esl_mem_strtof("NaNXYZ",           6, &nc, &val) ) != eslOK || nc != 3  ||  !isnan(val))                               esl_fatal(msg);

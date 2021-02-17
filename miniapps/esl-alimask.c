@@ -1048,7 +1048,7 @@ static int mask_based_on_postprobs(double **pp_ct, int64_t alen, int nseq, float
     /* determine which pp_ct idx is the minimum we'll accept */
     ppidx = 0;
     while(ppidx < 10) { 
-      if((esl_FCompare(pthresh, ppminA[ppidx], eslSMALLX1) == eslOK) || pthresh < ppminA[ppidx]) break;
+      if((esl_FCompare_old(pthresh, ppminA[ppidx], eslSMALLX1) == eslOK) || pthresh < ppminA[ppidx]) break;
       ppidx++;
     }
     ppidx_thresh = ppidx;
@@ -1059,7 +1059,7 @@ static int mask_based_on_postprobs(double **pp_ct, int64_t alen, int nseq, float
     ppsum = 0.;
     if(i_am_eligible[apos]) { /* consider this position */
       nnongap = esl_vec_DSum(pp_ct[apos], nppvals) - pp_ct[apos][11]; 
-      if(esl_FCompare(nnongap, 0., eslSMALLX1) == eslOK) { /* effectively 0.0 */
+      if(esl_FCompare_old(nnongap, 0., eslSMALLX1) == eslOK) { /* effectively 0.0 */
 	useme[apos] = allgapok ? TRUE : FALSE; 
       }
       else { 
@@ -1076,7 +1076,7 @@ static int mask_based_on_postprobs(double **pp_ct, int64_t alen, int nseq, float
 	  ppidx = get_pp_idx(abc, pp_cons[apos]);
 	  if(ppidx == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GC PP_cons char: %c at position %d", pp_cons[apos], apos+1);
 	  if(ppidx != 11) { 
-	    useme[apos] = ((esl_FCompare(ppcons_min, ppminA[ppidx], eslSMALLX1) == eslOK) || ppminA[ppidx] > ppcons_min) ? TRUE : FALSE;
+	    useme[apos] = ((esl_FCompare_old(ppcons_min, ppminA[ppidx], eslSMALLX1) == eslOK) || ppminA[ppidx] > ppcons_min) ? TRUE : FALSE;
 	    /* printf("ppcons[%4d]: %c ppidx: %2d  useme %d ppcons_min: %.3f\n", apos, pp_cons[apos], ppidx, useme[apos], ppcons_min); */
 	  }
 	  else useme[apos] = FALSE; /* ppidx == 11, gap */ 

@@ -1136,7 +1136,7 @@ static int prune_msa_based_on_posteriors(ESL_MSA *msa, float min_pp, char *errbu
   /* determine the index in ppminA of the minimum allowed PP */
   min_ppidx = 0; 
   /* special case, check to see if max possible min_pp was passed in, this is 0.95 */
-  if(esl_FCompare(min_pp, max_pp, eslSMALLX1) == eslOK) { 
+  if(esl_FCompare_old(min_pp, max_pp, eslSMALLX1) == eslOK) { 
     min_ppidx = 10;
   }
   else if(min_pp > max_pp) { 

@@ -250,11 +250,11 @@ utest_uniformity(ESL_RANDOMNESS *rng)
 
       logp = esl_dirichlet_logpdf(p, alpha, 4);
       if (! isfinite(logp))                                    esl_fatal(msg);  // PDF is a density; can't test for <= 1.0
-      if (i > 0 && esl_DCompare(logp, prv_logp, tol) != eslOK) esl_fatal(msg);
+      if (i > 0 && esl_DCompare_old(logp, prv_logp, tol) != eslOK) esl_fatal(msg);
 
       logpc = esl_dirichlet_logpdf_c(c, alpha, K);
       if (! isfinite(logpc))                                     esl_fatal(msg);      
-      if (i > 0 && esl_DCompare(logpc, prv_logpc, tol) != eslOK) esl_fatal(msg);
+      if (i > 0 && esl_DCompare_old(logpc, prv_logpc, tol) != eslOK) esl_fatal(msg);
 
       prv_logp  = logp;
       prv_logpc = logpc;

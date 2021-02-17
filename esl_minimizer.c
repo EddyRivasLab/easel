@@ -227,7 +227,7 @@ esl_min_ConjugateGradientDescent(ESL_MIN_CFG *cfg, double *x, int n,
 	dat->fx[i] = fx;
 
       /* Main convergence test. */
-      if (esl_DCompareNew(fx, oldfx, cg_rtol, cg_atol) == eslOK) break;
+      if (esl_DCompare(fx, oldfx, cg_rtol, cg_atol) == eslOK) break;
 
       /* Second (failsafe) convergence test: a zero direction can happen, 
        * and it either means we're stuck or we're finished (most likely stuck)
@@ -841,8 +841,8 @@ utest_simplefunc(ESL_RANDOMNESS *rng)
   esl_min_ConjugateGradientDescent(NULL, x, n, &test_func, &test_dfunc, (void *) prm, &fx, NULL);
 
   for (i = 0; i < n; i++)
-    if ( esl_DCompareNew( b[i], x[i], 1e-5, 1e-10) != eslOK) esl_fatal(msg);
-  if (esl_DCompareNew(0., fx, 0., 1e-5) != eslOK) esl_fatal(msg);  
+    if ( esl_DCompare( b[i], x[i], 1e-5, 1e-10) != eslOK) esl_fatal(msg);
+  if (esl_DCompare(0., fx, 0., 1e-5) != eslOK) esl_fatal(msg);  
 
   free(prm);
   free(x);

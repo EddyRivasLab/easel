@@ -2141,89 +2141,6 @@ esl_getcwd(char **ret_cwd)
  *****************************************************************/
 
 /* Function:  esl_{DF}Compare()
- * OBSOLETE. Use esl_{DF}CompareNew() instead.
- *
- * Purpose:   Compare two floating point scalars <a> and <b> for approximate equality.
- *            Return <eslOK> if equal, <eslFAIL> if not.
- *            
- *            Equality is defined by being within a relative
- *            epsilon <tol>, as <2*fabs(a-b)/(a+b)> $\leq$ <tol>.
- *            Additionally, we catch the special cases where <a>
- *            and/or <b> are 0 or -0. If both are, return <eslOK>; if
- *            one is, check that the absolute value of the other is
- *            $\leq$ <tol>.
- *            
- *            <esl_DCompare()> and <esl_FCompare()> work on <double> and <float>
- *            scalars, respectively.
- */
-int
-esl_DCompare(double a, double b, double tol)
-{
-  if (isinf(a) && isinf(b))                 return eslOK;
-  if (isnan(a) && isnan(b))                 return eslOK;
-  if (!isfinite(a) || !isfinite(b))         return eslFAIL;
-  if (a == b)                               return eslOK;
-  if (fabs(a) == 0. && fabs(b) <= tol)      return eslOK;
-  if (fabs(b) == 0. && fabs(a) <= tol)      return eslOK;
-  if (2.*fabs(a-b) / fabs(a+b) <= tol)      return eslOK;
-  return eslFAIL;
-}
-int
-esl_FCompare(float a, float b, float tol)
-{ 
-  if (isinf(a) && isinf(b))                 return eslOK;
-  if (isnan(a) && isnan(b))                 return eslOK;
-  if (!isfinite(a) || !isfinite(b))         return eslFAIL;
-  if (a == b)                               return eslOK;
-  if (fabs(a) == 0. && fabs(b) <= tol)      return eslOK;
-  if (fabs(b) == 0. && fabs(a) <= tol)      return eslOK;
-  if (2.*fabs(a-b) / fabs(a+b) <= tol)      return eslOK;
-  return eslFAIL;
-}
-
-/* Function:  esl_DCompareAbs()
- * OBSOLETE. Use esl_{DF}CompareNew() instead.
- *
- * Purpose:   Compare two floating point scalars <a> and <b> for
- *            approximate equality, by absolute difference.  Return
- *            <eslOK> if equal, <eslFAIL> if not.
- *            
- *            Equality is defined as <fabs(a-b) $\leq$ tol> for finite
- *            <a,b>; or <inf=inf>, <NaN=NaN> when either value is not
- *            finite.
- *            
- *            Generally it is preferable to compare floating point
- *            numbers for equality using relative difference: see
- *            <esl_{DF}Compare()>, and also Knuth's Seminumerical
- *            Algorithms. However, cases arise where absolute
- *            difference comparison is preferred. One such case is in
- *            comparing the log probability values of DP matrices,
- *            where numerical error tends to accumulate on an absolute
- *            scale, dependent more on the number of terms than on
- *            their magnitudes. DP cells with values that happen to be
- *            very close to zero can have high relative differences.
- */
-int
-esl_DCompareAbs(double a, double b, double tol)
-{
-  if (isinf(a) && isinf(b))            return eslOK;
-  if (isnan(a) && isnan(b))            return eslOK;
-  if (!isfinite(a) || !isfinite(b))    return eslFAIL;
-  if (fabs(a-b) <= tol)                return eslOK;
-  return eslFAIL;
-}
-int
-esl_FCompareAbs(float a, float b, float tol)
-{ 
-  if (isinf(a) && isinf(b))            return eslOK;
-  if (isnan(a) && isnan(b))            return eslOK;
-  if (!isfinite(a) || !isfinite(b))    return eslFAIL;
-  if (fabs(a-b) <= tol)                return eslOK;
-  return eslFAIL;
-}
-
-
-/* Function:  esl_{DF}CompareNew()
  * Synopsis:  Compare floating point values for approximate equality, better version.
  * Incept:    SRE, Thu 19 Jul 2018 [Benasque]
  *
@@ -2267,7 +2184,7 @@ esl_FCompareAbs(float a, float b, float tol)
  *            <inf==inf>, <-inf==-inf>.
 
  *            Note that <eslOK> has value 0, not TRUE, so you don't want to
- *            write code like <if (esl_DCompare()) ...>; you want to
+ *            write code like <if (esl_DCompare_old()) ...>; you want to
  *            test explicitly against <eslOK>.
  *
  * Args:      x0    - reference value to compare against (either true, or better estimate)
@@ -2281,22 +2198,19 @@ esl_FCompareAbs(float a, float b, float tol)
  * Xref:      H5/116
  */
 int
-esl_DCompareNew(double x0, double x, double r_tol, double a_tol)
+esl_DCompare(double x0, double x, double r_tol, double a_tol)
 {
   if (isfinite(x0)) { if (fabs(x0 - x) <= r_tol * fabs(x0) + a_tol) return eslOK; }
   else              { if (x0 == x) return eslOK; }                                   // inf=inf, -inf=-inf;  -inf!=inf, NaN!=(inf,-inf,NaN)
   return eslFAIL;
 }
 int
-esl_FCompareNew(float x0, float x, float r_tol, float a_tol)
+esl_FCompare(float x0, float x, float r_tol, float a_tol)
 {
   if (isfinite(x0)) { if (fabs(x0 - x) <= r_tol * fabs(x0) + a_tol) return eslOK; }
   else              { if (x0 == x) return eslOK; }                                   
   return eslFAIL;
 }
-
-
-
 
 /* Function:  esl_CCompare()
  * Synopsis:  Compare two optional strings for equality.
@@ -2319,6 +2233,48 @@ esl_CCompare(char *s1, char *s2)
   if (strcmp(s1, s2) != 0)      return eslFAIL;
   return eslOK;
 }
+
+/* Function:  esl_{DF}Compare_old()
+ * OBSOLETE. Use esl_{DF}Compare() instead.
+ *
+ * Purpose:   Compare two floating point scalars <a> and <b> for approximate equality.
+ *            Return <eslOK> if equal, <eslFAIL> if not.
+ *            
+ *            Equality is defined by being within a relative
+ *            epsilon <tol>, as <2*fabs(a-b)/(a+b)> $\leq$ <tol>.
+ *            Additionally, we catch the special cases where <a>
+ *            and/or <b> are 0 or -0. If both are, return <eslOK>; if
+ *            one is, check that the absolute value of the other is
+ *            $\leq$ <tol>.
+ *            
+ *            <esl_DCompare_old()> and <esl_FCompare_old()> work on <double> and <float>
+ *            scalars, respectively.
+ */
+int
+esl_DCompare_old(double a, double b, double tol)
+{
+  if (isinf(a) && isinf(b))                 return eslOK;
+  if (isnan(a) && isnan(b))                 return eslOK;
+  if (!isfinite(a) || !isfinite(b))         return eslFAIL;
+  if (a == b)                               return eslOK;
+  if (fabs(a) == 0. && fabs(b) <= tol)      return eslOK;
+  if (fabs(b) == 0. && fabs(a) <= tol)      return eslOK;
+  if (2.*fabs(a-b) / fabs(a+b) <= tol)      return eslOK;
+  return eslFAIL;
+}
+int
+esl_FCompare_old(float a, float b, float tol)
+{ 
+  if (isinf(a) && isinf(b))                 return eslOK;
+  if (isnan(a) && isnan(b))                 return eslOK;
+  if (!isfinite(a) || !isfinite(b))         return eslFAIL;
+  if (a == b)                               return eslOK;
+  if (fabs(a) == 0. && fabs(b) <= tol)      return eslOK;
+  if (fabs(b) == 0. && fabs(a) <= tol)      return eslOK;
+  if (2.*fabs(a-b) / fabs(a+b) <= tol)      return eslOK;
+  return eslFAIL;
+}
+
 
 
 /*-------------- end, typed comparison routines --------------------*/
@@ -2518,40 +2474,39 @@ utest_compares(void)
 {
   char msg[] = "easel utest_compares failed";
 
-  // if (esl_DCompare(-eslINFINITY, eslINFINITY, 1e-5) != eslFAIL) esl_fatal(msg);   /* -inf != inf */
-  // if (esl_DCompare(eslNaN, eslNaN, 1e-5) != eslFAIL) esl_fatal(msg);              /* NaN fails in any comparison */
-  if (esl_DCompare(0.,           eslNaN,        1e-12) != eslFAIL) esl_fatal(msg);
-  if (esl_DCompare(eslNaN,       0.,            1e-12) != eslFAIL) esl_fatal(msg);
-  //  if (esl_DCompare(eslINFINITY,  eslINFINITY,   1e-12) != eslFAIL) esl_fatal(msg);  
-
-  if (esl_DCompareNew(-eslINFINITY, eslINFINITY,   1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   // -inf != inf
-  if (esl_DCompareNew(eslINFINITY,  eslINFINITY,   1e-12, 1e-16) != eslOK)   esl_fatal(msg);   // inf = inf,  even though rel and abs diff = inf!
-  if (esl_DCompareNew(-eslINFINITY,-eslINFINITY,   1e-12, 1e-16) != eslOK)   esl_fatal(msg);   
-  if (esl_DCompareNew(eslNaN,       eslNaN,        1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   // NaN fails in any comparison 
-  if (esl_DCompareNew(0.,           eslNaN,        1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   
-  if (esl_DCompareNew(eslNaN,       0.,            1e-12, 1e-16) != eslFAIL) esl_fatal(msg);
-  if (esl_DCompareNew(0.,           1e-17,         1e-12, 1e-16) != eslOK)   esl_fatal(msg);
-
+  if (esl_DCompare(-eslINFINITY, eslINFINITY,   1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   // -inf != inf
+  if (esl_DCompare(eslINFINITY,  eslINFINITY,   1e-12, 1e-16) != eslOK)   esl_fatal(msg);   // inf = inf,  even though rel and abs diff = inf!
+  if (esl_DCompare(-eslINFINITY,-eslINFINITY,   1e-12, 1e-16) != eslOK)   esl_fatal(msg);   
+  if (esl_DCompare(eslNaN,       eslNaN,        1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   // NaN fails in any comparison 
+  if (esl_DCompare(0.,           eslNaN,        1e-12, 1e-16) != eslFAIL) esl_fatal(msg);   
+  if (esl_DCompare(eslNaN,       0.,            1e-12, 1e-16) != eslFAIL) esl_fatal(msg);
+  if (esl_DCompare(0.,           1e-17,         1e-12, 1e-16) != eslOK)   esl_fatal(msg);
 
   /* exact comparisons with zero tolerance: eslOK unless a NaN is involved */
-  if (esl_DCompareNew(0.,             0.0,           0.0,   0.0) != eslOK)   esl_fatal(msg);  
-  if (esl_DCompareNew(eslINFINITY,   eslINFINITY,    0.0,   0.0) != eslOK)   esl_fatal(msg);  
-  if (esl_DCompareNew(-eslINFINITY, -eslINFINITY,    0.0,   0.0) != eslOK)   esl_fatal(msg);  
-  if (esl_DCompareNew(eslNaN,        eslNaN,         0.0,   0.0) != eslFAIL) esl_fatal(msg);  
+  if (esl_DCompare(0.,            0.0,            0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_DCompare(eslINFINITY,   eslINFINITY,    0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_DCompare(-eslINFINITY, -eslINFINITY,    0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_DCompare(eslNaN,        eslNaN,         0.0,   0.0) != eslFAIL) esl_fatal(msg);  
 
   /* float versions */
-  if (esl_FCompareNew(-eslINFINITY, eslINFINITY,    1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   
-  if (esl_FCompareNew(eslINFINITY,  eslINFINITY,    1e-6, 1e-10) != eslOK)   esl_fatal(msg);   
-  if (esl_FCompareNew(-eslINFINITY,-eslINFINITY,    1e-6, 1e-10) != eslOK)   esl_fatal(msg);   
-  if (esl_FCompareNew(eslNaN,       eslNaN,         1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   
-  if (esl_FCompareNew(0.,           eslNaN,         1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   
-  if (esl_FCompareNew(eslNaN,       0.,             1e-6, 1e-10) != eslFAIL) esl_fatal(msg);
-  if (esl_FCompareNew(0.,           1e-11,          1e-6, 1e-10) != eslOK)   esl_fatal(msg);
+  if (esl_FCompare(-eslINFINITY, eslINFINITY,    1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   
+  if (esl_FCompare(eslINFINITY,  eslINFINITY,    1e-6, 1e-10) != eslOK)   esl_fatal(msg);   
+  if (esl_FCompare(-eslINFINITY,-eslINFINITY,    1e-6, 1e-10) != eslOK)   esl_fatal(msg);   
+  if (esl_FCompare(eslNaN,       eslNaN,         1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   
+  if (esl_FCompare(0.,           eslNaN,         1e-6, 1e-10) != eslFAIL) esl_fatal(msg);   
+  if (esl_FCompare(eslNaN,       0.,             1e-6, 1e-10) != eslFAIL) esl_fatal(msg);
+  if (esl_FCompare(0.,           1e-11,          1e-6, 1e-10) != eslOK)   esl_fatal(msg);
 
-  if (esl_FCompareNew(0.,            0.0,            0.0,   0.0) != eslOK)   esl_fatal(msg);  
-  if (esl_FCompareNew(eslINFINITY,   eslINFINITY,    0.0,   0.0) != eslOK)   esl_fatal(msg);  
-  if (esl_FCompareNew(-eslINFINITY, -eslINFINITY,    0.0,   0.0) != eslOK)   esl_fatal(msg);  
-  if (esl_FCompareNew(eslNaN,        eslNaN,         0.0,   0.0) != eslFAIL) esl_fatal(msg);  
+  if (esl_FCompare(0.,            0.0,            0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_FCompare(eslINFINITY,   eslINFINITY,    0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_FCompare(-eslINFINITY, -eslINFINITY,    0.0,   0.0) != eslOK)   esl_fatal(msg);  
+  if (esl_FCompare(eslNaN,        eslNaN,         0.0,   0.0) != eslFAIL) esl_fatal(msg);  
+
+  // if (esl_DCompare_old(-eslINFINITY, eslINFINITY, 1e-5) != eslFAIL) esl_fatal(msg);   /* -inf != inf */
+  // if (esl_DCompare_old(eslNaN, eslNaN, 1e-5) != eslFAIL) esl_fatal(msg);              /* NaN fails in any comparison */
+  if (esl_DCompare_old(0.,           eslNaN,        1e-12) != eslFAIL) esl_fatal(msg);
+  if (esl_DCompare_old(eslNaN,       0.,            1e-12) != eslFAIL) esl_fatal(msg);
+  //  if (esl_DCompare_old(eslINFINITY,  eslINFINITY,   1e-12) != eslFAIL) esl_fatal(msg);  
 }
 
 

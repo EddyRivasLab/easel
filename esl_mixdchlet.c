@@ -613,7 +613,7 @@ esl_mixdchlet_Validate(const ESL_MIXDCHLET *dchl, char *errmsg)
       if ( dchl->q[k] < 0.0 || dchl->q[k] > 1.0) ESL_FAIL(eslFAIL, errmsg, "mixture coefficient [%d] = %g, not a probability >= 0 && <= 1", k, dchl->q[k]);
     }
   sum = esl_vec_DSum(dchl->q, dchl->Q);
-  if (esl_DCompare( sum, 1.0, tol) != eslOK)
+  if (esl_DCompare_old( sum, 1.0, tol) != eslOK)
     ESL_FAIL(eslFAIL, errmsg, "mixture coefficients sum to %g, not 1", sum);
 
   for (k = 0; k < dchl->Q; k++)
@@ -633,7 +633,7 @@ esl_mixdchlet_Validate(const ESL_MIXDCHLET *dchl, char *errmsg)
  * Purpose:   Compare mixture Dirichlet objects <d1> and <d2> for
  *            equality, independent of the exact order of the
  *            components. For real numbered values, equality is
- *            defined by <esl_DCompare()> with a fractional tolerance
+ *            defined by <esl_DCompare_old()> with a fractional tolerance
  *            <tol>.
  *            
  *            Order-independent, because when we fit a mixture
@@ -661,7 +661,7 @@ esl_mixdchlet_Compare(const ESL_MIXDCHLET *d1, const ESL_MIXDCHLET *d2, double t
 
   for (i = 0; i < d1->Q; i++)
     for (j = 0; j < d2->Q; j++)
-      if ( esl_DCompare    (d1->q[i],     d2->q[j],            tol) == eslOK &&
+      if ( esl_DCompare_old(d1->q[i],     d2->q[j],            tol) == eslOK &&
 	   esl_vec_DCompare(d1->alpha[i], d2->alpha[j], d1->K, tol) == eslOK)
 	A[i][j] = TRUE;
 

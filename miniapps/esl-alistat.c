@@ -1147,7 +1147,7 @@ static int check_msa_weights(ESL_MSA *msa)
 
   if(msa->wgt == NULL) return FALSE;
   for(i = 0; i < msa->nseq; i++) { 
-    if (esl_FCompare(msa->wgt[i], 1.0, eslSMALLX1) != eslOK) return TRUE;
+    if (esl_FCompare_old(msa->wgt[i], 1.0, eslSMALLX1) != eslOK) return TRUE;
   }
   return FALSE;
 }

@@ -2320,7 +2320,7 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
     x += (float) ps->leg_cellsize * 1.5;
     y += (float) ps->leg_cellsize * 0.25;
     fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
-    if(esl_FCompare(scl->limits[c+1], SSDRAWINFINITY, eslSMALLX1) == eslOK) { /* max value is infinity, special case */
+    if(esl_FCompare_old(scl->limits[c+1], SSDRAWINFINITY, eslSMALLX1) == eslOK) { /* max value is infinity, special case */
       if(c != scl->nbins-1) esl_fatal("ERROR when drawing color legend, limits[%d] is INFINITY, but this is reserved only for the max limit", c+1);
       if(scl->ints_only_flag) fprintf(fp, "(>=%d) %.2f %.2f moveto show\n",   (int) scl->limits[c], x, y);
       else                    fprintf(fp, "(>=%3.f) %.2f %.2f moveto show\n", scl->limits[c], x, y);
@@ -2329,7 +2329,7 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
       if(c == scl->nbins-1) { 
 	fprintf(fp, "(\\[%d-%d\\]) %.2f %.2f moveto show\n", (int) scl->limits[c], (int) scl->limits[c+1], x, y);
       }
-      else if(esl_FCompare(scl->limits[c], scl->limits[c+1]-1, eslSMALLX1) == eslOK) { /* next limit is exactly 1 plus cur limit, don't do range, define single int */
+      else if(esl_FCompare_old(scl->limits[c], scl->limits[c+1]-1, eslSMALLX1) == eslOK) { /* next limit is exactly 1 plus cur limit, don't do range, define single int */
 	if(compare_two_cmyk_colors(hc_scheme[c][ICYAN], hc_scheme[c][IMGTA], hc_scheme[c][IYELW], hc_scheme[c][IBLCK], WHITE_C, WHITE_M, WHITE_Y, WHITE_K)) { 
 	  /* color is white and won't show up on our white background, so we explicitly state (blank) next to it's color value */
 	  fprintf(fp, "(\\(blank\\) %d) %.2f %.2f moveto show\n", (int) scl->limits[c], x, y);
@@ -2977,7 +2977,7 @@ parse_scale_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
   ps->scale = atof(tok);
   if(ps->scale < 0.) ESL_FAIL(status, errbuf, "Error, parsing scale section, scale must be positive real number, read %s\n", tok);
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing scale section, reading token 2 of 3"); 
-  if(esl_FCompare(ps->scale, atof(tok), eslSMALLX1) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing scale section, x and y scales are not equal %.2f != %.2f", ps->scale, atof(tok)); 
+  if(esl_FCompare_old(ps->scale, atof(tok), eslSMALLX1) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing scale section, x and y scales are not equal %.2f != %.2f", ps->scale, atof(tok)); 
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing scale section, reading token 3 of 3"); 
   if (strcmp(tok, "scale") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing scale section, token 3 of 3 should be 'scale' but it's %s", tok); 
 
@@ -4297,7 +4297,7 @@ infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
     apos = ps->msa_rf2a_map[rfpos];
     esl_vec_DCopy(abc_ct[apos], abc->K, tmp_obs); /* only copy first abc->K values, don't copy gaps */
-    zero_obs = (esl_DCompare(esl_vec_DSum(tmp_obs, abc->K), 0., eslSMALLX1) == eslOK) ? TRUE : FALSE;
+    zero_obs = (esl_DCompare_old(esl_vec_DSum(tmp_obs, abc->K), 0., eslSMALLX1) == eslOK) ? TRUE : FALSE;
     esl_vec_DNorm(tmp_obs, abc->K);
     ent[rfpos] = esl_vec_DEntropy(bg, abc->K) - esl_vec_DEntropy(tmp_obs, abc->K);
 
@@ -5212,7 +5212,7 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
   for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
     apos = ps->msa_rf2a_map[rfpos]; 
     nnongap = esl_vec_DSum(pp_ct[apos], 11);
-    if(esl_FCompare(nnongap, 0., eslSMALLX1) == eslOK) { /* effectively 0.0, all gaps */
+    if(esl_FCompare_old(nnongap, 0., eslSMALLX1) == eslOK) { /* effectively 0.0, all gaps */
       if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status;
       nonecell_allgap++;
       if(ps->mask != NULL && ps->mask[rfpos] == '1') nonecell_allgap_masked++; 
@@ -5220,7 +5220,7 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
       ppavg = 0.;
     }
     else { /* at least 1 non-gap nucleotide in this position */
-      if(esl_FCompare(nnongap, pp_ct[apos][10], eslSMALLX1)) { /* all nongap nucleotides have highest possible posterior probability */
+      if(esl_FCompare_old(nnongap, pp_ct[apos][10], eslSMALLX1)) { /* all nongap nucleotides have highest possible posterior probability */
       }
       else { 
       }
@@ -5745,7 +5745,7 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
 	if(ent_pair < (-1. * eslSMALLX1)) { 
 	  ESL_FAIL(eslEINCONCEIVABLE, errbuf, "pair information < 0.: %f (lpos: %d rpos: %d)\n", ent_pair, i, j);
 	}
-	if(esl_DCompare(nres, 0., eslSMALLX1) == eslOK) { /* nres is 0 */
+	if(esl_DCompare_old(nres, 0., eslSMALLX1) == eslOK) { /* nres is 0 */
 	  if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][i], NCMYK, hc_onecell[zerores_idx])) != eslOK) return status;
 	  if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][j], NCMYK, hc_onecell[zerores_idx])) != eslOK) return status;
 	  nzerores += 2;
@@ -5945,7 +5945,7 @@ set_scheme_values(char *errbuf, float *vec, int ncolvals, float **scheme, float 
   bi = 0;
   while((bi < (scl->nbins-1)) &&
 	((val > scl->limits[bi+1]) ||                                    /* val exceeds limits[bi+1] OR */
-	 (esl_FCompare(val, scl->limits[bi+1], eslSMALLX1) == eslOK))) { /* val equals limits[bi+1] */
+	 (esl_FCompare_old(val, scl->limits[bi+1], eslSMALLX1) == eslOK))) { /* val equals limits[bi+1] */
     bi++; 
   }    
   /* printf("%.3f %d (%.3f)\n", val, bi, scl->limits[bi+1]);  */
@@ -7318,7 +7318,7 @@ get_consensus_seqs_from_abc_ct(const ESL_GETOPTS *go, SSPostscript_t *ps, char *
   for(apos = 0; apos < msa_alen; apos++) { 
     if(esl_abc_CIsResidue(abc, ps->msa->rf[apos])) { 
       nongap_freq = esl_vec_DSum(abc_ct[apos], abc->K);
-      if(esl_DCompare(nongap_freq, 0., eslSMALLX1) == eslOK) { /* all nucleotides are gaps */
+      if(esl_DCompare_old(nongap_freq, 0., eslSMALLX1) == eslOK) { /* all nucleotides are gaps */
 	cseq_maj[rfpos] = cseq_amb[rfpos] = '-';
       }
       else { /* at least one sequence has a nongap at rfpos, calculate the consensus nucleotide */
@@ -7386,10 +7386,10 @@ get_consensus_seqs_from_abc_ct(const ESL_GETOPTS *go, SSPostscript_t *ps, char *
   */
 int compare_two_cmyk_colors(float acol_C, float acol_M, float acol_Y, float acol_K, float bcol_C, float bcol_M, float bcol_Y, float bcol_K)
 {
-  if(esl_FCompare(acol_C, bcol_C, eslSMALLX1) != eslOK) return FALSE;
-  if(esl_FCompare(acol_M, bcol_M, eslSMALLX1) != eslOK) return FALSE;
-  if(esl_FCompare(acol_Y, bcol_Y, eslSMALLX1) != eslOK) return FALSE;
-  if(esl_FCompare(acol_K, bcol_K, eslSMALLX1) != eslOK) return FALSE;
+  if(esl_FCompare_old(acol_C, bcol_C, eslSMALLX1) != eslOK) return FALSE;
+  if(esl_FCompare_old(acol_M, bcol_M, eslSMALLX1) != eslOK) return FALSE;
+  if(esl_FCompare_old(acol_Y, bcol_Y, eslSMALLX1) != eslOK) return FALSE;
+  if(esl_FCompare_old(acol_K, bcol_K, eslSMALLX1) != eslOK) return FALSE;
   return TRUE;
 }
 

@@ -503,7 +503,7 @@ esl_tree_VerifyUltrametric(ESL_TREE *T)
   /* In an ultrametric tree, all those distances must be equal.
    */
   for (i = 1; i < T->N; i++)
-    if ((status = esl_DCompare(d[0], d[i], 0.0001)) != eslOK) break;
+    if ((status = esl_DCompare_old(d[0], d[i], 0.0001)) != eslOK) break;
 
   free(d);
   return status;
