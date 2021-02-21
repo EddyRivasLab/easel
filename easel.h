@@ -453,6 +453,7 @@ extern void esl_nonfatal_handler(int errcode, int use_errno, char *sourcefile, i
 extern void esl_fatal(const char *format, ...) ESL_ATTRIBUTE_NORETURN;
 
 /* 2. Memory allocation/deallocation conventions. */
+extern int  esl_resize(int n, int a, int r);
 extern void esl_free(void *p);
 extern void esl_Free2D(void  **p, int dim1);
 extern void esl_Free3D(void ***p, int dim1, int dim2);

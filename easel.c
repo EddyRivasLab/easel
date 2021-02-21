@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <errno.h>
+#include <limits.h>
 #include <string.h>
 #include <math.h>
 #include <ctype.h>
@@ -322,6 +323,81 @@ esl_fatal(const char *format, ...)
  * 2. Memory allocation/deallocation conventions.
  *****************************************************************/
 
+/* Function:  esl_resize()
+ * Synopsis:  Implement idiomatic resize-by-doubling + redline allocation rules.
+ * Incept:    SRE, Sun 21 Feb 2021
+ *
+ * Purpose:   Return a recommended allocation size, given minimum required allocation
+ *            size <n>, current allocation size <a>, and "redline" <r>. Implements
+ *            Easel's idiom for growing an allocation exponentially.
+ *
+ *            Let's call the return value <b>: $b \geq n$, i.e. the returned <b> is always
+ *            sufficient to fit <n>.  If $n \leq a$, the existing allocation
+ *            suffices, so return $b=a$ (signifying "don't reallocate"). Else, if $n \leq
+ *            r$, then $b \leq r$ and $n \leq b < 2n$, because we normally increase
+ *            allocation size by doubling.  If $n > r$, then $b = n$, because the
+ *            redline sets a limit on overallocation.
+ *
+ *            Growing allocations exponentially (by doubling) minimizes the number of
+ *            expensive reallocation calls we have to make, when we're expecting to
+ *            reuse/reallocate a space a lot... either because we're growing it
+ *            dynamically (perhaps one unit at a time, like a list), or because we're
+ *            dynamically resizing it for each task in an iteration over different
+ *            tasks.
+ *
+ *            The "redline" tries to cap or at least minimize allocation size when it
+ *            would exceed <r>.  We're often in a situation where the allocations we
+ *            need for an iterated set of tasks have a long-tailed distribution -
+ *            sequence lengths, for example.  We may only need to occasionally make
+ *            excursions into very large allocations. Thus, it's advantageous to just
+ *            make a one-time exceptional allocation of exactly enough size (rather
+ *            than doubling even further past an edge-case exceptionally large
+ *            allocation). In Easel's idioms, the next <_Reuse()> call pulls an
+ *            exceptional allocation size back down to the redline.
+ *
+ *            The redline is only useful in the iterated-set-of-different-sized-tasks
+ *            use case. It's not useful in the grow-one-unit-each-step use case (over
+ *            redline, you'd start inefficiently making a reallocation at each step).
+ *            If you're in the grow-one-unit-each-step use case, you want to set the
+ *            redline to <INT_MAX>; or for convenience, if you pass <r=0>, this will
+ *            also turn the redline off (by setting it to INT_MAX internally).
+ *
+ *            The routine is careful not to overflow an integer when it's doubling.
+ *
+ *            The caller is responsible for making sure that its own arithmetic
+ *            doesn't overflow. For example, the caller may need to include some
+ *            constant additional allocation (for example, <s=2> sentinels at
+ *            positions 0 and n+1 of an array of elements 1..n), so it actually
+ *            allocates for <b+s> elements. The caller may need to verify for itself
+ *            that <b+s> elements does not overflow.
+ *
+ * Args:      n  : requested allocation size (n >= 1)
+ *            a  : current allocation size   (a >= 0)
+ *            r  : redline limit (r >= 0; 0 means don't use a redline)
+ *
+ * Returns:   b, the suggested new allocation (b >= n)
+ */
+int
+esl_resize(int n, int a, int r)
+{
+  const int overflow_limit = INT_MAX / 2;
+
+  ESL_DASSERT1(( n >= 1 ));
+  ESL_DASSERT1(( a >= 0 ));
+  ESL_DASSERT1(( r >= 0 ));
+  if (r == 0) r = INT_MAX;   // r=0 allows caller to conveniently turn redline off
+  if (a == 0) a = 1;         // 0*=2 isn't going to go anywhere, is it
+  
+  if      (n <= a) return a;   // if allocation already suffices, do nothing
+  else if (n >= r) return n;   // <n> is over redline limit; minimize the allocation
+  else {
+    while (a < n && a <= overflow_limit) a *= 2;   
+    if      (a < n) return r;      // No doubling of <a> suffices, because n >= (INT_MAX/2) +1. We know r > n here; use r.
+    else if (a > r) return r;      // Cap the allocation at the redline. (Again, we already know r > n here.)
+    else            return a;      
+  }
+}
+
 /* Function:  esl_free()
  * Synopsis:  free(), while allowing ptr to be NULL.
  * Incept:    SRE, Fri Nov  3 17:12:01 2017
@@ -331,6 +407,8 @@ esl_fatal(const char *format, ...)
  *            routine can check for non-NULL ptrs to know what to
  *            free(). Easel code is slightly cleaner if we have a
  *            free() that no-ops on NULL ptrs.
+ *
+ * OBSOLETE. C99 free() allows NULL already.
  */
 void
 esl_free(void *p)
@@ -2290,6 +2368,39 @@ esl_FCompare_old(float a, float b, float tol)
  *****************************************************************/
 #ifdef eslEASEL_TESTDRIVE
 
+#include "esl_random.h"
+
+static void
+utest_resize(ESL_RANDOMNESS *rng)
+{
+  char msg[]  = "esl_resize unit test failed";
+  int ntrials = 100;
+  int i;
+  int a,n,r,b;
+
+  for (i = 0; i < ntrials; i++)
+    {
+      if (esl_rnd_Roll(rng, 2)) { n = 1 + esl_rnd_Roll(rng, INT_MAX); a = esl_rnd_Roll(rng, INT_MAX); r = esl_rnd_Roll(rng, INT_MAX); }
+      else                      { n = 1 + esl_rnd_Roll(rng, 8);       a = esl_rnd_Roll(rng, 8);       r = esl_rnd_Roll(rng, 8);       }
+
+      b = esl_resize(n,a,r);
+
+      if (r == 0) r = INT_MAX;  // that's the calling convention used by esl_resize
+
+      if (n > a)                                           // if we need to reallocate to fit n...
+        {
+          if (b < n)                      esl_fatal(msg);  // new allocation b is always sufficient to hold n 
+          if (n <= r) {                                    // if requested n is under redline...
+            if (b > r) esl_fatal(msg);                     //     ... new allocation b cannot exceed redline
+            if (n < INT_MAX/2 && b > 2*n) esl_fatal(msg);  //     ... and it won't be more than 2x overallocated
+          } else {
+            if (b != n) esl_fatal(msg);                    // if requested n is over redline, then it is exactly allocated, not overallocated
+          }
+        }
+      else if (b != a) esl_fatal(msg);
+    }
+}
+
 static void
 utest_IsInteger(void)
 {
@@ -2519,17 +2630,34 @@ utest_compares(void)
  *****************************************************************/
 
 #ifdef eslEASEL_TESTDRIVE
-/* gcc -g -Wall -o easel_utest -I. -L. -DeslEASEL_TESTDRIVE easel.c -leasel -lm
- * ./easel_utest
- */
-#include "easel.h"
 
-int main(void)
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_random.h"
+
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                             docgroup*/
+  { "-h",  eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",    0 },
+  { "-s",  eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",           0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for easel module";
+
+int
+main(int argc, char **argv)
 {
+  ESL_GETOPTS    *go   = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng  = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+
+  fprintf(stderr, "## %s\n", argv[0]);
+  fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
+
 #ifdef eslTEST_THROWING
   esl_exception_SetHandler(&esl_nonfatal_handler);
 #endif
-
+  
+  utest_resize(rng);
   utest_IsInteger();
   utest_IsReal();
   utest_strmapcat();
@@ -2539,6 +2667,10 @@ int main(void)
   utest_tmpfile_named();
   utest_compares();
   
+  fprintf(stderr, "#  status = ok\n");
+
+  esl_randomness_Destroy(rng);
+  esl_getopts_Destroy(go);
   return eslOK;
 }
 #endif /*eslEASEL_TESTDRIVE*/
