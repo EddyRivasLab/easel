@@ -198,6 +198,21 @@ esl_neon_hmax_s16(esl_neon_128i_t a)
 #endif
 }
 
+/* Function:  esl_neon_hmax_f32()
+ * Synopsis:  Return max of 4 elements in f32 vector.
+ */
+static inline float
+esl_neon_hmax_f32(esl_neon_128f_t a)
+{
+  #ifdef eslHAVE_NEON_AARCH64
+    return vmaxvq_f32(a.f32x4);
+  #else
+    float32x2_t tmp;
+    tmp = vpmax_f32(vget_low_f32(a.f32x4), vget_high_f32(a.f32x4));
+    tmp = vpmax_f32(tmp, tmp);
+    return vget_lane_f32(tmp, 1);
+  #endif
+}
 
 /* Function:  esl_neon_hsum_float()
  * Synopsis:  Takes the horizontal sum of elements in a vector.
