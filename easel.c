@@ -329,14 +329,59 @@ esl_fatal(const char *format, ...)
  *
  * Purpose:   Return a recommended allocation size, given minimum required allocation
  *            size <n>, current allocation size <a>, and "redline" <r>. Implements
- *            Easel's idiom for growing an allocation exponentially.
+ *            Easel's idiom for growing an allocation exponentially, while trying
+ *            to keep it capped at a maximum redline.
  *
- *            Let's call the return value <b>: $b \geq n$, i.e. the returned <b> is always
- *            sufficient to fit <n>.  If $n \leq a$, the existing allocation
- *            suffices, so return $b=a$ (signifying "don't reallocate"). Else, if $n \leq
- *            r$, then $b \leq r$ and $n \leq b < 2n$, because we normally increase
- *            allocation size by doubling.  If $n > r$, then $b = n$, because the
- *            redline sets a limit on overallocation.
+ *            Let's call the return value <b>: $b \geq n$, i.e. the returned <b> is
+ *            always sufficient to fit <n>.
+ *
+ *               - If $n >= r$, the requested allocation is above redline, so return
+ *                 $b=n$ exactly. This includes when we need to grow the allocation
+ *                 ($a < n$), and cases where the current allocation would suffice
+ *                 ($a >= n$) but we can shrink it back toward the redline somewhat.
+ *
+ *               - If $n \leq a$ then the current allocation suffices. If $a \leq r$,
+ *                 return $b=a$ (signifying "don't reallocate"). If $a > r$, the
+ *                 current allocation is excessive (we know $n < r$) so pull it
+ *                 back to redline, returning $b=r$.
+ *
+ *               - If $n > a$ then increase the current allocation by doubling, until
+ *                 it suffices. Cap it at the redline if necessary and don't allow
+ *                 doubling to overflow an integer. Now $b \leq r$ and $n \leq b <
+ *                 2n$.
+ *
+ *            If the caller wants to allow both growing and shrinking (for example,
+ *            supporting an object that has a <Resize()> but not a <Reuse()>), the idiom
+ *            is:
+ *
+ *               ```
+ *               if ( ( newalloc = esl_resize(n, obj->nalloc, obj->redline)) != a) {
+ *                 ESL_REALLOC(obj, ...);
+ *                 obj->nalloc = newalloc;
+ *               }
+ *               ```
+ *
+ *            If the caller only wants <Resize()> to grow, not shrink (because there's
+ *            a <Reuse()> to handle shrinking):
+ *
+ *               ```
+ *               if (n > obj->nalloc) {
+ *                  newalloc = esl_resize(n, obj->nalloc, obj->redline);
+ *                  ESL_REALLOC(obj, ...);
+ *                  obj->nalloc = newalloc;
+ *               }
+ *               ```
+ *
+ *            If the caller is a <Reuse()> that's only responsible for shrinking
+ *            allocations back to redline, pass $n=0$, so the allocation will only
+ *            change if $a>r$:
+ *
+ *               ```
+ *               if (( newalloc = esl_resize(0, obj->nalloc, obj->redline)) != a) {
+ *                  ESL_REALLOC(obj, ...);
+ *                  obj->nalloc = newalloc;
+ *               }
+ *               ```
  *
  *            Growing allocations exponentially (by doubling) minimizes the number of
  *            expensive reallocation calls we have to make, when we're expecting to
@@ -350,9 +395,8 @@ esl_fatal(const char *format, ...)
  *            need for an iterated set of tasks have a long-tailed distribution -
  *            sequence lengths, for example.  We may only need to occasionally make
  *            excursions into very large allocations. Thus, it's advantageous to just
- *            make a one-time exceptional allocation of exactly enough size (rather
- *            than doubling even further past an edge-case exceptionally large
- *            allocation). In Easel's idioms, the next <_Reuse()> call pulls an
+ *            make a transient exceptional allocation of exactly enough size. In
+ *            Easel's idioms, the next <_Reuse()> or <_Resize()> call pulls an
  *            exceptional allocation size back down to the redline.
  *
  *            The redline is only useful in the iterated-set-of-different-sized-tasks
@@ -362,40 +406,39 @@ esl_fatal(const char *format, ...)
  *            redline to <INT_MAX>; or for convenience, if you pass <r=0>, this will
  *            also turn the redline off (by setting it to INT_MAX internally).
  *
- *            The routine is careful not to overflow an integer when it's doubling.
+ *            The <n> argument is _inclusive_ of any constant additional allocation
+ *            that the caller needs for edge effects - for example, if caller has
+ *            <s=2> sentinels at positions 0 and m+1 of an array of elements 1..m, it
+ *            passes <n=m+s> as the argument to esl_resize.
  *
- *            The caller is responsible for making sure that its own arithmetic
- *            doesn't overflow. For example, the caller may need to include some
- *            constant additional allocation (for example, <s=2> sentinels at
- *            positions 0 and n+1 of an array of elements 1..n), so it actually
- *            allocates for <b+s> elements. The caller may need to verify for itself
- *            that <b+s> elements does not overflow.
- *
- * Args:      n  : requested allocation size (n >= 1)
+ * Args:      n  : requested allocation size (n >= 0)
  *            a  : current allocation size   (a >= 0)
  *            r  : redline limit (r >= 0; 0 means don't use a redline)
  *
- * Returns:   b, the suggested new allocation (b >= n)
+ * Returns:   b, the suggested new allocation (b >= n and b >= 1)
  */
 int
 esl_resize(int n, int a, int r)
 {
   const int overflow_limit = INT_MAX / 2;
 
-  ESL_DASSERT1(( n >= 1 ));
-  ESL_DASSERT1(( a >= 0 ));
-  ESL_DASSERT1(( r >= 0 ));
-  if (r == 0) r = INT_MAX;   // r=0 allows caller to conveniently turn redline off
-  if (a == 0) a = 1;         // 0*=2 isn't going to go anywhere, is it
+  ESL_DASSERT1(( n >= 0 && a >= 0 && r >= 0));
+
+  if (r == 0) r = INT_MAX;     // r=0 allows caller to conveniently turn redline off
+  if (a == 0) a = 1;           // 0*=2 isn't going to go anywhere now is it?
   
-  if      (n <= a) return a;   // if allocation already suffices, do nothing
-  else if (n >= r) return n;   // <n> is over redline limit; minimize the allocation
-  else {
-    while (a < n && a <= overflow_limit) a *= 2;   
-    if      (a < n) return r;      // No doubling of <a> suffices, because n >= (INT_MAX/2) +1. We know r > n here; use r.
-    else if (a > r) return r;      // Cap the allocation at the redline. (Again, we already know r > n here.)
-    else            return a;      
+  if (n >= r)   return n;      // this could be n < a (shrink), n=a (stay), or n > a (grow)
+
+  if (n <= a) {                // current allocation a suffices...
+    if (a <= r) return a;      //   ... and is below redline, so fine
+    else        return r;      //   ... but a>r, and r suffices, so shrink back to redline r
   }
+  
+  while (a < n && a <= overflow_limit) a *= 2;   
+  if      (a < n) return r;      // Doublings of <a> didn't suffice, because n >= (INT_MAX/2) +1. We know r > n here; use r.
+  else if (a > r) return r;      // Cap the allocation at the redline. (Again, we already know r > n here.)
+
+  return a;                      // a has been successfully increased by doubling.
 }
 
 /* Function:  esl_free()
@@ -2380,8 +2423,8 @@ utest_resize(ESL_RANDOMNESS *rng)
 
   for (i = 0; i < ntrials; i++)
     {
-      if (esl_rnd_Roll(rng, 2)) { n = 1 + esl_rnd_Roll(rng, INT_MAX); a = esl_rnd_Roll(rng, INT_MAX); r = esl_rnd_Roll(rng, INT_MAX); }
-      else                      { n = 1 + esl_rnd_Roll(rng, 8);       a = esl_rnd_Roll(rng, 8);       r = esl_rnd_Roll(rng, 8);       }
+      if (esl_rnd_Roll(rng, 2)) { n = esl_rnd_Roll(rng, INT_MAX); a = esl_rnd_Roll(rng, INT_MAX); r = esl_rnd_Roll(rng, INT_MAX); }
+      else                      { n = esl_rnd_Roll(rng, 8);       a = esl_rnd_Roll(rng, 8);       r = esl_rnd_Roll(rng, 8);       }
 
       b = esl_resize(n,a,r);
 
@@ -2391,13 +2434,19 @@ utest_resize(ESL_RANDOMNESS *rng)
         {
           if (b < n)                      esl_fatal(msg);  // new allocation b is always sufficient to hold n 
           if (n <= r) {                                    // if requested n is under redline...
-            if (b > r) esl_fatal(msg);                     //     ... new allocation b cannot exceed redline
+            if (b > r)                    esl_fatal(msg);  //     ... new allocation b cannot exceed redline
             if (n < INT_MAX/2 && b > 2*n) esl_fatal(msg);  //     ... and it won't be more than 2x overallocated
           } else {
             if (b != n) esl_fatal(msg);                    // if requested n is over redline, then it is exactly allocated, not overallocated
           }
         }
-      else if (b != a) esl_fatal(msg);
+      else
+        {                                                 // existing allocation a suffices...
+          if (a > r  && n <= r && b != r) esl_fatal(msg);  // if r suffices too, and a is over redline r, shrink allocation back to r
+          if (a > r  && n >  r && b != n) esl_fatal(msg);  // if r doesn't suffice, only shrink back to n
+          if (a <= r && a == 0 && b != 1) esl_fatal(msg);  // even for n=0 a=0, where a zero allocation "suffices", return 1 to avoid zero allocation
+          if (a <= r && a > 0  && b != a) esl_fatal(msg);  // normal case where a suffices and is under redline; don't change allocation.
+        }
     }
 }
 
