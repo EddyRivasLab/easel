@@ -156,7 +156,7 @@ esl_min_ConjugateGradientDescent(ESL_MIN_CFG *cfg, double *x, int n,
   for (i = 1; i <= max_iterations; i++)
     {
       if (dat) {
-	dat->niter    = i;  // this is how bracket() and brent() know what CG iteration they're on
+	dat->niter    = i;  // this is how bracket(), brent(), and numeric_derivative() know what CG iteration they're on
 	dat->nfunc[i] = 0;
       }
       
@@ -447,7 +447,7 @@ numeric_derivative(ESL_MIN_CFG *cfg, double *x, int n,
 
       dx[i] = (-0.5 * (f1-f2)) / delta;
 
-      if (dat) dat->nfunc += 2;
+      if (dat) dat->nfunc[dat->niter] += 2;
       ESL_DASSERT1((! isnan(dx[i])));
     }
 }
