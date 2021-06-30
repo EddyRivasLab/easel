@@ -310,9 +310,13 @@ esl_sse_any_gt_ps(__m128 a, __m128 b)
 static inline __m128
 esl_sse_select_ps(__m128 a, __m128 b, __m128 mask)
 {
+#ifdef eslENABLE_SSE4
+  return _mm_blendv_ps(a, b, mask);
+#else
   b = _mm_and_ps(b, mask);
   a = _mm_andnot_ps(mask, a);
   return _mm_or_ps(a,b);
+#endif
 }
 
 

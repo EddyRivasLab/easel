@@ -528,6 +528,33 @@ utest_hmax_epi16(ESL_RANDOMNESS *rng)
       if (r1 != r2) esl_fatal("hmax_epi16 utest failed: %d != %d", r1, r2);
     }
 }
+
+static void
+utest_select_ps(ESL_RANDOMNESS *rng)
+{
+  union { __m128 v; float x[4]; } a, b, mask, res;
+  int i, z;
+
+  for (i = 0; i < 100; i++)
+    {
+      for (z = 0; z < 4; z++)
+        {
+          a.x[z]    = (float) esl_random(rng);
+          b.x[z]    = (float) esl_random(rng);
+          mask.x[z] = (float) (esl_random(rng) > 0.5 ? 1.0 : 0.0);
+        }
+      mask.v = _mm_cmpeq_ps(mask.v, _mm_setzero_ps());
+      res.v = esl_sse_select_ps(a.v, b.v, mask.v);
+      for (z = 0; z < 4; z++)
+        {
+          if (mask.x[z] == 0 && res.x[z] != a.x[z])
+             esl_fatal("select_ps utest failed: %d != %d", res.x[z], a.x[z]);
+          else if (mask.x[z] == 1 && res.x[z] != b.x[z])
+             esl_fatal("select_ps utest failed: %d != %d", res.x[z], b.x[z]);
+        }
+        esl_sse_dump_ps(stdout, a.v);
+    }
+}
 #endif /*eslSSE_TESTDRIVE*/
 
 
@@ -577,6 +604,7 @@ main(int argc, char **argv)
   utest_hmax_epu8(rng);
   utest_hmax_epi8(rng);
   utest_hmax_epi16(rng);
+  utest_select_ps(rng);
 
   fprintf(stderr, "#  status   = ok\n");
 
