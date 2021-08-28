@@ -767,7 +767,7 @@ esl_sqio_DecodeFormat(int fmt)
  *            be able to read the entire thing again.
  *            
  *            After <esl_sqfile_Position()> is called on a nonzero
- *            <offset>, and other bookkeeping information is unknown.
+ *            <offset>, other bookkeeping information is unknown.
  *            If caller knows it, it should set it explicitly.
  *            
  *            See the SSI module for manipulating offsets and indices.

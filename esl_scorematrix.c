@@ -357,7 +357,7 @@ esl_scorematrix_RelEntropy(const ESL_SCOREMATRIX *S, const double *fi, const dou
  *            All values in <P> involving the codes for gap,
  *            nonresidue, and missing data (codes <K>,<Kp-2>, and
  *            <Kp-1>) are 0.0, not probabilities. Only rows/columns
- *            <i=0..K,K+1..Kp-3> are valid probability vectors.
+ *            <i=0..K-1,K+1..Kp-3> are valid probability vectors.
  *
  * Returns:   <eslOK> on success.
  *
@@ -1222,7 +1222,8 @@ lambda_fdf(double lambda, void *params, double *ret_fx, double *ret_dfx)
  *            Only actual residue degeneracy can have nonzero values
  *            for <p_ij>; by convention, all values involving the
  *            special codes for gap, nonresidue, and missing data
- *            (<K>, <Kp-2>, <Kp-1>) are 0.
+ *            (<K>, <Kp-2>, <Kp-1>) are 0. The fully degenerate
+ *            code <Kp-3> is 1.0 by construction.
  *            
  *            If the caller wishes to convert this joint probability
  *            matrix to conditionals, it can take advantage of the
@@ -1241,7 +1242,7 @@ lambda_fdf(double lambda, void *params, double *ret_fx, double *ret_dfx)
  *            fi         - background frequencies for query sequence i
  *            fj         - background frequencies for target sequence j
  *            opt_lambda - optRETURN: calculated $\lambda$ parameter
- *            opt_P      - optRETURN: implicit target probabilities $p_{ij}$; a KxK DMATRIX.                  
+ *            opt_P      - optRETURN: implicit target probabilities $p_{ij}$; a Kp x Kp DMATRIX.                  
  *
  * Returns:   <eslOK> on success, <*ret_lambda> contains the
  *            calculated $\lambda$ parameter, and <*ret_P> points to
