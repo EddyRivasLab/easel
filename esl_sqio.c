@@ -2170,6 +2170,42 @@ utest_guess_mechanics(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N)
     }
 }
 
+/* utest_guess_empty_seq()
+ * ML, 9 Oct 21
+ *
+ * Make sure that esl_sqfile_GuessAlphabet() returns eslNOALPHABET when
+ * it tries to guess the alphabet on files containing only empty sequences.
+ *
+ */
+static void
+utest_guess_empty_seq()
+{
+  char       *msg         = "sqio guess_empty_seq unit test failure";
+  char        tmpfile[32];
+  ESL_SQ*     seqs[2];
+  FILE       *fp;
+  ESL_SQFILE *sqfp;
+  int         i;
+  int         alphatype;
+
+  if ((seqs[0] = esl_sq_CreateFrom("seqs0", "", NULL, NULL, NULL)) == NULL) esl_fatal(msg);
+  if ((seqs[1] = esl_sq_CreateFrom("seqs1", "", NULL, NULL, NULL)) == NULL) esl_fatal(msg);
+
+  strcpy(tmpfile, "esltmpXXXXXX");
+  if (esl_tmpfile_named(tmpfile, &fp)                     != eslOK) esl_fatal(msg);
+  if (esl_sqio_Write(fp, seqs[0], eslSQFILE_FASTA, FALSE) != eslOK) esl_fatal(msg);
+  if (esl_sqio_Write(fp, seqs[1], eslSQFILE_FASTA, FALSE) != eslOK) esl_fatal(msg);
+  fclose(fp);
+
+  if (esl_sqfile_Open(tmpfile, eslSQFILE_FASTA, NULL, &sqfp) != eslOK) esl_fatal(msg);
+  if (esl_sqfile_GuessAlphabet(sqfp, &alphatype) != eslENOALPHABET)    esl_fatal(msg);
+  esl_sqfile_Close(sqfp);
+  remove(tmpfile);
+
+  free(seqs[0]);
+  free(seqs[1]);
+}
+
 #endif /*eslSQIO_TESTDRIVE*/
 /*------------------ end, unit tests ----------------------------*/
 
@@ -2260,6 +2296,7 @@ main(int argc, char **argv)
 
   utest_guess_mechanics(abc, sqarr, N);
   utest_write          (abc, sqarr, N, eslMSAFILE_STOCKHOLM);
+  utest_guess_empty_seq();
 
   for (i = 0; i < N; i++) esl_sq_Destroy(sqarr[i]);
   free(sqarr);
