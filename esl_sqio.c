@@ -2176,6 +2176,9 @@ utest_guess_mechanics(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N)
  * Make sure that esl_sqfile_GuessAlphabet() returns eslNOALPHABET when
  * it tries to guess the alphabet on files containing only empty sequences.
  *
+ * Related to bugfix 441a4d3: sqascii_GuessAlphabet() did not handle
+ * the case where sqascii_ReadWindow() would return eslEOD on empty
+ * sequences, and returned an error instead of eslENOALPHABET.
  */
 static void
 utest_guess_empty_seq()
@@ -2202,8 +2205,8 @@ utest_guess_empty_seq()
   esl_sqfile_Close(sqfp);
   remove(tmpfile);
 
-  free(seqs[0]);
-  free(seqs[1]);
+  esl_sq_Destroy(seqs[0]);
+  esl_sq_Destroy(seqs[1]);
 }
 
 #endif /*eslSQIO_TESTDRIVE*/
