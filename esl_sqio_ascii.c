@@ -658,7 +658,7 @@ sqascii_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
 
   status = sqascii_ReadWindow(sqfp, 0, 4000, sq);
   if      (status == eslEOF) { status = eslENODATA; goto ERROR; }
-  else if (status != eslOK)  goto ERROR; 
+  else if ((status != eslOK) && (status != eslEOD)) goto ERROR;
 
   if ((status = esl_sq_GuessAlphabet(sq, ret_type)) != eslOK) goto ERROR;
 
