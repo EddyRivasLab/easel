@@ -443,7 +443,8 @@ AC_CHECK_HEADERS([\
   strings.h   \
   unistd.h    \
   sys/types.h \
-  netinet/in.h
+  netinet/in.h \
+  syslog.h
 ])
 
 # Check for sysctl.h separately.  On OpenBSD, it requires
@@ -523,6 +524,7 @@ AC_CHECK_FUNCS([ \
   aligned_alloc  \
   erfc           \
   getpid         \
+  getppid        \
   _mm_malloc     \
   popen          \
   posix_memalign \

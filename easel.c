@@ -36,8 +36,11 @@
 #include <mpi.h>		/* MPI_Abort() may be used in esl_fatal() or other program killers */
 #endif
 
-#include "easel.h"
+#ifdef HAVE_SYSLOG_H
 #include <syslog.h>
+#endif
+
+#include "easel.h"
 
 /*****************************************************************
  * 1. Exception and fatal error handling.
@@ -71,15 +74,22 @@ esl_fail(char *errbuf, const char *format, ...)
       /* Check whether we are running as a daemon so we can do the
        * right thing about logging instead of printing errors 
        */
-      if (getppid() != 1)
+#ifdef HAVE_GETPPID
+      if (getppid() == 1)
+        {
+#ifdef HAVE_SYSLOG_H
+          vsyslog(LOG_ERR, format, ap); // SRE: TODO: check this.
+                                        // looks wrong. I think it needs va_start(), va_end().
+                                        // also see two more occurrences, below.
+#endif
+        }
+      else
+#endif
 	{ // we aren't running as a daemon, so print the error normally
 	  va_start(ap, format);
 	  if (errbuf) vsnprintf(errbuf, eslERRBUFSIZE, format, ap);
 	  va_end(ap);
 	}
-      else vsyslog(LOG_ERR, format, ap); // SRE: TODO: check this.
-                                         // looks wrong. I think it needs va_start(), va_end().
-                                         // also see two more occurrences, below.
     }
 }
 
@@ -145,7 +155,15 @@ esl_exception(int errcode, int use_errno, char *sourcefile, int sourceline, char
   else 
     {
       /* Check whether we are running as a daemon so we can do the right thing about logging instead of printing errors */
-      if (getppid() != 1)
+#ifdef HAVE_GETPPID
+      if (getppid() == 1)
+        {
+#ifdef HAVE_SYSLOG_H
+           vsyslog(LOG_ERR, format, argp);
+#endif
+        }
+      else
+#endif
 	{ // we're not running as a daemon, so print the error normally
 	  fprintf(stderr, "Fatal exception (source file %s, line %d):\n", sourcefile, sourceline);
 	  va_start(argp, format);
@@ -154,8 +172,7 @@ esl_exception(int errcode, int use_errno, char *sourcefile, int sourceline, char
 	  fprintf(stderr, "\n");
 	  if (use_errno && errno) perror("system error");
 	  fflush(stderr);
-	}  
-      else vsyslog(LOG_ERR, format, argp);
+	}
 
 #ifdef HAVE_MPI
       MPI_Initialized(&mpiflag);                 /* we're assuming we can do this, even in a corrupted, dying process...? */
@@ -298,15 +315,22 @@ esl_fatal(const char *format, ...)
   int mpiflag;
 #endif
   /* Check whether we are running as a daemon so we can do the right thing about logging instead of printing errors */
-  if (getppid() != 1)
+#ifdef HAVE_GETPPID
+  if (getppid() == 1)
+    {
+#ifdef HAVE_SYSLOG_H
+      vsyslog(LOG_ERR, format, argp);
+#endif
+    }
+  else
+#endif
     { // we're not running as a daemon, so print the error normally
       va_start(argp, format);
       vfprintf(stderr, format, argp);
       va_end(argp);
       fprintf(stderr, "\n");
       fflush(stderr);
-    } 
-  else vsyslog(LOG_ERR, format, argp);
+    }
 
 #ifdef HAVE_MPI
   MPI_Initialized(&mpiflag);

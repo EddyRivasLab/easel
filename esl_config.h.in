@@ -54,6 +54,7 @@
 #undef HAVE_SYS_TYPES_H
 #undef HAVE_STRINGS_H
 #undef HAVE_NETINET_IN_H	/* On FreeBSD, you need netinet/in.h for struct sockaddr_in */
+#undef HAVE_SYSLOG_H
 
 #undef HAVE_SYS_PARAM_H
 #undef HAVE_SYS_SYSCTL_H
@@ -79,6 +80,7 @@
 #undef HAVE_ERFC            // esl_stats
 #undef HAVE_GETCWD          // esl_getcwd
 #undef HAVE_GETPID          // esl_random
+#undef HAVE_GETPPID         // esl_fail
 #undef HAVE__MM_MALLOC      // esl_alloc
 #undef HAVE_POPEN           // various file parsers that check for piped input
 #undef HAVE_POSIX_MEMALIGN  // esl_alloc
