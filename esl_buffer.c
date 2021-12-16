@@ -29,7 +29,9 @@
 #endif
 #ifdef _POSIX_VERSION
 #include <fcntl.h>
+#ifdef HAVE_MMAP
 #include <sys/mman.h>
+#endif
 #include <sys/stat.h>
 #endif /* _POSIX_VERSION */
 
@@ -222,7 +224,7 @@ esl_buffer_OpenFile(const char *filename, ESL_BUFFER **ret_bf)
 
   if      (filesize != -1 && filesize <= eslBUFFER_SLURPSIZE)  
     { if ((status = buffer_init_file_slurped(bf, filesize)) != eslOK) goto ERROR; }
-#ifdef _POSIX_VERSION
+#ifdef HAVE_MMAP
   else if (filesize > eslBUFFER_SLURPSIZE) 
     { if ((status = buffer_init_file_mmap(bf, filesize))    != eslOK) goto ERROR; }
 #endif
@@ -520,7 +522,9 @@ esl_buffer_Close(ESL_BUFFER *bf)
       if (bf->mem) 
 	{
 	  switch (bf->mode_is) {
+#ifdef HAVE_MMAP
 	  case eslBUFFER_MMAP:   if (munmap(bf->mem, bf->n) == -1) ESL_EXCEPTION(eslESYS, "munmap() failed"); break;
+#endif
 	  case eslBUFFER_STRING: break; /* caller provided and remains responsible for an input memory buffer */
 	  default:               free(bf->mem);
 	  }
@@ -614,7 +618,9 @@ esl_buffer_SetOffset(ESL_BUFFER *bf, esl_pos_t offset)
    *         Then this is trivial; we just set bf->pos.
    */
   if (bf->mode_is == eslBUFFER_ALLFILE ||
+#ifdef HAVE_MMAP
       bf->mode_is == eslBUFFER_MMAP    || 
+#endif
       bf->mode_is == eslBUFFER_STRING)
     {
       bf->baseoffset = 0;  	/* (redundant: just to assure you that state is correctly set) */
@@ -1574,8 +1580,11 @@ buffer_init_file_mmap(ESL_BUFFER *bf, esl_pos_t filesize)
 {
   int          status;
   /*    mmap(addr, len,          prot,      flags,       fd,             offset */
+#ifdef HAVE_MMAP
   bf->mem = mmap(0,    filesize, PROT_READ, MAP_PRIVATE, fileno(bf->fp), 0);
-  if (bf->mem == MAP_FAILED) ESL_XEXCEPTION(eslESYS, "mmap()");
+  if (bf->mem == MAP_FAILED)
+#endif
+    ESL_XEXCEPTION(eslESYS, "mmap()");
 
   bf->n       = filesize;
   bf->mode_is = eslBUFFER_MMAP;
@@ -1586,7 +1595,9 @@ buffer_init_file_mmap(ESL_BUFFER *bf, esl_pos_t filesize)
   return eslOK;
 
  ERROR:
+#ifdef HAVE_MMAP
   if (bf->mem != MAP_FAILED) munmap(bf->mem, bf->n); 
+#endif
   bf->mem     = NULL; 
   bf->n       = 0;
   bf->mode_is = eslBUFFER_UNSET;

@@ -80,8 +80,9 @@
 #undef HAVE_ERFC            // esl_stats
 #undef HAVE_GETCWD          // esl_getcwd
 #undef HAVE_GETPID          // esl_random
-#undef HAVE_GETPPID         // esl_fail
+#undef HAVE_GETPPID         // easel::esl_fail()
 #undef HAVE__MM_MALLOC      // esl_alloc
+#undef HAVE_MMAP            // esl_buffer
 #undef HAVE_POPEN           // various file parsers that check for piped input
 #undef HAVE_POSIX_MEMALIGN  // esl_alloc
 #undef HAVE_STRCASECMP      // easel::esl_strcasecmp()

@@ -543,6 +543,7 @@ AC_SEARCH_LIBS(socket,    socket)
 AC_SEARCH_LIBS(inet_pton, nsl)
 
 AC_FUNC_FSEEKO
+AC_FUNC_MMAP
 
 #################################################################
 # 12. System services
