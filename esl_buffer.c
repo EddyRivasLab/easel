@@ -214,7 +214,7 @@ esl_buffer_OpenFile(const char *filename, ESL_BUFFER **ret_bf)
    * If we don't have fstat(), we'll just read normally, and pagesize
    * will be the Easel default 4096 (set in buffer_create().)
    */
-#ifdef _POSIX_VERSION
+#ifdef HAVE_FSTAT
   if (fstat(fileno(bf->fp), &fileinfo) == -1) ESL_XEXCEPTION(eslESYS, "fstat() failed");
   filesize     = fileinfo.st_size;
   bf->pagesize = fileinfo.st_blksize;

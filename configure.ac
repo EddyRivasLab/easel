@@ -523,6 +523,7 @@ AX_GCC_FUNC_ATTRIBUTE(format)
 AC_CHECK_FUNCS([ \
   aligned_alloc  \
   erfc           \
+  fstat          \
   getpid         \
   getppid        \
   _mm_malloc     \

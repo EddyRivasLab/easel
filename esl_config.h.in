@@ -78,6 +78,7 @@
 /* Functions */
 #undef HAVE_ALIGNED_ALLOC   // esl_alloc
 #undef HAVE_ERFC            // esl_stats
+#undef HAVE_FSTAT           // esl_buffer
 #undef HAVE_GETCWD          // esl_getcwd
 #undef HAVE_GETPID          // esl_random
 #undef HAVE_GETPPID         // easel::esl_fail()
