@@ -71,6 +71,9 @@
 #undef uint64_t
 #undef off_t
 
+/* Structures */
+#undef HAVE_STRUCT_STAT_ST_BLKSIZE
+
 /* Compiler characteristics */
 #undef HAVE_FUNC_ATTRIBUTE_NORETURN // Compiler supports __attribute__((__noreturn__)), helps w/ clang static analysis.
 #undef HAVE_FUNC_ATTRIBUTE_FORMAT   // Compiler supports __attribute__((format(a,b,c))), typechecking printf-like functions

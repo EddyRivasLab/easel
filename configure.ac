@@ -437,14 +437,14 @@ AC_SEARCH_LIBS(clock_gettime, [rt posix4])
 ################################################################
 
 AC_CHECK_HEADERS([\
-  endian.h    \
-  inttypes.h  \
-  stdint.h    \
-  strings.h   \
-  unistd.h    \
-  sys/types.h \
+  endian.h     \
+  inttypes.h   \
+  stdint.h     \
+  strings.h    \
+  unistd.h     \
+  sys/types.h  \
   netinet/in.h \
-  syslog.h
+  syslog.h     \
 ])
 
 # Check for sysctl.h separately.  On OpenBSD, it requires
@@ -482,7 +482,10 @@ AC_TYPE_OFF_T
 ################################################################
 # 9. Checks for structures - currently none
 #################################################################
-
+#    - Make sure that the stat struct has an st_blksize field
+#      that can be used in `esl_buffer.c` to get the block size
+#
+AC_CHECK_MEMBERS([struct stat.st_blksize])
 
 ################################################################
 # 10. Checks for compiler characteristics

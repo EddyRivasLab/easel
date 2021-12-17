@@ -27,13 +27,15 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+#ifdef HAVE_FSTAT
+#include <sys/stat.h>
+#endif
 #ifdef _POSIX_VERSION
 #include <fcntl.h>
+#endif
 #ifdef HAVE_MMAP
 #include <sys/mman.h>
 #endif
-#include <sys/stat.h>
-#endif /* _POSIX_VERSION */
 
 #include "easel.h"
 #include "esl_mem.h"
@@ -196,7 +198,7 @@ int
 esl_buffer_OpenFile(const char *filename, ESL_BUFFER **ret_bf)
 {
   ESL_BUFFER *bf = NULL;
-#ifdef _POSIX_VERSION
+#ifdef HAVE_FSTAT
   struct stat fileinfo;
 #endif
   esl_pos_t   filesize = -1;
@@ -217,7 +219,9 @@ esl_buffer_OpenFile(const char *filename, ESL_BUFFER **ret_bf)
 #ifdef HAVE_FSTAT
   if (fstat(fileno(bf->fp), &fileinfo) == -1) ESL_XEXCEPTION(eslESYS, "fstat() failed");
   filesize     = fileinfo.st_size;
+#ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
   bf->pagesize = fileinfo.st_blksize;
+#endif
   if (bf->pagesize < 512)     bf->pagesize = 512;      /* I feel paranoid about st_blksize range not being guaranteed to be sensible */
   if (bf->pagesize > 4194304) bf->pagesize = 4194304;
 #endif  
@@ -2201,7 +2205,7 @@ buffer_OpenFileAs(const char *filename, enum esl_buffer_mode_e mode_is, ESL_BUFF
 {
   char        msg[] = "buffer_OpenFileAs() failed";
   ESL_BUFFER *bf    = NULL;
-#ifdef _POSIX_VERSION
+#ifdef HAVE_FSTAT
   struct stat fileinfo;
 #endif
   esl_pos_t   filesize = -1;
@@ -2210,10 +2214,12 @@ buffer_OpenFileAs(const char *filename, enum esl_buffer_mode_e mode_is, ESL_BUFF
   if ((bf->fp = fopen(filename, "rb"))           == NULL)  esl_fatal(msg);
   if (esl_strdup(filename, -1, &(bf->filename))  != eslOK) esl_fatal(msg);
 
-#ifdef _POSIX_VERSION
+#ifdef HAVE_FSTAT
   if (fstat(fileno(bf->fp), &fileinfo)           == -1)    esl_fatal(msg);
   filesize     = fileinfo.st_size;
+#ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
   bf->pagesize = fileinfo.st_blksize;
+#endif
   if (bf->pagesize < 512)     bf->pagesize = 512;     
   if (bf->pagesize > 4194304) bf->pagesize = 4194304;
 #endif  
