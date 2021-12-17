@@ -2770,6 +2770,7 @@ utest_halfnewline(void)
   esl_pos_t   n     = 0;  
   int         status;
   
+#ifdef SIGALRM
   signal(SIGALRM, alarm_handler); // the bug is an infinite loop in esl_buffer_GetLine(), so we use an alarm signal to trap it.
   alarm(1);                       // this utest will self destruct in one second...
 
@@ -2784,6 +2785,7 @@ utest_halfnewline(void)
   esl_buffer_Close(bf);
   alarm(0);                  // removes self-destruct alarm
   signal(SIGALRM, SIG_DFL);  // deletes self-destruct handler
+#endif
   return;
 }
        
