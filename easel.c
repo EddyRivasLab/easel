@@ -2123,15 +2123,25 @@ esl_tmpfile(char *basename6X, FILE **ret_fp)
   int   status;
   mode_t old_mode;
 
+
   /* Determine what tmp directory to use, and construct the
    * file name.
    */
+#if defined(__MINGW32__) || defined(__CYGWIN__)
+  /* this is sufficient to detect Windows, however we may want
+   * to use the "fileapi.h" function `GetTempPath2A` instead to
+   * get the system-defined temporary file path.
+   */
+  tmpdir = getenv("TEMP");
+  if (tmpdir == NULL) tmpdir = "C:\\Windows\\Temp";
+#else
   if (getuid() == geteuid() && getgid() == getegid()) 
     {
       tmpdir = getenv("TMPDIR");
       if (tmpdir == NULL) tmpdir = getenv("TMP");
     }
   if (tmpdir == NULL) tmpdir = "/tmp";
+#endif
   if ((status = esl_FileConcat(tmpdir, basename6X, &path)) != eslOK) goto ERROR; 
 
   old_mode = umask(077);
