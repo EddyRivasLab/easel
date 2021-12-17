@@ -40,6 +40,13 @@
 #include <syslog.h>
 #endif
 
+#ifdef __MINGW32__
+#include <fileapi.h>            /* Needed for the GetTempPath2A function used in esl_tempfile() */
+#include <io.h>                 /* Needed for the _open function used in esl_tmpfile() */
+#include <fcntl.h>
+#include <sys/stat.h>
+#endif
+
 #include "easel.h"
 
 /*****************************************************************
@@ -2123,17 +2130,13 @@ esl_tmpfile(char *basename6X, FILE **ret_fp)
   int   status;
   mode_t old_mode;
 
-
   /* Determine what tmp directory to use, and construct the
    * file name.
    */
-#if defined(__MINGW32__) || defined(__CYGWIN__)
-  /* this is sufficient to detect Windows, however we may want
-   * to use the "fileapi.h" function `GetTempPath2A` instead to
-   * get the system-defined temporary file path.
-   */
-  tmpdir = getenv("TEMP");
-  if (tmpdir == NULL) tmpdir = "C:\\Windows\\Temp";
+#ifdef __MINGW32__
+  char tmppath[MAX_PATH+1];
+  if (GetTempPathA(MAX_PATH+1, tmppath) == 0) ESL_XEXCEPTION(eslESYS, "GetTempPath2A failed.");
+  tmpdir = &tmppath[0];
 #else
   if (getuid() == geteuid() && getgid() == getegid()) 
     {
@@ -2144,9 +2147,14 @@ esl_tmpfile(char *basename6X, FILE **ret_fp)
 #endif
   if ((status = esl_FileConcat(tmpdir, basename6X, &path)) != eslOK) goto ERROR; 
 
+#ifdef __MINGW32__
+  if ((path = _mktemp(path)) == NULL)                                                   ESL_XEXCEPTION(eslESYS, "_mktemp() failed.");
+  if ((fd = _open(path,  _O_CREAT | _O_TEMPORARY | _O_RDWR, _S_IREAD | _S_IWRITE)) < 0) ESL_XEXCEPTION(eslESYS, "_open() failed."  );
+#else
   old_mode = umask(077);
   if ((fd = mkstemp(path)) <  0)        ESL_XEXCEPTION(eslESYS, "mkstemp() failed.");
   umask(old_mode);
+#endif
   if ((fp = fdopen(fd, "w+b")) == NULL) ESL_XEXCEPTION(eslESYS, "fdopen() failed.");
   if (unlink(path) < 0)                 ESL_XEXCEPTION(eslESYS, "unlink() failed.");
 
