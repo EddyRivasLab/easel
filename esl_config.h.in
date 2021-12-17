@@ -89,6 +89,8 @@
 #undef HAVE_MMAP            // esl_buffer
 #undef HAVE_POPEN           // various file parsers that check for piped input
 #undef HAVE_POSIX_MEMALIGN  // esl_alloc
+#undef HAVE__PUTENV_S       // esl_getopts utest
+#undef HAVE_SETENV          // esl_getopts utest
 #undef HAVE_STRCASECMP      // easel::esl_strcasecmp()
 #undef HAVE_STRSEP          // easel::esl_strsep()
 #undef HAVE_SYSCONF         // esl_threads, asking system for cpu number

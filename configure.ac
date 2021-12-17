@@ -532,6 +532,8 @@ AC_CHECK_FUNCS([ \
   _mm_malloc     \
   popen          \
   posix_memalign \
+  _putenv_s      \
+  setenv         \
   strcasecmp     \
   strsep         \
   sysconf        \
