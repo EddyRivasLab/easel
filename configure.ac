@@ -174,6 +174,7 @@ AC_ARG_ENABLE(avx512,  [AS_HELP_STRING([--enable-avx512],  [enable our AVX-512 v
 AC_ARG_ENABLE(neon,    [AS_HELP_STRING([--enable-neon],    [enable our NEON vector code])] ,            enable_neon=$enableval,    enable_neon=check)
 AC_ARG_ENABLE(vmx,     [AS_HELP_STRING([--enable-vmx],     [enable our Altivec/VMX vector code])],      enable_vmx=$enableval,     enable_vmx=check)
 
+AC_ARG_ENABLE(gzip,    [AS_HELP_STRING([--enable-gzip],    [enable reading Gzip compressed files])],    enable_gzip=$enableval,    enable_gzip=yes)
 AC_ARG_ENABLE(threads, [AS_HELP_STRING([--enable-threads], [enable POSIX threads parallelization])],    enable_threads=$enableval, enable_threads=check)
 AC_ARG_ENABLE(mpi,     [AS_HELP_STRING([--enable-mpi],     [enable MPI parallelization])],              enable_mpi=$enableval,     enable_mpi=no)
 
@@ -391,16 +392,10 @@ AC_COMPILE_IFELSE(
 
 CFLAGS="$esl_save_cflags"
 
-
-
-# Define HAVE_GZIP if gzip is in $PATH (or if HAVE_GZIP is already set)
-AC_PATH_PROG(HAVE_GZIP, "gzip", "no")
-if test "${HAVE_GZIP}" = "no"; then
-  AC_MSG_WARN([gzip not found])
-else
+# Define HAVE_GZIP unless --disable-gzip was given to the configure script
+AS_IF([test "x$enable_gzip" != xno],
   AC_DEFINE([HAVE_GZIP],1,[Support external gzip decompression])
-fi
-
+)
 
 # We need python 3 for 'make check' and some dev tools. sqc checks
 # too, as does the Makefile, but we also check in ./configure, so we
