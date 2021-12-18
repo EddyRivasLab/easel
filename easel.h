@@ -408,7 +408,11 @@ typedef uint8_t ESL_DSQ;
  *
  * This gets used in easel.c's *_File*() functions.
  */
+#ifdef __MINGW32__
+#define eslDIRSLASH '\\'          /* Windows directory paths have C:\foo\bar */
+#else
 #define eslDIRSLASH '/'           /* UNIX directory paths have /foo/bar */
+#endif
 
 /* Some generic macros for swapping, min, and max.
  */
