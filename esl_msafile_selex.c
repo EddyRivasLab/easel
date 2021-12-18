@@ -114,6 +114,8 @@ esl_msafile_selex_SetInmap(ESL_MSAFILE *afp)
       afp->inmap[0]   = '?';
       afp->inmap[' '] = '.'; /* Easel does not allow spaces as gap characters. */
     }
+    
+  afp->inmap['\r'] = eslDSQ_IGNORED;
   return eslOK;
 }
 
@@ -158,7 +160,7 @@ esl_msafile_selex_GuessAlphabet(ESL_MSAFILE *afp, int *ret_type)
 
   while ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) == eslOK)
     {
-      if ((status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK) continue; /* blank lines */
+      if ((status = esl_memtok(&p, &n, " \r\t", &tok, &toklen)) != eslOK) continue; /* blank lines */
       if (*tok == '#') continue; /* comments and annotation */
       /* p now points to the rest of the sequence line, after a name */
       
@@ -482,7 +484,7 @@ selex_read_block(ESL_MSAFILE *afp, ESL_SELEX_BLOCK **block_p)
    */
   do { 
     if ( ( status = esl_msafile_GetLine(afp, NULL, NULL)) != eslOK) goto ERROR;                   /* EOF here is a normal EOF   */
-  } while (esl_memspn(afp->line, afp->n, " \t") == afp->n ||                                       /* idiomatic for "blank line" */
+  } while (esl_memspn(afp->line, afp->n, " \r\t") == afp->n ||                                       /* idiomatic for "blank line" */
 	   (esl_memstrpfx(afp->line, afp->n, "#") && ! esl_memstrpfx(afp->line, afp->n, "#=")));   /* a SELEX comment line       */
 
   /* if this is first block, allocate block; subsequent blocks reuse it */
@@ -507,7 +509,7 @@ selex_read_block(ESL_MSAFILE *afp, ESL_SELEX_BLOCK **block_p)
       status = esl_msafile_GetLine(afp, NULL, NULL); 
     } while ( status == eslOK && (esl_memstrpfx(afp->line, afp->n, "#") && ! esl_memstrpfx(afp->line, afp->n, "#=")));
 
-  } while (status == eslOK && esl_memspn(afp->line, afp->n, " \t") < afp->n); /* end of block on EOF or blank line */
+  } while (status == eslOK && esl_memspn(afp->line, afp->n, " \r\t") < afp->n); /* end of block on EOF or blank line */
   
   if (*block_p && b->nlines != idx) 
     ESL_XFAIL(eslEFORMAT, afp->errmsg, "expected %d lines in block, saw %d", b->nlines, idx);
@@ -581,7 +583,7 @@ selex_first_block(ESL_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA **ret_msa)
     {
       p = b->line[idx];
       n = b->llen[idx];
-      if ( esl_memtok(&p, &n, " \t", &tok, &ntok) != eslOK) ESL_XEXCEPTION(eslEINCONCEIVABLE, "can't happen"); /* because a block by definition consists of non-blank lines */
+      if ( esl_memtok(&p, &n, " \r\t", &tok, &ntok) != eslOK) ESL_XEXCEPTION(eslEINCONCEIVABLE, "can't happen"); /* because a block by definition consists of non-blank lines */
       if (b->ltype[idx] == eslSELEX_LINE_SQ) /* otherwise, first token is #=XX marking annotation of some sort */
 	{
 	  if ((status = esl_msa_SetSeqName(msa, seqi, tok, ntok)) != eslOK) goto ERROR;
@@ -628,7 +630,7 @@ selex_other_block(ESL_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
     {
       p = b->line[idx];
       n = b->llen[idx];
-      if ( esl_memtok(&p, &n, " \t", &tok, &ntok) != eslOK) ESL_EXCEPTION(eslEINCONCEIVABLE, "can't happen"); /* because a block by definition consists of non-blank lines */      
+      if ( esl_memtok(&p, &n, " \r\t", &tok, &ntok) != eslOK) ESL_EXCEPTION(eslEINCONCEIVABLE, "can't happen"); /* because a block by definition consists of non-blank lines */      
       if (b->ltype[idx] == eslSELEX_LINE_SQ)
 	{
 	  if (! esl_memstrcmp(tok, ntok, msa->sqname[seqi]))  { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "expected sequence %s at this line of block", msa->sqname[seqi]); }

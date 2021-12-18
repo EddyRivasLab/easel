@@ -34,7 +34,8 @@
  *            Digital mode enforces the usual Easel alphabets.
  * 
  *            We skip spaces in input lines of aligned FASTA format;
- *            map ' ' to <eslDSQ_IGNORED>.
+ *            map ' ' to <eslDSQ_IGNORED>. For Windows compatibility,
+ *            carriage returns are ignored; map '\r' to <eslDSQ_IGNORED>.
  */
 int
 esl_msafile_afa_SetInmap(ESL_MSAFILE *afp)
@@ -55,7 +56,8 @@ esl_msafile_afa_SetInmap(ESL_MSAFILE *afp)
       afp->inmap[0]   = '?';
     }
 
-  afp->inmap[' '] = eslDSQ_IGNORED;
+  afp->inmap[' ']  = eslDSQ_IGNORED;
+  afp->inmap['\r'] = eslDSQ_IGNORED;
   return eslOK;
 }
 
@@ -197,7 +199,7 @@ esl_msafile_afa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   if (! afp->abc &&  (msa = esl_msa_Create(                 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
   
   /* skip leading blank lines in file */
-  while ( (status = esl_msafile_GetLine(afp, &p, &n)) == eslOK && esl_memspn(afp->line, afp->n, " \t") == afp->n) ;
+  while ( (status = esl_msafile_GetLine(afp, &p, &n)) == eslOK && esl_memspn(afp->line, afp->n, " \t\r") == afp->n) ;
   if      (status != eslOK)  goto ERROR; /* includes normal EOF */
 
   /* tolerate sloppy space at start of line */
@@ -208,7 +210,7 @@ esl_msafile_afa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
     if (n <= 1 || *p != '>' ) ESL_XFAIL(eslEFORMAT, afp->errmsg, "expected aligned FASTA name/desc line starting with >");    
     p++; n--;			/* advance past > */
 
-    if ( (status = esl_memtok(&p, &n, " \t", &tok, &ntok)) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "no name found for aligned FASTA record");
+    if ( (status = esl_memtok(&p, &n, " \t\r", &tok, &ntok)) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "no name found for aligned FASTA record");
     if (idx >= msa->sqalloc && (status = esl_msa_Expand(msa))    != eslOK) goto ERROR;
 
     if (     (status = esl_msa_SetSeqName       (msa, idx, tok, ntok)) != eslOK) goto ERROR;

@@ -593,7 +593,7 @@ esl_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESL_MSAFILE_FMTDAT
   /* Skip blank lines, get first non-blank one */
   do   { 
     status = esl_buffer_GetLine(bf, &p, &n);
-  } while (status == eslOK && esl_memspn(p, n, " \t") == n);
+  } while (status == eslOK && esl_memspn(p, n, " \t\r") == n);
   if (status == eslEOF) ESL_XFAIL(eslENOFORMAT, errbuf, "can't guess alignment input format: empty file/no data");
 
   if      (esl_memstrpfx(p, n, "# STOCKHOLM"))                      fmt_byfirstline = eslMSAFILE_STOCKHOLM;
@@ -604,8 +604,8 @@ esl_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESL_MSAFILE_FMTDAT
     char     *tok;
     esl_pos_t toklen;
     /* look for <nseq> <alen>, characteristic of PHYLIP files */
-    if (esl_memtok(&p, &n, " \t", &tok, &toklen) == eslOK  && esl_memspn(tok, toklen, "0123456789") == toklen &&
-	esl_memtok(&p, &n, " \t", &tok, &toklen) == eslOK  && esl_memspn(tok, toklen, "0123456789") == toklen)
+    if (esl_memtok(&p, &n, " \t\r", &tok, &toklen) == eslOK  && esl_memspn(tok, toklen, "0123456789") == toklen &&
+	esl_memtok(&p, &n, " \t\r", &tok, &toklen) == eslOK  && esl_memspn(tok, toklen, "0123456789") == toklen)
       fmt_byfirstline = eslMSAFILE_PHYLIP; /* interleaved for now; we'll look more closely soon */
   }
 
@@ -813,7 +813,7 @@ msafile_check_selex(ESL_BUFFER *bf)
       if (esl_memstrpfx(p, n, "#"))    continue;
       
       /* blank lines: end block, reset block counters */
-      if (esl_memspn(p, n, " \t") == n)
+      if (esl_memspn(p, n, " \t\r") == n)
 	{
 	  if (block_nseq && block_nseq != nseq) { status = eslFAIL; goto DONE;} /* each block has same # of seqs */
 	  if (in_block) blockidx++;
@@ -830,16 +830,16 @@ msafile_check_selex(ESL_BUFFER *bf)
        * starts with the same seq name..
        */
       in_block = TRUE;
-      if ( (status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK) goto ERROR; /* there's at least one token - we already checked for blank lines */
+      if ( (status = esl_memtok(&p, &n, " \t\r", &tok, &toklen)) != eslOK) goto ERROR; /* there's at least one token - we already checked for blank lines */
       if (nseq == 0)	/* check first seq name in each block */
 	{
 	  if (blockidx == 0) { firstname = tok; namelen = toklen; } /* First block: set the name we check against. */
 	  else if (toklen != namelen || memcmp(tok, firstname, toklen) != 0) { status = eslFAIL; goto DONE; } /* Subsequent blocks */
 	}
-      if (esl_memtok(&p, &n, " \t", &tok, &toklen) != eslOK) { status = eslFAIL; goto DONE; }
+      if (esl_memtok(&p, &n, " \t\r", &tok, &toklen) != eslOK) { status = eslFAIL; goto DONE; }
       if (block_nres && toklen != block_nres)                { status = eslFAIL; goto DONE; }
       block_nres = toklen;
-      if (esl_memtok(&p, &n, " \t", &tok, &toklen) == eslOK) { status = eslFAIL; goto DONE; }
+      if (esl_memtok(&p, &n, " \t\r", &tok, &toklen) == eslOK) { status = eslFAIL; goto DONE; }
       nseq++;
     }
   if (status != eslEOF) goto ERROR;  /* EOF is expected and good; anything else is bad */
