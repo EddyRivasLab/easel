@@ -2229,9 +2229,15 @@ esl_tmpfile_named(char *basename6X, FILE **ret_fp)
   int    fd;
 
   *ret_fp = NULL;
+#ifdef __MINGW32__
+  char* path;
+  if ((path = _mktemp(basename6X)) == NULL)                                             return eslFAIL;
+  if ((fd = _open(path,  _O_CREAT | _O_RDWR, _S_IREAD | _S_IWRITE)) < 0) return eslFAIL;
+#else
   old_mode = umask(077);
   if ((fd = mkstemp(basename6X)) <  0)  return eslFAIL;
   umask(old_mode);
+#endif
   if ((fp = fdopen(fd, "w+b")) == NULL) return eslFAIL;
 
   *ret_fp = fp;
