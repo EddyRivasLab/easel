@@ -9,6 +9,7 @@ Makefile
 /autom4te.cache
 /build-*/
 *.o
+*.exe
 *.dSYM
 easel_utest
 easel_example

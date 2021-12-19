@@ -27,11 +27,15 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+#ifdef HAVE_FSTAT
+#include <sys/stat.h>
+#endif
 #ifdef _POSIX_VERSION
 #include <fcntl.h>
+#endif
+#ifdef HAVE_MMAP
 #include <sys/mman.h>
-#include <sys/stat.h>
-#endif /* _POSIX_VERSION */
+#endif
 
 #include "easel.h"
 #include "esl_mem.h"
@@ -194,7 +198,7 @@ int
 esl_buffer_OpenFile(const char *filename, ESL_BUFFER **ret_bf)
 {
   ESL_BUFFER *bf = NULL;
-#ifdef _POSIX_VERSION
+#ifdef HAVE_FSTAT
   struct stat fileinfo;
 #endif
   esl_pos_t   filesize = -1;
@@ -212,17 +216,19 @@ esl_buffer_OpenFile(const char *filename, ESL_BUFFER **ret_bf)
    * If we don't have fstat(), we'll just read normally, and pagesize
    * will be the Easel default 4096 (set in buffer_create().)
    */
-#ifdef _POSIX_VERSION
+#ifdef HAVE_FSTAT
   if (fstat(fileno(bf->fp), &fileinfo) == -1) ESL_XEXCEPTION(eslESYS, "fstat() failed");
   filesize     = fileinfo.st_size;
+#ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
   bf->pagesize = fileinfo.st_blksize;
+#endif
   if (bf->pagesize < 512)     bf->pagesize = 512;      /* I feel paranoid about st_blksize range not being guaranteed to be sensible */
   if (bf->pagesize > 4194304) bf->pagesize = 4194304;
 #endif  
 
   if      (filesize != -1 && filesize <= eslBUFFER_SLURPSIZE)  
     { if ((status = buffer_init_file_slurped(bf, filesize)) != eslOK) goto ERROR; }
-#ifdef _POSIX_VERSION
+#ifdef HAVE_MMAP
   else if (filesize > eslBUFFER_SLURPSIZE) 
     { if ((status = buffer_init_file_mmap(bf, filesize))    != eslOK) goto ERROR; }
 #endif
@@ -520,7 +526,9 @@ esl_buffer_Close(ESL_BUFFER *bf)
       if (bf->mem) 
 	{
 	  switch (bf->mode_is) {
+#ifdef HAVE_MMAP
 	  case eslBUFFER_MMAP:   if (munmap(bf->mem, bf->n) == -1) ESL_EXCEPTION(eslESYS, "munmap() failed"); break;
+#endif
 	  case eslBUFFER_STRING: break; /* caller provided and remains responsible for an input memory buffer */
 	  default:               free(bf->mem);
 	  }
@@ -614,7 +622,9 @@ esl_buffer_SetOffset(ESL_BUFFER *bf, esl_pos_t offset)
    *         Then this is trivial; we just set bf->pos.
    */
   if (bf->mode_is == eslBUFFER_ALLFILE ||
+#ifdef HAVE_MMAP
       bf->mode_is == eslBUFFER_MMAP    || 
+#endif
       bf->mode_is == eslBUFFER_STRING)
     {
       bf->baseoffset = 0;  	/* (redundant: just to assure you that state is correctly set) */
@@ -1574,8 +1584,11 @@ buffer_init_file_mmap(ESL_BUFFER *bf, esl_pos_t filesize)
 {
   int          status;
   /*    mmap(addr, len,          prot,      flags,       fd,             offset */
+#ifdef HAVE_MMAP
   bf->mem = mmap(0,    filesize, PROT_READ, MAP_PRIVATE, fileno(bf->fp), 0);
-  if (bf->mem == MAP_FAILED) ESL_XEXCEPTION(eslESYS, "mmap()");
+  if (bf->mem == MAP_FAILED)
+#endif
+    ESL_XEXCEPTION(eslESYS, "mmap()");
 
   bf->n       = filesize;
   bf->mode_is = eslBUFFER_MMAP;
@@ -1586,7 +1599,9 @@ buffer_init_file_mmap(ESL_BUFFER *bf, esl_pos_t filesize)
   return eslOK;
 
  ERROR:
+#ifdef HAVE_MMAP
   if (bf->mem != MAP_FAILED) munmap(bf->mem, bf->n); 
+#endif
   bf->mem     = NULL; 
   bf->n       = 0;
   bf->mode_is = eslBUFFER_UNSET;
@@ -2190,7 +2205,7 @@ buffer_OpenFileAs(const char *filename, enum esl_buffer_mode_e mode_is, ESL_BUFF
 {
   char        msg[] = "buffer_OpenFileAs() failed";
   ESL_BUFFER *bf    = NULL;
-#ifdef _POSIX_VERSION
+#ifdef HAVE_FSTAT
   struct stat fileinfo;
 #endif
   esl_pos_t   filesize = -1;
@@ -2199,10 +2214,12 @@ buffer_OpenFileAs(const char *filename, enum esl_buffer_mode_e mode_is, ESL_BUFF
   if ((bf->fp = fopen(filename, "rb"))           == NULL)  esl_fatal(msg);
   if (esl_strdup(filename, -1, &(bf->filename))  != eslOK) esl_fatal(msg);
 
-#ifdef _POSIX_VERSION
+#ifdef HAVE_FSTAT
   if (fstat(fileno(bf->fp), &fileinfo)           == -1)    esl_fatal(msg);
   filesize     = fileinfo.st_size;
+#ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
   bf->pagesize = fileinfo.st_blksize;
+#endif
   if (bf->pagesize < 512)     bf->pagesize = 512;     
   if (bf->pagesize > 4194304) bf->pagesize = 4194304;
 #endif  
@@ -2753,6 +2770,7 @@ utest_halfnewline(void)
   esl_pos_t   n     = 0;  
   int         status;
   
+#ifdef SIGALRM
   signal(SIGALRM, alarm_handler); // the bug is an infinite loop in esl_buffer_GetLine(), so we use an alarm signal to trap it.
   alarm(1);                       // this utest will self destruct in one second...
 
@@ -2767,6 +2785,7 @@ utest_halfnewline(void)
   esl_buffer_Close(bf);
   alarm(0);                  // removes self-destruct alarm
   signal(SIGALRM, SIG_DFL);  // deletes self-destruct handler
+#endif
   return;
 }
        

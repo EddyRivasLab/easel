@@ -1964,8 +1964,15 @@ main(void)
   /* Put some test vars in the environment.
    * (Note: apparently, on some OS's (Mac OS/X), setenv() necessarily leaks memory.)
    */
+#ifdef HAVE_SETENV
   setenv("FOOTEST",  "",                         1);
   setenv("HOSTTEST", "wasp.cryptogenomicon.org", 1);
+#else
+#ifdef HAVE__PUTENV_S
+  _putenv_s("FOOTEST",  ""                        );
+  _putenv_s("HOSTTEST", "wasp.cryptogenomicon.org");
+#endif
+#endif
 
   /* Open the test config files for reading.
    */

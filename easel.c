@@ -36,8 +36,18 @@
 #include <mpi.h>		/* MPI_Abort() may be used in esl_fatal() or other program killers */
 #endif
 
-#include "easel.h"
+#ifdef HAVE_SYSLOG_H
 #include <syslog.h>
+#endif
+
+#ifdef __MINGW32__
+#include <fileapi.h>            /* Needed for the GetTempPath2A function used in esl_tempfile() */
+#include <io.h>                 /* Needed for the _open function used in esl_tmpfile() */
+#include <fcntl.h>
+#include <sys/stat.h>
+#endif
+
+#include "easel.h"
 
 /*****************************************************************
  * 1. Exception and fatal error handling.
@@ -71,15 +81,22 @@ esl_fail(char *errbuf, const char *format, ...)
       /* Check whether we are running as a daemon so we can do the
        * right thing about logging instead of printing errors 
        */
-      if (getppid() != 1)
+#ifdef HAVE_GETPPID
+      if (getppid() == 1)
+        {
+#ifdef HAVE_SYSLOG_H
+          vsyslog(LOG_ERR, format, ap); // SRE: TODO: check this.
+                                        // looks wrong. I think it needs va_start(), va_end().
+                                        // also see two more occurrences, below.
+#endif
+        }
+      else
+#endif
 	{ // we aren't running as a daemon, so print the error normally
 	  va_start(ap, format);
 	  if (errbuf) vsnprintf(errbuf, eslERRBUFSIZE, format, ap);
 	  va_end(ap);
 	}
-      else vsyslog(LOG_ERR, format, ap); // SRE: TODO: check this.
-                                         // looks wrong. I think it needs va_start(), va_end().
-                                         // also see two more occurrences, below.
     }
 }
 
@@ -145,7 +162,15 @@ esl_exception(int errcode, int use_errno, char *sourcefile, int sourceline, char
   else 
     {
       /* Check whether we are running as a daemon so we can do the right thing about logging instead of printing errors */
-      if (getppid() != 1)
+#ifdef HAVE_GETPPID
+      if (getppid() == 1)
+        {
+#ifdef HAVE_SYSLOG_H
+           vsyslog(LOG_ERR, format, argp);
+#endif
+        }
+      else
+#endif
 	{ // we're not running as a daemon, so print the error normally
 	  fprintf(stderr, "Fatal exception (source file %s, line %d):\n", sourcefile, sourceline);
 	  va_start(argp, format);
@@ -154,8 +179,7 @@ esl_exception(int errcode, int use_errno, char *sourcefile, int sourceline, char
 	  fprintf(stderr, "\n");
 	  if (use_errno && errno) perror("system error");
 	  fflush(stderr);
-	}  
-      else vsyslog(LOG_ERR, format, argp);
+	}
 
 #ifdef HAVE_MPI
       MPI_Initialized(&mpiflag);                 /* we're assuming we can do this, even in a corrupted, dying process...? */
@@ -298,15 +322,22 @@ esl_fatal(const char *format, ...)
   int mpiflag;
 #endif
   /* Check whether we are running as a daemon so we can do the right thing about logging instead of printing errors */
-  if (getppid() != 1)
+#ifdef HAVE_GETPPID
+  if (getppid() == 1)
+    {
+#ifdef HAVE_SYSLOG_H
+      vsyslog(LOG_ERR, format, argp);
+#endif
+    }
+  else
+#endif
     { // we're not running as a daemon, so print the error normally
       va_start(argp, format);
       vfprintf(stderr, format, argp);
       va_end(argp);
       fprintf(stderr, "\n");
       fflush(stderr);
-    } 
-  else vsyslog(LOG_ERR, format, argp);
+    }
 
 #ifdef HAVE_MPI
   MPI_Initialized(&mpiflag);
@@ -2102,17 +2133,28 @@ esl_tmpfile(char *basename6X, FILE **ret_fp)
   /* Determine what tmp directory to use, and construct the
    * file name.
    */
+#ifdef __MINGW32__
+  char tmppath[MAX_PATH+1];
+  if (GetTempPathA(MAX_PATH+1, tmppath) == 0) ESL_XEXCEPTION(eslESYS, "GetTempPath2A failed.");
+  tmpdir = &tmppath[0];
+#else
   if (getuid() == geteuid() && getgid() == getegid()) 
     {
       tmpdir = getenv("TMPDIR");
       if (tmpdir == NULL) tmpdir = getenv("TMP");
     }
   if (tmpdir == NULL) tmpdir = "/tmp";
+#endif
   if ((status = esl_FileConcat(tmpdir, basename6X, &path)) != eslOK) goto ERROR; 
 
+#ifdef __MINGW32__
+  if ((path = _mktemp(path)) == NULL)                                                   ESL_XEXCEPTION(eslESYS, "_mktemp() failed.");
+  if ((fd = _open(path,  _O_CREAT | _O_TEMPORARY | _O_RDWR, _S_IREAD | _S_IWRITE)) < 0) ESL_XEXCEPTION(eslESYS, "_open() failed."  );
+#else
   old_mode = umask(077);
   if ((fd = mkstemp(path)) <  0)        ESL_XEXCEPTION(eslESYS, "mkstemp() failed.");
   umask(old_mode);
+#endif
   if ((fp = fdopen(fd, "w+b")) == NULL) ESL_XEXCEPTION(eslESYS, "fdopen() failed.");
   if (unlink(path) < 0)                 ESL_XEXCEPTION(eslESYS, "unlink() failed.");
 
@@ -2187,9 +2229,15 @@ esl_tmpfile_named(char *basename6X, FILE **ret_fp)
   int    fd;
 
   *ret_fp = NULL;
+#ifdef __MINGW32__
+  char* path;
+  if ((path = _mktemp(basename6X)) == NULL)                              return eslFAIL;
+  if ((fd = _open(path,  _O_CREAT | _O_RDWR, _S_IREAD | _S_IWRITE)) < 0) return eslFAIL;
+#else
   old_mode = umask(077);
   if ((fd = mkstemp(basename6X)) <  0)  return eslFAIL;
   umask(old_mode);
+#endif
   if ((fp = fdopen(fd, "w+b")) == NULL) return eslFAIL;
 
   *ret_fp = fp;

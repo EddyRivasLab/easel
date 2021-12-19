@@ -174,6 +174,7 @@ AC_ARG_ENABLE(avx512,  [AS_HELP_STRING([--enable-avx512],  [enable our AVX-512 v
 AC_ARG_ENABLE(neon,    [AS_HELP_STRING([--enable-neon],    [enable our NEON vector code])] ,            enable_neon=$enableval,    enable_neon=check)
 AC_ARG_ENABLE(vmx,     [AS_HELP_STRING([--enable-vmx],     [enable our Altivec/VMX vector code])],      enable_vmx=$enableval,     enable_vmx=check)
 
+AC_ARG_ENABLE(gzip,    [AS_HELP_STRING([--enable-gzip],    [enable reading Gzip compressed files])],    enable_gzip=$enableval,    enable_gzip=yes)
 AC_ARG_ENABLE(threads, [AS_HELP_STRING([--enable-threads], [enable POSIX threads parallelization])],    enable_threads=$enableval, enable_threads=check)
 AC_ARG_ENABLE(mpi,     [AS_HELP_STRING([--enable-mpi],     [enable MPI parallelization])],              enable_mpi=$enableval,     enable_mpi=no)
 
@@ -391,16 +392,10 @@ AC_COMPILE_IFELSE(
 
 CFLAGS="$esl_save_cflags"
 
-
-
-# Define HAVE_GZIP if gzip is in $PATH (or if HAVE_GZIP is already set)
-AC_PATH_PROG(HAVE_GZIP, "gzip", "no")
-if test "${HAVE_GZIP}" = "no"; then
-  AC_MSG_WARN([gzip not found])
-else
+# Define HAVE_GZIP unless --disable-gzip was given to the configure script
+AS_IF([test "x$enable_gzip" != xno],
   AC_DEFINE([HAVE_GZIP],1,[Support external gzip decompression])
-fi
-
+)
 
 # We need python 3 for 'make check' and some dev tools. sqc checks
 # too, as does the Makefile, but we also check in ./configure, so we
@@ -437,13 +432,14 @@ AC_SEARCH_LIBS(clock_gettime, [rt posix4])
 ################################################################
 
 AC_CHECK_HEADERS([\
-  endian.h    \
-  inttypes.h  \
-  stdint.h    \
-  strings.h   \
-  unistd.h    \
-  sys/types.h \
-  netinet/in.h
+  endian.h     \
+  inttypes.h   \
+  stdint.h     \
+  strings.h    \
+  unistd.h     \
+  sys/types.h  \
+  netinet/in.h \
+  syslog.h     \
 ])
 
 # Check for sysctl.h separately.  On OpenBSD, it requires
@@ -481,7 +477,10 @@ AC_TYPE_OFF_T
 ################################################################
 # 9. Checks for structures - currently none
 #################################################################
-
+#    - Make sure that the stat struct has an st_blksize field
+#      that can be used in `esl_buffer.c` to get the block size
+#
+AC_CHECK_MEMBERS([struct stat.st_blksize])
 
 ################################################################
 # 10. Checks for compiler characteristics
@@ -522,10 +521,14 @@ AX_GCC_FUNC_ATTRIBUTE(format)
 AC_CHECK_FUNCS([ \
   aligned_alloc  \
   erfc           \
+  fstat          \
   getpid         \
+  getppid        \
   _mm_malloc     \
   popen          \
   posix_memalign \
+  _putenv_s      \
+  setenv         \
   strcasecmp     \
   strsep         \
   sysconf        \
@@ -541,6 +544,7 @@ AC_SEARCH_LIBS(socket,    socket)
 AC_SEARCH_LIBS(inet_pton, nsl)
 
 AC_FUNC_FSEEKO
+AC_FUNC_MMAP
 
 #################################################################
 # 12. System services
