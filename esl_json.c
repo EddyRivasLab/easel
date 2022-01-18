@@ -1251,7 +1251,7 @@ utest_read_float(void)
       if (( status = esl_json_ReadFloat(pi, 2, bf, &val)) != tests[i].status) esl_fatal(msg);
       if (tests[i].rtol == 0.0) {
 	if (val != tests[i].trueval) esl_fatal(msg);  // includes inf==inf test
-      } else if (esl_FCompareNew(tests[i].trueval, val, tests[i].rtol, tests[i].atol) != eslOK) esl_fatal(msg);
+      } else if (esl_FCompare(tests[i].trueval, val, tests[i].rtol, tests[i].atol) != eslOK) esl_fatal(msg);
 
       esl_buffer_Close(bf);
       esl_json_Destroy(pi);

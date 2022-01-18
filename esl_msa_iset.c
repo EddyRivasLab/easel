@@ -6,6 +6,8 @@
  *    1. Bipartite independent pair algorithms (Random, Cobalt, Blue)
  *    2. Independent set algorithms (Cobalt, Blue)
  *    3. Internal functions, interface to the clustering API
+ *    4. Unit tests
+ *    5. Test driver
  */
 #include "esl_config.h"
 
@@ -446,6 +448,11 @@ msacluster_xlinkage(const void *v1, const void *v2, const void *p, int *ret_link
   *ret_link = (pid >= param->maxid ? TRUE : FALSE);
   return status;
 }
+
+
+
+
+
 
 
 

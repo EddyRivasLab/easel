@@ -156,7 +156,7 @@ esl_min_ConjugateGradientDescent(ESL_MIN_CFG *cfg, double *x, int n,
   for (i = 1; i <= max_iterations; i++)
     {
       if (dat) {
-	dat->niter    = i;  // this is how bracket() and brent() know what CG iteration they're on
+	dat->niter    = i;  // this is how bracket(), brent(), and numeric_derivative() know what CG iteration they're on
 	dat->nfunc[i] = 0;
       }
       
@@ -223,12 +223,11 @@ esl_min_ConjugateGradientDescent(ESL_MIN_CFG *cfg, double *x, int n,
        *      dx is the current gradient at x;
        *      cg is the current conjugate gradient direction. 
        */
-
       if (dat)
 	dat->fx[i] = fx;
 
       /* Main convergence test. */
-      if (esl_DCompareNew(fx, oldfx, cg_rtol, cg_atol) == eslOK) break;
+      if (esl_DCompare(fx, oldfx, cg_rtol, cg_atol) == eslOK) break;
 
       /* Second (failsafe) convergence test: a zero direction can happen, 
        * and it either means we're stuck or we're finished (most likely stuck)
@@ -448,7 +447,7 @@ numeric_derivative(ESL_MIN_CFG *cfg, double *x, int n,
 
       dx[i] = (-0.5 * (f1-f2)) / delta;
 
-      if (dat) dat->nfunc += 2;
+      if (dat) dat->nfunc[dat->niter] += 2;
       ESL_DASSERT1((! isnan(dx[i])));
     }
 }
@@ -842,8 +841,8 @@ utest_simplefunc(ESL_RANDOMNESS *rng)
   esl_min_ConjugateGradientDescent(NULL, x, n, &test_func, &test_dfunc, (void *) prm, &fx, NULL);
 
   for (i = 0; i < n; i++)
-    if ( esl_DCompareNew( b[i], x[i], 1e-5, 1e-15) != eslOK) esl_fatal(msg);
-  if (esl_DCompareNew(0., fx, 0., 1e-5) != eslOK) esl_fatal(msg);
+    if ( esl_DCompare( b[i], x[i], 1e-5, 1e-10) != eslOK) esl_fatal(msg);
+  if (esl_DCompare(0., fx, 0., 1e-5) != eslOK) esl_fatal(msg);  
 
   free(prm);
   free(x);
@@ -866,7 +865,7 @@ utest_simplefunc(ESL_RANDOMNESS *rng)
 static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                          docgroup*/
   { "-h",     eslARG_NONE,   NULL, NULL, NULL,  NULL,  NULL, NULL, "show brief help summary",             0 },
-  { "-s",     eslARG_INT,     "0", NULL, NULL,  NULL,  NULL, NULL, "set random number generator seed",    0 },
+  { "-s",     eslARG_INT,    "42", NULL, NULL,  NULL,  NULL, NULL, "set random number generator seed",    0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
@@ -881,7 +880,7 @@ main(int argc, char **argv)
   esl_fprintf(stderr, "## %s\n", argv[0]);
   esl_fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
 
-  utest_simplefunc(rng);
+  utest_simplefunc(rng);  // test can stochastically fail - use fixed RNG seed in production code
 
   esl_fprintf(stderr, "#  status = ok\n");
   esl_getopts_Destroy(go);

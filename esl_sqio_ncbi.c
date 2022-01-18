@@ -46,7 +46,7 @@ static int   sqncbi_Read           (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int   sqncbi_ReadInfo       (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int   sqncbi_ReadSequence   (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int   sqncbi_ReadWindow     (ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq);
-static int   sqncbi_ReadBlock      (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int long_target);
+static int   sqncbi_ReadBlock      (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int max_init_window, int long_target);
 static int   sqncbi_Echo           (ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp);
 
 static int   sqncbi_IsRewindable   (const ESL_SQFILE *sqfp);
@@ -1144,7 +1144,21 @@ sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
  *            this function uses ReadWindow to read chunks of sequence no
  *            larger than <max_residues>, and must allow for the possibility that
  *            a request will be made to continue reading a partly-read
- *            sequence.
+ *            sequence. This case also respects the <max_sequences> limit.
+ * 
+ *            If <long_target> is true and <max_init_window> is TRUE,
+ *            the first window read from each sequence (of length L)
+ *            is always min(L, <max_residues>). If <max_init_window>
+ *            is FALSE, then the length of the first window read from
+ *            each sequence is calculated differently as 
+ *            max(<max_residues> - <size>, <max_residues> * .05);
+ *            where <size> is total number of residues already existing
+ *            in the block. <max_init_window> == TRUE mode was added
+ *            to ensure that the window boundaries read are not dependent
+ *            on the order of the sequence in the file, thus ensuring
+ *            reproducibility if (for example) a user extracts one
+ *            sequence from a file and reruns a program on it (and all
+ *            else remains equal).
  *
  * Returns:   <eslOK> on success; the new sequence is stored in <sqBlock>.
  * 
@@ -1158,7 +1172,7 @@ sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
  *            <eslEINCONCEIVABLE> on internal error.
  */
 static int
-sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int long_target)
+sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int max_init_window, int long_target)
 {
 	  int     i = 0;
 	  int     size = 0;
@@ -1255,7 +1269,7 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 	       * which can result in a window with ~2*max_residues ... or we can end up with absurdly
 	       * short fragments at the end of blocks
 	       */
-		    int request_size = ESL_MAX(max_residues-size, max_residues * .05);
+		    int request_size = (max_init_window) ? max_residues : ESL_MAX(max_residues-size, max_residues * .05);
 
 			  esl_sq_Reuse(tmpsq);
 			  esl_sq_Reuse(sqBlock->list + i);

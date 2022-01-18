@@ -522,9 +522,9 @@ esl_sqio_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
  *            <eslEINCONCEIVABLE> on internal error.
  */
 int
-esl_sqio_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int long_target)
+esl_sqio_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int max_init_window, int long_target)
 {
-  return sqfp->read_block(sqfp, sqBlock, max_residues, max_sequences, long_target);
+  return sqfp->read_block(sqfp, sqBlock, max_residues, max_sequences, max_init_window, long_target);
 }
 
 /* Function:  esl_sqio_Parse()
@@ -767,7 +767,7 @@ esl_sqio_DecodeFormat(int fmt)
  *            be able to read the entire thing again.
  *            
  *            After <esl_sqfile_Position()> is called on a nonzero
- *            <offset>, and other bookkeeping information is unknown.
+ *            <offset>, other bookkeeping information is unknown.
  *            If caller knows it, it should set it explicitly.
  *            
  *            See the SSI module for manipulating offsets and indices.
@@ -2170,6 +2170,45 @@ utest_guess_mechanics(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N)
     }
 }
 
+/* utest_guess_empty_seq()
+ * ML, 9 Oct 21
+ *
+ * Make sure that esl_sqfile_GuessAlphabet() returns eslNOALPHABET when
+ * it tries to guess the alphabet on files containing only empty sequences.
+ *
+ * Related to bugfix 441a4d3: sqascii_GuessAlphabet() did not handle
+ * the case where sqascii_ReadWindow() would return eslEOD on empty
+ * sequences, and returned an error instead of eslENOALPHABET.
+ */
+static void
+utest_guess_empty_seq()
+{
+  char       *msg         = "sqio guess_empty_seq unit test failure";
+  char        tmpfile[32];
+  ESL_SQ*     seqs[2];
+  FILE       *fp;
+  ESL_SQFILE *sqfp;
+  int         i;
+  int         alphatype;
+
+  if ((seqs[0] = esl_sq_CreateFrom("seqs0", "", NULL, NULL, NULL)) == NULL) esl_fatal(msg);
+  if ((seqs[1] = esl_sq_CreateFrom("seqs1", "", NULL, NULL, NULL)) == NULL) esl_fatal(msg);
+
+  strcpy(tmpfile, "esltmpXXXXXX");
+  if (esl_tmpfile_named(tmpfile, &fp)                     != eslOK) esl_fatal(msg);
+  if (esl_sqio_Write(fp, seqs[0], eslSQFILE_FASTA, FALSE) != eslOK) esl_fatal(msg);
+  if (esl_sqio_Write(fp, seqs[1], eslSQFILE_FASTA, FALSE) != eslOK) esl_fatal(msg);
+  fclose(fp);
+
+  if (esl_sqfile_Open(tmpfile, eslSQFILE_FASTA, NULL, &sqfp) != eslOK) esl_fatal(msg);
+  if (esl_sqfile_GuessAlphabet(sqfp, &alphatype) != eslENOALPHABET)    esl_fatal(msg);
+  esl_sqfile_Close(sqfp);
+  remove(tmpfile);
+
+  esl_sq_Destroy(seqs[0]);
+  esl_sq_Destroy(seqs[1]);
+}
+
 #endif /*eslSQIO_TESTDRIVE*/
 /*------------------ end, unit tests ----------------------------*/
 
@@ -2260,6 +2299,7 @@ main(int argc, char **argv)
 
   utest_guess_mechanics(abc, sqarr, N);
   utest_write          (abc, sqarr, N, eslMSAFILE_STOCKHOLM);
+  utest_guess_empty_seq();
 
   for (i = 0; i < N; i++) esl_sq_Destroy(sqarr[i]);
   free(sqarr);

@@ -884,14 +884,14 @@ int
 esl_vec_DCompare(const double *vec1, const double *vec2, int n, double tol)
 {
   int i;
-  for (i = 0; i < n; i++) if (esl_DCompare(vec1[i], vec2[i], tol) == eslFAIL) return eslFAIL;
+  for (i = 0; i < n; i++) if (esl_DCompare_old(vec1[i], vec2[i], tol) == eslFAIL) return eslFAIL;
   return eslOK;
 }
 int
 esl_vec_FCompare(const float *vec1, const float *vec2, int n, float tol)
 {
   int i;
-  for (i = 0; i < n; i++) if (esl_DCompare(vec1[i], vec2[i], tol) == eslFAIL) return eslFAIL;
+  for (i = 0; i < n; i++) if (esl_FCompare_old(vec1[i], vec2[i], tol) == eslFAIL) return eslFAIL;
   return eslOK;
 }
 int
@@ -1381,7 +1381,7 @@ esl_vec_FRelEntropy(const float *p, const float *q, int n)
  *            be 1.0; however, numerical roundoff error must be tolerated
  *            in the sum. If caller isn't sure about <p>'s provenance,
  *            it may want to check that <cdf[n-1]> is tolerably close 
- *            to 1.0 (see <esl_DCompare()>).
+ *            to 1.0 (see <esl_DCompare_old()>).
  *
  *            It is ok for <cdf> to be the same space as <p>
  *            (<esl_vec_DCDF(p, n, p)> is fine); that is, <p> can be
@@ -1782,13 +1782,13 @@ utest_pvectors(void)
   if (esl_vec_DValidate(p1,  n, 1e-12, NULL) != eslOK) esl_fatal(msg);
   if (esl_vec_FValidate(p1f, n, 1e-7,  NULL) != eslOK) esl_fatal(msg);
 
-  result = esl_vec_DEntropy(p1,  n);          if (esl_DCompare(2.0, result, 1e-9) != eslOK) esl_fatal(msg);
-  result = esl_vec_FEntropy(p1f, n);          if (esl_DCompare(2.0, result, 1e-9) != eslOK) esl_fatal(msg);
-  result = esl_vec_DEntropy(p2,  n);          if (esl_DCompare(1.0, result, 1e-9) != eslOK) esl_fatal(msg);
-  result = esl_vec_FEntropy(p2f, n);          if (esl_DCompare(1.0, result, 1e-9) != eslOK) esl_fatal(msg);
+  result = esl_vec_DEntropy(p1,  n);          if (esl_DCompare_old(2.0, result, 1e-9) != eslOK) esl_fatal(msg);
+  result = esl_vec_FEntropy(p1f, n);          if (esl_DCompare_old(2.0, result, 1e-9) != eslOK) esl_fatal(msg);
+  result = esl_vec_DEntropy(p2,  n);          if (esl_DCompare_old(1.0, result, 1e-9) != eslOK) esl_fatal(msg);
+  result = esl_vec_FEntropy(p2f, n);          if (esl_DCompare_old(1.0, result, 1e-9) != eslOK) esl_fatal(msg);
 
-  result = esl_vec_DRelEntropy(p2,  p1,  n);  if (esl_DCompare(1.0, result, 1e-9) != eslOK) esl_fatal(msg);
-  result = esl_vec_FRelEntropy(p2f, p1f, n);  if (esl_DCompare(1.0, result, 1e-9) != eslOK) esl_fatal(msg);
+  result = esl_vec_DRelEntropy(p2,  p1,  n);  if (esl_DCompare_old(1.0, result, 1e-9) != eslOK) esl_fatal(msg);
+  result = esl_vec_FRelEntropy(p2f, p1f, n);  if (esl_DCompare_old(1.0, result, 1e-9) != eslOK) esl_fatal(msg);
 
   result = esl_vec_DRelEntropy(p1,  p2,  n);  if (result != eslINFINITY)  esl_fatal(msg);
   result = esl_vec_FRelEntropy(p1f, p2f, n);  if (result != eslINFINITY)  esl_fatal(msg);
@@ -1809,7 +1809,7 @@ utest_pvectors(void)
   if (esl_vec_DCompare(p2, p3, n, 1e-12) != eslOK) esl_fatal(msg);
 
   esl_vec_DLog(p3, n);
-  result = esl_vec_DLogSum(p3, n); if (esl_DCompare(0.0, result, 1e-12) != eslOK) esl_fatal(msg);
+  result = esl_vec_DLogSum(p3, n); if (esl_DCompare_old(0.0, result, 1e-12) != eslOK) esl_fatal(msg);
   esl_vec_DIncrement(p3, n, 2.0);
   esl_vec_DLogNorm(p3, n);
   if (esl_vec_DCompare(p2, p3, n, 1e-12) != eslOK) esl_fatal(msg);
@@ -1820,7 +1820,7 @@ utest_pvectors(void)
   if (esl_vec_FCompare(p2f, p3f, n, 1e-7) != eslOK) esl_fatal(msg);
 
   esl_vec_FLog(p3f, n);
-  result = esl_vec_FLogSum(p3f, n); if (esl_DCompare(0.0, result, 1e-7) != eslOK) esl_fatal(msg);
+  result = esl_vec_FLogSum(p3f, n); if (esl_DCompare_old(0.0, result, 1e-7) != eslOK) esl_fatal(msg);
   esl_vec_FIncrement(p3f, n, 2.0);
   esl_vec_FLogNorm(p3f, n);
   if (esl_vec_FCompare(p2f, p3f, n, 1e-7) != eslOK) esl_fatal(msg);

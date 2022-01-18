@@ -78,7 +78,7 @@ static void print_array(int array[], int n)
 
 /*****************************************************************
  * 2. Functions for validating independent sets and bipartite independent pairs
-      (For debugging only)
+      (For debugging and unit tests only)
 *****************************************************************/
 
 /* Function: check_iset()
@@ -1323,6 +1323,8 @@ bi_select_blue(void *base, int n, size_t size,
    //printf("in error\n");
    return status;
 }
+
+
 
 
 

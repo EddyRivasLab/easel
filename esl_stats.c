@@ -895,7 +895,7 @@ utest_LogGamma(ESL_RANDOMNESS *r, int N, int be_verbose)
   if (be_verbose) esl_stopwatch_Display(stdout, w, "gsl_sf_lngamma() timing:     ");
   
   for (i = 0; i < N; i++)
-    if (esl_DCompare(lg[i], lg2[i], 1e-2) != eslOK) esl_fatal(msg);
+    if (esl_DCompare_old(lg[i], lg2[i], 1e-2) != eslOK) esl_fatal(msg);
 #endif
   
   free(lg2);
@@ -999,7 +999,7 @@ utest_erfc(ESL_RANDOMNESS *rng, int be_verbose)
       result = esl_stats_erfc(x);
       if (!isfinite(result)) esl_fatal(msg);
 #ifdef HAVE_ERFC
-      if (esl_DCompare(result, erfc(x), 1e-6) != eslOK) esl_fatal(msg);
+      if (esl_DCompare_old(result, erfc(x), 1e-6) != eslOK) esl_fatal(msg);
       if (be_verbose)
 	printf("%15f %15f %15f\n", x, result, erfc(x));
 #endif

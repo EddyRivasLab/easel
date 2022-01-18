@@ -67,7 +67,7 @@ VMX_CFLAGS     = @VMX_CFLAGS@
 CPPFLAGS       = @CPPFLAGS@
 LDFLAGS        = @LDFLAGS@
 LIBGSL         = @LIBGSL@
-LIBS           = @LIBS@ @PTHREAD_LIBS@
+LIBS           = @LIBS@ @PTHREAD_LIBS@ @LIBGSL@
 
 
 # Other tools
@@ -134,6 +134,7 @@ HDRS = 	easel.h\
 	esl_mixgev.h\
 	esl_mpi.h\
 	esl_msa.h\
+    esl_msa_iset.h\
 	esl_msacluster.h\
 	esl_msafile.h\
 	esl_msafile2.h\
@@ -144,7 +145,6 @@ HDRS = 	easel.h\
 	esl_msafile_psiblast.h\
 	esl_msafile_selex.h\
 	esl_msafile_stockholm.h\
-    esl_msa_iset.h\
 	esl_msashuffle.h\
 	esl_msaweight.h\
 	esl_neon.h\
@@ -217,6 +217,7 @@ OBJS =	easel.o\
 	esl_mixgev.o\
 	esl_mpi.o\
 	esl_msa.o\
+    esl_msa_iset.o\
 	esl_msacluster.o\
 	esl_msafile.o\
 	esl_msafile2.o\
@@ -227,7 +228,6 @@ OBJS =	easel.o\
 	esl_msafile_psiblast.o\
 	esl_msafile_selex.o\
 	esl_msafile_stockholm.o\
-    esl_msa_iset.o\
 	esl_msashuffle.o\
 	esl_msaweight.o\
 	esl_normal.o\
@@ -553,7 +553,7 @@ libeasel.a:  ${ALL_OBJS}
 	@${RANLIB} libeasel.a
 
 ${ALL_OBJS}: %.o : %.c ${HDRS} esl_config.h
-	${QUIET_CC}${CC} -I. -I${srcdir} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} -c $<
+	${QUIET_CC}${CC} -I. -I${srcdir} ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} -c $<
 
 
 # Driver compilation:
@@ -577,10 +577,10 @@ ${ALL_UTESTS}:  libeasel.a
 	   else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi;\
 	if test ${V} ;\
-	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${UTEST_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
+	   then echo "${CC} ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${UTEST_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
+	${CC} ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
 ${ALL_BENCHMARKS}: libeasel.a
 	@BASENAME=`echo $@ | sed -e 's/_benchmark//'| sed -e 's/^esl_//'` ;\
@@ -605,10 +605,10 @@ ${ALL_EXPERIMENTS}: libeasel.a
 	   else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi;\
 	if test ${V} ;\
-	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
+	   then echo "${CC} ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
+	${CC} ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
 ${ALL_EXAMPLES}: libeasel.a
 	@BASENAME=`echo $@ | sed -e 's/_example[0-9]*//'| sed -e 's/^esl_//'` ;\
@@ -618,10 +618,10 @@ ${ALL_EXAMPLES}: libeasel.a
            else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi ;\
 	if test ${V}; \
-	   then echo "${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
+	   then echo "${CC} ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
+	${CC} ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${PIC_CFLAGS} ${SIMD_CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
 
 
@@ -647,7 +647,7 @@ clean:
 	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} clean
 	${QUIET}-rm -f ${ALL_OBJS} libeasel.a
 	${QUIET}-rm -f ${ALL_UTESTS} ${ALL_BENCHMARKS} ${ALL_EXAMPLES} ${ALL_EXPERIMENTS}
-	${QUIET}-rm -f *~ TAGS
+	${QUIET}-rm -f *~ TAGS TAGS.part
 	${QUIET}-rm -f *.gcno *.gcda *.gcov
 	${QUIET}-rm -f cscope.out
 	${QUIET}-rm -f core.[0-9]*

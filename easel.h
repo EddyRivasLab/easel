@@ -453,6 +453,7 @@ extern void esl_nonfatal_handler(int errcode, int use_errno, char *sourcefile, i
 extern void esl_fatal(const char *format, ...) ESL_ATTRIBUTE_NORETURN;
 
 /* 2. Memory allocation/deallocation conventions. */
+extern int  esl_resize(int n, int a, int r);
 extern void esl_free(void *p);
 extern void esl_Free2D(void  **p, int dim1);
 extern void esl_Free3D(void ***p, int dim1, int dim2);
@@ -511,13 +512,11 @@ extern int  esl_tmpfile_named(char *basename6X, FILE **ret_fp);
 extern int  esl_getcwd(char **ret_cwd);
 
 /* 8. Typed comparison routines. */
-extern int  esl_DCompare   (double a,  double b, double tol);
-extern int  esl_FCompare   (float  a,  float  b, float  tol);
-extern int  esl_DCompareAbs(double a,  double b, double tol);
-extern int  esl_FCompareAbs(float  a,  float  b, float  tol);
-extern int  esl_DCompareNew(double x0, double x, double r_tol, double a_tol);
-extern int  esl_FCompareNew(float  x0, float  x, float  r_tol, float  a_tol);
+extern int  esl_DCompare(double x0, double x, double r_tol, double a_tol);
+extern int  esl_FCompare(float  x0, float  x, float  r_tol, float  a_tol);
 extern int  esl_CCompare(char *s1, char *s2);
+extern int  esl_DCompare_old(double a,  double b, double tol);
+extern int  esl_FCompare_old(float  a,  float  b, float  tol);
 
 #endif /*eslEASEL_INCLUDED*/
 

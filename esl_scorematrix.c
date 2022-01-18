@@ -327,7 +327,7 @@ esl_scorematrix_RelEntropy(const ESL_SCOREMATRIX *S, const double *fi, const dou
 	if (pij > 0.) D += pij * log(pij / (fi[i] * fj[j]));
 	
       }
-  if (esl_DCompare(sum, 1.0, 1e-3) != eslOK) 
+  if (esl_DCompare_old(sum, 1.0, 1e-3) != eslOK) 
     ESL_XEXCEPTION(eslEINVAL, "pij's don't sum to one (%.4f): bad lambda or bad bg?", sum);
 
   D /= eslCONST_LOG2;
@@ -357,7 +357,7 @@ esl_scorematrix_RelEntropy(const ESL_SCOREMATRIX *S, const double *fi, const dou
  *            All values in <P> involving the codes for gap,
  *            nonresidue, and missing data (codes <K>,<Kp-2>, and
  *            <Kp-1>) are 0.0, not probabilities. Only rows/columns
- *            <i=0..K,K+1..Kp-3> are valid probability vectors.
+ *            <i=0..K-1,K+1..Kp-3> are valid probability vectors.
  *
  * Returns:   <eslOK> on success.
  *
@@ -1222,7 +1222,8 @@ lambda_fdf(double lambda, void *params, double *ret_fx, double *ret_dfx)
  *            Only actual residue degeneracy can have nonzero values
  *            for <p_ij>; by convention, all values involving the
  *            special codes for gap, nonresidue, and missing data
- *            (<K>, <Kp-2>, <Kp-1>) are 0.
+ *            (<K>, <Kp-2>, <Kp-1>) are 0. The fully degenerate
+ *            code <Kp-3> is 1.0 by construction.
  *            
  *            If the caller wishes to convert this joint probability
  *            matrix to conditionals, it can take advantage of the
@@ -1241,7 +1242,7 @@ lambda_fdf(double lambda, void *params, double *ret_fx, double *ret_dfx)
  *            fi         - background frequencies for query sequence i
  *            fj         - background frequencies for target sequence j
  *            opt_lambda - optRETURN: calculated $\lambda$ parameter
- *            opt_P      - optRETURN: implicit target probabilities $p_{ij}$; a KxK DMATRIX.                  
+ *            opt_P      - optRETURN: implicit target probabilities $p_{ij}$; a Kp x Kp DMATRIX.                  
  *
  * Returns:   <eslOK> on success, <*ret_lambda> contains the
  *            calculated $\lambda$ parameter, and <*ret_P> points to
@@ -2015,17 +2016,17 @@ utest_ProbifyGivenBG(ESL_SCOREMATRIX *S0, ESL_DMATRIX *P0, double *wagpi, double
 
   if (esl_scorematrix_ProbifyGivenBG(S0, wagpi, wagpi, &lambda, &P) != eslOK) esl_fatal(msg);
 
-  if (esl_DCompare(lambda0, lambda, 1e-3)     != eslOK) esl_fatal("lambda is wrong");
+  if (esl_DCompare_old(lambda0, lambda, 1e-3)     != eslOK) esl_fatal("lambda is wrong");
 
   for (a = 0; a < 20; a++) 	/* you can't just call esl_dmx_Sum(P), because P includes */
     for (b = 0; b < 20; b++)    /* marginalized degeneracies */
       sum += P->mx[a][b];
 
-  if (esl_DCompare(sum, 1.0, 1e-9)     != eslOK) esl_fatal("P doesn't sum to 1");
+  if (esl_DCompare_old(sum, 1.0, 1e-9)     != eslOK) esl_fatal("P doesn't sum to 1");
 
   for (a = 0; a < 20; a++)	/* for the same reason,  you can't dmatrix_Compare P and P0 */
     for (b = 0; b < 20; b++)
-      if (esl_DCompare(P0->mx[a][b], P->mx[a][b], 1e-2) != eslOK) esl_fatal("P is wrong");
+      if (esl_DCompare_old(P0->mx[a][b], P->mx[a][b], 1e-2) != eslOK) esl_fatal("P is wrong");
 
   esl_dmatrix_Destroy(P);
   return;
@@ -2065,20 +2066,20 @@ utest_yualtschul(ESL_DMATRIX *P0, double *wagpi)
   if ( yualtschul_engine(S, P, fi, fj, &lambda) != eslOK) esl_fatal("reverse engineering engine failed");
 
   /* Validate the solution (expect more accuracy from this than from integer scores) */
-  if (esl_DCompare(lambda0, lambda, 1e-4)      != eslOK) esl_fatal("failed to get right lambda");
+  if (esl_DCompare_old(lambda0, lambda, 1e-4)      != eslOK) esl_fatal("failed to get right lambda");
 
   for (i = 0; i < 20; i++) 	/* you can't just call esl_dmx_Sum(P), because P includes */
     for (j = 0; j < 20; j++)    /* marginalized degeneracies */
       sum += P->mx[i][j];
-  if (esl_DCompare(sum, 1.0, 1e-6) != eslOK) esl_fatal("reconstructed P doesn't sum to 1");
+  if (esl_DCompare_old(sum, 1.0, 1e-6) != eslOK) esl_fatal("reconstructed P doesn't sum to 1");
 
   for (i = 0; i < 20; i++)	/* for the same reason,  you can't dmatrix_Compare P and P0 */
     for (j = 0; j < 20; j++)
-      if (esl_DCompare(P0->mx[i][j], P->mx[i][j], 1e-2) != eslOK) esl_fatal("failed to recover correct P_ij");
+      if (esl_DCompare_old(P0->mx[i][j], P->mx[i][j], 1e-2) != eslOK) esl_fatal("failed to recover correct P_ij");
   for (i = 0; i < 20; i++) 
     {
-      if (esl_DCompare(fi[i],    fj[i],  1e-6) != eslOK) esl_fatal("background fi, fj not the same");
-      if (esl_DCompare(wagpi[i], fi[i],  1e-3) != eslOK) esl_fatal("failed to reconstruct WAG backgrounds");  
+      if (esl_DCompare_old(fi[i],    fj[i],  1e-6) != eslOK) esl_fatal("background fi, fj not the same");
+      if (esl_DCompare_old(wagpi[i], fi[i],  1e-3) != eslOK) esl_fatal("failed to reconstruct WAG backgrounds");  
     }
 
   free(fj);
@@ -2107,15 +2108,15 @@ utest_Probify(ESL_SCOREMATRIX *S0, ESL_DMATRIX *P0, double *wagpi, double lambda
   if (esl_scorematrix_Probify(S0, &P, &fi, &fj, &lambda) != eslOK) esl_fatal("reverse engineering failed");
 
   /* Validate the solution, gingerly (we expect significant error due to integer roundoff) */
-  if (esl_DCompare(lambda0, lambda, 0.01)       != eslOK) esl_fatal("failed to get right lambda");
+  if (esl_DCompare_old(lambda0, lambda, 0.01)       != eslOK) esl_fatal("failed to get right lambda");
   for (i = 0; i < 20; i++) 	/* you can't just call esl_dmx_Sum(P), because P includes */
     for (j = 0; j < 20; j++)    /* marginalized degeneracies */
       sum += P->mx[i][j];
-  if (esl_DCompare(sum, 1.0, 1e-6) != eslOK) esl_fatal("reconstructed P doesn't sum to 1");
+  if (esl_DCompare_old(sum, 1.0, 1e-6) != eslOK) esl_fatal("reconstructed P doesn't sum to 1");
 
   for (i = 0; i < 20; i++)	/* for the same reason,  you can't dmatrix_Compare P and P0 */
     for (j = 0; j < 20; j++)
-      if (esl_DCompare(P0->mx[i][j], P->mx[i][j], 0.1) != eslOK) esl_fatal("failed to recover correct P_ij");
+      if (esl_DCompare_old(P0->mx[i][j], P->mx[i][j], 0.1) != eslOK) esl_fatal("failed to recover correct P_ij");
   free(fj);
   free(fi);
   esl_dmatrix_Destroy(P);
