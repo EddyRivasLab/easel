@@ -124,6 +124,7 @@ HDRS = 	easel.h\
 	esl_hmm.h\
 	esl_huffman.h\
 	esl_hyperexp.h\
+    esl_iset.h\
 	esl_json.h\
 	esl_keyhash.h\
 	esl_matrixops.h\
@@ -133,6 +134,7 @@ HDRS = 	easel.h\
 	esl_mixgev.h\
 	esl_mpi.h\
 	esl_msa.h\
+    esl_msa_iset.h\
 	esl_msacluster.h\
 	esl_msafile.h\
 	esl_msafile2.h\
@@ -205,6 +207,7 @@ OBJS =	easel.o\
 	esl_hmm.o\
 	esl_huffman.o\
 	esl_hyperexp.o\
+    esl_iset.o\
 	esl_json.o\
 	esl_keyhash.o\
 	esl_matrixops.o\
@@ -214,6 +217,7 @@ OBJS =	easel.o\
 	esl_mixgev.o\
 	esl_mpi.o\
 	esl_msa.o\
+    esl_msa_iset.o\
 	esl_msacluster.o\
 	esl_msafile.o\
 	esl_msafile2.o\

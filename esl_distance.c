@@ -1009,6 +1009,79 @@ esl_dst_XAverageId(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_compari
   return eslOK;
 }
 
+
+/* Function:  esl_dst_Connectivity()
+ * Synopsis:  Calculate/estimate the fraction of pairs of sequences in a digital MSA with >= threshold PID  
+ * Incept:    SNP, Sept 28 02:44:05 EDT 2020 ???
+
+ * Purpose:   Calculates the fraction of pairs of sequences with >= threshold PID
+ *            in a digital multiple sequence alignment <ax>, consisting of <N>
+ *            aligned digital sequences of identical length.
+ *            
+ *            If an exhaustive calculation would require more than
+ *            <max_comparisons> pairwise comparisons, then instead of
+ *            looking at all pairs, calculate the average over a
+ *            stochastic sample of <max_comparisons> random pairs.
+ *            This allows the routine to work efficiently even on very
+ *            deep MSAs.
+ *            
+ *            Each fractional pairwise identity (range $[0..$ pid $..1]$
+ *            is calculated using <esl_dst_XPairId()>.
+ *
+ * Returns:   <eslOK> on success, and <*ret_id> contains the average
+ *            fractional identity.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <eslEINVAL> if any of the aligned sequence pairs aren't 
+ *            of the same length.
+ *            In either case, <*ret_id> is set to 0.
+ */
+int
+esl_dst_Connectivity(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_comparisons, double *ret_id, double thresh)
+{
+  int    status;
+  double id;
+  double above = 0.; /*number of pairs above threshold*/
+  int    i,j,n;
+  
+  if (N <= 1) { *ret_id = 1.; return eslOK; }
+  *ret_id = 0.;
+
+  /* Is N small enough that we can average over all pairwise comparisons? 
+     watch out for numerical overflow in this: Pfam N's easily overflow when squared
+   */
+  if (N <= max_comparisons &&
+      N <= sqrt(2. * max_comparisons) &&
+      (N * (N-1) / 2) <= max_comparisons)
+    {
+      for (i = 0; i < N; i++)
+  for (j = i+1; j < N; j++)
+    {
+      if ((status = esl_dst_XPairId(abc, ax[i], ax[j], &id, NULL, NULL)) != eslOK) return status;
+      if (id>= thresh) above++;
+    }
+      above /= (double) (N * (N-1) / 2);
+    }
+
+  /* If nseq is large, calculate average over a stochastic sample. */
+  else        
+    {
+      ESL_RANDOMNESS *r = esl_randomness_Create(42);  /* fixed seed, suppress stochastic variation */
+      for (n = 0; n < max_comparisons; n++)
+  {
+    do { i = esl_rnd_Roll(r, N); j = esl_rnd_Roll(r, N); } while (j == i); /* make sure j != i */
+    if ((status = esl_dst_XPairId(abc, ax[i], ax[j], &id, NULL, NULL)) != eslOK) return status;
+    if (id>= thresh) above++;
+  }
+      above /= (double) max_comparisons;
+      esl_randomness_Destroy(r);
+    }
+
+  *ret_id = above;
+  return eslOK;
+}
+
+
 /* Function:  esl_dst_XAverageMatch()
  * Synopsis:  Calculate avg matches for digital MSA 
  * Incept:    ER, ed Oct 29 09:29:05 EDT 2014 [Janelia]
