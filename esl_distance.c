@@ -1475,6 +1475,57 @@ utest_XJukesCantorMx(ESL_ALPHABET *abc, char **as, ESL_DSQ **ax, int N)
   esl_dmatrix_Destroy(V2);
   return eslOK;
 }
+
+int utest_dst_Connectivity(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N){
+  double retval;
+  
+  if(esl_dst_Connectivity(abc, ax, N, 1000, &retval, 0.0) == eslOK){
+    if(esl_FCompare(retval, 1.0, 0.99, 0.01) != eslOK){
+      return eslFAIL;
+    }
+  }
+  else{
+    return eslFAIL;
+  }
+
+  if(esl_dst_Connectivity(abc, ax, N, 1000, &retval, 0.01) == eslOK){
+    if(esl_FCompare(retval, 0.95556, 0.99, 0.01) != eslOK){
+      return eslFAIL;
+    }
+  }
+  else{
+    return eslFAIL;
+  }
+
+  if(esl_dst_Connectivity(abc, ax, N, 1000, &retval, 0.5) == eslOK){
+    if(esl_FCompare(retval, 0.95556, 0.99, 0.01) != eslOK){
+      return eslFAIL;
+    }
+  }
+  else{
+    return eslFAIL;
+  }
+ 
+ if(esl_dst_Connectivity(abc, ax, N, 1000, &retval, 0.6) == eslOK){
+    if(esl_FCompare(retval, 0.64444, 0.99, 0.01) != eslOK){
+      return eslFAIL;
+    }
+  }
+  else{
+    return eslFAIL;
+  }
+
+ if(esl_dst_Connectivity(abc, ax, N, 1000, &retval, 1.0) == eslOK){
+    if(esl_FCompare(retval, 0.64444, 0.99, 0.01) != eslOK){
+      return eslFAIL;
+    }
+  }
+  else{
+    return eslFAIL;
+  }
+
+  return eslOK;
+}
 #endif /* eslDISTANCE_TESTDRIVE */
 /*------------------ end of unit tests --------------------------*/
 
@@ -1516,7 +1567,7 @@ main(int argc, char **argv)
   int i,j;
   int status;
   double p[4];			/// ACGT probabilities 
-  ESL_DSQ      **ax = NULL;	// digitized alignment                  
+  ESL_DSQ      **ax, **ax2 = NULL;	// digitized alignment                  
   ESL_ALPHABET *abc = NULL;
 
   /* Process command line
@@ -1561,8 +1612,11 @@ main(int argc, char **argv)
 
   abc = esl_alphabet_Create(eslDNA);
   ESL_ALLOC(ax, sizeof(ESL_DSQ *) * N);
-  for (i = 0; i < N; i++) 
+  ESL_ALLOC(ax2, sizeof(ESL_DSQ *) * N);
+  for (i = 0; i < N; i++){ 
     esl_abc_CreateDsq(abc, as[i], &(ax[i]));
+    esl_abc_CreateDsq(abc, as[i], &(ax2[i]));
+  }
 
   /* Unit tests
    */
@@ -1577,11 +1631,27 @@ main(int argc, char **argv)
   if (utest_XDiffMx(abc, as, ax, N)         != eslOK) return eslFAIL;
   if (utest_XJukesCantorMx(abc, as, ax, N)  != eslOK) return eslFAIL;
 
+/* modify MSA for connectivity test */
+  for(i= 3; i< N; i++){  
+    /* set each sequence except first two to half matching ax2[0],
+  half ax2[1].  (Remember that ax2[0], ax2[2] are guaranteed different at each position)
+  */
+    for(j=1; j <= L/2; j++){
+      ax2[i][j] = ax2[0][j];
+    }
+    for(; j <= L; j++){
+      ax2[i][j] = ax2[2][j];
+    }
+  }
+
+  if (utest_dst_Connectivity(abc, ax2, N) != eslOK) return eslFAIL;
 
   esl_randomness_Destroy(r);
   esl_alphabet_Destroy(abc);
   esl_arr2_Destroy((void **) as, N);
   esl_arr2_Destroy((void **) ax, N);
+  esl_arr2_Destroy((void **) ax2, N);
+  
   return eslOK;
 
  ERROR:
