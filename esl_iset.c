@@ -286,7 +286,9 @@ esl_bi_iset_Random(void *base, size_t n, size_t size,
  *            size        - size of each vertex element
  *            linkfunc    - pointer to caller's function for defining linked pairs
  *            param       - pointer to any data that needs to be provided to <(*linkfunc)>
- *            assignments - RETURN: assignments to sets (caller provides n*sizeof(int) space)
+ *            workspace   - buffer for intermediate calculations. Must be at least 2 * *                          sizeof(int) * n bytes.
+ *            assignments - RETURN: assignments to sets 
+ *                          (caller provides n*sizeof(int) space)
  *            r           - source of randomness
  *
  * Returns:   <eslOK> on success; the <assignments[0..nseq-1]> array contains
@@ -383,6 +385,7 @@ esl_iset_Cobalt(void *base, size_t n, size_t size,
  *            size        - size of each vertex element
  *            linkfunc    - pointer to caller's function for defining linked pairs
  *            param       - pointer to any data that needs to be provided to <(*linkfunc)>
+ *            workspace   - buffer for intermediate calculations. Must be at least 3 * *                          sizeof(int) * n bytes.
  *            assignments - RETURN: assignments to sets (caller provides n*sizeof(int) space)
  *            r           - source of randomness
  *
@@ -648,6 +651,7 @@ int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r)
  *            size        - size of each vertex element
  *            linkfunc    - pointer to caller's function for defining linked pairs
  *            param       - pointer to any data that needs to be provided to <(*linkfunc)>
+ *            workspace   - buffer for intermediate calculations. Must be at least 4 * *                          sizeof(int) * n bytes.
  *            assignments - RETURN: assignments to sets (caller provides n*sizeof(int) space)
  *            r           - source of randomness
  *
@@ -1014,6 +1018,7 @@ i_update_workspace(int *dec_o, int *label_o, int *status_d, int *to_add, int *as
  *            size        - size of each vertex element
  *            linkfunc    - pointer to caller's function for defining linked pairs
  *            param       - pointer to any data that needs to be provided to <(*linkfunc)>
+ *            workspace   - buffer for intermediate calculations. Must be at least 5 * *                          sizeof(int) * n bytes.
  *            assignments - RETURN: assignments to sets (caller provides n*sizeof(int) space)
  *            r           - source of randomness
  *
