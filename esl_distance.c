@@ -1009,6 +1009,79 @@ esl_dst_XAverageId(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_compari
   return eslOK;
 }
 
+
+/* Function:  esl_dst_Connectivity()
+ * Synopsis:  Calculate/estimate the fraction of pairs of sequences in a digital MSA with >= threshold PID  
+ * Incept:    SNP, Sept 28 02:44:05 EDT 2020 ???
+
+ * Purpose:   Calculates the fraction of pairs of sequences with >= threshold PID
+ *            in a digital multiple sequence alignment <ax>, consisting of <N>
+ *            aligned digital sequences of identical length.
+ *            
+ *            If an exhaustive calculation would require more than
+ *            <max_comparisons> pairwise comparisons, then instead of
+ *            looking at all pairs, calculate the average over a
+ *            stochastic sample of <max_comparisons> random pairs.
+ *            This allows the routine to work efficiently even on very
+ *            deep MSAs.
+ *            
+ *            Each fractional pairwise identity (range $[0..$ pid $..1]$
+ *            is calculated using <esl_dst_XPairId()>.
+ *
+ * Returns:   <eslOK> on success, and <*ret_id> contains the average
+ *            fractional identity.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <eslEINVAL> if any of the aligned sequence pairs aren't 
+ *            of the same length.
+ *            In either case, <*ret_id> is set to 0.
+ */
+int
+esl_dst_Connectivity(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_comparisons, double *ret_id, double thresh)
+{
+  int    status;
+  double id;
+  double above = 0.; /*number of pairs above threshold*/
+  int    i,j,n;
+  
+  if (N <= 1) { *ret_id = 1.; return eslOK; }
+  *ret_id = 0.;
+
+  /* Is N small enough that we can average over all pairwise comparisons? 
+     watch out for numerical overflow in this: Pfam N's easily overflow when squared
+   */
+  if (N <= max_comparisons &&
+      N <= sqrt(2. * max_comparisons) &&
+      (N * (N-1) / 2) <= max_comparisons)
+    {
+      for (i = 0; i < N; i++)
+  for (j = i+1; j < N; j++)
+    {
+      if ((status = esl_dst_XPairId(abc, ax[i], ax[j], &id, NULL, NULL)) != eslOK) return status;
+      if (id>= thresh) above++;
+    }
+      above /= (double) (N * (N-1) / 2);
+    }
+
+  /* If nseq is large, calculate average over a stochastic sample. */
+  else        
+    {
+      ESL_RANDOMNESS *r = esl_randomness_Create(42);  /* fixed seed, suppress stochastic variation */
+      for (n = 0; n < max_comparisons; n++)
+  {
+    do { i = esl_rnd_Roll(r, N); j = esl_rnd_Roll(r, N); } while (j == i); /* make sure j != i */
+    if ((status = esl_dst_XPairId(abc, ax[i], ax[j], &id, NULL, NULL)) != eslOK) return status;
+    if (id>= thresh) above++;
+  }
+      above /= (double) max_comparisons;
+      esl_randomness_Destroy(r);
+    }
+
+  *ret_id = above;
+  return eslOK;
+}
+
+
 /* Function:  esl_dst_XAverageMatch()
  * Synopsis:  Calculate avg matches for digital MSA 
  * Incept:    ER, ed Oct 29 09:29:05 EDT 2014 [Janelia]
@@ -1402,6 +1475,57 @@ utest_XJukesCantorMx(ESL_ALPHABET *abc, char **as, ESL_DSQ **ax, int N)
   esl_dmatrix_Destroy(V2);
   return eslOK;
 }
+
+int utest_dst_Connectivity(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N){
+  double retval;
+  
+  if(esl_dst_Connectivity(abc, ax, N, 1000, &retval, 0.0) == eslOK){
+    if(esl_FCompare(retval, 1.0, 0.99, 0.01) != eslOK){
+      return eslFAIL;
+    }
+  }
+  else{
+    return eslFAIL;
+  }
+
+  if(esl_dst_Connectivity(abc, ax, N, 1000, &retval, 0.01) == eslOK){
+    if(esl_FCompare(retval, 0.95556, 0.99, 0.01) != eslOK){
+      return eslFAIL;
+    }
+  }
+  else{
+    return eslFAIL;
+  }
+
+  if(esl_dst_Connectivity(abc, ax, N, 1000, &retval, 0.5) == eslOK){
+    if(esl_FCompare(retval, 0.95556, 0.99, 0.01) != eslOK){
+      return eslFAIL;
+    }
+  }
+  else{
+    return eslFAIL;
+  }
+ 
+ if(esl_dst_Connectivity(abc, ax, N, 1000, &retval, 0.6) == eslOK){
+    if(esl_FCompare(retval, 0.64444, 0.99, 0.01) != eslOK){
+      return eslFAIL;
+    }
+  }
+  else{
+    return eslFAIL;
+  }
+
+ if(esl_dst_Connectivity(abc, ax, N, 1000, &retval, 1.0) == eslOK){
+    if(esl_FCompare(retval, 0.64444, 0.99, 0.01) != eslOK){
+      return eslFAIL;
+    }
+  }
+  else{
+    return eslFAIL;
+  }
+
+  return eslOK;
+}
 #endif /* eslDISTANCE_TESTDRIVE */
 /*------------------ end of unit tests --------------------------*/
 
@@ -1443,7 +1567,7 @@ main(int argc, char **argv)
   int i,j;
   int status;
   double p[4];			/// ACGT probabilities 
-  ESL_DSQ      **ax = NULL;	// digitized alignment                  
+  ESL_DSQ      **ax, **ax2 = NULL;	// digitized alignment                  
   ESL_ALPHABET *abc = NULL;
 
   /* Process command line
@@ -1488,8 +1612,11 @@ main(int argc, char **argv)
 
   abc = esl_alphabet_Create(eslDNA);
   ESL_ALLOC(ax, sizeof(ESL_DSQ *) * N);
-  for (i = 0; i < N; i++) 
+  ESL_ALLOC(ax2, sizeof(ESL_DSQ *) * N);
+  for (i = 0; i < N; i++){ 
     esl_abc_CreateDsq(abc, as[i], &(ax[i]));
+    esl_abc_CreateDsq(abc, as[i], &(ax2[i]));
+  }
 
   /* Unit tests
    */
@@ -1504,11 +1631,27 @@ main(int argc, char **argv)
   if (utest_XDiffMx(abc, as, ax, N)         != eslOK) return eslFAIL;
   if (utest_XJukesCantorMx(abc, as, ax, N)  != eslOK) return eslFAIL;
 
+/* modify MSA for connectivity test */
+  for(i= 3; i< N; i++){  
+    /* set each sequence except first two to half matching ax2[0],
+  half ax2[1].  (Remember that ax2[0], ax2[2] are guaranteed different at each position)
+  */
+    for(j=1; j <= L/2; j++){
+      ax2[i][j] = ax2[0][j];
+    }
+    for(; j <= L; j++){
+      ax2[i][j] = ax2[2][j];
+    }
+  }
+
+  if (utest_dst_Connectivity(abc, ax2, N) != eslOK) return eslFAIL;
 
   esl_randomness_Destroy(r);
   esl_alphabet_Destroy(abc);
   esl_arr2_Destroy((void **) as, N);
   esl_arr2_Destroy((void **) ax, N);
+  esl_arr2_Destroy((void **) ax2, N);
+  
   return eslOK;
 
  ERROR:
@@ -1533,6 +1676,8 @@ main(int argc, char **argv)
 #include "esl_distance.h"
 #include "esl_dmatrix.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
+#include "esl_arr2.h"
 
 int main(int argc, char **argv)
 {
@@ -1542,7 +1687,14 @@ int main(int argc, char **argv)
   int           i,j;
   double        min, avg, max;
   int           status;
-
+  int N = 10;
+  int L = 50;
+  char  **as = NULL;		/* aligned character seqs (random, iid) */
+  ESL_DSQ      **ax = NULL;	// digitized alignment                  
+  ESL_ALPHABET *abc = NULL;
+  ESL_RANDOMNESS *r = NULL;
+  double retval;
+  double p[4];			/// ACGT probabilities 
   if ((status = esl_msafile_Open(NULL, argv[1], NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK)
     esl_msafile_OpenFailure(afp, status);
   if ((status = esl_msafile_Read(afp, &msa)) != eslOK)
@@ -1566,10 +1718,44 @@ int main(int argc, char **argv)
   printf("Minimum pairwise %% id:  %.1f%%\n", min * 100.);
   printf("Maximum pairwise %% id:  %.1f%%\n", max * 100.);
 
+  /* Create a random DNA alignment;
+   * force it to obey the conventions of the unit tests:
+   *   0,1 are identical
+   *   0,2 are completely dissimilar
+   */
+  r   = esl_randomness_Create(0);
+  for (i = 0; i < 4; i++) p[i] = 0.25;
+  ESL_ALLOC(as, sizeof(char *) * N);
+  for (i = 0; i < N; i++) 
+    ESL_ALLOC(as[i], sizeof(char) * (L+1));
+  esl_rsq_IID(r, "ACGT", p, 4, L, as[0]);
+  strcpy(as[1], as[0]);
+  esl_rsq_IID(r, "ACGT", p, 4, L, as[2]);
+  for (j = 0; j < L; j++)
+    while (as[2][j] == as[0][j])
+      as[2][j] = "ACGT"[esl_rnd_Roll(r, 4)];
+  for (i = 3; i < N; i++)
+    esl_rsq_IID(r, "ACGT", p, 4, L, as[i]);
+
+  abc = esl_alphabet_Create(eslDNA);
+  ESL_ALLOC(ax, sizeof(ESL_DSQ *) * N);
+  for (i = 0; i < N; i++){ 
+    esl_abc_CreateDsq(abc, as[i], &(ax[i]));
+  }
+
+  esl_dst_Connectivity(abc, ax, N, 1000, &retval, 1.0);
+  printf("Connectivity of example MSA was %lf\n", retval);
   esl_dmatrix_Destroy(P);
   esl_msa_Destroy(msa);
   esl_msafile_Close(afp);
+  esl_randomness_Destroy(r);
+  esl_alphabet_Destroy(abc);
+  esl_arr2_Destroy((void **) as, N);
+  esl_arr2_Destroy((void **) ax, N);
   return 0;
+
+  ERROR:
+  return eslFAIL;
 }
 /*::cexcerpt::distance_example::end::*/
 #endif /*eslDISTANCE_EXAMPLE*/
