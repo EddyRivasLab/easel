@@ -1634,7 +1634,6 @@ seq11 MMMMMMMMMM\n\
   esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
   esl_randomness_Destroy(r);
-  printf("passed\n");
   return eslOK;
 
   ERROR:
@@ -1642,3 +1641,181 @@ seq11 MMMMMMMMMM\n\
 }
 #endif /* eslISET_TESTDRIVE*/
 
+/*****************************************************************
+ * 5. Example
+ *****************************************************************/
+
+#ifdef eslISET_EXAMPLE
+/* gcc -g -Wall -o msacluster_utest -I. -L. -DeslMSACLUSTER_TESTDRIVE esl_msacluster.c -leasel -lm
+ */
+#include "esl_config.h"
+
+#include <stdio.h>
+#include <math.h>
+
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_getopts.h"
+#include "esl_msa.h"
+#include "esl_msacluster.h"
+#include "esl_msafile.h"
+#include "esl_distance.h"
+/* In digital mode, we'll need to pass the clustering routine two parameters -
+ * %id threshold and alphabet ptr - so make a structure that bundles them.
+ */
+struct msa_param_s {
+  double        maxid;
+  ESL_ALPHABET *abc;
+};
+/* Heavily cribbed from msacluster_xlinkage and msacluster_clinkage in esl_msa_iset.c*/
+static int
+test_clinkage(const void *v1, const void *v2, const void *p, int *ret_link)
+{
+  char  *as1   = *(char **) v1;
+  char  *as2   = *(char **) v2;
+  double maxid = *(double *) p;
+  double pid;
+  int    status = eslOK;
+
+#if defined(eslMSACLUSTER_REGRESSION) || defined(eslMSAWEIGHT_REGRESSION)
+  pid = 1. - squid_distance(as1, as2);
+#else
+  if ((status = esl_dst_CPairId(as1, as2, &pid, NULL, NULL)) != eslOK) return status;
+#endif
+
+  *ret_link = (pid >= maxid ? TRUE : FALSE);
+  return status;
+}
+
+
+static int
+test_xlinkage(const void *v1, const void *v2, const void *p, int *ret_link)
+{
+  ESL_DSQ *ax1              = *(ESL_DSQ **) v1;
+  ESL_DSQ *ax2              = *(ESL_DSQ **) v2;
+  struct msa_param_s *param = (struct msa_param_s *) p;
+  double   pid;
+  int      status = eslOK;
+
+#if defined(eslMSACLUSTER_REGRESSION) || defined(eslMSAWEIGHT_REGRESSION)
+  pid = 1. - squid_xdistance(param->abc, ax1, ax2);
+#else
+  if ( (status = esl_dst_XPairId(param->abc, ax1, ax2, &pid, NULL, NULL)) != eslOK) return status;
+#endif
+
+  *ret_link = (pid >= param->maxid ? TRUE : FALSE);
+  return status;
+}
+
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for iset module";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_ALPHABET   *abc     = esl_alphabet_Create(eslAMINO);
+  int *assignments;
+  ESL_MSA        *msa     = esl_msa_CreateFromString("\
+# STOCKHOLM 1.0\n\
+\n\
+seq0  AAAAAAAAAA\n\
+seq1  AAAAAAAAAA\n\
+seq2  AAAAAAAAAC\n\
+seq3  AAAAAAAADD\n\
+seq4  AAAAAAAEEE\n\
+seq5  AAAAAAFFFF\n\
+seq6  AAAAAGGGGG\n\
+seq7  AAAAHHHHHH\n\
+seq8  AAAIIIIIII\n\
+seq9  AAKKKKKKKK\n\
+seq10 ALLLLLLLLL\n\
+seq11 MMMMMMMMMM\n\
+//",   eslMSAFILE_STOCKHOLM);
+  int status;
+  int *workspace;
+  ESL_ALLOC(workspace, 5*12*sizeof(int));  // allocate to the largest workspace required
+  // by any test
+  ESL_RANDOMNESS *r = NULL;
+  r=esl_randomness_Create(0);
+  ESL_ALLOC(assignments, 12 * sizeof(int));  //must be = # of sequences in alignment
+  // Make digital copy of the msa
+  ESL_MSA *msa2 = esl_msa_Create(12, 10);
+  esl_msa_Copy(msa, msa2);
+  esl_msa_Digitize(abc, msa2, NULL);
+  int larger, larger_set;
+  struct msa_param_s param;
+  float maxid = 0.5;
+  param.maxid = maxid;
+  param.abc = abc;
+
+  //1: iset_Cobalt on ASCII MSA
+  if(esl_iset_Cobalt(msa->aseq, 12, sizeof(char *), test_clinkage,  &maxid, workspace,  assignments, r) != eslOK){
+    return eslFAIL;
+  }
+
+  //2: iset_Cobalt on Digital MSA
+  if(esl_iset_Cobalt(msa2->ax, 12, sizeof(ESL_DSQ *), test_xlinkage,  &param, workspace,  assignments, r) != eslOK){
+    return eslFAIL;
+  }
+  
+  //3: iset_Blue on ASCII MSA
+  if(esl_iset_Blue(msa->aseq, 12, sizeof(char *), test_clinkage,  &maxid, workspace,  assignments, r) != eslOK){
+    return eslFAIL;
+  }
+
+  //4: iset_Blue on Digital MSA
+  if(esl_iset_Blue(msa2->ax, 12, sizeof(ESL_DSQ *), test_xlinkage,  &param, workspace,  assignments, r) != eslOK){
+    return eslFAIL;
+  }
+
+  //5: bi_iset_Cobalt on ASCII MSA
+  if(esl_bi_iset_Cobalt(msa->aseq, 12, sizeof(char *), test_clinkage, &maxid, workspace, assignments, &larger, r) != eslOK){
+    return eslFAIL;
+  }
+ 
+  //6: bi_iset_Cobalt on Digital MSA
+  if(esl_bi_iset_Cobalt(msa2->ax, 12, sizeof(ESL_DSQ *), test_xlinkage, &param, workspace, assignments, &larger, r) != eslOK){
+    return eslFAIL;
+  }
+ 
+  //7: bi_iset_Blue on ASCII MSA
+  if(esl_bi_iset_Blue(msa->aseq, 12, sizeof(char *), test_clinkage, &maxid, workspace, assignments, &larger, r) != eslOK){
+    return eslFAIL;
+  }
+ 
+
+//8: bi_iset_Cobalt on Digital MSA
+  if(esl_bi_iset_Blue(msa2->ax, 12, sizeof(ESL_DSQ *), test_xlinkage, &param, workspace, assignments, &larger, r) != eslOK){
+    return eslFAIL;
+  }
+ 
+//9: bi_iset_Random on ASCII MSA
+  if(esl_bi_iset_Random(msa->aseq, 12, sizeof(char *), test_clinkage, &maxid, assignments, r, 0.3) != eslOK){
+    return eslFAIL;
+  }
+ 
+//Test 10: bi_iset_Random on Digital MSA
+  if(esl_bi_iset_Random(msa2->ax, 12, sizeof(ESL_DSQ *), test_xlinkage, &param,assignments, r, 0.3) != eslOK){
+    return eslFAIL;
+  }
+
+  free(workspace);
+  free(assignments);
+  esl_msa_Destroy(msa);
+  esl_msa_Destroy(msa2);
+  esl_alphabet_Destroy(abc);
+  esl_getopts_Destroy(go);
+  esl_randomness_Destroy(r);
+  printf("passed\n");
+  return eslOK;
+
+  ERROR:
+    return eslFAIL;
+}
+#endif /* eslISET_EXAMPLE*/

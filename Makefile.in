@@ -452,6 +452,7 @@ EXAMPLES = \
         esl_hmm_example\
 	esl_huffman_example\
         esl_hyperexp_example\
+		esl_iset_example\
 	esl_json_example\
         esl_keyhash_example\
         esl_minimizer_example\
