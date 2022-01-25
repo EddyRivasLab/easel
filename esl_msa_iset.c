@@ -292,6 +292,7 @@ esl_msa_bi_iset_Random(const ESL_MSA *msa, double maxid,
  * Args:      msa     - multiple alignment to find independent pair within
  *            maxid   - pairwise identity threshold: no pair can be $\geq$ <maxid>
  *            opt_c   - optRETURN: set assignments for each sequence, [0..nseq-1]
+ *            ret_larger - set to 1 if set 1 is larger, 2 if set 2 is larger
  *            r       - source of randomness
  *
  * Returns:   <eslOK> on success; the <opt_c[0..nseq-1]> array contains
@@ -373,6 +374,7 @@ esl_msa_bi_iset_Cobalt(const ESL_MSA *msa, double maxid,
  * Args:      msa     - multiple alignment to find independent pair within
  *            maxid   - pairwise identity threshold: no pair can be $\geq$ <maxid>
  *            opt_c   - optRETURN: set assignments for each sequence, [0..nseq-1]
+ *            ret_larger - set to 1 if set 1 is larger, 2 if set 2 is larger
  *            r       - source of randomness
  *
  * Returns:   <eslOK> on success; the <opt_c[0..nseq-1]> array contains
