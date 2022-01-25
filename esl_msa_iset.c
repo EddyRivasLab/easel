@@ -710,7 +710,7 @@ seq11 MMMMMMMMMM\n\
     return eslFAIL;
   }
 
-  //Test4: msa_iset_Blue on Digital MSA
+  //Test 4: msa_iset_Blue on Digital MSA
   if(esl_msa_iset_Blue(msa2, 0.5, &assignments, r) != eslOK){
     return eslFAIL;
   }
@@ -718,7 +718,7 @@ seq11 MMMMMMMMMM\n\
     return eslFAIL;
   }
 
-  //Test5: msa_bi_iset_Cobalt on ASCII MSA
+  //Test 5: msa_bi_iset_Cobalt on ASCII MSA
   if(esl_msa_bi_iset_Cobalt(msa, 0.5, &assignments, &larger, r) != eslOK){
     return eslFAIL;
   }
@@ -744,7 +744,7 @@ seq11 MMMMMMMMMM\n\
     return eslFAIL;
   }
 
-  //Test6: msa_bi_iset_Cobalt on Digital MSA
+  //Test 6: msa_bi_iset_Cobalt on Digital MSA
   if(esl_msa_bi_iset_Cobalt(msa2, 0.5, &assignments, &larger, r) != eslOK){
     return eslFAIL;
   }
@@ -770,7 +770,7 @@ seq11 MMMMMMMMMM\n\
     return eslFAIL;
   }
 
- //Test7: msa_bi_iset_Blue on ASCII MSA
+ //Test 7: msa_bi_iset_Blue on ASCII MSA
   if(esl_msa_bi_iset_Blue(msa, 0.5, &assignments, &larger, r) != eslOK){
     return eslFAIL;
   }
@@ -796,7 +796,7 @@ seq11 MMMMMMMMMM\n\
     return eslFAIL;
   }
 
-  //Test8: msa_bi_iset_Blue on Digital MSA
+  //Test 8: msa_bi_iset_Blue on Digital MSA
   if(esl_msa_bi_iset_Blue(msa2, 0.5, &assignments, &larger, r) != eslOK){
     return eslFAIL;
   }
@@ -821,7 +821,7 @@ seq11 MMMMMMMMMM\n\
     // check and return value disagree about which set is larger
     return eslFAIL;
   }
- //Test9: msa_bi_iset_Random on ASCII MSA
+ //Test 9: msa_bi_iset_Random on ASCII MSA
   if(esl_msa_bi_iset_Random(msa, 0.5, &assignments, r, 0.3) != eslOK){
     return eslFAIL;
   }
@@ -830,7 +830,7 @@ seq11 MMMMMMMMMM\n\
   }
 
 
-  //Test9: msa_bi_iset_Random on Digital MSA
+  //Test 10: msa_bi_iset_Random on Digital MSA
   if(esl_msa_bi_iset_Random(msa2, 0.5, &assignments, r, 0.3) != eslOK){
     return eslFAIL;
   }
@@ -908,7 +908,7 @@ seq11 MMMMMMMMMM\n\
   ESL_MSA *msa2 = esl_msa_Create(12, 10);
   esl_msa_Copy(msa, msa2);
   esl_msa_Digitize(abc, msa2, NULL);
-  int larger, larger_set;
+  int larger;
 
   //msa_iset_Cobalt on ASCII MSA
   if(esl_msa_iset_Cobalt(msa, 0.5, &assignments, r) != eslOK){

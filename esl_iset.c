@@ -21,6 +21,38 @@
 #include "esl_iset.h"
 
 
+// Forward declarations of static functions
+static int shuffle_array(ESL_RANDOMNESS *r, int a[], int n);
+
+static void print_array(int array[], int n);
+
+static int check_iset( void *base, size_t n, size_t size,
+			  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+			   int *assignments);
+
+static int check_bi_iset( void *base, size_t n, size_t size,
+			  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+			   int *assignments);
+
+static int i_select(void *base, size_t n, size_t size, int k,
+        int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+         int *dec_o, int *label_o, int *status_d, int *to_add, int *ret_lta);
+
+static void i_update_workspace(int *dec_o, int *label_o, int *status_d, int *to_add, int *assignments, size_t n, int *k, 
+	int *lta, ESL_RANDOMNESS *r);
+
+static void bi_update_workspace_blue(int *dec_o, int *label_o, int *status_d, int *to_add, int *elig, int *assignments, int n, 
+	int *d, int *l, int *lta1, int *lta2, int *nb1, int *nb2, ESL_RANDOMNESS *r);
+
+static int
+update_2_elig(int j, void *base, int n, size_t size,
+        int (*linkfunc)(const void *, const void *, const void *, int *), void *param,int *label_o, int *status_d, int *to_add, int *elig, const int lta1);
+
+static int bi_select_blue(void *base, int n, size_t size, 
+        int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+         int *dec_o, int *label_o, int *status_d, int *to_add, int *elig, const int d, const int l, int *ret_lta1, int *ret_lta2);
+
+
  /*****************************************************************
   * 1. Array tools: print and shuffle
  *****************************************************************/
@@ -1347,6 +1379,54 @@ bi_select_blue(void *base, int n, size_t size,
 #include "esl_msa.h"
 #include "esl_msacluster.h"
 #include "esl_msafile.h"
+#include "esl_distance.h"
+/* In digital mode, we'll need to pass the clustering routine two parameters -
+ * %id threshold and alphabet ptr - so make a structure that bundles them.
+ */
+struct msa_param_s {
+  double        maxid;
+  ESL_ALPHABET *abc;
+};
+
+/* Heavily cribbed from msacluster_xlinkage and msacluster_clinkage in esl_msa_iset.c*/
+static int
+test_clinkage(const void *v1, const void *v2, const void *p, int *ret_link)
+{
+  char  *as1   = *(char **) v1;
+  char  *as2   = *(char **) v2;
+  double maxid = *(double *) p;
+  double pid;
+  int    status = eslOK;
+
+#if defined(eslMSACLUSTER_REGRESSION) || defined(eslMSAWEIGHT_REGRESSION)
+  pid = 1. - squid_distance(as1, as2);
+#else
+  if ((status = esl_dst_CPairId(as1, as2, &pid, NULL, NULL)) != eslOK) return status;
+#endif
+
+  *ret_link = (pid >= maxid ? TRUE : FALSE);
+  return status;
+}
+
+
+static int
+test_xlinkage(const void *v1, const void *v2, const void *p, int *ret_link)
+{
+  ESL_DSQ *ax1              = *(ESL_DSQ **) v1;
+  ESL_DSQ *ax2              = *(ESL_DSQ **) v2;
+  struct msa_param_s *param = (struct msa_param_s *) p;
+  double   pid;
+  int      status = eslOK;
+
+#if defined(eslMSACLUSTER_REGRESSION) || defined(eslMSAWEIGHT_REGRESSION)
+  pid = 1. - squid_xdistance(param->abc, ax1, ax2);
+#else
+  if ( (status = esl_dst_XPairId(param->abc, ax1, ax2, &pid, NULL, NULL)) != eslOK) return status;
+#endif
+
+  *ret_link = (pid >= param->maxid ? TRUE : FALSE);
+  return status;
+}
 
 static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
@@ -1361,6 +1441,7 @@ main(int argc, char **argv)
 {
   ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   ESL_ALPHABET   *abc     = esl_alphabet_Create(eslAMINO);
+  int *assignments;
   ESL_MSA        *msa     = esl_msa_CreateFromString("\
 # STOCKHOLM 1.0\n\
 \n\
@@ -1377,13 +1458,187 @@ seq9  AAKKKKKKKK\n\
 seq10 ALLLLLLLLL\n\
 seq11 MMMMMMMMMM\n\
 //",   eslMSAFILE_STOCKHOLM);
+  int status;
+  int *workspace;
+  ESL_ALLOC(workspace, 5*12*sizeof(int));  // allocate to the largest workspace required
+  // by any test
+  ESL_RANDOMNESS *r = NULL;
+  r=esl_randomness_Create(0);
+  ESL_ALLOC(assignments, 12 * sizeof(int));  //must be = # of sequences in alignment
+  // Make digital copy of the msa
+  ESL_MSA *msa2 = esl_msa_Create(12, 10);
+  esl_msa_Copy(msa, msa2);
+  esl_msa_Digitize(abc, msa2, NULL);
+  int larger, larger_set;
+  struct msa_param_s param;
+  float maxid = 0.5;
+  param.maxid = maxid;
+  param.abc = abc;
+
+  //Test 1: iset_Cobalt on ASCII MSA
+  if(esl_iset_Cobalt(msa->aseq, 12, sizeof(char *), test_clinkage,  &maxid, workspace,  assignments, r) != eslOK){
+    return eslFAIL;
+  }
+  if(check_iset(msa->aseq, 12, sizeof(char *), test_clinkage, &maxid, assignments) != eslOK){
+    return eslFAIL;
+  }
+
+  //Test 2: iset_Cobalt on Digital MSA
+  if(esl_iset_Cobalt(msa2->ax, 12, sizeof(ESL_DSQ *), test_xlinkage,  &param, workspace,  assignments, r) != eslOK){
+    return eslFAIL;
+  }
+  if(check_iset(msa2->ax, 12, sizeof(ESL_DSQ *), test_xlinkage, &param, assignments) != eslOK){
+    return eslFAIL;
+  }
+  //Test 3: iset_Blue on ASCII MSA
+  if(esl_iset_Blue(msa->aseq, 12, sizeof(char *), test_clinkage,  &maxid, workspace,  assignments, r) != eslOK){
+    return eslFAIL;
+  }
+  if(check_iset(msa->aseq, 12, sizeof(char *), test_clinkage, &maxid, assignments) != eslOK){
+    return eslFAIL;
+  }
+
+  //Test 4: iset_Blue on Digital MSA
+  if(esl_iset_Blue(msa2->ax, 12, sizeof(ESL_DSQ *), test_xlinkage,  &param, workspace,  assignments, r) != eslOK){
+    return eslFAIL;
+  }
+  if(check_iset(msa2->ax, 12, sizeof(ESL_DSQ *), test_xlinkage, &param, assignments) != eslOK){
+    return eslFAIL;
+  }
+
+  //Test 5: bi_iset_Cobalt on ASCII MSA
+  if(esl_bi_iset_Cobalt(msa->aseq, 12, sizeof(char *), test_clinkage, &maxid, workspace, assignments, &larger, r) != eslOK){
+    return eslFAIL;
+  }
+  if(check_bi_iset(msa->aseq, 12, sizeof (char *), test_clinkage, &maxid, assignments)!= eslOK){
+    return eslFAIL;
+  }
+  larger_set = 0;
+  for(int i = 0; i < 12; i++){
+    if(assignments[i] == 2){
+      larger_set++;
+    }
+    if(assignments[i] ==1){
+      larger_set--;
+    }
+  }
+
+  if((larger_set < 0) && (larger == 2)){
+    // check and return value disagree about which set is larger
+    return eslFAIL;
+  }
+   if((larger_set > 0) && (larger == 1)){
+    // check and return value disagree about which set is larger
+    return eslFAIL;
+  }
+
+//Test 6: bi_iset_Cobalt on Digital MSA
+  if(esl_bi_iset_Cobalt(msa2->ax, 12, sizeof(ESL_DSQ *), test_xlinkage, &param, workspace, assignments, &larger, r) != eslOK){
+    return eslFAIL;
+  }
+  if(check_bi_iset(msa2->ax, 12, sizeof (ESL_DSQ *), test_xlinkage, &param, assignments)!= eslOK){
+    return eslFAIL;
+  }
+  larger_set = 0;
+  for(int i = 0; i < 12; i++){
+    if(assignments[i] == 2){
+      larger_set++;
+    }
+    if(assignments[i] ==1){
+      larger_set--;
+    }
+  }
+
+  if((larger_set < 0) && (larger == 2)){
+    // check and return value disagree about which set is larger
+    return eslFAIL;
+  }
+   if((larger_set > 0) && (larger == 1)){
+    // check and return value disagree about which set is larger
+    return eslFAIL;
+  }
+
+  //Test 7: bi_iset_Blue on ASCII MSA
+  if(esl_bi_iset_Blue(msa->aseq, 12, sizeof(char *), test_clinkage, &maxid, workspace, assignments, &larger, r) != eslOK){
+    return eslFAIL;
+  }
+  if(check_bi_iset(msa->aseq, 12, sizeof (char *), test_clinkage, &maxid, assignments)!= eslOK){
+    return eslFAIL;
+  }
+  larger_set = 0;
+  for(int i = 0; i < 12; i++){
+    if(assignments[i] == 2){
+      larger_set++;
+    }
+    if(assignments[i] ==1){
+      larger_set--;
+    }
+  }
+
+  if((larger_set < 0) && (larger == 2)){
+    // check and return value disagree about which set is larger
+    return eslFAIL;
+  }
+   if((larger_set > 0) && (larger == 1)){
+    // check and return value disagree about which set is larger
+    return eslFAIL;
+  }
+
+//Test 8: bi_iset_Cobalt on Digital MSA
+  if(esl_bi_iset_Blue(msa2->ax, 12, sizeof(ESL_DSQ *), test_xlinkage, &param, workspace, assignments, &larger, r) != eslOK){
+    return eslFAIL;
+  }
+  if(check_bi_iset(msa2->ax, 12, sizeof (ESL_DSQ *), test_xlinkage, &param, assignments)!= eslOK){
+    return eslFAIL;
+  }
+  larger_set = 0;
+  for(int i = 0; i < 12; i++){
+    if(assignments[i] == 2){
+      larger_set++;
+    }
+    if(assignments[i] ==1){
+      larger_set--;
+    }
+  }
+
+  if((larger_set < 0) && (larger == 2)){
+    // check and return value disagree about which set is larger
+    return eslFAIL;
+  }
+   if((larger_set > 0) && (larger == 1)){
+    // check and return value disagree about which set is larger
+    return eslFAIL;
+  }
+
+//Test 9: bi_iset_Random on ASCII MSA
+  if(esl_bi_iset_Random(msa->aseq, 12, sizeof(char *), test_clinkage, &maxid, assignments, r, 0.3) != eslOK){
+    return eslFAIL;
+  }
+  if(check_bi_iset(msa->aseq, 12, sizeof (char *), test_clinkage, &maxid, assignments)!= eslOK){
+    return eslFAIL;
+  }
+ 
+//Test 10: bi_iset_Random on Digital MSA
+  if(esl_bi_iset_Random(msa2->ax, 12, sizeof(ESL_DSQ *), test_xlinkage, &param,assignments, r, 0.3) != eslOK){
+    return eslFAIL;
+  }
+  if(check_bi_iset(msa2->ax, 12, sizeof (ESL_DSQ *), test_xlinkage, &param, assignments)!= eslOK){
+    return eslFAIL;
+  }
 
 
-
+  free(workspace);
+  free(assignments);
   esl_msa_Destroy(msa);
+  esl_msa_Destroy(msa2);
   esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
-  return 0;
+  esl_randomness_Destroy(r);
+  printf("passed\n");
+  return eslOK;
+
+  ERROR:
+    return eslFAIL;
 }
 #endif /* eslISET_TESTDRIVE*/
 
