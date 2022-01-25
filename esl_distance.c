@@ -1676,6 +1676,8 @@ main(int argc, char **argv)
 #include "esl_distance.h"
 #include "esl_dmatrix.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
+#include "esl_arr2.h"
 
 int main(int argc, char **argv)
 {
@@ -1685,7 +1687,14 @@ int main(int argc, char **argv)
   int           i,j;
   double        min, avg, max;
   int           status;
-
+  int N = 10;
+  int L = 50;
+  char  **as = NULL;		/* aligned character seqs (random, iid) */
+  ESL_DSQ      **ax = NULL;	// digitized alignment                  
+  ESL_ALPHABET *abc = NULL;
+  ESL_RANDOMNESS *r = NULL;
+  double retval;
+  double p[4];			/// ACGT probabilities 
   if ((status = esl_msafile_Open(NULL, argv[1], NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK)
     esl_msafile_OpenFailure(afp, status);
   if ((status = esl_msafile_Read(afp, &msa)) != eslOK)
@@ -1709,10 +1718,44 @@ int main(int argc, char **argv)
   printf("Minimum pairwise %% id:  %.1f%%\n", min * 100.);
   printf("Maximum pairwise %% id:  %.1f%%\n", max * 100.);
 
+  /* Create a random DNA alignment;
+   * force it to obey the conventions of the unit tests:
+   *   0,1 are identical
+   *   0,2 are completely dissimilar
+   */
+  r   = esl_randomness_Create(0);
+  for (i = 0; i < 4; i++) p[i] = 0.25;
+  ESL_ALLOC(as, sizeof(char *) * N);
+  for (i = 0; i < N; i++) 
+    ESL_ALLOC(as[i], sizeof(char) * (L+1));
+  esl_rsq_IID(r, "ACGT", p, 4, L, as[0]);
+  strcpy(as[1], as[0]);
+  esl_rsq_IID(r, "ACGT", p, 4, L, as[2]);
+  for (j = 0; j < L; j++)
+    while (as[2][j] == as[0][j])
+      as[2][j] = "ACGT"[esl_rnd_Roll(r, 4)];
+  for (i = 3; i < N; i++)
+    esl_rsq_IID(r, "ACGT", p, 4, L, as[i]);
+
+  abc = esl_alphabet_Create(eslDNA);
+  ESL_ALLOC(ax, sizeof(ESL_DSQ *) * N);
+  for (i = 0; i < N; i++){ 
+    esl_abc_CreateDsq(abc, as[i], &(ax[i]));
+  }
+
+  esl_dst_Connectivity(abc, ax, N, 1000, &retval, 1.0);
+  printf("Connectivity of example MSA was %lf\n", retval);
   esl_dmatrix_Destroy(P);
   esl_msa_Destroy(msa);
   esl_msafile_Close(afp);
+  esl_randomness_Destroy(r);
+  esl_alphabet_Destroy(abc);
+  esl_arr2_Destroy((void **) as, N);
+  esl_arr2_Destroy((void **) ax, N);
   return 0;
+
+  ERROR:
+  return eslFAIL;
 }
 /*::cexcerpt::distance_example::end::*/
 #endif /*eslDISTANCE_EXAMPLE*/

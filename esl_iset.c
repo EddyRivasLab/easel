@@ -1324,7 +1324,61 @@ bi_select_blue(void *base, int n, size_t size,
    return status;
 }
 
+/*****************************************************************
+ * 5. Test driver
+ *****************************************************************/
+
+#ifdef eslISET_TESTDRIVE
+/* gcc -g -Wall -o msacluster_utest -I. -L. -DeslMSACLUSTER_TESTDRIVE esl_msacluster.c -leasel -lm
+ */
+#include "esl_config.h"
+
+#include <stdio.h>
+#include <math.h>
+
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_getopts.h"
+#include "esl_msa.h"
+#include "esl_msacluster.h"
+#include "esl_msafile.h"
+
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for iset module";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_ALPHABET   *abc     = esl_alphabet_Create(eslAMINO);
+  ESL_MSA        *msa     = esl_msa_CreateFromString("\
+# STOCKHOLM 1.0\n\
+\n\
+seq0  AAAAAAAAAA\n\
+seq1  AAAAAAAAAA\n\
+seq2  AAAAAAAAAC\n\
+seq3  AAAAAAAADD\n\
+seq4  AAAAAAAEEE\n\
+seq5  AAAAAAFFFF\n\
+seq6  AAAAAGGGGG\n\
+seq7  AAAAHHHHHH\n\
+seq8  AAAIIIIIII\n\
+seq9  AAKKKKKKKK\n\
+seq10 ALLLLLLLLL\n\
+seq11 MMMMMMMMMM\n\
+//",   eslMSAFILE_STOCKHOLM);
 
 
 
+  esl_msa_Destroy(msa);
+  esl_alphabet_Destroy(abc);
+  esl_getopts_Destroy(go);
+  return 0;
+}
+#endif /* eslISET_TESTDRIVE*/
 

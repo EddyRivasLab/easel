@@ -67,13 +67,13 @@ struct msa_param_s {
  *
  * Throws:    <eslEMEM> on allocation failure, and <eslEINVAL> if a pairwise
  *            comparison is invalid (which means the MSA is corrupted, so it
- *            shouldn't happen). In either case, <opt_c> and <opt_nin> are set to <NULL>
+ *            shouldn't happen). In either case, <opt_c> is set to <NULL>
  *            and <opt_nc> is set to 0, and the <msa> is unmodified.
  */
 
 int
 esl_msa_iset_Cobalt(const ESL_MSA *msa, double maxid,
-           int **opt_c, int **opt_nin, ESL_RANDOMNESS *r)
+           int **opt_c, ESL_RANDOMNESS *r)
 
 {
   int   status;
@@ -81,11 +81,16 @@ esl_msa_iset_Cobalt(const ESL_MSA *msa, double maxid,
   int  *assignment = NULL;
   int  *nin        = NULL;
   struct msa_param_s param;
-
+  int allocated_assignment =0;
   /* Allocations */
   ESL_ALLOC(workspace,  sizeof(int) * msa->nseq * 2);
-  ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
-
+  if(opt_c != NULL){
+    assignment = *opt_c;
+  }
+  else{
+    ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
+    allocated_assignment = 1;
+  }
   /* call to SLC API: */
   if (! (msa->flags & eslMSA_DIGITAL))
     status = esl_iset_Cobalt((void *) msa->aseq, (size_t) msa->nseq, sizeof(char *),
@@ -106,12 +111,14 @@ esl_msa_iset_Cobalt(const ESL_MSA *msa, double maxid,
 
   /* cleanup and return */
   free(workspace);
-  if (opt_c  != NULL) *opt_c  = assignment; else free(assignment);
+  if(allocated_assignment){
+    free(assignment);
+  }
   return eslOK;
 
  ERROR:
   if (workspace  != NULL) free(workspace);
-  if (assignment != NULL) free(assignment);
+  if (allocated_assignment) free(assignment);
   if (nin        != NULL) free(nin);
   if (opt_c  != NULL) *opt_c  = NULL;
   return status;
@@ -136,13 +143,13 @@ esl_msa_iset_Cobalt(const ESL_MSA *msa, double maxid,
  *
  * Throws:    <eslEMEM> on allocation failure, and <eslEINVAL> if a pairwise
  *            comparison is invalid (which means the MSA is corrupted, so it
- *            shouldn't happen). In either case, <opt_c> and <opt_nin> are set to <NULL>
+ *            shouldn't happen). In either case, <opt_c> is set to <NULL>
  *            and <opt_nc> is set to 0, and the <msa> is unmodified.
  */
 
 int
 esl_msa_iset_Blue(const ESL_MSA *msa, double maxid,
-			     int **opt_c, int **opt_nin, ESL_RANDOMNESS *r)
+			     int **opt_c, ESL_RANDOMNESS *r)
 
 {
   int   status;
@@ -150,10 +157,17 @@ esl_msa_iset_Blue(const ESL_MSA *msa, double maxid,
   int  *assignment = NULL;
   int  *nin        = NULL;
   struct msa_param_s param;
+  int allocated_assignment = 0;
 
   /* Allocations */
   ESL_ALLOC(workspace,  sizeof(int) * msa->nseq * 4);
-  ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
+  if(opt_c != NULL){
+    assignment = *opt_c;
+  }
+  else{
+    ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
+    allocated_assignment = 1;
+  }
 
   /* call to SLC API: */
   if (! (msa->flags & eslMSA_DIGITAL))
@@ -175,12 +189,12 @@ esl_msa_iset_Blue(const ESL_MSA *msa, double maxid,
 
   /* cleanup and return */
   free(workspace);
-  if (opt_c  != NULL) *opt_c  = assignment; else free(assignment);
+  if (allocated_assignment) free(assignment);
   return eslOK;
 
  ERROR:
   if (workspace  != NULL) free(workspace);
-  if (assignment != NULL) free(assignment);
+  if (allocated_assignment) free(assignment);
   if (nin        != NULL) free(nin);
   if (opt_c  != NULL) *opt_c  = NULL;
   return status;
@@ -215,13 +229,13 @@ esl_msa_iset_Blue(const ESL_MSA *msa, double maxid,
  *
  * Throws:    <eslEMEM> on allocation failure, and <eslEINVAL> if a pairwise
  *            comparison is invalid (which means the MSA is corrupted, so it
- *            shouldn't happen). In either case, <opt_c> and <opt_nin> are set to <NULL>
+ *            shouldn't happen). In either case, <opt_c> is set to <NULL>
  *            and <opt_nc> is set to 0, and the <msa> is unmodified.
  */
 
 int
 esl_msa_bi_iset_Random(const ESL_MSA *msa, double maxid,
-           int **opt_c, int **opt_nin, ESL_RANDOMNESS *r, double t_prob)
+           int **opt_c, ESL_RANDOMNESS *r, double t_prob)
 
 {
   int   status;
@@ -230,7 +244,15 @@ esl_msa_bi_iset_Random(const ESL_MSA *msa, double maxid,
   struct msa_param_s param;
 
   /* Allocations */
-  ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
+  int allocated_assignment =0;
+  /* Allocations */
+  if(opt_c != NULL){
+    assignment = *opt_c;
+  }
+  else{
+    ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
+    allocated_assignment = 1;
+  }
 
   /* call to SLC API: */
   if (! (msa->flags & eslMSA_DIGITAL))
@@ -248,11 +270,11 @@ esl_msa_bi_iset_Random(const ESL_MSA *msa, double maxid,
   if (status != eslOK) goto ERROR;
 
   /* cleanup and return */
-  if (opt_c  != NULL) *opt_c  = assignment; else free(assignment);
+  if (allocated_assignment) free(assignment);
   return eslOK;
 
  ERROR:
-  if (assignment != NULL) free(assignment);
+  if (allocated_assignment) free(assignment);
   if (nin        != NULL) free(nin);
   if (opt_c  != NULL) *opt_c  = NULL;
   return status;
@@ -280,14 +302,14 @@ esl_msa_bi_iset_Random(const ESL_MSA *msa, double maxid,
  *
  * Throws:    <eslEMEM> on allocation failure, and <eslEINVAL> if a pairwise
  *            comparison is invalid (which means the MSA is corrupted, so it
- *            shouldn't happen). In either case, <opt_c> and <opt_nin> are set to <NULL>
+ *            shouldn't happen). In either case, <opt_c> is set to <NULL>
  *            and <opt_nc> is set to 0, and the <msa> is unmodified.
  */
 
 
 int
 esl_msa_bi_iset_Cobalt(const ESL_MSA *msa, double maxid,
-           int **opt_c, int **opt_nin, int *ret_larger, ESL_RANDOMNESS *r)
+           int **opt_c, int *ret_larger, ESL_RANDOMNESS *r)
 
 {
   int   status;
@@ -298,8 +320,16 @@ esl_msa_bi_iset_Cobalt(const ESL_MSA *msa, double maxid,
   struct msa_param_s param;
 
   /* Allocations */
-  ESL_ALLOC(workspace,  sizeof(int) * msa->nseq*3);
-  ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
+  int allocated_assignment =0;
+  /* Allocations */
+  ESL_ALLOC(workspace,  sizeof(int) * msa->nseq * 3);
+  if(opt_c != NULL){
+    assignment = *opt_c;
+  }
+  else{
+    ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
+    allocated_assignment = 1;
+  }
 
   /* call to SLC API: */
   if (! (msa->flags & eslMSA_DIGITAL))
@@ -319,12 +349,12 @@ esl_msa_bi_iset_Cobalt(const ESL_MSA *msa, double maxid,
   /* cleanup and return */
   free(workspace);
   if (ret_larger != NULL) *ret_larger = larger;
-  if (opt_c  != NULL) *opt_c  = assignment; else free(assignment);
+  if (allocated_assignment) free(assignment);
   return eslOK;
 
  ERROR:
   if (workspace  != NULL) free(workspace);
-  if (assignment != NULL) free(assignment);
+  if (allocated_assignment) free(assignment);
   if (nin        != NULL) free(nin);
   if (ret_larger != NULL) *ret_larger = 0;
   if (opt_c  != NULL) *opt_c  = NULL;
@@ -353,13 +383,13 @@ esl_msa_bi_iset_Cobalt(const ESL_MSA *msa, double maxid,
  *
  * Throws:    <eslEMEM> on allocation failure, and <eslEINVAL> if a pairwise
  *            comparison is invalid (which means the MSA is corrupted, so it
- *            shouldn't happen). In either case, <opt_c> and <opt_nin> are set to <NULL>
+ *            shouldn't happen). In either case, <opt_c> is set to <NULL>
  *            and <opt_nc> is set to 0, and the <msa> is unmodified.
  */
 
 int
 esl_msa_bi_iset_Blue(const ESL_MSA *msa, double maxid,
-           int **opt_c, int **opt_nin, int *ret_larger, ESL_RANDOMNESS *r)
+           int **opt_c, int *ret_larger, ESL_RANDOMNESS *r)
 
 {
   int   status;
@@ -371,7 +401,14 @@ esl_msa_bi_iset_Blue(const ESL_MSA *msa, double maxid,
 
   /* Allocations */
   ESL_ALLOC(workspace,  sizeof(int) * msa->nseq*5);
-  ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
+  int allocated_assignment =0;
+  if(opt_c != NULL){
+    assignment = *opt_c;
+  }
+  else{
+    ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
+    allocated_assignment = 1;
+  }
 
   /* call to SLC API: */
   if (! (msa->flags & eslMSA_DIGITAL))
@@ -391,12 +428,12 @@ esl_msa_bi_iset_Blue(const ESL_MSA *msa, double maxid,
   /* cleanup and return */
   free(workspace);
   if (ret_larger != NULL) *ret_larger = larger;
-  if (opt_c  != NULL) *opt_c  = assignment; else free(assignment);
+  if (allocated_assignment) free(assignment);
   return eslOK;
 
  ERROR:
   if (workspace  != NULL) free(workspace);
-  if (assignment != NULL) free(assignment);
+  if (allocated_assignment) free(assignment);
   if (nin        != NULL) free(nin);
   if (ret_larger != NULL) *ret_larger = 0;
   if (opt_c  != NULL) *opt_c  = NULL;
@@ -451,9 +488,489 @@ msacluster_xlinkage(const void *v1, const void *v2, const void *p, int *ret_link
 
 
 
+/*****************************************************************
+ * 5. Test driver
+ *****************************************************************/
+
+#ifdef eslMSA_ISET_TESTDRIVE
+
+#include "esl_config.h"
+
+#include <stdio.h>
+#include <math.h>
+
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_getopts.h"
+#include "esl_msa.h"
+#include "esl_msafile.h"
+#include "esl_random.h"
+#include "esl_iset.h"
+
+// Checking functions heavily cribbed from check_iset and check_msa_iset in esl_iset.c
+/* Function: check_msa_iset()
+ * Synopsis: Verify that a subset of vertices is an independent set
+ * Incept:   NPC 1/24/22
+ *
+ * Purpose:  Given a subset of vertices, verify whether they form an 
+ *           independent set 
+ *
+ * Args:     digital     - nonzero if source MSA was digital, zero otherwise
+ *           base        - pointer to array of n fixed-size vertices in graph
+ *           n           - number of vertices
+ *           size        - size of each vertex element
+ *           maxid       - maximum identity used in the partitioning
+ *           abc         - alphabet used by the MSA. Only requiced if MSA digital
+ *           assignments - array of 0/1s; 1 indicates a vertex is in the subset, 0 indicates
+ *                         vertex not in the subset
+ *
+ * Returns:   <eslOK> if the subset is an independent set, eslFAIL if not
+ *
+ */
+
+static int check_msa_iset(int digital, void *base, size_t n, double maxid, ESL_ALPHABET *abc, int *assignments)
+{
+   int i,j;
+   int status;
+   int do_link;
+   struct msa_param_s param;
+
+   if (!digital){ // ASCII MSA
+    size_t size = sizeof(char *);
+    for (i = 0; i < n; i++){
+      for (j= i+1; j<n; j++){
+        if (assignments[i]==1 && assignments[j]==1) {
+          if ((status = msacluster_clinkage( (char *) base + j*size, (char *) base + i*size, &maxid, &do_link)) != eslOK) goto ERROR;
+	        if (do_link){
+              return eslFAIL;
+           }
+        }
+     }
+    }
+  }
+  else{
+    size_t size = sizeof(ESL_DSQ *);
+    param.maxid = maxid;
+    param.abc   = abc;
+    for (i = 0; i < n; i++){
+      for (j= i+1; j<n; j++){
+        if (assignments[i]==1 && assignments[j]==1) {
+          if ((status = msacluster_xlinkage( (char *) base + j*size, (char *) base + i*size, &param, &do_link)) != eslOK) goto ERROR;
+	        if (do_link){
+              return eslFAIL;
+           }
+        }
+     }
+    }
+  }
+  return eslOK;
+
+  ERROR:
+  return eslFAIL; 
+}
+
+/* Function: check_msa_bi_iset()
+ * Synopsis: Verify that a pair of subsets of vertices form a bipartite independent
+ *           pair
+ *
+ * Incept:   NPC 1/24/22
+ *  
+ * Purpose:  Given a pair of disjoint subsets of vertices, verify that the pair is a 
+ *           bipartite independent pair 
+ *
+ * Args:     digital     - nonzero if the source MSA was digital, 0 otherwise 
+ *           base        - pointer to array of n fixed-size vertices in graph
+ *           n           - number of vertices
+ *           size        - size of each vertex element
+ *           maxid       - maximum identity used in the partitioning
+ *           abc         - alphabet used by the MSA. Only requiced if MSA digital
+ *           assignments - array of 0/1/2s; 1 indicates the vertex is in one subset, 2 indicates a
+ *                         the vertex in in the other subset, 0 indicates the vertex is in neither
+ *
+ * Returns:   <eslOK> if the pair forms a bipartite independent pair 
+ *
+ * Throws:   esl_fatal error if not a bipartite independent set pair
+ */
+
+static int check_msa_bi_iset( int digital, void *base, size_t n, double maxid, ESL_ALPHABET *abc, int *assignments)
+{
+   struct msa_param_s param;
+   int i,j;
+   int status;
+   int do_link;
+  if(!digital){
+    size_t size = sizeof(char *);
+    for (i = 0; i < n; i++){
+      for (j= i+1; j<n; j++){
+        if (assignments[i]==1 && assignments[j]==2) {
+           if ((status = msacluster_clinkage( (char *) base + j*size, (char *) base + i*size, &maxid, &do_link)) != eslOK) goto ERROR;
+	         if (do_link){
+              return(eslFAIL);
+           }
+        }
+        else if (assignments[i]==2 && assignments[j]==1) {
+          if ((status = msacluster_clinkage( (char *) base + j*size, (char *) base + i*size, &maxid, &do_link)) != eslOK) goto ERROR;
+	        if (do_link){
+              return(eslFAIL);
+          }
+        }
+     }
+   }
+  }
+  else{
+    size_t size = sizeof(ESL_DSQ *);
+    param.maxid = maxid;
+    param.abc   = abc;
+    for (i = 0; i < n; i++){
+      for (j= i+1; j<n; j++){
+        if (assignments[i]==1 && assignments[j]==2) {
+           if ((status = msacluster_xlinkage( (char *) base + j*size, (char *) base + i*size, &param, &do_link)) != eslOK) goto ERROR;
+	         if (do_link){
+              return(eslFAIL);
+           }
+        }
+        else if (assignments[i]==2 && assignments[j]==1) {
+          if ((status = msacluster_xlinkage( (char *) base + j*size, (char *) base + i*size, &param, &do_link)) != eslOK) goto ERROR;
+	        if (do_link){
+              return(eslFAIL);
+          }
+        }
+     }
+   }
+  }
+   return eslOK;
+
+   ERROR:
+   return status;
+
+}
+
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for iset module";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_ALPHABET   *abc     = esl_alphabet_Create(eslAMINO);
+  int *assignments;
+  ESL_MSA        *msa     = esl_msa_CreateFromString("\
+# STOCKHOLM 1.0\n\
+\n\
+seq0  AAAAAAAAAA\n\
+seq1  AAAAAAAAAA\n\
+seq2  AAAAAAAAAC\n\
+seq3  AAAAAAAADD\n\
+seq4  AAAAAAAEEE\n\
+seq5  AAAAAAFFFF\n\
+seq6  AAAAAGGGGG\n\
+seq7  AAAAHHHHHH\n\
+seq8  AAAIIIIIII\n\
+seq9  AAKKKKKKKK\n\
+seq10 ALLLLLLLLL\n\
+seq11 MMMMMMMMMM\n\
+//",   eslMSAFILE_STOCKHOLM);
+  int status;
+  ESL_RANDOMNESS *r = NULL;
+  r=esl_randomness_Create(0);
+  ESL_ALLOC(assignments, 12 * sizeof(int));  //must be = # of sequences in alignment
+  // Make digital copy of the msa
+  ESL_MSA *msa2 = esl_msa_Create(12, 10);
+  esl_msa_Copy(msa, msa2);
+  esl_msa_Digitize(abc, msa2, NULL);
+  int larger, larger_set;
+  //Test 1: msa_iset_Cobalt on ASCII MSA
+  if(esl_msa_iset_Cobalt(msa, 0.5, &assignments, r) != eslOK){
+    return eslFAIL;
+  }
+  if(check_msa_iset(0, msa->aseq, 12, sizeof(char *), abc, assignments) != eslOK){
+    return eslFAIL;
+  }
+
+  //Test2: msa_iset_Cobalt on Digital MSA
+  if(esl_msa_iset_Cobalt(msa2, 0.5, &assignments, r) != eslOK){
+    return eslFAIL;
+  }
+  if(check_msa_iset(1, msa2->ax, 12, sizeof(char *), abc, assignments) != eslOK){
+    return eslFAIL;
+  }
+
+//Test 3: msa_iset_Blue on ASCII MSA
+  if(esl_msa_iset_Blue(msa, 0.5, &assignments, r) != eslOK){
+    return eslFAIL;
+  }
+  if(check_msa_iset(0, msa->aseq, 12, sizeof(char *), abc, assignments) != eslOK){
+    return eslFAIL;
+  }
+
+  //Test4: msa_iset_Blue on Digital MSA
+  if(esl_msa_iset_Blue(msa2, 0.5, &assignments, r) != eslOK){
+    return eslFAIL;
+  }
+  if(check_msa_iset(1, msa2->ax, 12, sizeof(char *), abc, assignments) != eslOK){
+    return eslFAIL;
+  }
+
+  //Test5: msa_bi_iset_Cobalt on ASCII MSA
+  if(esl_msa_bi_iset_Cobalt(msa, 0.5, &assignments, &larger, r) != eslOK){
+    return eslFAIL;
+  }
+  if(check_msa_bi_iset(0, msa->aseq, 12, 0.5, abc, assignments)!= eslOK){
+    return eslFAIL;
+  }
+  larger_set = 0;
+  for(int i = 0; i < 12; i++){
+    if(assignments[i] == 2){
+      larger_set++;
+    }
+    if(assignments[i] ==1){
+      larger_set--;
+    }
+  }
+
+  if((larger_set < 0) && (larger == 2)){
+    // check and return value disagree about which set is larger
+    return eslFAIL;
+  }
+   if((larger_set > 0) && (larger == 1)){
+    // check and return value disagree about which set is larger
+    return eslFAIL;
+  }
+
+  //Test6: msa_bi_iset_Cobalt on Digital MSA
+  if(esl_msa_bi_iset_Cobalt(msa2, 0.5, &assignments, &larger, r) != eslOK){
+    return eslFAIL;
+  }
+  if(check_msa_bi_iset(1, msa2->ax, 12, 0.5, abc, assignments)!= eslOK){
+    return eslFAIL;
+  }
+  larger_set = 0;
+  for(int i = 0; i < 12; i++){
+    if(assignments[i] == 2){
+      larger_set++;
+    }
+    if(assignments[i] ==1){
+      larger_set--;
+    }
+  }
+
+  if((larger_set < 0) && (larger == 2)){
+    // check and return value disagree about which set is larger
+    return eslFAIL;
+  }
+   if((larger_set > 0) && (larger == 1)){
+    // check and return value disagree about which set is larger
+    return eslFAIL;
+  }
+
+ //Test7: msa_bi_iset_Blue on ASCII MSA
+  if(esl_msa_bi_iset_Blue(msa, 0.5, &assignments, &larger, r) != eslOK){
+    return eslFAIL;
+  }
+  if(check_msa_bi_iset(0, msa->aseq, 12, 0.5, abc, assignments)!= eslOK){
+    return eslFAIL;
+  }
+  larger_set = 0;
+  for(int i = 0; i < 12; i++){
+    if(assignments[i] == 2){
+      larger_set++;
+    }
+    if(assignments[i] ==1){
+      larger_set--;
+    }
+  }
+
+  if((larger_set < 0) && (larger == 2)){
+    // check and return value disagree about which set is larger
+    return eslFAIL;
+  }
+   if((larger_set > 0) && (larger == 1)){
+    // check and return value disagree about which set is larger
+    return eslFAIL;
+  }
+
+  //Test8: msa_bi_iset_Blue on Digital MSA
+  if(esl_msa_bi_iset_Blue(msa2, 0.5, &assignments, &larger, r) != eslOK){
+    return eslFAIL;
+  }
+  if(check_msa_bi_iset(1, msa2->ax, 12, 0.5, abc, assignments)!= eslOK){
+    return eslFAIL;
+  }
+  larger_set = 0;
+  for(int i = 0; i < 12; i++){
+    if(assignments[i] == 2){
+      larger_set++;
+    }
+    if(assignments[i] ==1){
+      larger_set--;
+    }
+  }
+
+  if((larger_set < 0) && (larger == 2)){
+    // check and return value disagree about which set is larger
+    return eslFAIL;
+  }
+   if((larger_set > 0) && (larger == 1)){
+    // check and return value disagree about which set is larger
+    return eslFAIL;
+  }
+ //Test9: msa_bi_iset_Random on ASCII MSA
+  if(esl_msa_bi_iset_Random(msa, 0.5, &assignments, r, 0.3) != eslOK){
+    return eslFAIL;
+  }
+  if(check_msa_bi_iset(0, msa->aseq, 12, 0.5, abc, assignments)!= eslOK){
+    return eslFAIL;
+  }
 
 
+  //Test9: msa_bi_iset_Random on Digital MSA
+  if(esl_msa_bi_iset_Random(msa2, 0.5, &assignments, r, 0.3) != eslOK){
+    return eslFAIL;
+  }
+  if(check_msa_bi_iset(1, msa2->ax, 12, 0.5, abc, assignments)!= eslOK){
+    return eslFAIL;
+  }
+  esl_msa_Destroy(msa);
+  esl_msa_Destroy(msa2);
+  esl_alphabet_Destroy(abc);
+  esl_getopts_Destroy(go);
+  esl_randomness_Destroy(r);
+  free(assignments);
+  return eslOK;
+
+  ERROR:
+  return eslFAIL;
+}
+#endif /* eslMSA_ISET_TESTDRIVE*/
 
 
+/*****************************************************************
+ * 6. Example.
+ *****************************************************************/ 
+
+#ifdef eslMSA_ISET_EXAMPLE
+#include "esl_config.h"
+
+#include <stdio.h>
+#include <math.h>
+
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_getopts.h"
+#include "esl_msa.h"
+#include "esl_msafile.h"
+#include "esl_random.h"
+#include "esl_iset.h"
 
 
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for iset module";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_ALPHABET   *abc     = esl_alphabet_Create(eslAMINO);
+  int *assignments;
+  ESL_MSA        *msa     = esl_msa_CreateFromString("\
+# STOCKHOLM 1.0\n\
+\n\
+seq0  AAAAAAAAAA\n\
+seq1  AAAAAAAAAA\n\
+seq2  AAAAAAAAAC\n\
+seq3  AAAAAAAADD\n\
+seq4  AAAAAAAEEE\n\
+seq5  AAAAAAFFFF\n\
+seq6  AAAAAGGGGG\n\
+seq7  AAAAHHHHHH\n\
+seq8  AAAIIIIIII\n\
+seq9  AAKKKKKKKK\n\
+seq10 ALLLLLLLLL\n\
+seq11 MMMMMMMMMM\n\
+//",   eslMSAFILE_STOCKHOLM);
+  int status;
+  ESL_RANDOMNESS *r = NULL;
+  r=esl_randomness_Create(0);
+  ESL_ALLOC(assignments, 12 * sizeof(int));  //must be = # of sequences in alignment
+  // Make digital copy of the msa
+  ESL_MSA *msa2 = esl_msa_Create(12, 10);
+  esl_msa_Copy(msa, msa2);
+  esl_msa_Digitize(abc, msa2, NULL);
+  int larger, larger_set;
+
+  //msa_iset_Cobalt on ASCII MSA
+  if(esl_msa_iset_Cobalt(msa, 0.5, &assignments, r) != eslOK){
+    return eslFAIL;
+  }
+  
+  //msa_iset_Cobalt on Digital MSA
+  if(esl_msa_iset_Cobalt(msa2, 0.5, &assignments, r) != eslOK){
+    return eslFAIL;
+  }
+
+  //msa_iset_Blue on ASCII MSA
+  if(esl_msa_iset_Blue(msa, 0.5, &assignments, r) != eslOK){
+    return eslFAIL;
+  }
+ 
+  //msa_iset_Blue on Digital MSA
+  if(esl_msa_iset_Blue(msa2, 0.5, &assignments, r) != eslOK){
+    return eslFAIL;
+  }
+  
+  //msa_bi_iset_Cobalt on ASCII MSA
+  if(esl_msa_bi_iset_Cobalt(msa, 0.5, &assignments, &larger, r) != eslOK){
+    return eslFAIL;
+  }
+ 
+  //msa_bi_iset_Cobalt on Digital MSA
+  if(esl_msa_bi_iset_Cobalt(msa2, 0.5, &assignments, &larger, r) != eslOK){
+    return eslFAIL;
+  }
+
+ 
+ //msa_bi_iset_Blue on ASCII MSA
+  if(esl_msa_bi_iset_Blue(msa, 0.5, &assignments, &larger, r) != eslOK){
+    return eslFAIL;
+  }
+  
+ 
+  //msa_bi_iset_Blue on Digital MSA
+  if(esl_msa_bi_iset_Blue(msa2, 0.5, &assignments, &larger, r) != eslOK){
+    return eslFAIL;
+  }
+ 
+  
+ //msa_bi_iset_Random on ASCII MSA
+  if(esl_msa_bi_iset_Random(msa, 0.5, &assignments, r, 0.3) != eslOK){
+    return eslFAIL;
+  }
+
+
+  //msa_bi_iset_Random on Digital MSA
+  if(esl_msa_bi_iset_Random(msa2, 0.5, &assignments, r, 0.3) != eslOK){
+    return eslFAIL;
+  }
+ 
+  esl_msa_Destroy(msa);
+  esl_msa_Destroy(msa2);
+  esl_alphabet_Destroy(abc);
+  esl_getopts_Destroy(go);
+  esl_randomness_Destroy(r);
+  free(assignments);
+  return eslOK;
+
+  ERROR:
+  return eslFAIL;
+}
+#endif /* eslMSA_ISET_TESTDRIVE*/
