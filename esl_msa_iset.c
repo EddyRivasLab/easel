@@ -82,14 +82,21 @@ esl_msa_iset_Cobalt(const ESL_MSA *msa, double maxid,
   int  *nin        = NULL;
   struct msa_param_s param;
   int allocated_assignment =0;
+  int free_assignment = 0;
   /* Allocations */
   ESL_ALLOC(workspace,  sizeof(int) * msa->nseq * 2);
-  if(opt_c != NULL){
+  if(opt_c != NULL && *opt_c !=NULL){ // opt_c exists, and already has memory allocated
     assignment = *opt_c;
   }
-  else{
+  else{ // need to allocate space for assignment
     ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
     allocated_assignment = 1;
+    if(opt_c != NULL){ // opt_c exists, but had no memory allocated
+      *opt_c = assignment;
+    }
+    else{ // opt_c doesn't exist, so need to clean up assignment memory
+      free_assignment = 1;
+    }
   }
   /* call to SLC API: */
   if (! (msa->flags & eslMSA_DIGITAL))
@@ -111,7 +118,7 @@ esl_msa_iset_Cobalt(const ESL_MSA *msa, double maxid,
 
   /* cleanup and return */
   free(workspace);
-  if(allocated_assignment){
+  if(free_assignment){
     free(assignment);
   }
   return eslOK;
@@ -158,15 +165,21 @@ esl_msa_iset_Blue(const ESL_MSA *msa, double maxid,
   int  *nin        = NULL;
   struct msa_param_s param;
   int allocated_assignment = 0;
-
+  int free_assignment = 0;
   /* Allocations */
   ESL_ALLOC(workspace,  sizeof(int) * msa->nseq * 4);
-  if(opt_c != NULL){
+  if(opt_c != NULL && *opt_c !=NULL){ // opt_c exists, and already has memory allocated
     assignment = *opt_c;
   }
-  else{
+  else{ // need to allocate space for assignment
     ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
     allocated_assignment = 1;
+    if(opt_c != NULL){ // opt_c exists, but had no memory allocated
+      *opt_c = assignment;
+    }
+    else{ // opt_c doesn't exist, so need to clean up assignment memory
+      free_assignment = 1;
+    }
   }
 
   /* call to SLC API: */
@@ -189,7 +202,7 @@ esl_msa_iset_Blue(const ESL_MSA *msa, double maxid,
 
   /* cleanup and return */
   free(workspace);
-  if (allocated_assignment) free(assignment);
+  if (free_assignment) free(assignment);
   return eslOK;
 
  ERROR:
@@ -245,13 +258,20 @@ esl_msa_bi_iset_Random(const ESL_MSA *msa, double maxid,
 
   /* Allocations */
   int allocated_assignment =0;
+  int free_assignment = 0;
   /* Allocations */
-  if(opt_c != NULL){
+  if(opt_c != NULL && *opt_c !=NULL){ // opt_c exists, and already has memory allocated
     assignment = *opt_c;
   }
-  else{
+  else{ // need to allocate space for assignment
     ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
     allocated_assignment = 1;
+    if(opt_c != NULL){ // opt_c exists, but had no memory allocated
+      *opt_c = assignment;
+    }
+    else{ // opt_c doesn't exist, so need to clean up assignment memory
+      free_assignment = 1;
+    }
   }
 
   /* call to SLC API: */
@@ -270,7 +290,7 @@ esl_msa_bi_iset_Random(const ESL_MSA *msa, double maxid,
   if (status != eslOK) goto ERROR;
 
   /* cleanup and return */
-  if (allocated_assignment) free(assignment);
+  if (free_assignment) free(assignment);
   return eslOK;
 
  ERROR:
@@ -322,14 +342,21 @@ esl_msa_bi_iset_Cobalt(const ESL_MSA *msa, double maxid,
 
   /* Allocations */
   int allocated_assignment =0;
+  int free_assignment = 0;
   /* Allocations */
   ESL_ALLOC(workspace,  sizeof(int) * msa->nseq * 3);
-  if(opt_c != NULL){
+  if(opt_c != NULL && *opt_c !=NULL){ // opt_c exists, and already has memory allocated
     assignment = *opt_c;
   }
-  else{
+  else{ // need to allocate space for assignment
     ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
     allocated_assignment = 1;
+    if(opt_c != NULL){ // opt_c exists, but had no memory allocated
+      *opt_c = assignment;
+    }
+    else{ // opt_c doesn't exist, so need to clean up assignment memory
+      free_assignment = 1;
+    }
   }
 
   /* call to SLC API: */
@@ -350,7 +377,7 @@ esl_msa_bi_iset_Cobalt(const ESL_MSA *msa, double maxid,
   /* cleanup and return */
   free(workspace);
   if (ret_larger != NULL) *ret_larger = larger;
-  if (allocated_assignment) free(assignment);
+  if (free_assignment) free(assignment);
   return eslOK;
 
  ERROR:
@@ -404,12 +431,19 @@ esl_msa_bi_iset_Blue(const ESL_MSA *msa, double maxid,
   /* Allocations */
   ESL_ALLOC(workspace,  sizeof(int) * msa->nseq*5);
   int allocated_assignment =0;
-  if(opt_c != NULL){
+  int free_assignment = 0;
+  if(opt_c != NULL && *opt_c !=NULL){ // opt_c exists, and already has memory allocated
     assignment = *opt_c;
   }
-  else{
+  else{ // need to allocate space for assignment
     ESL_ALLOC(assignment, sizeof(int) * msa->nseq);
     allocated_assignment = 1;
+    if(opt_c != NULL){ // opt_c exists, but had no memory allocated
+      *opt_c = assignment;
+    }
+    else{ // opt_c doesn't exist, so need to clean up assignment memory
+      free_assignment = 1;
+    }
   }
 
   /* call to SLC API: */
@@ -430,7 +464,7 @@ esl_msa_bi_iset_Blue(const ESL_MSA *msa, double maxid,
   /* cleanup and return */
   free(workspace);
   if (ret_larger != NULL) *ret_larger = larger;
-  if (allocated_assignment) free(assignment);
+  if (free_assignment) free(assignment);
   return eslOK;
 
  ERROR:
@@ -661,6 +695,7 @@ main(int argc, char **argv)
   ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   ESL_ALPHABET   *abc     = esl_alphabet_Create(eslAMINO);
   int *assignments;
+  char *msg = "esl_msa_iset_utest failed;";
   ESL_MSA        *msa     = esl_msa_CreateFromString("\
 # STOCKHOLM 1.0\n\
 \n\
@@ -837,6 +872,68 @@ seq11 MMMMMMMMMM\n\
   if(check_msa_bi_iset(1, msa2->ax, 12, 0.5, abc, assignments)!= eslOK){
     return eslFAIL;
   }
+
+  free(assignments);
+// test handling of the three possible cases for the assignment input/output
+
+  // Passing NULL as assignment should cause allocate + free within 
+  //msacluster_SingleLinkage
+  if (esl_msa_iset_Cobalt(msa, 0.5, NULL, r) != eslOK) esl_fatal(msg);
+  if (esl_msa_iset_Blue(msa, 0.5, NULL, r) != eslOK) esl_fatal(msg);
+  if (esl_msa_bi_iset_Blue(msa, 0.5, NULL, &larger, r) != eslOK) esl_fatal(msg);
+  if (esl_msa_bi_iset_Cobalt(msa, 0.5, NULL, &larger, r) != eslOK) esl_fatal(msg);
+  if (esl_msa_bi_iset_Random(msa, 0.5, NULL, r, 0.3) != eslOK) esl_fatal(msg);
+  
+  assignments = NULL;
+
+  // Passing an assignment variable with no backing storage should cause //
+  // msacluster_SingleLinkage to allocate
+  if (esl_msa_iset_Cobalt(msa, 0.5, &assignments, r) != eslOK) esl_fatal(msg);
+  if(assignments == NULL) esl_fatal(msg);
+  free(assignments);
+  assignments = NULL;
+
+  if (esl_msa_iset_Blue(msa, 0.5, &assignments, r) != eslOK) esl_fatal(msg);
+  if(assignments == NULL) esl_fatal(msg);
+  free(assignments);
+  assignments = NULL;
+
+  if (esl_msa_bi_iset_Blue(msa, 0.5, &assignments, &larger, r) != eslOK) esl_fatal(msg);
+  if(assignments == NULL) esl_fatal(msg);
+  free(assignments);
+  assignments = NULL;
+  
+  if (esl_msa_bi_iset_Cobalt(msa, 0.5, &assignments, &larger, r) != eslOK) esl_fatal(msg);
+  if(assignments == NULL) esl_fatal(msg);
+  free(assignments);
+  assignments = NULL;
+
+  if (esl_msa_bi_iset_Random(msa, 0.5, &assignments, r, 0.3) != eslOK) esl_fatal(msg);
+  if(assignments == NULL) esl_fatal(msg);
+  free(assignments);
+  assignments = NULL;
+
+
+  ESL_ALLOC(assignments, 12*sizeof(int));
+  int *assignments2 = assignments;
+
+  // Passing an assignment variable with  backing storage should cause //
+  // msacluster_SingleLinkage to use the allocated storage
+ if (esl_msa_iset_Cobalt(msa, 0.5, &assignments, r) != eslOK) esl_fatal(msg);
+  if(assignments != assignments2) esl_fatal(msg);
+
+  if (esl_msa_iset_Blue(msa, 0.5, &assignments, r) != eslOK) esl_fatal(msg);
+  if(assignments != assignments2) esl_fatal(msg);
+
+  if (esl_msa_bi_iset_Blue(msa, 0.5, &assignments, &larger, r) != eslOK) esl_fatal(msg);
+  if(assignments != assignments2) esl_fatal(msg);
+
+  if (esl_msa_bi_iset_Cobalt(msa, 0.5, &assignments, &larger, r) != eslOK) esl_fatal(msg);
+  if(assignments != assignments2) esl_fatal(msg);
+
+  if (esl_msa_bi_iset_Random(msa, 0.5, &assignments, r, 0.3) != eslOK) esl_fatal(msg);
+  if(assignments != assignments2) esl_fatal(msg);
+
   esl_msa_Destroy(msa);
   esl_msa_Destroy(msa2);
   esl_alphabet_Destroy(abc);
