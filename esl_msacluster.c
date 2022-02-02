@@ -325,7 +325,7 @@ main(int argc, char **argv)
 {
   ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   ESL_ALPHABET   *abc     = esl_alphabet_Create(eslAMINO);
-  char *msg = "esl_msacluster_utest failed\n";
+  char *msg = "esl_msacluster_utest failed";
   int status;
   ESL_MSA        *msa     = esl_msa_CreateFromString("\
 # STOCKHOLM 1.0\n\
