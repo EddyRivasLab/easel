@@ -7,8 +7,8 @@ input, piped output from executed commands, C strings, and raw memory
 
 The main rationale for \eslmod{buffer} is to enable multipass parsing
 of any input, even a nonrewindable stream or pipe. A canonical problem
-in sequence file parsing is that we need to know both the format (
-FASTA or Genbank, for instance) and the alphabet (protein or nucleic
+in sequence file parsing is that we need to know both the format
+(FASTA or Genbank, for instance) and the alphabet (protein or nucleic
 acid, for instance) in order to parse Easel-digitized sequence data
 records. To write ``smart'' parsers that automagically determine the
 file format and alphabet, so programs work transparently on lots of

@@ -2188,7 +2188,6 @@ utest_guess_empty_seq()
   ESL_SQ*     seqs[2];
   FILE       *fp;
   ESL_SQFILE *sqfp;
-  int         i;
   int         alphatype;
 
   if ((seqs[0] = esl_sq_CreateFrom("seqs0", "", NULL, NULL, NULL)) == NULL) esl_fatal(msg);

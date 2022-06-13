@@ -37,8 +37,8 @@
  *
  * Args:      x        - samples x[0]..x[n-1]
  *            n        - number of samples
- *            opt_mean - optRETURN: mean
- *            opt_var  - optRETURN: estimate of population variance       
+ *            opt_mean - optRETURN: sample mean
+ *            opt_var  - optRETURN: sample variance
  *
  * Returns:   <eslOK> on success.
  */
@@ -162,8 +162,10 @@ esl_stats_LogGamma(double x, double *ret_answer)
  *            $d/dx \log \Gamma(x) = \frac{\Gamma'(x)}{\Gamma(x)} = \Psi(x)$.
  *            Argument $x$ is $> 0$. 
  * 
- *            This is J.M. Bernardo's "Algorithm AS103",
- *            Appl. Stat. 25:315-317 (1976).  
+ *            Implements J.M. Bernardo's "Algorithm AS 103", J Royal
+ *            Stat. Soc. C (Appl. Stat.) 25:315-317 (1976).
+ *
+ * Throws:    <eslERANGE> if x <= 0
  */
 int
 esl_stats_Psi(double x, double *ret_answer)

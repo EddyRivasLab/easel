@@ -3325,7 +3325,7 @@ esl_msa_CompareOptional(ESL_MSA *a1, ESL_MSA *a2)
  *            doesn't generate.
  */
 int
-esl_msa_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int max_nseq, int max_alen, ESL_MSA **ret_msa)
+esl_msa_Sample(ESL_RANDOMNESS *rng, const ESL_ALPHABET *abc, int max_nseq, int max_alen, ESL_MSA **ret_msa)
 {
   ESL_MSA *msa    = NULL;
   int      nseq   = 1 + esl_rnd_Roll(rng, max_nseq); // 1..max_nseq

@@ -308,8 +308,11 @@ esl_gam_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double tau)
 {
   double x;
 
-  x = esl_rnd_Gamma(r, tau);
-  return (mu + x / lambda);
+  do {
+    x = esl_rnd_Gamma(r, tau);
+    x = mu + x / lambda;        // a roundoff error of 1 + \epsilon = 1 is possible here
+  } while (x == mu);            // ... so avoid it.
+  return x;
 } 
 /*--------------------------- end sampling ---------------------------------*/
 
@@ -468,7 +471,7 @@ tau_function(double tau, double mean, double logsum)
 
 /* Function:  esl_gam_FitCompleteBinned()
  *
- * Purpose:   Fit a complete exponential distribution to the observed
+ * Purpose:   Fit a complete gamma distribution to the observed
  *            binned data in a histogram <g>, where each
  *            bin i holds some number of observed samples x with values from 
  *            lower bound l to upper bound u (that is, $l < x \leq u$);
@@ -491,7 +494,7 @@ tau_function(double tau, double mean, double logsum)
  *            $\sum_i n_i*c_i i$, and so forth.
  *
  *            If the binned data in <g> were set to focus on 
- *            a tail by virtual censoring, the "complete" exponential is 
+ *            a tail by virtual censoring, the "complete" gamma is 
  *            fitted to this tail. The caller then also needs to
  *            remember what fraction of the probability mass was in this
  *            tail.
