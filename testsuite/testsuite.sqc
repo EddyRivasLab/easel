@@ -33,6 +33,7 @@
 # hmm
 1 exercise huffman-utest      @esl_huffman_utest@
 1 exercise hyperexp-utest     @esl_hyperexp_utest@
+1 exercise iset-utest         @esl_iset_utest@
 1 exercise json-utest         @esl_json_utest@
 1 exercise keyhash-utest      @esl_keyhash_utest@
 1 exercise matrixops-utest    @esl_matrixops_utest@
@@ -151,6 +152,7 @@
 # hmm
 3 valgrind huffman-utest      @esl_huffman_utest@
 3 valgrind hyperexp-utest     @esl_hyperexp_utest@
+3 valgrind iset-utest         @esl_iset_utest@
 3 valgrind json-utest         @esl_json_utest@
 3 valgrind keyhash-utest      @esl_keyhash_utest@
 3 valgrind matrixops-utest    @esl_matrixops_utest@
