@@ -110,7 +110,7 @@ esl_lognormal_FitComplete(double *x, int n, double *ret_mu, double *ret_sigma)
  *
  * Returns:   <eslOK> on success
  *
- * Throws:    <eslEINVAL> for problems like c[0] != 0, c[i] < 0, zero counts.
+ * Throws:    <eslEINVAL> for problems like c[0] != 0, c[i] < 0, or zero total counts.
  */
 int
 esl_lognormal_FitCountHistogram(double *c, int n, double *ret_mu, double *ret_sigma)
