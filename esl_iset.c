@@ -365,7 +365,7 @@ esl_iset_Cobalt(void *base, size_t n, size_t size,
 
     /*check if adjacent to any vertex in b*/
     adj=FALSE;
-    for (int i = n; i < n+nb; i++){
+    for (i = n; i < n+nb; i++){
         if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + a[i]*size, param, &do_link)) != eslOK) goto ERROR;
         if (do_link){ /* is adjacent */
           /* adjacent, break out of loop  */
@@ -488,7 +488,7 @@ int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r)
       if (adj1) {
 
         adj2=FALSE;
-        for (int i = 2*n; i < 2*n+nb2; i++){
+        for (i = 2*n; i < 2*n+nb2; i++){
           if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + a[i]*size, param, &do_link)) != eslOK) goto ERROR;
           if (do_link){ /* is adjacent */
             /* adjacent, break out of loop  */
@@ -523,7 +523,7 @@ int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r)
     /* first try to put v in b1 */
     /*check if v is adjacent to any vertex in b2*/
       adj2=FALSE;
-      for (int i = 2*n; i < 2*n+nb2; i++){
+      for (i = 2*n; i < 2*n+nb2; i++){
         if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + a[i]*size, param, &do_link)) != eslOK) goto ERROR;
         if (do_link){ /* is adjacent */
         /* adjacent, break out of loop  */
@@ -535,7 +535,7 @@ int *workspace, int *assignments, int *ret_larger, ESL_RANDOMNESS *r)
       /* if exited loop early, v is adjacent to a vertex in b2, v will not go in b1; try putting v in b2*/
       if (adj2) {
         adj1=FALSE;
-        for (int i = n; i < n+nb1; i++){
+        for (i = n; i < n+nb1; i++){
           if ((status = (*linkfunc)( (char *) base + v*size, (char *) base + a[i]*size, param, &do_link)) != eslOK) goto ERROR;
           if (do_link){ /* is adjacent */
             /* adjacent, break out of loop  */
@@ -1442,7 +1442,8 @@ main(int argc, char **argv)
   ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   ESL_ALPHABET   *abc     = esl_alphabet_Create(eslAMINO);
   int *assignments;
-  ESL_MSA        *msa     = esl_msa_CreateFromString("\
+  int i;
+  ESL_MSA *msa = esl_msa_CreateFromString("\
 # STOCKHOLM 1.0\n\
 \n\
 seq0  AAAAAAAAAA\n\
@@ -1457,7 +1458,8 @@ seq8  AAAIIIIIII\n\
 seq9  AAKKKKKKKK\n\
 seq10 ALLLLLLLLL\n\
 seq11 MMMMMMMMMM\n\
-//",   eslMSAFILE_STOCKHOLM);
+//",
+                                          eslMSAFILE_STOCKHOLM);
   int status;
   int *workspace;
   ESL_ALLOC(workspace, 5*12*sizeof(int));  // allocate to the largest workspace required
@@ -1514,7 +1516,7 @@ seq11 MMMMMMMMMM\n\
     return eslFAIL;
   }
   larger_set = 0;
-  for(int i = 0; i < 12; i++){
+  for(i = 0; i < 12; i++){
     if(assignments[i] == 2){
       larger_set++;
     }
@@ -1540,7 +1542,7 @@ seq11 MMMMMMMMMM\n\
     return eslFAIL;
   }
   larger_set = 0;
-  for(int i = 0; i < 12; i++){
+  for(i = 0; i < 12; i++){
     if(assignments[i] == 2){
       larger_set++;
     }
@@ -1566,7 +1568,7 @@ seq11 MMMMMMMMMM\n\
     return eslFAIL;
   }
   larger_set = 0;
-  for(int i = 0; i < 12; i++){
+  for(i = 0; i < 12; i++){
     if(assignments[i] == 2){
       larger_set++;
     }
@@ -1592,7 +1594,7 @@ seq11 MMMMMMMMMM\n\
     return eslFAIL;
   }
   larger_set = 0;
-  for(int i = 0; i < 12; i++){
+  for(i = 0; i < 12; i++){
     if(assignments[i] == 2){
       larger_set++;
     }

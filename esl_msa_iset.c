@@ -696,7 +696,8 @@ main(int argc, char **argv)
   ESL_ALPHABET   *abc     = esl_alphabet_Create(eslAMINO);
   int *assignments;
   char *msg = "esl_msa_iset_utest failed;";
-  ESL_MSA        *msa     = esl_msa_CreateFromString("\
+  int i;
+  ESL_MSA *msa = esl_msa_CreateFromString("\
 # STOCKHOLM 1.0\n\
 \n\
 seq0  AAAAAAAAAA\n\
@@ -711,7 +712,8 @@ seq8  AAAIIIIIII\n\
 seq9  AAKKKKKKKK\n\
 seq10 ALLLLLLLLL\n\
 seq11 MMMMMMMMMM\n\
-//",   eslMSAFILE_STOCKHOLM);
+//",
+                                          eslMSAFILE_STOCKHOLM);
   int status;
   ESL_RANDOMNESS *r = NULL;
   r=esl_randomness_Create(0);
@@ -761,7 +763,7 @@ seq11 MMMMMMMMMM\n\
     return eslFAIL;
   }
   larger_set = 0;
-  for(int i = 0; i < 12; i++){
+  for(i = 0; i < 12; i++){
     if(assignments[i] == 2){
       larger_set++;
     }
@@ -787,7 +789,7 @@ seq11 MMMMMMMMMM\n\
     return eslFAIL;
   }
   larger_set = 0;
-  for(int i = 0; i < 12; i++){
+  for(i = 0; i < 12; i++){
     if(assignments[i] == 2){
       larger_set++;
     }
@@ -813,7 +815,7 @@ seq11 MMMMMMMMMM\n\
     return eslFAIL;
   }
   larger_set = 0;
-  for(int i = 0; i < 12; i++){
+  for(i = 0; i < 12; i++){
     if(assignments[i] == 2){
       larger_set++;
     }
@@ -839,7 +841,7 @@ seq11 MMMMMMMMMM\n\
     return eslFAIL;
   }
   larger_set = 0;
-  for(int i = 0; i < 12; i++){
+  for(i = 0; i < 12; i++){
     if(assignments[i] == 2){
       larger_set++;
     }
