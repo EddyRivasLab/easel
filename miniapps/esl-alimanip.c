@@ -842,7 +842,6 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   int    *cct = NULL;		   /* 0..alen-1 base pair partners array for consensus        */
   int    *ct  = NULL;		   /* 0..alen-1 base pair partners array for current sequence */
   char   *ss  = NULL;              /* individual secondary structure we've built              */
-  char   *ss_cons_nopseudo = NULL; /* no-pseudoknot version of consensus structure            */
   int     status;
 
   if(msa->ss_cons == NULL)                                ESL_FAIL(eslEINVAL, errbuf, "--sindi requires MSA to have consensus structure annotation.\n");
@@ -851,10 +850,7 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   ESL_ALLOC(cct, sizeof(int)  * (msa->alen+1));
   ESL_ALLOC(ct,  sizeof(int)  * (msa->alen+1));
   ESL_ALLOC(ss,  sizeof(char) * (msa->alen+1));
-  //ESL_ALLOC(ss_cons_nopseudo, sizeof(char) * (msa->alen+1));
 
-  //esl_wuss_nopseudo(msa->ss_cons, ss_cons_nopseudo);
-  //if (esl_wuss2ct(ss_cons_nopseudo, msa->alen, cct) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Consensus structure string is inconsistent.");
   if (esl_wuss2ct(msa->ss_cons, msa->alen, cct) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Consensus structure string is inconsistent.");
 
   /* go through each position of each sequence, 
@@ -893,14 +889,12 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   free(cct);
   free(ct);
   free(ss);
-  free(ss_cons_nopseudo);
   return eslOK;
 
  ERROR:
   if (cct)               free(cct);
   if (ct)                free(ct);
   if (ss)                free(ss);
-  //if (ss_cons_nopseudo)  free(ss_cons_nopseudo);
   return status;
 }
 
