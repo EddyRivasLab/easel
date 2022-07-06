@@ -67,6 +67,22 @@ seq3              ..AAAA..AAAA...C...CCCCCC.C..GGGG-....
 EOF
 close ALIFILE;
 
+open(ALIFILE, ">$tmppfx.pknot.stk") || die "FAIL: couldn't open $tmppfx.stk2 for writing alifile";
+print ALIFILE << "EOF";
+# STOCKHOLM 1.0
+seq1         aaAANA..AAAA...CcCCCCCCCC.C..GGGGGgggg
+#=GR seq1 PP 5789**..**88...*999****88.7..776543210
+seq2         ..AARAa.AAAAaacCcCCCCCCCCcCccGGGGG....
+#=GR seq2 PP ..********************************....
+seq3         ..AAAA..AAAA...C.CCCCCCCC.C..GGGG-....
+#=GR seq3 PP ..5555..4*44...3.88888888.8..8899.....
+#=GC SS_cons ..<<...........A.>><<<<.B....>>>>a.b..
+#=GC PP_cons ..789*..8877...8...****99.8..99998....
+#=GC RF      ..AAAA..AAAA...C.CCCCCCCC.c..GGGGGGG..
+//
+EOF
+close ALIFILE;
+
 open(ALIFILE, ">$tmppfx.afa") || die "FAIL: couldn't open $tmppfx.afa for writing alifile";
 print ALIFILE << "EOF";
 >seq1
@@ -335,6 +351,11 @@ if ($? != 0)                                                          { die "FAI
 if ($output !~ /#=GR seq1 SS :::::::::::::::<---<<<<______>>>>>::::/) { die "FAIL: alignment manipulated incorrectly"; }
 if ($output !~ /#=GR seq3 SS :::::::::::::::::::<<<<______>>>>:::::/) { die "FAIL: alignment manipulated incorrectly"; }
 
+$output = `$eslalimanip --rna --sindi $tmppfx.pknot.stk 2>&1`;
+if ($? != 0)                                                          { die "FAIL: esl-alimanip failed unexpectedly";  }
+if ($output !~ /#=GR seq1 SS ::<<___________A_>><<<<_B____>>>>a:b::/) { die "FAIL: alignment manipulated incorrectly"; }
+if ($output !~ /#=GR seq3 SS ::<<_____________>><<<<______>>>>:::::/) { die "FAIL: alignment manipulated incorrectly"; }
+
 $output = `$eslalimanip --rna --post2pp $tmppfx.post.stk 2>&1`;
 if ($? != 0)                                                                    { die "FAIL: esl-alimanip failed unexpectedly";  }
 if ($output !~ /#=GR seq1 PP 588\*\*\*..\*\*98...\*9.9\*\*\*\*88.8..777554310/) { die "FAIL: alignment manipulated incorrectly"; }
@@ -345,6 +366,7 @@ unlink "$tmppfx.stk";
 unlink "$tmppfx.stk2";
 unlink "$tmppfx.o.stk";
 unlink "$tmppfx.post.stk";
+unlink "$tmppfx.pknot.stk";
 unlink "$tmppfx.afa";
 unlink "$tmppfx.list";
 unlink "$tmppfx.list2";
