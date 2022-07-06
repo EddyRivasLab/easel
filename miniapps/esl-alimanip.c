@@ -851,10 +851,11 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   ESL_ALLOC(cct, sizeof(int)  * (msa->alen+1));
   ESL_ALLOC(ct,  sizeof(int)  * (msa->alen+1));
   ESL_ALLOC(ss,  sizeof(char) * (msa->alen+1));
-  ESL_ALLOC(ss_cons_nopseudo, sizeof(char) * (msa->alen+1));
+  //ESL_ALLOC(ss_cons_nopseudo, sizeof(char) * (msa->alen+1));
 
-  esl_wuss_nopseudo(msa->ss_cons, ss_cons_nopseudo);
-  if (esl_wuss2ct(ss_cons_nopseudo, msa->alen, cct) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Consensus structure string is inconsistent.");
+  //esl_wuss_nopseudo(msa->ss_cons, ss_cons_nopseudo);
+  //if (esl_wuss2ct(ss_cons_nopseudo, msa->alen, cct) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Consensus structure string is inconsistent.");
+  if (esl_wuss2ct(msa->ss_cons, msa->alen, cct) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Consensus structure string is inconsistent.");
 
   /* go through each position of each sequence, 
      if it's a gap and it is part of a base pair, remove that base pair */
@@ -868,7 +869,25 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 	    ct[apos] = 0;
 	  }
       /* convert to WUSS SS string and append to MSA */
-      if (esl_ct2wuss(ct, msa->alen, ss) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Unexpected error converting de-knotted bp ct array to wuss notation.");
+      if (esl_ct2wuss(ct, msa->alen, ss) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Unexpected error converting bp ct array to wuss notation.");
+
+      /* for pknots it's possible that the letters have changed
+       * (e.g. AAA..aaa has become BBB..bbb), so manually go back and
+       * revert these to what they are in SS_cons.
+       */
+      for (apos = 1; apos <= msa->alen; apos++) { 
+        if ((isupper((int) ss[apos-1])) || (islower((int) ss[apos-1]))) { 
+          ss[apos-1] = msa->ss_cons[apos-1]; 
+        }
+      }
+
+      /* we should be protected from having created an inconsistent SS
+       * string because we successfully ran esl_wuss2ct on ss_cons
+       * above, but just as a paranoid extra check we run it again and
+       * fail if we have a problem
+       */
+      if (esl_wuss2ct(ss, msa->alen, ct) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Individual structure string is unexpectedly inconsistent after converting from consensus.");
+
       esl_msa_AppendGR(msa, "SS", i, ss);
     }
   free(cct);
@@ -881,7 +900,7 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   if (cct)               free(cct);
   if (ct)                free(ct);
   if (ss)                free(ss);
-  if (ss_cons_nopseudo)  free(ss_cons_nopseudo);
+  //if (ss_cons_nopseudo)  free(ss_cons_nopseudo);
   return status;
 }
 
