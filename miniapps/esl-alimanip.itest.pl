@@ -348,13 +348,23 @@ if ($output =~ /#=GC PP_cons/) { die "FAIL: alignment manipulated incorrectly"; 
 
 $output = `$eslalimanip --rna --sindi $tmppfx.stk 2>&1`;
 if ($? != 0)                                                          { die "FAIL: esl-alimanip failed unexpectedly";  }
-if ($output !~ /#=GR seq1 SS :::::::::::::::<---<<<<______>>>>>::::/) { die "FAIL: alignment manipulated incorrectly"; }
-if ($output !~ /#=GR seq3 SS :::::::::::::::::::<<<<______>>>>:::::/) { die "FAIL: alignment manipulated incorrectly"; }
+if ($output !~ /#=GR seq1 SS ...............<...<<<<......>>>>>..../)  { die "FAIL: alignment manipulated incorrectly"; }
+if ($output !~ /#=GR seq3 SS ...................<<<<......>>>>...../)  { die "FAIL: alignment manipulated incorrectly"; }
 
 $output = `$eslalimanip --rna --sindi $tmppfx.pknot.stk 2>&1`;
 if ($? != 0)                                                          { die "FAIL: esl-alimanip failed unexpectedly";  }
-if ($output !~ /#=GR seq1 SS ::<<___________A_>><<<<_B____>>>>a:b::/) { die "FAIL: alignment manipulated incorrectly"; }
-if ($output !~ /#=GR seq3 SS ::<<_____________>><<<<______>>>>:::::/) { die "FAIL: alignment manipulated incorrectly"; }
+if ($output !~ /#=GR seq1 SS ..<<...........A.>><<<<.B....>>>>a.b../) { die "FAIL: alignment manipulated incorrectly"; }
+if ($output !~ /#=GR seq3 SS ..<<.............>><<<<......>>>>...../) { die "FAIL: alignment manipulated incorrectly"; }
+
+$output = `$eslalimanip --rna --cindi $tmppfx.stk 2>&1`;
+if ($? != 0)                                                          { die "FAIL: esl-alimanip failed unexpectedly";  }
+if ($output !~ /#=GR seq1 SS ...............<...<<<<......>>>>>..../)  { die "FAIL: alignment manipulated incorrectly"; }
+if ($output !~ /#=GR seq3 SS ...............<...<<<<......>>>>>..../)  { die "FAIL: alignment manipulated incorrectly"; }
+
+$output = `$eslalimanip --rna --cindi $tmppfx.pknot.stk 2>&1`;
+if ($? != 0)                                                          { die "FAIL: esl-alimanip failed unexpectedly";  }
+if ($output !~ /#=GR seq1 SS ..<<...........A.>><<<<.B....>>>>a.b../) { die "FAIL: alignment manipulated incorrectly"; }
+if ($output !~ /#=GR seq3 SS ..<<...........A.>><<<<.B....>>>>a.b../) { die "FAIL: alignment manipulated incorrectly"; }
 
 $output = `$eslalimanip --rna --post2pp $tmppfx.post.stk 2>&1`;
 if ($? != 0)                                                                    { die "FAIL: esl-alimanip failed unexpectedly";  }
