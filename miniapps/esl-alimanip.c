@@ -107,7 +107,8 @@ static ESL_OPTIONS options[] = {
   { "--num-all",   eslARG_NONE,   NULL, NULL, NULL,      NULL,NULL, NULL,                       "add annotation numbering all columns",                             3 },
   { "--num-rf",    eslARG_NONE,   NULL, NULL, NULL,      NULL,NULL, NULL,                       "add annotation numbering the nongap RF columns",                   3 },
   { "--rm-gc",     eslARG_STRING,NULL,  NULL, NULL,      NULL,NULL, "--mask2rf",                "remove GC <s> markup, <s> must be RF|SS_cons|SA_cons|PP_cons",     3 },
-  { "--sindi",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "annotate individual secondary structures by imposing consensus",   3 },
+  { "--sindi",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "add per-sequence SS based on SS_cons, omitting bps with gaps",     3 },
+  { "--cindi",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, "--sindi",                  "add per-sequence SS based on SS_cons, keeping bps with gaps",      3 },
   { "--post2pp",   eslARG_NONE,  NULL,  NULL, NULL,      NULL,NULL, NULL,                       "convert infernal 0.72-1.0.2 POST posterior prob annotation to PP", 3 },
   /* options for specifying the alphabet */
   { "--amino",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--dna,--rna",               "<msafile> contains protein alignments",                            4 },
@@ -594,7 +595,7 @@ main(int argc, char **argv)
 	  if((status = convert_post_to_pp(msa, errbuf, nali)) != eslOK) esl_fatal(errbuf);
 	}
 	/* Impose consensus structure to get individual secondary structures, if nec */
-	if(esl_opt_GetBoolean(go, "--sindi")) {
+	if((esl_opt_GetBoolean(go, "--sindi")) || (esl_opt_GetBoolean(go, "--cindi"))) { 
 	  if((status = individualize_consensus(go, errbuf, msa) != eslOK)) esl_fatal(errbuf);
 	}
 
@@ -830,58 +831,91 @@ write_rf_given_rflen(ESL_MSA *msa,  char *errbuf, int *i_am_rf, int do_keep_rf_c
 /* individualize_consensus
  *                   
  * Given an MSA with a consensus structure impose it to create
- * individual secondary structures. Simple rule, for consensus
- * bp i,j if seq positions i and j are both non-gaps seq i,j are 
- * paired, if >= 1 is a gap, they're not paired.
+ * individual secondary structures. 
+ * If --cindi: copy all SS_cons basepairs 
+ * If --sindi: omit and bp i,j if seq positions i and/or j is a gap in the seq
+ *             with --sindi, dealigned seqs are still guaranteed to have valid consistent SS
  */
 static int
 individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 {
   int64_t apos;
   int     i;
-  int    *cct = NULL;		   /* 0..alen-1 base pair partners array for consensus        */
-  int    *ct  = NULL;		   /* 0..alen-1 base pair partners array for current sequence */
+  int    *ct  = NULL;		   /* 0..alen-1 base pair partners array SS_cons */
+  int    *sct = NULL;		   /* 0..alen-1 base pair partners array for current sequence, used only for sanity check */
   char   *ss  = NULL;              /* individual secondary structure we've built              */
-  char   *ss_cons_nopseudo = NULL; /* no-pseudoknot version of consensus structure            */
+  int    *removeme = NULL;         /* 0..alen TRUE/FALSE: do we keep this posn of SS_cons in cur seq SS (only used if --sindi) */
   int     status;
+  int     do_sindi;
 
   if(msa->ss_cons == NULL)                                ESL_FAIL(eslEINVAL, errbuf, "--sindi requires MSA to have consensus structure annotation.\n");
   if(! (msa->flags & eslMSA_DIGITAL))                     ESL_FAIL(eslEINVAL, errbuf, "individualize_consensus() MSA is not digitized.\n");
+
+  do_sindi = esl_opt_GetBoolean(go, "--sindi") ? TRUE : FALSE;
     
-  ESL_ALLOC(cct, sizeof(int)  * (msa->alen+1));
   ESL_ALLOC(ct,  sizeof(int)  * (msa->alen+1));
+  ESL_ALLOC(sct, sizeof(int)  * (msa->alen+1));
   ESL_ALLOC(ss,  sizeof(char) * (msa->alen+1));
-  ESL_ALLOC(ss_cons_nopseudo, sizeof(char) * (msa->alen+1));
+  ESL_ALLOC(removeme, sizeof(int) * (msa->alen+1));
 
-  esl_wuss_nopseudo(msa->ss_cons, ss_cons_nopseudo);
-  if (esl_wuss2ct(ss_cons_nopseudo, msa->alen, cct) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Consensus structure string is inconsistent.");
+  /* create the SS from each sequence but just copying the SS_cons
+   * annotation if --sindi, then remove basepair for which either
+   * position is a gap in the sequence (set the two paired positions
+   * in SS_cons to '.').  With --sindi, dealigned sequences/SS strings
+   * will still be guaranteed to be consistent, but that is not true
+   * with --cindi (basepairs with that are a gap in one but not both
+   * positions will introduce an inconsistency in the dealigned SS
+   * string).
+   * 
+   * With --sindi, we could try to rebuild the SS using ct2wuss with
+   * ct from SS_cons after removing any basepairs with a gap, so that
+   * we get full WUSS notation for the SS strings no matter what, but
+   * if we did that the WUSS notation could change relative to the
+   * SS_cons, e.g. '(<><>)' would go to '<....>' if middle 4 bps are
+   * gaps (the way it is implemented here it will become '(....)').
+   * And that alternative ct2wuss strategy is more problematic in that
+   * pknot letters can change and even go from pknots to nested
+   * (e.g. A..a could go to <..>) depending on which other bps get
+   * removed. Note that with the current implementation, a subsequent
+   * esl-reformat --fullwuss call will reformat the individual SS
+   * lines output here to full wuss.
+   */
+  if(do_sindi) { /* only need the ct array if --sindi */
+    if (esl_wuss2ct(msa->ss_cons, msa->alen, ct) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Consensus structure string is inconsistent or has too many pseudoknots.");
+  }
 
-  /* go through each position of each sequence, 
-     if it's a gap and it is part of a base pair, remove that base pair */
-  for (i = 0; i < msa->nseq; i++)
-    {
-      esl_vec_ICopy(cct, (msa->alen+1), ct);
-      for (apos = 1; apos <= msa->alen; apos++)
-	if (esl_abc_XIsGap(msa->abc, msa->ax[i][apos]))
-	  { 
-	    if (ct[apos] != 0)  ct[ct[apos]] = 0;
-	    ct[apos] = 0;
-	  }
-      /* convert to WUSS SS string and append to MSA */
-      if (esl_ct2wuss(ct, msa->alen, ss) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Unexpected error converting de-knotted bp ct array to wuss notation.");
+  for (i = 0; i < msa->nseq; i++) { 
+    if(do_sindi) { 
+      esl_vec_ISet(removeme, (msa->alen+1), FALSE);
+      for (apos = 1; apos <= msa->alen; apos++) {
+        if (esl_abc_XIsGap(msa->abc, msa->ax[i][apos])) { 
+          if (ct[apos] != 0) { 
+            removeme[apos]     = TRUE;
+            removeme[ct[apos]] = TRUE;
+          }
+        }
+      }
+      for (apos = 1; apos <= msa->alen; apos++) { 
+        ss[(apos-1)] = removeme[apos] ? '.' : msa->ss_cons[(apos-1)];
+      }
+      if (esl_wuss2ct(ss, msa->alen, sct) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Inconsistent SS after removing bps from SS_cons");
       esl_msa_AppendGR(msa, "SS", i, ss);
     }
-  free(cct);
+    else { /* do_sindi is false, just copy the SS_cons */
+      esl_msa_AppendGR(msa, "SS", i, msa->ss_cons);
+    }
+  }
   free(ct);
+  free(sct);
   free(ss);
-  free(ss_cons_nopseudo);
+  free(removeme);
   return eslOK;
 
  ERROR:
-  if (cct)               free(cct);
   if (ct)                free(ct);
+  if (sct)               free(sct);
   if (ss)                free(ss);
-  if (ss_cons_nopseudo)  free(ss_cons_nopseudo);
+  if (removeme)          free(removeme);
   return status;
 }
 
