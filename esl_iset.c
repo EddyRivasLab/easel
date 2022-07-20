@@ -109,8 +109,8 @@
  *            the contents of <*assignments> is undefined, and <*ret_C> is 0.
  */
 int
-esl_iset_monoCobalt(ESL_RANDOMNESS *rng, void *base, size_t n, size_t size,
-                    int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+esl_iset_monoCobalt(ESL_RANDOMNESS *rng, const void *base, size_t n, size_t size,
+                    int (*linkfunc)(const void *, const void *, const void *, int *), const void *param,
                     int *workspace, int *assignments)
 {
   int *a  = NULL;	// randomly shuffled array of input vertex indices
@@ -188,8 +188,8 @@ esl_iset_monoCobalt(ESL_RANDOMNESS *rng, void *base, size_t n, size_t size,
  *            the contents of <*assignments> is undefined, and <*ret_C> is 0.
  */
 int
-esl_iset_biCobalt(ESL_RANDOMNESS *rng, void *base, size_t n, size_t size,
-                  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+esl_iset_biCobalt(ESL_RANDOMNESS *rng, const void *base, size_t n, size_t size,
+                  int (*linkfunc)(const void *, const void *, const void *, int *), const void *param,
                   int *workspace, int *assignments)
 {
   int *a   = NULL;    // randomly shuffled array of indices of the input vertices
@@ -299,8 +299,8 @@ esl_iset_biCobalt(ESL_RANDOMNESS *rng, void *base, size_t n, size_t size,
 
 /* used by <esl_iset_monoBlue()> to fill <to_add> */
 static int
-i_select(void *base, size_t n, size_t size, int k,
-         int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+i_select(const void *base, size_t n, size_t size, int k,
+         int (*linkfunc)(const void *, const void *, const void *, int *), const void *param,
          int *dec_o, int *label_o, int *status_d, int *to_add, int *ret_lta)
 {
   int lta = 0;             // length of to_add 
@@ -524,8 +524,8 @@ bi_update_workspace_blue(int *dec_o, int *label_o, int *status_d, int *to_add, i
 
 /* used in esl_iset_biBlue() */
 static int
-update_2_elig(int j, void *base, int n, size_t size,
-              int (*linkfunc)(const void *, const void *, const void *, int *), void *param,int *label_o, int *status_d, int *to_add, int *elig, const int lta1)
+update_2_elig(int j, const void *base, int n, size_t size,
+              int (*linkfunc)(const void *, const void *, const void *, int *), const void *param,int *label_o, int *status_d, int *to_add, int *elig, int lta1)
 {
   int w,v,i;
   int do_link;
@@ -557,9 +557,9 @@ update_2_elig(int j, void *base, int n, size_t size,
 }
 
 static int
-bi_select_blue(void *base, int n, size_t size, 
-               int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
-               int *dec_o, int *label_o, int *status_d, int *to_add, int *elig, const int d, const int l, int *ret_lta1, int *ret_lta2)
+bi_select_blue(const void *base, int n, size_t size, 
+               int (*linkfunc)(const void *, const void *, const void *, int *), const void *param,
+               int *dec_o, int *label_o, int *status_d, int *to_add, int *elig, int d, const int l, int *ret_lta1, int *ret_lta2)
 {
   int v, w, u;         // vertices
   int lta1=0, lta2=0;  // length of to_add 
@@ -787,8 +787,8 @@ bi_select_blue(void *base, int n, size_t size,
  *            the contents of <*assignments> is undefined, and <*ret_C> is 0.
  */
 int
-esl_iset_monoBlue(ESL_RANDOMNESS *rng, void *base, size_t n, size_t size,
-                  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+esl_iset_monoBlue(ESL_RANDOMNESS *rng, const void *base, size_t n, size_t size,
+                  int (*linkfunc)(const void *, const void *, const void *, int *), const void *param,
                   int *workspace, int *assignments)
 {
   int *dec_o    = NULL;   // vertices in order in which decisions about them will be made
@@ -980,8 +980,8 @@ esl_iset_monoBlue(ESL_RANDOMNESS *rng, void *base, size_t n, size_t size,
  *            the contents of <*assignments> is undefined, and <*ret_C> is 0.
  */
 int
-esl_iset_biBlue(ESL_RANDOMNESS *rng, void *base, size_t n, size_t size,
-                int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+esl_iset_biBlue(ESL_RANDOMNESS *rng, const void *base, size_t n, size_t size,
+                int (*linkfunc)(const void *, const void *, const void *, int *), const void *param,
                 int *workspace, int *assignments)
 {
   int  nb1      = 0;      // number of vertices selected for 1-side
@@ -1078,8 +1078,8 @@ esl_iset_biBlue(ESL_RANDOMNESS *rng, void *base, size_t n, size_t size,
  *            the contents of <*assignments> is undefined, and <*ret_C> is 0.
  */
 int
-esl_iset_biRandom(ESL_RANDOMNESS *rng, double t_prob, void *base, size_t n, size_t size,
-                  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+esl_iset_biRandom(ESL_RANDOMNESS *rng, double t_prob, const void *base, size_t n, size_t size,
+                  int (*linkfunc)(const void *, const void *, const void *, int *), const void *param,
                   int *assignments)
 {
   int i,j; 
@@ -1162,8 +1162,8 @@ esl_iset_biCount(int *assignment, int n, int *ret_nS, int *ret_nT, int *ret_nX)
  * Throws:    other errors if <linkfunc()> fails
  */
 int
-esl_iset_monoValidate(void *base, size_t n, size_t size,
-                      int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+esl_iset_monoValidate(const void *base, size_t n, size_t size,
+                      int (*linkfunc)(const void *, const void *, const void *, int *), const void *param,
                       int *assignments)
 {
    int i,j;
@@ -1205,8 +1205,8 @@ esl_iset_monoValidate(void *base, size_t n, size_t size,
  * Throws:    other errors if the <linkfunc> fails
  */
 int
-esl_iset_biValidate(void *base, size_t n, size_t size,
-                    int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+esl_iset_biValidate(const void *base, size_t n, size_t size,
+                    int (*linkfunc)(const void *, const void *, const void *, int *), const void *param,
                     int *assignments)
 {
    int i,j;
