@@ -355,6 +355,13 @@ gam_sufficient_stats(double *x, int n, double mu, double *ret_xbar, double *ret_
 
 /* gam_nll()
  *
+ * This is the one-parameter (tau only) form of the average NLL per
+ * sample; the objective function for the generalized Newton, obtained
+ * by substituting \lambda = \tau / xbar. See esl_gamma.md notes.
+ *
+ * The NLL can be negative! The gamma is a continuous probability
+ * distribution.
+ *
  * Throws <eslERANGE> if tau < 0.
  */
 static int
@@ -362,7 +369,7 @@ gam_nll(double xbar, double logxbar, double tau, double *ret_nll)
 {
   double logp = 0.;
   double loggamtau;
-  int    status ;
+  int    status;
   
   if ((status = esl_stats_LogGamma(tau, &loggamtau)) != eslOK) goto ERROR;
   logp = tau * log(tau) - tau * log(xbar) - loggamtau + (tau - 1.0) * logxbar - tau;
@@ -744,9 +751,14 @@ tau_by_moments_binned(ESL_HISTOGRAM *g, double mu, double *ret_tau, double *ret_
 
 /* utest_FitComplete()
  *
- * In theory, this test can fail stochastically, because it generates
- * a random data sample. So we run it with a fixed RNG seed in
- * production code (<allow_badluck> is normally FALSE).
+ * This test fails stochastically, because it generates a random data
+ * sample from random choices of lambda and tau. So we run it with a
+ * fixed RNG seed in production code (<allow_badluck> is normally
+ * FALSE).
+ *
+ * The 0.5 lower limit is set for the random params because if you let
+ * \tau get small, you get very peaky distributions at the origin, and
+ * numerical error in fitting them [SRE:H13/23].
  */
 static void
 utest_FitComplete(ESL_RANDOMNESS *rng, int allow_badluck)
@@ -754,16 +766,18 @@ utest_FitComplete(ESL_RANDOMNESS *rng, int allow_badluck)
   char    msg[]  = "esl_gamma::FitComplete unit test failed";
   double *x      = NULL;
   int     n      = 1000000;
-  double  mu     = 10.0;   // don't use 0., in case I've idiotically assumed mu=0 somewhere
-  double  lambda = esl_rnd_UniformPositive(rng) * 10.;
-  double  tau    = esl_rnd_UniformPositive(rng) * 10.;
+  double  mu     = 10.0;     // don't use 0., in case I've idiotically assumed mu=0 somewhere
+  double  lambda, tau;       // don't randomly initialize these until *after* the allow_badluck RNG reinit
   double  lambda_e, tau_e;   // new fit
   double  xbar, logxbar;
   double  nll, nll_e;
   int     i;
   int     status;
     
-  if (! allow_badluck) esl_randomness_Init(rng, 42);
+  if (! allow_badluck) esl_randomness_Init(rng, 42); 
+
+  lambda = 0.5 + esl_rnd_UniformPositive(rng) * 9.5;  // (0.5,10.0)
+  tau    = 0.5 + esl_rnd_UniformPositive(rng) * 9.5;
 
   ESL_ALLOC(x, sizeof(double) * n);
   for (i = 0; i < n; i++)
@@ -785,12 +799,12 @@ utest_FitComplete(ESL_RANDOMNESS *rng, int allow_badluck)
   printf("nll at fit   = %f\n", nll_e);
   printf("lambda error = %f rel %f abs\n", (lambda_e-lambda)/lambda, lambda_e-lambda);
   printf("tau error    = %f rel %f abs\n", (tau_e-tau)/tau, tau_e-tau);
-  printf("nll diff     = %f\n", nll - nll_e);
+  printf("nll diff     = %f\n", nll - nll_e);   // this difference should be nonnegative; nll_e <= nll.
 #endif
 
   if ( esl_DCompare(lambda, lambda_e, 1e-2, 1e-2) != eslOK) esl_fatal(msg);
   if ( esl_DCompare(tau,    tau_e,    1e-2, 1e-2) != eslOK) esl_fatal(msg);
-  if ( nll < nll_e)                                         esl_fatal(msg);
+  if ( nll < nll_e)                                         esl_fatal(msg); // it's a convex optimization. 
 
   free(x);
   return;

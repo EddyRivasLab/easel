@@ -17,7 +17,7 @@
 Probability density function (PDF):
 
 $$
-  P(x) = \frac{1}{x \sigma \sqrt{2\pi}} \exp \left(\frac{-(\log x - \mu)^2}{2 \sigma^2}\right)
+  P(x) = \frac{1}{x \sigma \sqrt{2\pi}} \exp \left( \frac{-(\log x - \mu)^2}{2 \sigma^2} \right)
 $$
 
 
