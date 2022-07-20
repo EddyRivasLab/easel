@@ -44,6 +44,13 @@ esl_lognormal_logpdf(double x, double mu, double sigma)
  * 2. Sampling
  *****************************************************************/
 
+/* Function:  esl_lognormal_Sample()
+ * Synopsis:  Sample a lognormal-distributed variate
+ *
+ * Purpose:   Given $\mu > 0$ and $\sigma > 0$ parameters, 
+ *            return a lognormal-distributed random variate
+ *            $x > 0$.
+ */
 double
 esl_lognormal_Sample(ESL_RANDOMNESS *rng, double mu, double sigma)
 {
@@ -178,7 +185,7 @@ utest_FitComplete(ESL_RANDOMNESS *rng, int allow_badluck)
 
   if (! allow_badluck) esl_randomness_Init(rng, 42);
 
-  ESL_ALLOC(x, sizeof(int) * n);
+  ESL_ALLOC(x, sizeof(double) * n);
   for (i = 0; i < n; i++)
     x[i] = esl_lognormal_Sample(rng, mu, sigma);
 
