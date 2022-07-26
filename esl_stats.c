@@ -55,7 +55,7 @@ esl_stats_DMean(const double *x, int n, double *opt_mean, double *opt_var)
       sqsum += x[i]*x[i];
     }
   if (opt_mean != NULL)  *opt_mean = sum / (double) n;
-  if (opt_var  != NULL)  *opt_var  = (sqsum - sum*sum/(double)n) / ((double)n-1);
+  if (opt_var  != NULL)  *opt_var  = (n > 1 ? fabs((sqsum - sum*sum/(double)n) / ((double)n-1)) : 0.); // fabs() avoids -epsilon result for zero variance.
   return eslOK;
 }
 int
@@ -71,7 +71,7 @@ esl_stats_FMean(const float *x, int n, double *opt_mean, double *opt_var)
       sqsum += x[i]*x[i];
     }
   if (opt_mean != NULL)  *opt_mean = sum / (double) n;
-  if (opt_var  != NULL)  *opt_var  = (sqsum - sum*sum/(double)n) / ((double)n-1);
+  if (opt_var  != NULL)  *opt_var  = (n > 1 ? fabs((sqsum - sum*sum/(double)n) / ((double)n-1)) : 0.); // fabs() avoids -epsilon result for zero variance.
   return eslOK;
 }
 int
@@ -87,7 +87,7 @@ esl_stats_IMean(const int *x, int n, double *opt_mean, double *opt_var)
       sqsum += x[i]*x[i];
     }
   if (opt_mean != NULL)  *opt_mean = sum / (double) n;
-  if (opt_var  != NULL)  *opt_var  = (sqsum - sum*sum/(double)n) / ((double)n-1);
+  if (opt_var  != NULL)  *opt_var  = (n > 1 ? fabs((sqsum - sum*sum/(double)n) / ((double)n-1)) : 0.); // fabs() avoids -epsilon result for zero variance.
   return eslOK;
 }
 /*--------------- end, summary statistics -----------------------*/
@@ -853,6 +853,91 @@ esl_stats_LinearRegression(const double *x, const double *y, const double *sigma
 #endif
 
 
+static void
+utest_DMean(ESL_RANDOMNESS *rng)
+{
+  char   msg[] = "esl_stats:: DMean unit test failed";
+  double x[10000];
+  int    n = 10000;
+  int    i;
+  double mean, var;
+
+  for (i = 0; i < n; i++) x[i] = esl_random(rng);
+  esl_stats_DMean(x, n, &mean, &var);
+  if (esl_DCompare(0.5,    mean, 0., 0.01) != eslOK) esl_fatal(msg); // mean of U(0,1) = 0.5
+  if (esl_DCompare(1./12., var,  0., 0.01) != eslOK) esl_fatal(msg); // var of U(0,1)  = 1/12
+  
+  /* pathological case 1: all x[i] equal. */
+  for (i = 1; i < n; i++) x[i] = x[0];
+  esl_stats_DMean(x, n, &mean, &var);
+  if (esl_DCompare(x[0],   mean, 0., 1e-5) != eslOK) esl_fatal(msg); 
+  if (esl_DCompare(0.0,    var,  0., 1e-5) != eslOK) esl_fatal(msg); // zero variance
+
+  /* pathological case 2: n=1 */
+  esl_stats_DMean(x, 1, &mean, &var);
+  if (esl_DCompare(x[0],   mean, 0., 1e-5) != eslOK) esl_fatal(msg); 
+  if (esl_DCompare(0.0,    var,  0., 1e-5) != eslOK) esl_fatal(msg); // zero variance
+}
+
+static void
+utest_FMean(ESL_RANDOMNESS *rng)
+{
+  char   msg[] = "esl_stats:: FMean unit test failed";
+  float  x[10000];
+  int    n = 10000;
+  int    i;
+  double mean, var;
+
+  for (i = 0; i < n; i++) x[i] = esl_random(rng);
+  esl_stats_FMean(x, n, &mean, &var);                                // mean, var are in doubles
+  if (esl_DCompare(0.5,    mean, 0., 0.01) != eslOK) esl_fatal(msg); // mean of U(0,1) = 0.5
+  if (esl_DCompare(1./12., var,  0., 0.01) != eslOK) esl_fatal(msg); // var of U(0,1)  = 1/12
+  
+  /* pathological case 1: all x[i] equal. */
+  for (i = 1; i < n; i++) x[i] = x[0];
+  esl_stats_FMean(x, n, &mean, &var);
+  if (esl_DCompare(x[0],   mean, 0., 1e-5) != eslOK) esl_fatal(msg); 
+  if (esl_DCompare(0.0,    var,  0., 1e-5) != eslOK) esl_fatal(msg); // zero variance
+
+  /* pathological case 2: n=1 */
+  esl_stats_FMean(x, 1, &mean, &var);
+  if (esl_DCompare(x[0],   mean, 0., 1e-5) != eslOK) esl_fatal(msg); 
+  if (esl_DCompare(0.0,    var,  0., 1e-5) != eslOK) esl_fatal(msg); // zero variance
+}
+
+static void
+utest_IMean(ESL_RANDOMNESS *rng)
+{
+  char   msg[] = "esl_stats:: IMean unit test failed";
+  int    x[10000];
+  int    n = 10000;
+  int    i;
+  double mean, var;
+  double mean0,var0; 
+
+  for (i = 0; i < n; i++) x[i] = esl_rnd_Roll(rng, 101);             // U(0,100)
+  mean0 = 100./2.;                                                   // mean of discrete U(a,b) = (a+b)/2
+  var0 = (101.0*101.0-1.)/12.;                                       // variance of discrete U(a,b) = ((b-a+1)^2 -1)/12
+  esl_stats_IMean(x, n, &mean, &var);                                // mean, var are in doubles
+  if (esl_DCompare(mean0, mean, 0.02, 0.02) != eslOK) esl_fatal(msg); 
+  if (esl_DCompare(var0,  var,  0.02, 0.02) != eslOK) esl_fatal(msg); 
+  
+  /* pathological case 1: all x[i] equal. */
+  for (i = 1; i < n; i++) x[i] = x[0];
+  esl_stats_IMean(x, n, &mean, &var);
+  mean0 = (double) x[0];
+  var0  = 0.;
+  if (esl_DCompare(mean0,  mean, 0., 1e-5) != eslOK) esl_fatal(msg); 
+  if (esl_DCompare(var0,   var,  0., 1e-5) != eslOK) esl_fatal(msg); // zero variance
+
+  /* pathological case 2: n=1 */
+  esl_stats_IMean(x, 1, &mean, &var);
+  if (esl_DCompare(mean0, mean, 0., 1e-5) != eslOK) esl_fatal(msg); 
+  if (esl_DCompare(var0,  var,  0., 1e-5) != eslOK) esl_fatal(msg); // zero variance
+}
+
+
+
 /* Macros for treating IEEE754 double as two uint32_t halves, with
  * compile-time handling of endianness; see esl_stats.h.
  */
@@ -1125,6 +1210,9 @@ main(int argc, char **argv)
 
   if (be_verbose) printf("seed = %" PRIu32 "\n", esl_randomness_GetSeed(r));
 
+  utest_DMean(r);
+  utest_FMean(r);
+  utest_IMean(r);
   utest_doublesplitting(r);
   utest_erfc(r, be_verbose);
   utest_LogGamma(r, N, be_verbose);
