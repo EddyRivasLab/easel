@@ -160,11 +160,11 @@ esl_iset_monoCobalt(ESL_RANDOMNESS *rng, const void *base, size_t n, size_t size
  *            T= empty set
  *            for each vertex v:
  *                With probability 1/2:
- *                    if v is not adjacent to any vertex in S, add v to S
- *                    else, if v is not adjacent to any vertex in T, add v to T
+ *                    if v is not adjacent to any vertex in T, add v to S
+ *                    else, if v is not adjacent to any vertex in S, add v to T
  *                Alternately (with probability 1/2):
- *                    if v is not adjacent to any vertex in T, add v to T
- *                    else, if v is not adjacent to any vertex in S, add v to S
+ *                    if v is not adjacent to any vertex in S, add v to T
+ *                    else, if v is not adjacent to any vertex in T, add v to S
  *            return S,T
  *
  *            Two vertices are adjacent if their corresponding sequences are >t% identical
