@@ -1558,8 +1558,7 @@ utest_averages(const ESL_ALPHABET *abc, ESL_DSQ **ax, char **as, int N)
   if ( esl_DCompare( true_avgid, avgid,   1e-4, 1e-4 )                          != eslOK) esl_fatal(msg);
   if ( esl_DCompare( true_conn2, avgconn, 1e-4, 1e-4 )                          != eslOK) esl_fatal(msg);
 
-  /* Edge cases for complete or zero connectivity */
-  if ( esl_dst_XAvgConnectivity(abc, ax, N, 10000, 0.0, NULL, &avgconn) != eslOK || avgconn != 1.0) esl_fatal(msg);
+  /* Edge case for zero connectivity (because links are defined as strictly > idthresh, at idthresh = 1.0 there are no links) */
   if ( esl_dst_XAvgConnectivity(abc, ax, N, 10000, 1.0, NULL, &avgconn) != eslOK || avgconn != 0.0) esl_fatal(msg);
 
   /* API accepts NULL for return values */
