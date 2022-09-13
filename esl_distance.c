@@ -1095,7 +1095,7 @@ esl_dst_XAverageMatch(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_comp
  * Incept:    SRE, Sat 07 May 2022
  *
  * Purpose:   Calculates average connectivity: the fraction of sequence
- *            pairs with fractional pairwise identity >=
+ *            pairs with fractional pairwise identity >
  *            <idthresh>. Also calculates average fractional pairwise
  *            identity, since it's efficient to calculate avg id and
  *            connectivity at the same time. The input is a digital
@@ -1123,7 +1123,7 @@ esl_dst_XAverageMatch(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_comp
  *            ax              - array of digital aligned seqs
  *            N               - number of seqs in <ax>
  *            max_comparisons - switch to a stochastic sample if N(N-1)/2 > this
- *            idthresh        - count pairs as linked when they have identity >= this threshold [0..1]
+ *            idthresh        - count pairs as linked when they have identity > this threshold [0..1]
  *            opt_avgid       - optRETURN: average identity [0..1]
  *            opt_avgconn     - optRETURN: average connectivity [0..1]
  *
@@ -1161,7 +1161,7 @@ esl_dst_XAvgConnectivity(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_c
         for (j = i+1; j < N; j++)
           {
             if ((status = esl_dst_XPairId(abc, ax[i], ax[j], &id, NULL, NULL)) != eslOK) goto ERROR;
-            if (id >= idthresh) avgconn += 1.;
+            if (id > idthresh) avgconn += 1.;
             avgid += id;
           }
       avgid   /= (double) (N * (N-1) / 2);
@@ -1179,7 +1179,7 @@ esl_dst_XAvgConnectivity(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_c
           } while (j == i); /* make sure j != i */
    
           if ((status = esl_dst_XPairId(abc, ax[i], ax[j], &id, NULL, NULL)) != eslOK) goto ERROR;
-          if (id >= idthresh) avgconn += 1.;
+          if (id > idthresh) avgconn += 1.;
           avgid += id;
         }
       avgid   /= (double) max_comparisons;
@@ -1219,7 +1219,7 @@ esl_dst_XAvgConnectivity(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_c
  *            V               - array of seq indices in the subset; V[0..nV-1] = 0..nseq-1
  *            nV              - number of seqs in the subset; nV <= N
  *            max_comparisons - switch to a stochastic sample if N(N-1)/2 > this
- *            idthresh        - count pairs as linked when they have identity >= this threshold [0..1]
+ *            idthresh        - count pairs as linked when they have identity > this threshold [0..1]
  *            opt_avgid       - optRETURN: average identity [0..1]
  *            opt_avgconn     - optRETURN: average connectivity [0..1]
  *
@@ -1255,7 +1255,7 @@ esl_dst_XAvgSubsetConnectivity(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int
           {
             ESL_DASSERT1(( V[i] >= 0 && V[i] <= N && V[j] >= 0 && V[j] <= N ));
             if ((status = esl_dst_XPairId(abc, ax[V[i]], ax[V[j]], &id, NULL, NULL)) != eslOK) goto ERROR;
-            if (id >= idthresh) avgconn += 1.;
+            if (id > idthresh) avgconn += 1.;
             avgid += id;
           }
       avgid   /= (double) (nV * (nV-1) / 2);
@@ -1274,7 +1274,7 @@ esl_dst_XAvgSubsetConnectivity(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int
    
           ESL_DASSERT1(( V[i] >= 0 && V[i] <= N && V[j] >= 0 && V[j] <= N ));
           if ((status = esl_dst_XPairId(abc, ax[V[i]], ax[V[j]], &id, NULL, NULL)) != eslOK) goto ERROR;
-          if (id >= idthresh) avgconn += 1.;
+          if (id > idthresh) avgconn += 1.;
           avgid += id;
         }
       avgid   /= (double) max_comparisons;
@@ -1529,8 +1529,8 @@ utest_averages(const ESL_ALPHABET *abc, ESL_DSQ **ax, char **as, int N)
       {
         true_avgid  += true_pid[i][j];
         true_avgid2 += (double) true_M[i][j] / (double) true_MDI[i][j];
-        if (true_pid[i][j] >= idthresh1) true_conn1 += 1.;
-        if (true_pid[i][j] >= idthresh2) true_conn2 += 1.;
+        if (true_pid[i][j] > idthresh1) true_conn1 += 1.;
+        if (true_pid[i][j] > idthresh2) true_conn2 += 1.;
         np += 1.;
       }
   true_avgid  /= np;
