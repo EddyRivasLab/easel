@@ -1827,6 +1827,80 @@ utest_pvectors(void)
 
   return;
 }
+
+
+/* utest_stable_sums()
+ *
+ * This is more of a note than a unit test, about numerically stable
+ * sums and means.
+ *
+ * esl_vec_{FD}Sum() routines use Kahan compensated summation to do
+ * numerically stable sums of large numbers of terms. Naively summing
+ * up a large number of n terms, and calculating a mean by dividing
+ * the sum by n, is numerically unstable.  1 + 0.5 \epsilon = 1, so
+ * for floats with FLT_EPSILON ~ 1.19e-7, at A ~ 17M, A+1=A, and your
+ * sum stops accumulating.
+ *
+ * Specifically for calculating means, the Welford running mean
+ * algorithm is a simple and apparently widely used alternative -
+ * written here so I don't forget it. But the Welford algorithm also
+ * breaks on large numbers of terms though; it appears to work on this
+ * test case only because the terms are iid random. It stops updating
+ * the mean when i is large enough that (x_i - mean) / i becomes
+ * negligible. The mean of the first m << n numbers is already
+ * accurate in this iid case.
+ *
+ * Here we take the mean of n uniform random numbers of mean 0.5, so
+ * we expect an overall mean of 0.5. A naive sum will fail once
+ * there's on the order of n ~ 34M numbers in the sum. Welford
+ * algorithm stops updating its mean around the same point, but it
+ * escapes notice in this case.
+ */
+static void
+utest_stable_sums(ESL_RANDOMNESS *rng)
+{
+  char   msg[]        = "esl_vectorops:: stable_sums unit test failed";
+  float *x            = NULL;
+  int    n            = 40000000;
+  float  naive_mean   = 0.;
+  float  welford_mean = 0.;
+  float  kahan_mean   = 0.;
+  float  easel_mean   = 0.;
+  float  y,t,c;
+  int    i;
+  int    status;
+
+  ESL_ALLOC(x, sizeof(float) * (n+1));              // n+1 because we'll use 1..n and not touch 0
+  for (i = 0; i <= n; i++) x[i] = esl_random(rng);  // [0,1)
+    
+  c = 0.;
+  for (i = 1; i <= n; i++)
+    {
+      naive_mean   += x[i];                       // This is not what you want to do.
+      welford_mean += (x[i] - welford_mean) / i;  // This is the Welford running mean algorithm. https://nullbuffer.com/articles/welford_algorithm.html
+
+      y = x[i] - c;                               // These four lines are the Kahan compensated summation algorithm.
+      t = kahan_mean + y;
+      c = (t - kahan_mean) - y;
+      kahan_mean = t;
+    }
+  naive_mean /= n;
+  kahan_mean /= n;
+  easel_mean  = esl_vec_FSum(x, n) / n;
+
+  // printf("%f %f %f %f\n", naive_mean, welford_mean, kahan_mean, easel_mean);
+
+  // By checking against actual welford_mean instead of expected 0.5, we're robust against rare outliers in random samples
+  if (esl_FCompare(welford_mean, naive_mean, 1e-3, 1e-3) != eslFAIL) esl_fatal(msg);  // naive sum *will* fail
+  if (esl_FCompare(welford_mean, kahan_mean, 1e-3, 1e-3) != eslOK)   esl_fatal(msg);  // welford and kahan will both work
+  if (esl_FCompare(welford_mean, easel_mean, 1e-3, 1e-3) != eslOK)   esl_fatal(msg);  // easel uses kahan, check against welford
+
+  free(x);
+  return;
+
+ ERROR:
+  esl_fatal(msg);
+}
 #endif /*eslVECTOROPS_TESTDRIVE*/
 
 
@@ -1862,6 +1936,7 @@ main(int argc, char **argv)
   utest_fvectors(rng);
   utest_dvectors(rng);
   utest_pvectors();
+  utest_stable_sums(rng);
 
   fprintf(stderr, "#  status = ok\n");
 

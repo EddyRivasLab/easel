@@ -103,7 +103,6 @@ main(int argc, char **argv)
   int npostvals = 11;  /* number of posterior values 0-9, * */
   int ppidx;           /* index of PP */
   char ppchars[11] = "0123456789*";
-  int cm_cor_ptm, cm_cor_pti, cm_ptm, cm_pti, cm_incor_ptm, cm_incor_pti; /* cumulative counts of posteriors */
   // int tot_cor_ptm, tot_cor_pti, tot_ptm, tot_pti;       /* total counts of posteriors */
   // int tot_incor_ptm,tot_incor_pti;                      // SRE: commented out; don't seem to be used; need to silence compiler warning
   char errbuf[eslERRBUFSIZE];
@@ -395,7 +394,6 @@ main(int argc, char **argv)
 	  printf("# %2s  %8s   %8s %9s  %8s   %8s %9s\n", "PP", "ncorrect", "ntotal",   "fractcor",  "ncorrect", "ntotal",   "fractcor");
 	  printf("# %2s  %8s   %8s %9s  %8s   %8s %9s\n", "--", "--------", "--------", "---------", "--------", "--------", "---------");
 	}
-	cm_ptm = cm_pti = cm_cor_ptm = cm_cor_pti = cm_incor_ptm = cm_incor_pti = 0;
 	//tot_ptm = esl_vec_ISum(ptm, npostvals);
 	//tot_pti = esl_vec_ISum(pti, npostvals);
 	//tot_cor_ptm = esl_vec_ISum(cor_ptm, npostvals);
@@ -403,12 +401,6 @@ main(int argc, char **argv)
 	//tot_incor_ptm = tot_ptm - tot_cor_ptm;
 	//tot_incor_pti = tot_pti - tot_cor_pti;
 	for(p = (npostvals-1); p >= 0; p--) { 
-	  cm_cor_ptm += cor_ptm[p];
-	  cm_cor_pti += cor_pti[p];
-	  cm_ptm     += ptm[p];
-	  cm_pti     += pti[p];
-	  cm_incor_ptm += ptm[p] - cor_ptm[p];
-	  cm_incor_pti += pti[p] - cor_pti[p];
 	  printf("  %2c  %8d / %8d (%.5f)  %8d / %8d (%.5f)\n", 
 		 ppchars[p], cor_ptm[p], ptm[p], 
 		 (ptm[p] == 0) ? 0. : (float) cor_ptm[p] / (float) ptm[p], 

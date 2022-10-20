@@ -124,9 +124,10 @@ HDRS = 	easel.h\
 	esl_hmm.h\
 	esl_huffman.h\
 	esl_hyperexp.h\
-    esl_iset.h\
+	esl_iset.h\
 	esl_json.h\
 	esl_keyhash.h\
+	esl_lognormal.h\
 	esl_matrixops.h\
 	esl_mem.h\
 	esl_minimizer.h\
@@ -134,7 +135,6 @@ HDRS = 	easel.h\
 	esl_mixgev.h\
 	esl_mpi.h\
 	esl_msa.h\
-    esl_msa_iset.h\
 	esl_msacluster.h\
 	esl_msafile.h\
 	esl_msafile2.h\
@@ -207,9 +207,10 @@ OBJS =	easel.o\
 	esl_hmm.o\
 	esl_huffman.o\
 	esl_hyperexp.o\
-    esl_iset.o\
+	esl_iset.o\
 	esl_json.o\
 	esl_keyhash.o\
+	esl_lognormal.o\
 	esl_matrixops.o\
 	esl_mem.o\
 	esl_minimizer.o\
@@ -217,7 +218,6 @@ OBJS =	easel.o\
 	esl_mixgev.o\
 	esl_mpi.o\
 	esl_msa.o\
-    esl_msa_iset.o\
 	esl_msacluster.o\
 	esl_msafile.o\
 	esl_msafile2.o\
@@ -307,12 +307,12 @@ UTESTS =\
 	esl_iset_utest\
 	esl_json_utest\
 	esl_keyhash_utest\
+	esl_lognormal_utest\
 	esl_matrixops_utest\
 	esl_mem_utest\
 	esl_minimizer_utest\
 	esl_mixdchlet_utest\
 	esl_msa_utest\
-	esl_msa_iset_utest\
 	esl_msacluster_utest\
 	esl_msafile_utest\
 	esl_msafile2_utest\
@@ -430,7 +430,7 @@ EXAMPLES = \
         esl_cluster_example\
 	esl_cpu_example\
         esl_dirichlet_example\
-		esl_distance_example\
+	esl_distance_example\
         esl_dmatrix_example\
         esl_dsqdata_example\
         esl_dsqdata_example2\
@@ -452,13 +452,12 @@ EXAMPLES = \
         esl_hmm_example\
 	esl_huffman_example\
         esl_hyperexp_example\
-		esl_iset_example\
+	esl_iset_example\
 	esl_json_example\
         esl_keyhash_example\
         esl_minimizer_example\
 	esl_mixdchlet_example\
         esl_mixgev_example\
-		esl_msa_iset_example\
         esl_msafile_example\
 	esl_msafile_a2m_example\
 	esl_msafile_a2m_example2\
@@ -506,7 +505,6 @@ EXAMPLES = \
         esl_vectorops_example\
         esl_weibull_example\
         esl_workqueue_example
-#       esl_distance_example\
 #       esl_hmm_example\
 #       esl_msafile_clustal_example\
 #       esl_randomseq_example\
