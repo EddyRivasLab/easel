@@ -341,8 +341,86 @@ esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g)
     }
   return;
 }
-  
 
+/* Function: esl_getopts_CreateCmdline()
+ *
+ * Synopsis: Creates a string that contains a set of command-line
+ *           options that could be provided to the original program to 
+ *           generate an equivalent getopts argument to the one 
+ *           passed to esl_getopts_Createcommandline.  This comman line
+ *           will contain text to sett all options in the getopts object
+ *           that were not at their default value, regacdless of how 
+ *           those options were set (command-line argument, environment
+ *           variable, or in a configfile).  It may thus differ from the 
+ *           actual command line that was passed to the program.
+ * 
+ * Purpose:  This function is ussed within hmmclient/hmmserver to generate
+ *           commandline equivalents that can be passed from machine to 
+ *           machine to re-create the user's desired configuration. 
+ *
+ * Returns:  The generated string, or NULL if it was unable to create one
+ */
+
+extern char *esl_getopts_CreateCmdLine(ESL_GETOPTS *g){ 
+  char *ret_string = (char *) malloc(256);
+  if(ret_string == NULL){
+    return(NULL);
+  }
+  int ret_length =256;
+  int used = 1; 
+  ret_string[0] = '\0';  // Set this to a null string in case we don't find any commandiline arguments to return 
+  int i, optsize;
+  for(i=0; i < g->nopts; i++){
+    if(g->setby[i] != eslARG_SETBY_DEFAULT){
+      // We need to handle this option because it has a non-default value
+      optsize = strlen(g->opt[i].name) +2;
+      if(g->opt[i].type == eslARG_NONE){ //boolean value, handle specially
+        if(g->val[i] == 0){
+          optsize += 7; //"FALSE"
+        }
+        else{
+          optsize += 6; //"TRUE"
+        }
+      }
+      else{
+        optsize+=(strlen(g->val[i]));
+        if((g->opt[i].type == eslARG_STRING)||(g->opt[i].type == eslARG_INFILE)||(g->opt[i].type == eslARG_OUTFILE)){
+          optsize+=2;  //For quotes around strings
+        }
+      }
+      while(used + optsize > ret_length){
+        ret_string = realloc(ret_string, ret_length *2);
+        ret_length *=2; 
+        if(ret_string == 0){
+          return(NULL); 
+        }
+      }
+      //Now that we know we have space, add the options string for this option and its value to the  commandline
+      strcat(ret_string, " ");
+      strcat(ret_string, g->opt[i].name);
+      strcat(ret_string,  " ");
+      if(g->opt[i].type == eslARG_NONE){ //boolean value, handle specially
+        if(g->val[i] == 0){
+          strcat(ret_string, "\"FALSE\"");
+        }
+        else{
+          strcat(ret_string, "\"TRUE\"");
+        }
+      }
+      else{
+        if((g->opt[i].type == eslARG_STRING)||(g->opt[i].type == eslARG_INFILE)||(g->opt[i].type == eslARG_OUTFILE)){
+        strcat(ret_string, "\"");
+        }
+        strcat(ret_string, g->val[i]);
+        if((g->opt[i].type == eslARG_STRING)||(g->opt[i].type == eslARG_INFILE)||(g->opt[i].type == eslARG_OUTFILE)){
+        strcat(ret_string, "\"");
+        }
+      }
+      used += optsize;
+    }
+  }
+  return(ret_string);
+}
 /*****************************************************************
  *# 2. Setting and testing a configuration
  *****************************************************************/ 
@@ -2035,7 +2113,11 @@ main(void)
       if (! esl_opt_IsDefault(go, go->opt[i].name) &&   esl_opt_IsOn(go, go->opt[i].name) && ! esl_opt_IsUsed(go, go->opt[i].name)) esl_fatal(errmsg);
       if (! esl_opt_IsDefault(go, go->opt[i].name) && ! esl_opt_IsOn(go, go->opt[i].name) &&   esl_opt_IsUsed(go, go->opt[i].name)) esl_fatal(errmsg);
     }
-
+  char *cmdline = esl_getopts_CreateCmdLine(go);
+  if(strcmp(cmdline, " -a \"TRUE\" -b \"TRUE\" --no-b \"FALSE\" -c y --d1 \"TRUE\" --d2 \"FALSE\" -n 9 -x 0.5 --hix 0.0 --lown 43 --hin -33 --host \"wasp.cryptogenomicon.org\" --multi \"one two three\" --mul \"TRUE\"")){
+    esl_fatal("esl_getopts_CreateCmdLine test failed");
+  }
+  
   /* Now the two remaining argv[] elements are the command line args
    */
   if (esl_opt_ArgNumber(go) != 2) esl_fatal("getopts failed with wrong arg number");

@@ -97,7 +97,7 @@ extern int esl_opt_ProcessSpoof      (ESL_GETOPTS *g, const char *cmdline);
 extern int esl_opt_VerifyConfig      (ESL_GETOPTS *g);
 extern int esl_opt_ArgNumber   (const ESL_GETOPTS *g);
 extern int esl_opt_SpoofCmdline(const ESL_GETOPTS *g, char **ret_cmdline);
-
+extern char *esl_getopts_CreateCmdLine(ESL_GETOPTS *g);
 extern int esl_opt_GetSetter(const ESL_GETOPTS *g, char *optname);
 
 extern int    esl_opt_IsDefault (const ESL_GETOPTS *g, char *optname);
