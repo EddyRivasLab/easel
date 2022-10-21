@@ -342,7 +342,7 @@ esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g)
   return;
 }
 
-/* Function: esl_getopts_CreateCmdline()
+/* Function: esl_getopts_CreateOptsline()
  *
  * Synopsis: Creates a string that contains a set of command-line
  *           options that could be provided to the original program to 
@@ -361,7 +361,7 @@ esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g)
  * Returns:  The generated string, or NULL if it was unable to create one
  */
 
-extern char *esl_getopts_CreateCmdLine(ESL_GETOPTS *g){ 
+extern char *esl_getopts_CreateOptsLine(ESL_GETOPTS *g){ 
   char *ret_string = (char *) malloc(256);
   if(ret_string == NULL){
     return(NULL);
@@ -2113,11 +2113,11 @@ main(void)
       if (! esl_opt_IsDefault(go, go->opt[i].name) &&   esl_opt_IsOn(go, go->opt[i].name) && ! esl_opt_IsUsed(go, go->opt[i].name)) esl_fatal(errmsg);
       if (! esl_opt_IsDefault(go, go->opt[i].name) && ! esl_opt_IsOn(go, go->opt[i].name) &&   esl_opt_IsUsed(go, go->opt[i].name)) esl_fatal(errmsg);
     }
-  char *cmdline = esl_getopts_CreateCmdLine(go);
+  char *cmdline = esl_getopts_CreateOptsLine(go);
   if(strcmp(cmdline, " -a \"TRUE\" -b \"TRUE\" --no-b \"FALSE\" -c y --d1 \"TRUE\" --d2 \"FALSE\" -n 9 -x 0.5 --hix 0.0 --lown 43 --hin -33 --host \"wasp.cryptogenomicon.org\" --multi \"one two three\" --mul \"TRUE\"")){
     esl_fatal("esl_getopts_CreateCmdLine test failed");
   }
-  
+  free(cmdline);
   /* Now the two remaining argv[] elements are the command line args
    */
   if (esl_opt_ArgNumber(go) != 2) esl_fatal("getopts failed with wrong arg number");
