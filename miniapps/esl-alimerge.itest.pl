@@ -65,6 +65,30 @@ seq8     .CAAAAaaAAAaccccC-CccCCCCccccccgGggGGggGGg
 EOF
 close ALIFILE;
 
+# $tmppfx.6 and $tmppfx.7 tests that SS_cons only gets transferred if
+# both alignments follow rule that all RF gaps are also gaps in
+# SS_cons, this is crucial for merging, otherwise resulting SS_cons in
+# merged alignment could be order-dependent.
+open(ALIFILE, ">$tmppfx.6") || die "FAIL: couldn't open $tmppfx.6 for writing alifile";
+print ALIFILE << "EOF";
+# STOCKHOLM 1.0
+seq7         CAAAAAAACCCCCCC.cGGGGC
+#=GC RF      AAAAAAAACCCCCCC.cGGGGG
+#=GC SS_cons :::::::::::<<<<:<>>>>>
+//
+EOF
+close ALIFILE;
+
+open(ALIFILE, ">$tmppfx.7") || die "FAIL: couldn't open $tmppfx.7 for writing alifile";
+print ALIFILE << "EOF";
+# STOCKHOLM 1.0
+seq8         .CAAAAaaAAAaccccC-CccCCCCccccccgGggGGggGGg
+#=GC RF      .AAAAA..AAA.....CCC..CCCC....c..G..GG..GG.
+#=GC SS_cons .:::::..:::..........<<<<....<..>..>>..>>.
+//
+EOF
+close ALIFILE;
+
 open(LISTFILE, ">$tmppfx.list") || die "FAIL: couldn't open $tmppfx.list for writing list file";
 print LISTFILE "$tmppfx.2\n";
 print LISTFILE "$tmppfx.1\n";
@@ -199,6 +223,15 @@ if ($output !~ /sequence 3 is the best/)  { die "FAIL: alignments merged incorre
 if ($output !~ /AAAAAAAACCCCCCCCGGGGG/)   { die "FAIL: alignments merged incorrectly"; }
 if ($output !~ /AAAAAAAAC\-CCCCCcGGGGG/)  { die "FAIL: alignments merged incorrectly"; }
 
+# test that versions 0.48 and earlier failed this by keeping SS_cons
+$output = `$eslalimerge $tmppfx.6 $tmppfx.7 2>&1`;
+if ($? != 0)                              { die "FAIL: esl-alimerge failed unexpectedly"; }
+if ($output =~ /SS_cons/)                 { die "FAIL: SS_cons included unexpectedly"; }
+
+$output = `$eslalimerge $tmppfx.7 $tmppfx.6 2>&1`;
+if ($? != 0)                              { die "FAIL: esl-alimerge failed unexpectedly"; }
+if ($output =~ /SS_cons/)                 { die "FAIL: SS_cons included unexpectedly"; }
+
 
 print "ok\n"; 
 unlink "$tmppfx.1";
@@ -206,6 +239,8 @@ unlink "$tmppfx.2";
 unlink "$tmppfx.3";
 unlink "$tmppfx.4";
 unlink "$tmppfx.5";
+unlink "$tmppfx.6";
+unlink "$tmppfx.7";
 unlink "$tmppfx.list";
 unlink "$tmppfx.out";
 exit 0;
