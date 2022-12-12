@@ -2394,6 +2394,11 @@ skip_whitespace(ESL_SQFILE *sqfp)
   if (ascii->nc == 0)
     return eslEOF;
 
+  /* if at end of buffer, reload it */
+  if (ascii->bpos == ascii->nc)
+    if ((status = loadbuf(sqfp)) == eslEOF)
+      return eslEOF;
+
   c = (int) ascii->buf[ascii->bpos];
   x  = sqfp->inmap[c];
 
@@ -2401,6 +2406,7 @@ skip_whitespace(ESL_SQFILE *sqfp)
 
     ascii->bpos++;
 
+    /* if at end of buffer, reload it */
     if (ascii->bpos == ascii->nc)
       if ((status = loadbuf(sqfp)) == eslEOF)
         return eslEOF;
