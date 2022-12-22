@@ -2120,7 +2120,7 @@ main(void)
   go2 = esl_getopts_Create(options);
   if (esl_opt_ProcessSpoof(go2, spoofline) != eslOK) esl_fatal("errmsg");
   if (esl_opt_VerifyConfig(go2)   != eslOK) esl_fatal("errmsg");
-  printf("%s\n", spoofline);
+ 
   //go2 should now be the same as go, so re-run all checks
   if (esl_opt_GetBoolean(go2, "-a")     != TRUE)  esl_fatal("getopts failed on -a"); /* -a is ON: by environment */
   if (esl_opt_GetBoolean(go2, "-b")     != TRUE)  esl_fatal("getopts failed on -b"); /* -b is toggled thrice, ends up ON */
