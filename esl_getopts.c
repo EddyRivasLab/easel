@@ -363,6 +363,9 @@ esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g)
 
 extern char *esl_getopts_CreateOptsLine(ESL_GETOPTS *g){ 
   char *ret_string = (char *) malloc(256);
+  char quotemark[2];
+  quotemark[0] = 34;  //brutal hack to get a quotation mark into a string without the escape character
+  quotemark[1] = '\0';
   if(ret_string == NULL){
     return(NULL);
   }
@@ -371,21 +374,15 @@ extern char *esl_getopts_CreateOptsLine(ESL_GETOPTS *g){
   ret_string[0] = '\0';  // Set this to a null string in case we don't find any commandiline arguments to return 
   int i, optsize;
   for(i=0; i < g->nopts; i++){
-    if(g->setby[i] != eslARG_SETBY_DEFAULT){
-      // We need to handle this option because it has a non-default value
-      optsize = strlen(g->opt[i].name) +2;
-      if(g->opt[i].type == eslARG_NONE){ //boolean value, handle specially
-        if(g->val[i] == 0){
-          optsize += 7; //"FALSE"
-        }
-        else{
-          optsize += 6; //"TRUE"
-        }
-      }
-      else{
-        optsize+=(strlen(g->val[i]));
-        if((g->opt[i].type == eslARG_STRING)||(g->opt[i].type == eslARG_INFILE)||(g->opt[i].type == eslARG_OUTFILE)){
-          optsize+=2;  //For quotes around strings
+    if(g->setby[i] != eslARG_SETBY_DEFAULT && !((g->opt[i].type == eslARG_NONE) && (g->val[i] == 0))){
+      // We need to handle this option because it has a non-default value and isn't false
+      // Unless this is an option that doesn't take an argument and has a value of FALSE.  In that case, it must have been
+      // toggled false by some other argument, so ignore it
+      optsize = strlen(g->opt[i].name) +2; //+1 for space after option name
+      if(g->opt[i].type != eslARG_NONE){ //Need an argument to the option
+        optsize+=(strlen(g->val[i])) + 1; // +1 for space after name or terminator character
+        if(g->opt[i].type ==eslARG_STRING){
+          optsize += 2; //quotes around strings
         }
       }
       while(used + optsize > ret_length){
@@ -398,22 +395,14 @@ extern char *esl_getopts_CreateOptsLine(ESL_GETOPTS *g){
       //Now that we know we have space, add the options string for this option and its value to the  commandline
       strcat(ret_string, " ");
       strcat(ret_string, g->opt[i].name);
-      strcat(ret_string,  " ");
-      if(g->opt[i].type == eslARG_NONE){ //boolean value, handle specially
-        if(g->val[i] == 0){
-          strcat(ret_string, "\"FALSE\"");
-        }
-        else{
-          strcat(ret_string, "\"TRUE\"");
-        }
-      }
-      else{
-        if((g->opt[i].type == eslARG_STRING)||(g->opt[i].type == eslARG_INFILE)||(g->opt[i].type == eslARG_OUTFILE)){
-        strcat(ret_string, "\"");
+      if(g->opt[i].type != eslARG_NONE){ 
+        strcat(ret_string,  " ");
+        if(g->opt[i].type== eslARG_STRING){
+          strcat(ret_string, quotemark);
         }
         strcat(ret_string, g->val[i]);
-        if((g->opt[i].type == eslARG_STRING)||(g->opt[i].type == eslARG_INFILE)||(g->opt[i].type == eslARG_OUTFILE)){
-        strcat(ret_string, "\"");
+        if(g->opt[i].type== eslARG_STRING){
+          strcat(ret_string, quotemark);
         }
       }
       used += optsize;
@@ -663,19 +652,19 @@ esl_opt_ProcessSpoof(ESL_GETOPTS *g, const char *cmdline)
   void  *p;
   char  *tok;
   int    status;
-
   if (g->spoof != NULL || g->spoof_argv != NULL)
     ESL_XFAIL(eslEINVAL, g->errbuf, "cannot process more than one spoofed command line");
 
   if ((status = esl_strdup(cmdline, -1, &(g->spoof))) != eslOK) goto ERROR;
   s = g->spoof;
 
-  while (esl_strtok(&s, " \t\n", &tok) == eslOK)
-    {
+  while(*s != '\0'){ // haven't processed the full string
+      if (*s == '"')  esl_strtok(&s, "\"",    &tok); /* quote-delimited arg */
+      else            esl_strtok(&s, " \t\n", &tok); /* space-delimited arg */
       argc++;
       ESL_RALLOC(g->spoof_argv, p, sizeof(char *) * argc);
       g->spoof_argv[argc-1] = tok;
-    }
+  }
   
   status = esl_opt_ProcessCmdline(g, argc, g->spoof_argv);
   return status;
@@ -2008,7 +1997,7 @@ static ESL_OPTIONS options[] = {
 int
 main(void)
 {
-  ESL_GETOPTS *go;
+  ESL_GETOPTS *go, *go2;
   char         file1[32] = "esltmpXXXXXX";
   char         file2[32] = "esltmpXXXXXX";
   char        *errmsg    = "getopts unit test failure";
@@ -2113,11 +2102,66 @@ main(void)
       if (! esl_opt_IsDefault(go, go->opt[i].name) &&   esl_opt_IsOn(go, go->opt[i].name) && ! esl_opt_IsUsed(go, go->opt[i].name)) esl_fatal(errmsg);
       if (! esl_opt_IsDefault(go, go->opt[i].name) && ! esl_opt_IsOn(go, go->opt[i].name) &&   esl_opt_IsUsed(go, go->opt[i].name)) esl_fatal(errmsg);
     }
+
+  //test if we can recover options line from getopts
   char *cmdline = esl_getopts_CreateOptsLine(go);
-  if(strcmp(cmdline, " -a \"TRUE\" -b \"TRUE\" --no-b \"FALSE\" -c y --d1 \"TRUE\" --d2 \"FALSE\" -n 9 -x 0.5 --hix 0.0 --lown 43 --hin -33 --host \"wasp.cryptogenomicon.org\" --multi \"one two three\" --mul \"TRUE\"")){
-    esl_fatal("esl_getopts_CreateCmdLine test failed");
-  }
+
+  int mismatch;
+  //if(mismatch = strcmp(cmdline, " -a -b -c y --d1 -n 9 -x 0.5 --hix 0.0 --lown 43 --hin -33 --host \"wasp.cryptogenomicon.org\" --multi \"one two three\" --mul")){
+    //esl_fatal("esl_getopts_CreateOptsLine test failed at position %d", mismatch);
+  //}
+  char *spoofline;
+  spoofline = (char *) malloc(strlen(cmdline)+ 8);
+  if(spoofline == NULL) esl_fatal(errmsg);
+  strcpy(spoofline, "getopts");
+  strcat(spoofline, cmdline);
+
+  //test that we can parse the options line into a new getopts:
+  go2 = esl_getopts_Create(options);
+  if (esl_opt_ProcessSpoof(go2, spoofline) != eslOK) esl_fatal("errmsg");
+  if (esl_opt_VerifyConfig(go2)   != eslOK) esl_fatal("errmsg");
+  printf("%s\n", spoofline);
+  //go2 should now be the same as go, so re-run all checks
+  if (esl_opt_GetBoolean(go2, "-a")     != TRUE)  esl_fatal("getopts failed on -a"); /* -a is ON: by environment */
+  if (esl_opt_GetBoolean(go2, "-b")     != TRUE)  esl_fatal("getopts failed on -b"); /* -b is toggled thrice, ends up ON */
+  if (esl_opt_GetBoolean(go2, "--no-b") != FALSE) esl_fatal("getopts failed on --no-b");	/* so --no-b is OFF */
+  if (esl_opt_GetChar   (go2, "-c")     != 'y')   esl_fatal("getopts failed on -c"); /* set to y on cmdline in an optstring */
+  if (esl_opt_GetInteger(go2, "-n")     != 9)     esl_fatal("getopts failed on -n"); /* cfgfile, then on cmdline as linked arg*/
+  if (esl_opt_GetReal   (go2, "-x")     != 0.5)   esl_fatal("getopts failed on -x"); /* cfgfile #1 */
+  if (esl_opt_GetReal   (go2, "--lowx") != 1.0)   esl_fatal("getopts failed on --lowx"); /* stays at default */
+  if (esl_opt_GetReal   (go2, "--hix")  != 0.0)   esl_fatal("getopts failed on --hix"); /* arg=x format on cmdline */
+  if (esl_opt_GetInteger(go2, "--lown") != 43)    esl_fatal("getopts failed on --lown"); /* cmdline; requires -a -b */
+  if (esl_opt_GetInteger(go2, "--hin")  != -33)   esl_fatal("getopts failed on --hin"); /* cfgfile 2; requires --no-b to be off */
+  if (esl_opt_GetBoolean(go2, "--mul")  != TRUE)  esl_fatal("getopts failed on --mul"); /* --mul should not be confused with --multi by abbrev parser*/
+  if (strcmp(esl_opt_GetString(go2, "--host"), "wasp.cryptogenomicon.org") != 0)
+    esl_fatal("getopts failed on --host"); /* cfgfile 2, then overridden by environment */
+  if (strcmp(esl_opt_GetString(go2, "--multi"), "one two three") != 0)
+    esl_fatal("config file didn't handle quoted argument");
+  if (! esl_opt_IsDefault(go2, "--d1"))   esl_fatal(errmsg);
+  if (! esl_opt_IsOn     (go2, "--d1"))   esl_fatal(errmsg);
+  if (  esl_opt_IsUsed   (go2, "--d1"))   esl_fatal(errmsg);
+  if (! esl_opt_IsDefault(go2, "--d2"))   esl_fatal(errmsg);
+  if (  esl_opt_IsOn     (go2, "--d2"))   esl_fatal(errmsg);
+  if (  esl_opt_IsUsed   (go2, "--d2"))   esl_fatal(errmsg);
+  if (  esl_opt_IsDefault(go2, "-a"))     esl_fatal(errmsg);
+  if (! esl_opt_IsOn     (go2, "-a"))     esl_fatal(errmsg);
+  if (! esl_opt_IsUsed   (go2, "-a"))     esl_fatal(errmsg);  
+  if (  esl_opt_IsDefault(go2, "-b"))     esl_fatal(errmsg);
+  if (! esl_opt_IsOn     (go2, "-b"))     esl_fatal(errmsg);
+  if (! esl_opt_IsUsed   (go2, "-b"))     esl_fatal(errmsg);  
+  if (  esl_opt_IsDefault(go2, "--no-b")) esl_fatal(errmsg);
+  if (  esl_opt_IsOn     (go2, "--no-b")) esl_fatal(errmsg);
+  if (  esl_opt_IsUsed   (go2, "--no-b")) esl_fatal(errmsg);  
+  
+  for (i = 0; i < go->nopts; i++)
+    {   /* Test that no option is in an impossible default/on/used state according to logic table above */
+      if (  esl_opt_IsDefault(go2, go2->opt[i].name) &&   esl_opt_IsOn(go2, go2->opt[i].name) &&   esl_opt_IsUsed(go2, go2->opt[i].name)) esl_fatal(errmsg);
+      if (  esl_opt_IsDefault(go2, go2->opt[i].name) && ! esl_opt_IsOn(go2, go2->opt[i].name) &&   esl_opt_IsUsed(go2, go2->opt[i].name)) esl_fatal(errmsg);
+      if (! esl_opt_IsDefault(go2, go2->opt[i].name) &&   esl_opt_IsOn(go2, go2->opt[i].name) && ! esl_opt_IsUsed(go2, go2->opt[i].name)) esl_fatal(errmsg);
+      if (! esl_opt_IsDefault(go2, go2->opt[i].name) && ! esl_opt_IsOn(go2, go2->opt[i].name) &&   esl_opt_IsUsed(go2, go2->opt[i].name)) esl_fatal(errmsg);
+    }
   free(cmdline);
+  free(spoofline);
   /* Now the two remaining argv[] elements are the command line args
    */
   if (esl_opt_ArgNumber(go) != 2) esl_fatal("getopts failed with wrong arg number");
@@ -2126,6 +2170,7 @@ main(void)
   if (strcmp("2005", esl_opt_GetArg(go, 2)) != 0) esl_fatal("getopts failed on argument 2");
 
   esl_getopts_Destroy(go);
+  esl_getopts_Destroy(go2);
   remove(file1);
   remove(file2);
   exit(0);
