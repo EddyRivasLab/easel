@@ -15,13 +15,7 @@
 #include <pthread.h>
 
 #ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-#ifdef HAVE_SYS_PARAM_H		/* On OpenBSD, sys/sysctl.h requires sys/param.h */
-#include <sys/param.h>
-#endif
-#ifdef HAVE_SYS_SYSCTL_H
-#include <sys/sysctl.h>
+#include <unistd.h>   // includes sysconf() and its constants
 #endif
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
@@ -303,50 +297,42 @@ esl_threads_Finished(ESL_THREADS *obj, int workeridx)
  *****************************************************************/
 
 /* Function:  esl_threads_CPUCount()
- * Synopsis:  Figure out how many cpus the machine has.
+ * Synopsis:  Figure out how many cores the machine has available.
  * Incept:    SRE, Wed Aug 19 11:31:24 2009 [Janelia]
  *
  * Purpose:   Determine the number of logical processors on this
  *            machine; return that number in <*ret_ncpu>.
  *            
  *            The number of available processors is found by
- *            <sysconf(_SC_NPROCESSORS_ONLN)>,
- *            <sysconf(_SC_NPROC_ONLN)>, or a <sysctl()> call,
- *            depending on the host system.  This determined number of
- *            available processors will be the number of logical
- *            processors, not physical processors. On systems with
- *            hyperthreading, the number of logical processors is more
- *            than the number of physical cpus. It may or may not be a
- *            good thing to spawn more threads than physical
- *            processors.
+ *            <sysconf(_SC_NPROCESSORS_ONLN)>, a POSIX standard.  If
+ *            sysconf() is somehow unavailable, <*ret_ncpu> is quietly
+ *            just set to 1.
+ *
+ *            This is the number of logical processors, not physical
+ *            processors. On systems with hyperthreading, the number
+ *            of logical processors is more than the number of
+ *            physical cpus. It may or may not be a good thing to
+ *            spawn more threads than physical processors.
  *            
- * Args:      ret_ncpu  - RETURN: number of logical CPUs
+ * Args:      ret_ncpu  - RETURN: number of logical cores
  *
  * Returns:   <eslOK> on success.
  *
  * Throws:    (no abnormal error conditions)
  *
- * Xref:      J5/68
+ * Xref:      J5/68; H14/5.
  */
 int
 esl_threads_CPUCount(int *ret_ncpu)
 {
   int   ncpu = 1;
 
-#if defined     (HAVE_SYSCONF) && defined (_SC_NPROCESSORS_ONLN)     /* Many systems (including Linux) */
+#if defined     (HAVE_SYSCONF) && defined (_SC_NPROCESSORS_ONLN)     // POSIX standard 
   ncpu = sysconf(_SC_NPROCESSORS_ONLN);
-#elif defined   (HAVE_SYSCONF) && defined (_SC_NPROC_ONLN)	     /* Silicon Graphics IRIX */
-  ncpu = sysconf(_SC_NPROC_ONLN);
-#elif defined   (HAVE_SYSCTL)	                                     /* BSD systems including OS/X */
-  int    mib[2] = {CTL_HW, HW_NCPU};
-  size_t len    = sizeof(int);
-  int    status;
-
-  status = sysctl(mib, 2, &ncpu, &len, NULL, (size_t) NULL);
-  if (status < 0 || len != sizeof(int)) ncpu = 1;
+#elif defined   (HAVE_SYSCONF) && defined (_SC_NPROC_ONLN)	     // Silicon Graphics IRIX used to be this way 
+  ncpu = sysconf(_SC_NPROC_ONLN);                                    // Don't use sysctl() as a fallback. Linux/gcc deprecated it. [H14/5]
 #endif
-  
-  if (ncpu < 1) ncpu = 1;
+  if (ncpu < 1) ncpu = 1;  // silently ignore any sysconf() problem, including nonexistence; fall back to 1 core.
 
   *ret_ncpu = ncpu;
   return eslOK;
