@@ -346,12 +346,12 @@ esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g)
  *
  * Synopsis: Creates a string that contains a set of command-line
  *           options that could be provided to the original program to 
- *           generate an equivalent getopts argument to the one 
- *           passed to esl_getopts_Createcommandline.  This comman line
- *           will contain text to sett all options in the getopts object
- *           that were not at their default value, regacdless of how 
+ *           generate an equivalent getopts object as the one 
+ *           passed to <esl_getopts_CreateOptsLine()>.  This command line
+ *           will contain text to set all options in the getopts object
+ *           that were not at their default value, regardless of how 
  *           those options were set (command-line argument, environment
- *           variable, or in a configfile).  It may thus differ from the 
+ *           variable, or in a config file).  It may thus differ from the 
  *           actual command line that was passed to the program.
  * 
  * Purpose:  This function is ussed within hmmclient/hmmserver to generate
@@ -360,21 +360,20 @@ esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g)
  *
  * Returns:  The generated string, or NULL if it was unable to create one
  */
-
-extern char *esl_getopts_CreateOptsLine(ESL_GETOPTS *g){ 
-  char *ret_string = (char *) malloc(256);
+char *
+esl_getopts_CreateOptsLine(ESL_GETOPTS *g)
+{ 
+  char *ret_string = (char *) malloc(256);   // will grow/realloc as needed
   char quotemark[2];
   quotemark[0] = 34;  //brutal hack to get a quotation mark into a string without the escape character
   quotemark[1] = '\0';
-  if(ret_string == NULL){
-    return(NULL);
-  }
+  if (ret_string == NULL) return(NULL);
   int ret_length =256;
   int used = 1; 
   ret_string[0] = '\0';  // Set this to a null string in case we don't find any commandiline arguments to return 
   int i, optsize;
-  for(i=0; i < g->nopts; i++){
-    if(g->setby[i] != eslARG_SETBY_DEFAULT && !((g->opt[i].type == eslARG_NONE) && (g->val[i] == 0))){
+  for (i=0; i < g->nopts; i++){
+    if (g->setby[i] != eslARG_SETBY_DEFAULT && !((g->opt[i].type == eslARG_NONE) && (g->val[i] == 0))){
       // We need to handle this option because it has a non-default value and isn't false
       // Unless this is an option that doesn't take an argument and has a value of FALSE.  In that case, it must have been
       // toggled false by some other argument, so ignore it
@@ -410,6 +409,7 @@ extern char *esl_getopts_CreateOptsLine(ESL_GETOPTS *g){
   }
   return(ret_string);
 }
+
 /*****************************************************************
  *# 2. Setting and testing a configuration
  *****************************************************************/ 
@@ -2106,10 +2106,11 @@ main(void)
   //test if we can recover options line from getopts
   char *cmdline = esl_getopts_CreateOptsLine(go);
 
+#if 0  // some test code removed here
   int mismatch;
-  //if(mismatch = strcmp(cmdline, " -a -b -c y --d1 -n 9 -x 0.5 --hix 0.0 --lown 43 --hin -33 --host \"wasp.cryptogenomicon.org\" --multi \"one two three\" --mul")){
-    //esl_fatal("esl_getopts_CreateOptsLine test failed at position %d", mismatch);
-  //}
+  if (mismatch = strcmp(cmdline, " -a -b -c y --d1 -n 9 -x 0.5 --hix 0.0 --lown 43 --hin -33 --host \"wasp.cryptogenomicon.org\" --multi \"one two three\" --mul"))
+    esl_fatal("esl_getopts_CreateOptsLine test failed at position %d", mismatch);
+#endif
   char *spoofline;
   spoofline = (char *) malloc(strlen(cmdline)+ 8);
   if(spoofline == NULL) esl_fatal(errmsg);
