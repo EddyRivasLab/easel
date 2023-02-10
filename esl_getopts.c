@@ -652,19 +652,19 @@ esl_opt_ProcessSpoof(ESL_GETOPTS *g, const char *cmdline)
   void  *p;
   char  *tok;
   int    status;
+
   if (g->spoof != NULL || g->spoof_argv != NULL)
     ESL_XFAIL(eslEINVAL, g->errbuf, "cannot process more than one spoofed command line");
 
   if ((status = esl_strdup(cmdline, -1, &(g->spoof))) != eslOK) goto ERROR;
   s = g->spoof;
 
-  while(*s != '\0'){ // haven't processed the full string
-      if (*s == '"')  esl_strtok(&s, "\"",    &tok); /* quote-delimited arg */
-      else            esl_strtok(&s, " \t\n", &tok); /* space-delimited arg */
+  while (esl_strtok(&s, " \t\n", &tok) == eslOK)
+    {
       argc++;
       ESL_RALLOC(g->spoof_argv, p, sizeof(char *) * argc);
       g->spoof_argv[argc-1] = tok;
-  }
+    }
   
   status = esl_opt_ProcessCmdline(g, argc, g->spoof_argv);
   return status;
