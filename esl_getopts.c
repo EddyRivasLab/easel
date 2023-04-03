@@ -659,13 +659,29 @@ esl_opt_ProcessSpoof(ESL_GETOPTS *g, const char *cmdline)
   if ((status = esl_strdup(cmdline, -1, &(g->spoof))) != eslOK) goto ERROR;
   s = g->spoof;
 
+/* old version
   while (esl_strtok(&s, " \t\n", &tok) == eslOK)
     {
       argc++;
       ESL_RALLOC(g->spoof_argv, p, sizeof(char *) * argc);
       g->spoof_argv[argc-1] = tok;
     }
-  
+*/
+  while(*s != '\0'){
+    int status2;
+    if(*s == '\"'){ //token begins with a quote, must end with one or EOL
+      status2 = esl_strtok(&s, "\"", &tok);
+    }
+    else{
+      status2 = esl_strtok(&s, " \t\n", &tok);
+    }
+    if(status2 != eslOK){
+      break; // done parsing tokens
+    }
+    argc++;
+    ESL_RALLOC(g->spoof_argv, p, sizeof(char *) * argc);
+    g->spoof_argv[argc-1] = tok;
+  }
   status = esl_opt_ProcessCmdline(g, argc, g->spoof_argv);
   return status;
   
@@ -2105,7 +2121,6 @@ main(void)
 
   //test if we can recover options line from getopts
   char *cmdline = esl_getopts_CreateOptsLine(go);
-
 #if 0  // some test code removed here
   int mismatch;
   if (mismatch = strcmp(cmdline, " -a -b -c y --d1 -n 9 -x 0.5 --hix 0.0 --lown 43 --hin -33 --host \"wasp.cryptogenomicon.org\" --multi \"one two three\" --mul"))
