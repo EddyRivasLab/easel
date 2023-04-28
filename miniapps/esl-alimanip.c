@@ -3308,29 +3308,21 @@ write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, float gapt
   int64_t  apos;
   int64_t  gaps;
   int      i;
-  int      nrf = 0;
 
-  if(msa->rf == NULL) { 
-    ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
-  }
-  /* set as all gaps */
-  for (apos = 1; apos <= msa->alen; apos++) msa->rf[(apos-1)] = '.';
+  if (msa->rf == NULL) ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
+
+  for (apos = 1; apos <= msa->alen; apos++) msa->rf[(apos-1)] = '.';   // set as all gaps 
 
   for (apos = 1; apos <= msa->alen; apos++) {
     for (gaps = 0, i = 0; i < msa->nseq; i++) {
       if (esl_abc_XIsGap(msa->abc, msa->ax[i][apos])) gaps++;
     }
-    if((double) gaps / (double) msa->nseq < gapthresh) { /* column passes gap threshold */
-      nrf++;
-      msa->rf[(apos-1)] = 'x';
-    }
-    else { /* column fails the gap threshold */
-      msa->rf[(apos-1)] = '.';
-    }
+    if ((double) gaps / (double) msa->nseq < gapthresh) msa->rf[(apos-1)] = 'x';    // column passes gap threshold
+    else                                                msa->rf[(apos-1)] = '.';    // column fails the gap threshold
   }
   msa->rf[msa->alen] = '\0';
-
   return eslOK;
+
  ERROR:
   return status;
 }

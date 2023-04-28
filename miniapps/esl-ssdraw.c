@@ -3324,7 +3324,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
 			 int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s, int gap_idx_p, FILE *tabfp)
 {
   int status;
-  int p, i, pp, ai;
+  int p, i, pp;
   int rfpos, apos, lpos, rpos, lrfpos, rrfpos;
   int orig_npage = ps->npage;
   int new_npage;
@@ -3505,7 +3505,6 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   }
   
   /* Step through each seq, first fill seq page, then possibly postprob page */
-  ai = 0;
   pp = orig_npage-1;
   for(i = 0; i < msa->nseq; i++) {
     /**************************
@@ -3529,7 +3528,6 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
     ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx_s, hc_nbins_s, limits_s, TRUE, TRUE, TRUE, FALSE);
     /* init one cell legend counters */
     nextdel_s = nwc_s = ngu_s = nnc_s = ndgi_s = nhgi_s = ndge_s = nhge_s = noutline_min = noutline_max = noutline_bp_good = noutline_bp_bad = 0;
-    ai++;
     for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
       apos = ps->msa_rf2a_map[rfpos];
       nins_s = per_seq_ins_ct[i][rfpos+1];
