@@ -1890,11 +1890,21 @@ utest_stable_sums(ESL_RANDOMNESS *rng)
 
   // printf("%f %f %f %f\n", naive_mean, welford_mean, kahan_mean, easel_mean);
 
-  // By checking against actual welford_mean instead of expected 0.5, we're robust against rare outliers in random samples
-  if (esl_FCompare(welford_mean, naive_mean, 1e-3, 1e-3) != eslFAIL) esl_fatal(msg);  // naive sum *will* fail
-  if (esl_FCompare(welford_mean, kahan_mean, 1e-3, 1e-3) != eslOK)   esl_fatal(msg);  // welford and kahan will both work
-  if (esl_FCompare(welford_mean, easel_mean, 1e-3, 1e-3) != eslOK)   esl_fatal(msg);  // easel uses kahan, check against welford
-
+  // By checking against actual kahan_mean instead of expected 0.5,
+  // we're robust against rare outliers in random samples, and 
+  // we don't need to protect against them with a fixed RNG seed;
+  // any seed will work.
+  //
+  // A compiler that's both smart and risktaking (e.g. icc in its
+  // default mode of -fp-model=fast) can rearrange the above
+  // calculation and end up getting the right answer for the
+  // naive_mean. But if it does fail (as we expect), both the welford
+  // mean and the easel mean will work.
+  if (esl_FCompare(kahan_mean, naive_mean, 1e-3, 1e-3) == eslFAIL)  // naive sum will typically fail, except with fast-math risk-taking optimizers
+    {
+      if (esl_FCompare(kahan_mean, welford_mean, 1e-3, 1e-3) != eslOK)   esl_fatal(msg);  // welford and kahan will both work
+      if (esl_FCompare(kahan_mean, easel_mean,   1e-3, 1e-3) != eslOK)   esl_fatal(msg);  // easel uses kahan, check against welford
+    }
   free(x);
   return;
 
