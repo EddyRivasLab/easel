@@ -744,14 +744,14 @@ esl_json_Validate(const ESL_JSON *pi, const ESL_BUFFER *bf, char *errbuf)
 	  if (pos2 >= bf->n) ESL_FAIL(eslFAIL, errbuf, "bad end pos, tok %d",   i);
 
 	  switch (tok->type) {
-	  case eslJSON_OBJECT:  if (bf->mem[pos1]   != '{' || bf->mem[pos2]   != '}')        ESL_FAIL(eslFAIL, errbuf, "object closing brackets missing, tok %d", i); break;
-	  case eslJSON_ARRAY:   if (bf->mem[pos1]   != '[' || bf->mem[pos2]   != ']')        ESL_FAIL(eslFAIL, errbuf, "array closing brackets missing, tok %d",  i); break;
-	  case eslJSON_KEY:     if (bf->mem[pos1-1] != '"' || bf->mem[pos2+1] != '"')        ESL_FAIL(eslFAIL, errbuf, "key quotes missing, tok %d",              i); break;
-	  case eslJSON_STRING:  if (bf->mem[pos1-1] != '"' || bf->mem[pos2+1] != '"')        ESL_FAIL(eslFAIL, errbuf, "string quotes missing, tok %d",           i); break;
-	  case eslJSON_NUMBER:  if (! esl_mem_IsReal(bf->mem + pos1, pos2-pos1+1))           ESL_FAIL(eslFAIL, errbuf, "number isn't a number, tok %d",           i); break;
+	  case eslJSON_OBJECT:  if (bf->mem[pos1]   != '{' || bf->mem[pos2]   != '}')       { ESL_FAIL(eslFAIL, errbuf, "object closing brackets missing, tok %d", i); } break;
+          case eslJSON_ARRAY:   if (bf->mem[pos1]   != '[' || bf->mem[pos2]   != ']')       { ESL_FAIL(eslFAIL, errbuf, "array closing brackets missing, tok %d",  i); } break;
+          case eslJSON_KEY:     if (bf->mem[pos1-1] != '"' || bf->mem[pos2+1] != '"')       { ESL_FAIL(eslFAIL, errbuf, "key quotes missing, tok %d",              i); } break;
+          case eslJSON_STRING:  if (bf->mem[pos1-1] != '"' || bf->mem[pos2+1] != '"')       { ESL_FAIL(eslFAIL, errbuf, "string quotes missing, tok %d",           i); } break;
+          case eslJSON_NUMBER:  if (! esl_mem_IsReal(bf->mem + pos1, pos2-pos1+1))          { ESL_FAIL(eslFAIL, errbuf, "number isn't a number, tok %d",           i); } break;
 	  case eslJSON_BOOLEAN: if (! esl_memstrcmp(bf->mem + pos1, pos2-pos1+1, "true")  &&
-				    ! esl_memstrcmp(bf->mem + pos1, pos2-pos1+1, "false"))   ESL_FAIL(eslFAIL, errbuf, "boolean isn't a boolean, tok %d",         i); break;
-	  case eslJSON_NULL:    if (! esl_memstrcmp(bf->mem + pos1, pos2-pos1+1, "null"))    ESL_FAIL(eslFAIL, errbuf, "null isn't null, tok %d",                 i); break;
+				    ! esl_memstrcmp(bf->mem + pos1, pos2-pos1+1, "false"))  { ESL_FAIL(eslFAIL, errbuf, "boolean isn't a boolean, tok %d",         i); } break;
+          case eslJSON_NULL:    if (! esl_memstrcmp(bf->mem + pos1, pos2-pos1+1, "null"))   { ESL_FAIL(eslFAIL, errbuf, "null isn't null, tok %d",                 i); } break;
 	  default: ESL_FAIL(eslFAIL, errbuf, "no such state type %d, tok %d", (int) tok->type, i);
           }
 	}
