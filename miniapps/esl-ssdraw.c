@@ -31,7 +31,6 @@
 #include "esl_vectorops.h"
 #include "esl_wuss.h"
 
-#define SSDRAWINFINITY 987654321
 #define ERRBUFSIZE 1024
 #define MAXMBWITHOUTFORCE 100
 
@@ -2320,7 +2319,7 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
     x += (float) ps->leg_cellsize * 1.5;
     y += (float) ps->leg_cellsize * 0.25;
     fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
-    if(esl_FCompare_old(scl->limits[c+1], SSDRAWINFINITY, eslSMALLX1) == eslOK) { /* max value is infinity, special case */
+    if(esl_FCompare_old(scl->limits[c+1], eslINFINITY, eslSMALLX1) == eslOK) { /* max value is infinity, special case */
       if(c != scl->nbins-1) esl_fatal("ERROR when drawing color legend, limits[%d] is INFINITY, but this is reserved only for the max limit", c+1);
       if(scl->ints_only_flag) fprintf(fp, "(>=%d) %.2f %.2f moveto show\n",   (int) scl->limits[c], x, y);
       else                    fprintf(fp, "(>=%3.f) %.2f %.2f moveto show\n", scl->limits[c], x, y);
@@ -3436,7 +3435,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   limits_s[2] = 2;
   limits_s[3] = 5;
   limits_s[4] = 10;
-  limits_s[5] = SSDRAWINFINITY;
+  limits_s[5] = eslINFINITY;
 
   /* setup pp limits */
   ESL_ALLOC(limits_p, sizeof(float) * (hc_nbins_p+1)); 
@@ -4815,7 +4814,7 @@ insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *p
   limits[3] = 3.00;
   limits[4] = 4.00;
   limits[5] = 10.00;
-  limits[6] = SSDRAWINFINITY;
+  limits[6] = eslINFINITY;
   ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE, TRUE, FALSE, TRUE);
 
   if(tabfp != NULL) { 
