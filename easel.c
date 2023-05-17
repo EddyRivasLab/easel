@@ -77,9 +77,12 @@ esl_fail(char *errbuf, const char *format, ...)
 	  if (errbuf) vsnprintf(errbuf, eslERRBUFSIZE, format, ap);
 	  va_end(ap);
 	}
-      else vsyslog(LOG_ERR, format, ap); // SRE: TODO: check this.
-                                         // looks wrong. I think it needs va_start(), va_end().
-                                         // also see two more occurrences, below.
+      else
+        {
+          va_start(ap, format);
+          vsyslog(LOG_ERR, format, ap); 
+          va_end(ap);
+        }
     }
 }
 
@@ -155,7 +158,12 @@ esl_exception(int errcode, int use_errno, char *sourcefile, int sourceline, char
 	  if (use_errno && errno) perror("system error");
 	  fflush(stderr);
 	}  
-      else vsyslog(LOG_ERR, format, argp);
+      else
+        {
+          va_start(argp, format);
+          vsyslog(LOG_ERR, format, argp);
+          va_end(argp);
+        }
 
 #ifdef HAVE_MPI
       MPI_Initialized(&mpiflag);                 /* we're assuming we can do this, even in a corrupted, dying process...? */
@@ -306,7 +314,12 @@ esl_fatal(const char *format, ...)
       fprintf(stderr, "\n");
       fflush(stderr);
     } 
-  else vsyslog(LOG_ERR, format, argp);
+  else
+    {
+      va_start(argp, format);
+      vsyslog(LOG_ERR, format, argp);
+      va_end(argp);
+    }
 
 #ifdef HAVE_MPI
   MPI_Initialized(&mpiflag);

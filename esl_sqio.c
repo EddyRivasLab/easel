@@ -1843,7 +1843,6 @@ make_ssi_index(ESL_ALPHABET *abc, const char *tmpfile, int format, char *ssifile
   ESL_SQFILE *sqfp = NULL;
   ESL_SQ     *sq   = esl_sq_CreateDigital(abc);
   uint16_t    fh   = 0;
-  int         nseq = 0;
   int         status;
 
   int         bpl, rpl;
@@ -1854,7 +1853,6 @@ make_ssi_index(ESL_ALPHABET *abc, const char *tmpfile, int format, char *ssifile
   if (esl_sqfile_OpenDigital(abc, tmpfile, format, NULL, &sqfp) != eslOK) esl_fatal(msg);
   while ((status = esl_sqio_ReadInfo(sqfp, sq)) == eslOK)
     {
-      nseq++;
       if (esl_newssi_AddKey(ns, sq->name, fh, sq->roff, sq->doff, sq->L)   != eslOK) esl_fatal(msg);
       if (sq->acc[0] != '\0' && esl_newssi_AddAlias(ns, sq->acc, sq->name) != eslOK) esl_fatal(msg);
       esl_sq_Reuse(sq);

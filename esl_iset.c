@@ -1213,7 +1213,6 @@ esl_iset_biValidate(const void *base, size_t n, size_t size,
    int do_link;
    int nS = 0;
    int nT = 0;
-   int nX = 0;
    int status;
 
    for (i = 0; i < n; i++)
@@ -1229,10 +1228,9 @@ esl_iset_biValidate(const void *base, size_t n, size_t size,
      }
 
    for (i = 0; i < n; i++)
-     if      (assignments[i] == 0) nX++;
-     else if (assignments[i] == 1) nS++;
+     if      (assignments[i] == 1) nS++;  
      else if (assignments[i] == 2) nT++;
-     else    return eslFAIL;
+     else if (assignments[i] != 0) return eslFAIL; // assignments[i] can also be 0, meaning "unassigned"
    if (nT > nS) return eslFAIL;
    
    return eslOK;

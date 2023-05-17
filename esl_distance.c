@@ -1644,7 +1644,7 @@ utest_subset_connectivity(ESL_RANDOMNESS *rng, const ESL_ALPHABET *abc)
   if ( esl_msa_Sample(rng, abc, max_nseq, max_alen, &msa) != eslOK) esl_fatal(msg);  // a nastily sampled MSA
 
   ESL_ALLOC(V, sizeof(int) * msa->nseq);                              //   ... (0,1 are edge cases of no pairs, that give us avgid = avgconn = 1.0)
-  nV = esl_rnd_Roll(rng, msa->nseq+1);                                // we'll take a subset of size nV = 0..nseq. 
+  nV = 1 + esl_rnd_Roll(rng, msa->nseq);                              // we'll take a subset of size nV = 1..nseq.  (can't do 0; esl_msa_SequenceSubset() can't extract 0 seqs.)
   if ( esl_rnd_Deal(rng, nV, msa->nseq, V) != eslOK) esl_fatal(msg);  // select the random subset of nV indices
 
   ESL_ALLOC(useme, sizeof(int) * msa->nseq);                          // useme[0..nseq-1] = 0|1 flags for included seqs
