@@ -1,4 +1,13 @@
 /* Simple master/worker data parallelization using POSIX threads.
+ *
+ * The master assigns independent work chunks to workers.  The master
+ * blocks until all the workers have started, then tells the workers
+ * to go. Meanwhile, workers block as they start, waiting for the go
+ * signal. The workers do their work, and exit their threads. The
+ * master blocks while it waits for them all to finish and exit.
+ *
+ * [xref H14/104 for detailed analysis of Farrar's thread synch
+ * strategy]
  * 
  * Contents:
  *    1. The <ESL_THREADS> object: a gang of workers.
@@ -94,11 +103,19 @@ esl_threads_Destroy(ESL_THREADS *obj)
  * Incept:    MSF, Thu Jun 18 11:51:39 2009
  *
  * Purpose:   Create a new worker thread for the <ESL_THREADS> object,
- *            assigning it the work unit pointed to by <data>.
+ *            assigning it the work unit pointed to by <data>. 
  *
  *            The caller remains responsible for any memory allocated
  *            to <data>; the <ESL_THREADS> object will only manage
  *            a copy of a pointer to <data>.
+ *
+ *            Only the master calls this, while it's initializing the
+ *            workers; it calls _WaitForStart() after it's done adding
+ *            worker threads.
+ *
+ *            Each worker thread starts immediately, and is supposed
+ *            to call _Started() to block soon after it starts, and
+ *            tell the master it's ready and waiting.
  *
  * Returns:   <eslOK> on success.
  * 
@@ -132,6 +149,11 @@ esl_threads_AddThread(ESL_THREADS *obj, void *data)
  * Incept:    SRE, Fri Aug 21 13:22:52 2009 [Janelia]
  *
  * Purpose:   Returns the total number of worker threads.
+ *
+ *            This should only be called in the master after all the
+ *            _AddThread() calls are done, or in a worker after the
+ *            master's go signal has been received; then this is the
+ *            number of parallel workers. 
  */
 int
 esl_threads_GetWorkerCount(ESL_THREADS *obj)
@@ -198,10 +220,8 @@ esl_threads_WaitForFinish(ESL_THREADS *obj)
 
   /* wait for all worker threads to complete */
   for (w = obj->threadCount-1; w >= 0; w--)
-    {
-      if (pthread_join(obj->threadId[w], NULL) != 0) ESL_EXCEPTION(eslESYS, "pthread join failed");
-      obj->threadCount--;
-    }
+    if (pthread_join(obj->threadId[w], NULL) != 0) ESL_EXCEPTION(eslESYS, "pthread join failed");
+  obj->threadCount = 0;   // can't touch threadCount until workers are all finished, because they may be using it.
 
   return eslOK;
 }
@@ -235,7 +255,32 @@ esl_threads_Started(ESL_THREADS *obj, int *ret_workeridx)
   obj->startThread++;
   if (pthread_cond_broadcast (&obj->startCond) != 0) ESL_XEXCEPTION(eslESYS, "cond broadcast failed");
 
-  /* wait for the master's signal to start the calculations */
+  /* the logic here is a little inelegant, but it's because we're
+   * using the same start mutex/condition for both the worker->master
+   * started signal and the master->worker go signal, so maybe it's
+   * elegant from that perspective. What's happening is that each time
+   * a worker starts, it *broadcasts* the start condition. It's
+   * intended for the master; if the master sees that startThread ==
+   * threadCount it knows that all workers have started, and it can
+   * tell them to go. But since it's broadcast, and workers are also
+   * waiting for the "go" start condition (below), workers will wake
+   * up below; but they see that startThread > 0, so they go back to
+   * sleep.
+   *
+   * Once we finish starting threads, the master sets startThread back
+   * to 0, then broadcasts the start condition again. Now all the
+   * workers wake up below, and see startThread=0, break their while
+   * loop and proceed.
+   *
+   * So the cost is a lot of unnecessary worker-waking while we're
+   * really just sending a 1:1 signal from a newly started worker to
+   * the master. We could instead use two different "started" and "go"
+   * mutexes/conditions.
+   *
+   * [SRE note added; xref H14/104]
+   */
+
+  /* wait for the master's go signal to start the calculations */
   while (obj->startThread) {
     if (pthread_cond_wait(&obj->startCond, &obj->startMutex) != 0) ESL_XEXCEPTION(eslESYS, "cond wait failed");
   }
@@ -244,7 +289,7 @@ esl_threads_Started(ESL_THREADS *obj, int *ret_workeridx)
 
   /* Figure out the worker's index */
   threadId = pthread_self();
-  for (w = 0; w < obj->threadCount; w++)
+  for (w = 0; w < obj->threadCount; w++)   // threadCount is stable until thread terminates.
     if (pthread_equal(threadId, obj->threadId[w])) break;
   if (w == obj->threadCount) ESL_XEXCEPTION(eslESYS, "thread not registered");
 
@@ -363,13 +408,12 @@ esl_threads_GetCPUCount(void)
 #include "easel.h"
 #include "esl_threads.h"
 
-/* gcc --std=gnu99 -g -Wall -pthread -o esl_threads_example -I. -DeslTHREADS_EXAMPLE esl_threads.c easel.c */
 static void 		
 worker_thread(void *data)
 {
   ESL_THREADS *thr = (ESL_THREADS *) data;
-  char        *s   = NULL;
-  int          w;
+  char  *s         = NULL;
+  int    w;
 
   esl_threads_Started(thr, &w);
   
