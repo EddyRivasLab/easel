@@ -59,6 +59,7 @@
 1 exercise neon-utest	      @esl_neon_utest@
 1 exercise normal-utest       @esl_normal_utest@
 # paml
+1 exercise queuelock-utest    @esl_queuelock_utest@
 1 exercise quicksort-utest    @esl_quicksort_utest@
 1 exercise random-utest       @esl_random_utest@
 1 exercise rand64-utest       @esl_rand64_utest@
