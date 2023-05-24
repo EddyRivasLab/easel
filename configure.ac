@@ -558,6 +558,9 @@ if test "$enable_sanitize_address" = "yes"; then
   LDFLAGS="$LDFLAGS -fsanitize=address"
 fi
 if test "$enable_sanitize_thread" = "yes"; then
+  if test "$enable_sanitize_address" = "yes"; then  
+    AC_MSG_FAILURE([The address and thread sanitizers are incompatible.  Please use at most one of --enable-sanitize-address and --enable-sanitize-thread])
+  fi
   CFLAGS="$CFLAGS -fsanitize=thread"
   LDFLAGS="$LDFLAGS -fsanitize=thread"
 fi
