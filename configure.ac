@@ -565,8 +565,9 @@ if test "$enable_sanitize_thread" = "yes"; then
   LDFLAGS="$LDFLAGS -fsanitize=thread"
 fi
 AC_SUBST(LDFLAGS)
+
 #################################################################
-# 12. Write out esl_config.h header and the Makefiles
+# 14. Write out esl_config.h header and the Makefiles
 #################################################################
 
 # Easel Makefiles
@@ -611,7 +612,7 @@ AC_CONFIG_HEADERS([esl_config.h])
 
 
 #################################################################
-# 14. et voila!
+# 15. et voila!
 #################################################################
 AC_OUTPUT
 
