@@ -166,7 +166,8 @@ esac
 
 AC_ARG_ENABLE(gcov,    [AS_HELP_STRING([--enable-gcov],    [compile for code coverage testing])],       enable_gcov=$enableval,    enable_gcov=no)
 AC_ARG_ENABLE(gprof,   [AS_HELP_STRING([--enable-gprof],   [compile for gcc code profiling])],          enable_gprof=$enableval,   enable_gprof=no)
-
+AC_ARG_ENABLE(sanitize-address, [AS_HELP_STRING([--enable-sanitize-address], [compile with address sanitizer]) ], enable_sanitize_address=yes, enable_sanitize_address=no)
+AC_ARG_ENABLE(sanitize-thread, [AS_HELP_STRING([--enable-sanitize-thread], [compile with thread sanitizer]) ], enable_sanitize_thread=yes, enable_sanitize_thread=no)
 AC_ARG_ENABLE(sse,     [AS_HELP_STRING([--enable-sse],     [enable our SSE vector code])],              enable_sse=$enableval,     enable_sse=check)
 AC_ARG_ENABLE(sse4,    [AS_HELP_STRING([--enable-sse4],    [enable our SSE4 vector code])],             enable_sse4=$enableval,    enable_sse4=check)
 AC_ARG_ENABLE(avx,     [AS_HELP_STRING([--enable-avx],     [enable our AVX vector code])],              enable_avx=$enableval,     enable_avx=check)
@@ -548,8 +549,21 @@ AC_FUNC_FSEEKO
 #################################################################
 AC_SYS_LARGEFILE
 
+
 #################################################################
-# 13. Write out esl_config.h header and the Makefiles
+# 13. Configure sanitizers
+#################################################################
+if test "$enable_sanitize_address" = "yes"; then
+  CFLAGS="$CFLAGS -fsanitize=address"
+  LDFLAGS="$LDFLAGS -fsanitize=address"
+fi
+if test "$enable_sanitize_thread" = "yes"; then
+  CFLAGS="$CFLAGS -fsanitize=thread"
+  LDFLAGS="$LDFLAGS -fsanitize=thread"
+fi
+AC_SUBST(LDFLAGS)
+#################################################################
+# 12. Write out esl_config.h header and the Makefiles
 #################################################################
 
 # Easel Makefiles
@@ -607,6 +621,7 @@ Host:           $host
 Compiler:
             CC= $CC
         CFLAGS= $CFLAGS
+       LDFLAGS= $LDFLAGS
 PTHREAD_CFLAGS= $PTHREAD_CFLAGS
     SSE_CFLAGS= $SSE_CFLAGS
    SSE4_CFLAGS= $SSE4_CFLAGS
