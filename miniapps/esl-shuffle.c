@@ -165,7 +165,9 @@ msa_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
       esl_msa_Destroy(shuf);
       esl_msa_Destroy(msa);
     }
-
+  if(abc != NULL){
+    esl_alphabet_Destroy(abc);
+  }
   esl_msafile_Close(afp);
   return eslOK;
 }
