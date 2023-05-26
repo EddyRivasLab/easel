@@ -864,6 +864,7 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   ESL_ALLOC(ct,  sizeof(int)  * (msa->alen+1));
   ESL_ALLOC(sct, sizeof(int)  * (msa->alen+1));
   ESL_ALLOC(ss,  sizeof(char) * (msa->alen+1));
+  ss[msa->alen] = '\0'; //make sure string is terminated properly
   ESL_ALLOC(removeme, sizeof(int) * (msa->alen+1));
 
   /* create the SS from each sequence but just copying the SS_cons
