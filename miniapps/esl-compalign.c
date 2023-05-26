@@ -171,99 +171,98 @@ main(int argc, char **argv)
    * this means looping over all seqs in all alignments.
    ***********************************************/
   nali = 0;
-  while ( (kstatus = esl_msafile_Read(kfp, &ka)) != eslEOF)
-    {
-      if (  kstatus                               != eslOK) esl_msafile_ReadFailure(kfp, kstatus);
-      if ( (tstatus = esl_msafile_Read(tfp, &ta)) != eslOK) esl_msafile_ReadFailure(tfp, tstatus);
+  while ( (kstatus = esl_msafile_Read(kfp, &ka)) != eslEOF){
+    if (  kstatus                               != eslOK) esl_msafile_ReadFailure(kfp, kstatus);
+    if ( (tstatus = esl_msafile_Read(tfp, &ta)) != eslOK) esl_msafile_ReadFailure(tfp, tstatus);
 
-      nali++;
-      if((nali > 1) && (esl_opt_IsOn(go, "--c2dfile"))) esl_fatal("--c2dfile is only meant for msafiles with single alignments"); 
+    nali++;
+    if((nali > 1) && (esl_opt_IsOn(go, "--c2dfile"))) esl_fatal("--c2dfile is only meant for msafiles with single alignments"); 
 
       /* Sanity check on alignment
        */
-      if (ka->nseq != ta->nseq)
-	esl_fatal("trusted, test alignments don't have same seq #\n");
-      if (ka->rf == NULL)
-	esl_fatal("trusted alignment has no reference annotation\n");
-      if (ta->rf == NULL)
-	esl_fatal("test alignment has no reference annotation\n");
+    if (ka->nseq != ta->nseq)
+	  esl_fatal("trusted, test alignments don't have same seq #\n");
+    if (ka->rf == NULL)
+	  esl_fatal("trusted alignment has no reference annotation\n");
+    if (ta->rf == NULL)
+	  esl_fatal("test alignment has no reference annotation\n");
 
-      /* make sure the sequences are all identical */
-      ESL_ALLOC(seqlen, sizeof(int) * ka->nseq);
-      for(i = 0; i < ka->nseq; i++) { 
-	if(strcmp(ka->sqname[i], ta->sqname[i]) != 0) esl_fatal("sequence %d of trusted alignment %s has different name than seq %d of predicted alignment %s\n", (i+1), ka->sqname[i], (i+1), ta->sqname[i]); 
-	ESL_ALLOC(ks, sizeof(ESL_DSQ) * (ka->alen+2));
-	memcpy(ks, ka->ax[i], (ka->alen+2) * sizeof(ESL_DSQ));
-	esl_abc_XDealign(ka->abc, ks, ka->ax[i], &klen);
+    /* make sure the sequences are all identical */
+    ESL_ALLOC(seqlen, sizeof(int) * ka->nseq);
+    for(i = 0; i < ka->nseq; i++) { 
+	    if(strcmp(ka->sqname[i], ta->sqname[i]) != 0) esl_fatal("sequence %d of trusted alignment %s has different name than seq %d of predicted alignment %s\n", (i+1), ka->sqname[i], (i+1), ta->sqname[i]); 
+	    ESL_ALLOC(ks, sizeof(ESL_DSQ) * (ka->alen+2));
+	    memcpy(ks, ka->ax[i], (ka->alen+2) * sizeof(ESL_DSQ));
+	    esl_abc_XDealign(ka->abc, ks, ka->ax[i], &klen);
 
-	ESL_ALLOC(ts, sizeof(ESL_DSQ) * (ta->alen+2));
-	memcpy(ts, ta->ax[i], (ta->alen+2) * sizeof(ESL_DSQ));
-	esl_abc_XDealign(ta->abc, ts, ta->ax[i], &tlen);
+	    ESL_ALLOC(ts, sizeof(ESL_DSQ) * (ta->alen+2));
+	    memcpy(ts, ta->ax[i], (ta->alen+2) * sizeof(ESL_DSQ));
+	    esl_abc_XDealign(ta->abc, ts, ta->ax[i], &tlen);
 
-	if (tlen != klen)
-	  esl_fatal("dealigned sequence mismatch, seq %d, when dealigned, is %d residues in the known alignment, but %d residues in the trusted alignment.", (i+1), klen, tlen);
+	    if (tlen != klen)
+	      esl_fatal("dealigned sequence mismatch, seq %d, when dealigned, is %d residues in the known alignment, but %d residues in the trusted alignment.", (i+1), klen, tlen);
 
-	if (memcmp(ks, ts, sizeof(ESL_DSQ) * klen) != 0) 
-	  esl_fatal("dealigned sequence mismatch, seq %d %s, when dealigned, are not identical.", (i+1), ka->sqname[i]);
+	    if (memcmp(ks, ts, sizeof(ESL_DSQ) * klen) != 0) 
+	      esl_fatal("dealigned sequence mismatch, seq %d %s, when dealigned, are not identical.", (i+1), ka->sqname[i]);
 
-	seqlen[i] = tlen;
-	free(ks);
-	free(ts);
-      }
+	    seqlen[i] = tlen;
+	    free(ks);
+	    free(ts);
+    }
 
-      /* determine non-gap RF length */
-      rflen = 0;
-      for(apos = 1; apos <= ka->alen; apos++) { 
-	if((! esl_abc_CIsGap    (ka->abc, ka->rf[apos-1])) && 
-	   (! esl_abc_CIsMissing(ka->abc, ka->rf[apos-1]))) rflen++;
-      }
-      t_rflen = 0;
-      for(apos = 1; apos <= ta->alen; apos++) { 
-	if((! esl_abc_CIsGap       (ta->abc, ta->rf[apos-1])) && 
-	   (! esl_abc_CIsMissing   (ta->abc, ta->rf[apos-1]))) t_rflen++;
-      }
-      if(t_rflen != rflen) esl_fatal("Trusted alignment non-gap RF length (%d) != predicted alignment non-gap RF length (%d).\n", rflen, t_rflen);
+    /* determine non-gap RF length */
+    rflen = 0;
+    for(apos = 1; apos <= ka->alen; apos++) { 
+	    if((! esl_abc_CIsGap    (ka->abc, ka->rf[apos-1])) && 
+	      (! esl_abc_CIsMissing(ka->abc, ka->rf[apos-1]))) rflen++;
+    }
+    t_rflen = 0;
+    for(apos = 1; apos <= ta->alen; apos++) { 
+	    if((! esl_abc_CIsGap       (ta->abc, ta->rf[apos-1])) && 
+	      (! esl_abc_CIsMissing   (ta->abc, ta->rf[apos-1]))) t_rflen++;
+    }
+    if(t_rflen != rflen) esl_fatal("Trusted alignment non-gap RF length (%d) != predicted alignment non-gap RF length (%d).\n", rflen, t_rflen);
 
       /* if -p, make sure the test alignment has posterior probabilities, and allocate our counters for correct/incorrect per post value */
-      if(do_post) { 
-	if(! esl_opt_IsDefault(go, "--p-mask")) {
-	  if(masklen != rflen) { 
-	    esl_fatal("Length of mask in %s (%d) not equal to non-gap RF len of alignments (%d)\n", esl_opt_GetString(go, "--p-mask"), masklen, rflen);
-	  }
-	}
-	if(ta->pp == NULL) esl_fatal("-p requires \"#=GR PP\" annotation in the test alignment, but none exists");
-	ESL_ALLOC(ptm,     sizeof(int) * npostvals);
-	ESL_ALLOC(pti,     sizeof(int) * npostvals);
-	ESL_ALLOC(cor_ptm, sizeof(int) * npostvals);
-	ESL_ALLOC(cor_pti, sizeof(int) * npostvals);
-	esl_vec_ISet(ptm, npostvals, 0);
-	esl_vec_ISet(pti, npostvals, 0);
-	esl_vec_ISet(cor_ptm, npostvals, 0);
-	esl_vec_ISet(cor_pti, npostvals, 0);
-      }
+    if(do_post) { 
+	    if(! esl_opt_IsDefault(go, "--p-mask")) {
+	      if(masklen != rflen) { 
+	        esl_fatal("Length of mask in %s (%d) not equal to non-gap RF len of alignments (%d)\n", esl_opt_GetString(go, "--p-mask"), masklen, rflen);
+	      }
+	    }
+	    if(ta->pp == NULL) esl_fatal("-p requires \"#=GR PP\" annotation in the test alignment, but none exists");
+	    ESL_ALLOC(ptm,     sizeof(int) * npostvals);
+	    ESL_ALLOC(pti,     sizeof(int) * npostvals);
+	    ESL_ALLOC(cor_ptm, sizeof(int) * npostvals);
+	    ESL_ALLOC(cor_pti, sizeof(int) * npostvals);
+	    esl_vec_ISet(ptm, npostvals, 0);
+	    esl_vec_ISet(pti, npostvals, 0);
+	    esl_vec_ISet(cor_ptm, npostvals, 0);
+	      esl_vec_ISet(cor_pti, npostvals, 0);
+    }
 
-      /* allocate and initialize our counters */
-      ESL_ALLOC(kp, sizeof(int *) * ka->nseq);
-      ESL_ALLOC(tp, sizeof(int *) * ta->nseq);
-      for(i = 0; i < ka->nseq; i++) { 
-	ESL_ALLOC(kp[i], sizeof(int) * (seqlen[i]+1));
-	ESL_ALLOC(tp[i], sizeof(int) * (seqlen[i]+1));
-	esl_vec_ISet(kp[i], seqlen[i]+1, -987654321);
-	esl_vec_ISet(tp[i], seqlen[i]+1, -987654321);
-      }
+    /* allocate and initialize our counters */
+    ESL_ALLOC(kp, sizeof(int *) * ka->nseq);
+    ESL_ALLOC(tp, sizeof(int *) * ta->nseq);
+    for(i = 0; i < ka->nseq; i++) { 
+	    ESL_ALLOC(kp[i], sizeof(int) * (seqlen[i]+1));
+	    ESL_ALLOC(tp[i], sizeof(int) * (seqlen[i]+1));
+	    esl_vec_ISet(kp[i], seqlen[i]+1, -987654321);
+	    esl_vec_ISet(tp[i], seqlen[i]+1, -987654321);
+    }
 
-      ESL_ALLOC(km_pos, sizeof(int) * (rflen+1));
-      ESL_ALLOC(ki_pos, sizeof(int) * (rflen+1));
-      ESL_ALLOC(tm_pos, sizeof(int) * (rflen+1));
-      ESL_ALLOC(ti_pos, sizeof(int) * (rflen+1));
-      ESL_ALLOC(cor_tm_pos, sizeof(int) * (rflen+1));
-      ESL_ALLOC(cor_ti_pos, sizeof(int) * (rflen+1));
-      esl_vec_ISet(km_pos, rflen+1, 0);
-      esl_vec_ISet(ki_pos, rflen+1, 0);
-      esl_vec_ISet(tm_pos, rflen+1, 0);
-      esl_vec_ISet(ti_pos, rflen+1, 0);
-      esl_vec_ISet(cor_tm_pos, rflen+1, 0);
-      esl_vec_ISet(cor_ti_pos, rflen+1, 0);
+    ESL_ALLOC(km_pos, sizeof(int) * (rflen+1));
+    ESL_ALLOC(ki_pos, sizeof(int) * (rflen+1));
+    ESL_ALLOC(tm_pos, sizeof(int) * (rflen+1));
+    ESL_ALLOC(ti_pos, sizeof(int) * (rflen+1));
+    ESL_ALLOC(cor_tm_pos, sizeof(int) * (rflen+1));
+    ESL_ALLOC(cor_ti_pos, sizeof(int) * (rflen+1));
+    esl_vec_ISet(km_pos, rflen+1, 0);
+    esl_vec_ISet(ki_pos, rflen+1, 0);
+    esl_vec_ISet(tm_pos, rflen+1, 0);
+    esl_vec_ISet(ti_pos, rflen+1, 0);
+    esl_vec_ISet(cor_tm_pos, rflen+1, 0);
+    esl_vec_ISet(cor_ti_pos, rflen+1, 0);
 
       ESL_ALLOC(km_seq, sizeof(int) * ka->nseq);
       ESL_ALLOC(ki_seq, sizeof(int) * ka->nseq);
@@ -365,10 +364,7 @@ main(int argc, char **argv)
 	       cor_ti, ki, ((float) cor_ti / (float) ki), 
 	       (cor_tm+cor_ti), (km+ki), (((float) (cor_tm + cor_ti))/ ((float) (km + ki)))); 
 	free(namedashes);
-	for(i = 0; i < ka->nseq; i++) { 
-	  free(kp[i]); 
-	  free(tp[i]); 
-	}
+
       }
       else if(esl_opt_GetBoolean(go, "-c")) { /* print per column statistics */
 	printf("# %5s  %20s  %20s  %20s\n", "rfpos", "match", "insert", "both");
@@ -457,6 +453,10 @@ main(int argc, char **argv)
       if(pti != NULL) free(pti);
       if(cor_ptm != NULL) free(cor_ptm);
       if(cor_ptm != NULL) free(cor_pti);
+      for(i = 0; i < ka->nseq; i++) { 
+	      free(kp[i]);
+	      free(tp[i]);
+      }
       free(kp);
       free(tp);
       free(km_seq);

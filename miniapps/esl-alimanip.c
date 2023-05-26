@@ -199,7 +199,7 @@ main(int argc, char **argv)
   FILE *treefp  = NULL;  /* output file for --tree */
 
   /* options related to --small */
-  ESL_KEYHASH    *seqname_keyhash;      /* keyhash of sequence names listed in list file <f>, with <f> from --seq-k <f> --seq-r <f> */
+  ESL_KEYHASH    *seqname_keyhash=NULL;      /* keyhash of sequence names listed in list file <f>, with <f> from --seq-k <f> --seq-r <f> */
   int             nseq_read = 0;        /* number of sequences read from current alignment */
   int             nseq_regurged = 0;     /* number of sequences regurgitated from current alignment */
 
@@ -504,6 +504,9 @@ main(int argc, char **argv)
 	  esl_msa_Destroy(msa);
 	  msa = new_msa;
 	  new_msa = NULL;
+    if(useme != NULL){
+      free(useme); // not needed any more
+    }
 	}      
 
 	/******************
@@ -743,7 +746,12 @@ main(int argc, char **argv)
     fclose(mxfp);
     printf("# Distance matri{x,ces} saved to file %s.\n", esl_opt_GetString(go, "--c-mx"));
   }
-
+  if(mask_for_rf != NULL){
+    free(mask_for_rf);
+  }
+  if(seqname_keyhash != NULL){
+    esl_keyhash_Destroy(seqname_keyhash);
+  }
   if (esl_opt_GetBoolean(go, "--small")) esl_msafile2_Close(afp2);
   else                                   esl_msafile_Close(afp);
   esl_alphabet_Destroy(abc);
@@ -1809,12 +1817,13 @@ number_columns(ESL_MSA *msa, int do_all, int *i_am_rf, char *errbuf)
 
     esl_msa_AppendGC(msa, tag, numstring);
   }
-
+  free(numstring);  // Free this before we overwrite it on next line
   ESL_ALLOC(numstring, sizeof(char) * (msa->alen + 1));
   for(i = 0; i < msa->alen; i++) { 
     numstring[i] = digit_to_char(i);
   }
   numstring[msa->alen] = '\0';
+  free(tag);
   free(numstring);
   return eslOK;
 
