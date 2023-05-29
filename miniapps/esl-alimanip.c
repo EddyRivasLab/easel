@@ -847,25 +847,36 @@ write_rf_given_rflen(ESL_MSA *msa,  char *errbuf, int *i_am_rf, int do_keep_rf_c
 static int
 individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 {
+  int    *ct       = NULL;	   // 0..alen-1 base pair partners array SS_cons 
+  int    *sct      = NULL;	   // 0..alen-1 base pair partners array for current sequence, used only for sanity check
+  int    *removeme = NULL;         // 0..alen TRUE/FALSE: do we keep this posn of SS_cons in cur seq SS (only used if --sindi)
+  int     do_sindi;
   int64_t apos;
   int     i;
-  int    *ct  = NULL;		   /* 0..alen-1 base pair partners array SS_cons */
-  int    *sct = NULL;		   /* 0..alen-1 base pair partners array for current sequence, used only for sanity check */
-  char   *ss  = NULL;              /* individual secondary structure we've built              */
-  int    *removeme = NULL;         /* 0..alen TRUE/FALSE: do we keep this posn of SS_cons in cur seq SS (only used if --sindi) */
   int     status;
-  int     do_sindi;
 
-  if(msa->ss_cons == NULL)                                ESL_FAIL(eslEINVAL, errbuf, "--sindi requires MSA to have consensus structure annotation.\n");
-  if(! (msa->flags & eslMSA_DIGITAL))                     ESL_FAIL(eslEINVAL, errbuf, "individualize_consensus() MSA is not digitized.\n");
+  if (msa->ss_cons == NULL)             ESL_FAIL(eslEINVAL, errbuf, "--sindi requires MSA to have consensus structure annotation.\n");
+  if (! (msa->flags & eslMSA_DIGITAL))  ESL_FAIL(eslEINVAL, errbuf, "individualize_consensus() MSA is not digitized.\n");
 
   do_sindi = esl_opt_GetBoolean(go, "--sindi") ? TRUE : FALSE;
     
   ESL_ALLOC(ct,  sizeof(int)  * (msa->alen+1));
   ESL_ALLOC(sct, sizeof(int)  * (msa->alen+1));
-  ESL_ALLOC(ss,  sizeof(char) * (msa->alen+1));
-  ss[msa->alen] = '\0'; //make sure string is terminated properly
   ESL_ALLOC(removeme, sizeof(int) * (msa->alen+1));
+
+  /* All individual seqs will get a SS annotation.
+   * None, some, or all of them may already have one allocated.
+   * Fill out the allocation of msa->ss accordingly.
+   */
+  if (! msa->ss)
+    {
+      ESL_ALLOC(msa->ss, sizeof(char *) * msa->nseq);
+      for (i = 0; i < msa->nseq; i++) msa->ss[i] = NULL;
+    }
+  for (i = 0; i < msa->nseq; i++)
+    if (msa->ss[i] == NULL)
+      ESL_ALLOC(msa->ss[i], sizeof(char) * (msa->alen+1));
+
 
   /* create the SS from each sequence but just copying the SS_cons
    * annotation if --sindi, then remove basepair for which either
@@ -889,42 +900,46 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
    * esl-reformat --fullwuss call will reformat the individual SS
    * lines output here to full wuss.
    */
-  if(do_sindi) { /* only need the ct array if --sindi */
-    if (esl_wuss2ct(msa->ss_cons, msa->alen, ct) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Consensus structure string is inconsistent or has too many pseudoknots.");
+  if (do_sindi) { /* only need the ct array if --sindi */
+    if (esl_wuss2ct(msa->ss_cons, msa->alen, ct) != eslOK)
+      ESL_FAIL(eslEINVAL, errbuf, "Consensus structure string is inconsistent or has too many pseudoknots.");
   }
 
-  for (i = 0; i < msa->nseq; i++) { 
-    if(do_sindi) { 
-      esl_vec_ISet(removeme, (msa->alen+1), FALSE);
-      for (apos = 1; apos <= msa->alen; apos++) {
-        if (esl_abc_XIsGap(msa->abc, msa->ax[i][apos])) { 
-          if (ct[apos] != 0) { 
-            removeme[apos]     = TRUE;
-            removeme[ct[apos]] = TRUE;
-          }
+  for (i = 0; i < msa->nseq; i++)
+    { 
+      if (do_sindi)
+        { 
+          esl_vec_ISet(removeme, (msa->alen+1), FALSE);
+          for (apos = 1; apos <= msa->alen; apos++)
+            {
+              if (esl_abc_XIsGap(msa->abc, msa->ax[i][apos]))
+                { 
+                  if (ct[apos] != 0)
+                    { 
+                      removeme[apos]     = TRUE;
+                      removeme[ct[apos]] = TRUE;
+                    }
+                }
+            }
+          for (apos = 1; apos <= msa->alen; apos++)  
+            msa->ss[i][apos-1] = removeme[apos] ? '.' : msa->ss_cons[apos-1];
+          msa->ss[i][msa->alen] = '\0';
+
+          if (esl_wuss2ct(msa->ss[i], msa->alen, sct) != eslOK)
+            ESL_FAIL(eslEINVAL, errbuf, "Inconsistent SS after removing bps from SS_cons");
         }
-      }
-      for (apos = 1; apos <= msa->alen; apos++) { 
-        ss[(apos-1)] = removeme[apos] ? '.' : msa->ss_cons[(apos-1)];
-      }
-      if (esl_wuss2ct(ss, msa->alen, sct) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Inconsistent SS after removing bps from SS_cons");
-      esl_msa_AppendGR(msa, "SS", i, ss);
+      else  // do_sindi is false, just copy the SS_cons 
+        strcpy(msa->ss[i], msa->ss_cons);
     }
-    else { /* do_sindi is false, just copy the SS_cons */
-      esl_msa_AppendGR(msa, "SS", i, msa->ss_cons);
-    }
-  }
   free(ct);
   free(sct);
-  free(ss);
   free(removeme);
   return eslOK;
 
  ERROR:
-  if (ct)                free(ct);
-  if (sct)               free(sct);
-  if (ss)                free(ss);
-  if (removeme)          free(removeme);
+  if (ct)       free(ct);
+  if (sct)      free(sct);
+  if (removeme) free(removeme);
   return status;
 }
 

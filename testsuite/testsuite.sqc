@@ -92,6 +92,7 @@
 1 exercise degen-residues     !testsuite/i1-degen-residues.pl! @@ !! %TESTPFX%
 1 exercise ncbi-indices       !testsuite/i2-ncbi-indices.pl!   @@ !! %TESTPFX%
 1 exercise blank-gf           !testsuite/i3-blank-gf.pl!       @@ !! %TESTPFX%
+1 exercise sindi              !testsuite/i4-alimanip-sindi.sh! @@ !! %TESTPFX%
 
 1 exercise esl-translate      !miniapps/esl-translate.itest.pl! @@ !! %TESTPFX%
 
