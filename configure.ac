@@ -32,7 +32,7 @@
 #  13. AC_CONFIG_FILES
 #  14. AC_OUTPUT
 #
-# Order obeys autoconf manual, "standard configure.ac layout".
+# This order obeys autoconf manual, "standard configure.ac layout".
 #
 # To update config.guess and config.sub from GNU:
 #    wget -O config.guess 'http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD'
@@ -166,8 +166,8 @@ esac
 
 AC_ARG_ENABLE(gcov,    [AS_HELP_STRING([--enable-gcov],    [compile for code coverage testing])],       enable_gcov=$enableval,    enable_gcov=no)
 AC_ARG_ENABLE(gprof,   [AS_HELP_STRING([--enable-gprof],   [compile for gcc code profiling])],          enable_gprof=$enableval,   enable_gprof=no)
-AC_ARG_ENABLE(sanitize-address, [AS_HELP_STRING([--enable-sanitize-address], [compile with address sanitizer]) ], enable_sanitize_address=yes, enable_sanitize_address=no)
-AC_ARG_ENABLE(sanitize-thread, [AS_HELP_STRING([--enable-sanitize-thread], [compile with thread sanitizer]) ], enable_sanitize_thread=yes, enable_sanitize_thread=no)
+AC_ARG_ENABLE(asan,    [AS_HELP_STRING([--enable-asan],    [compile with address sanitizer]) ],         enable_asan=$enableval,    enable_asan=no)
+AC_ARG_ENABLE(tsan,    [AS_HELP_STRING([--enable-tsan],    [compile with thread sanitizer]) ],          enable_tsan=$enableval,    enable_tsan=no)
 AC_ARG_ENABLE(sse,     [AS_HELP_STRING([--enable-sse],     [enable our SSE vector code])],              enable_sse=$enableval,     enable_sse=check)
 AC_ARG_ENABLE(sse4,    [AS_HELP_STRING([--enable-sse4],    [enable our SSE4 vector code])],             enable_sse4=$enableval,    enable_sse4=check)
 AC_ARG_ENABLE(avx,     [AS_HELP_STRING([--enable-avx],     [enable our AVX vector code])],              enable_avx=$enableval,     enable_avx=check)
@@ -225,6 +225,21 @@ elif test "$enable_debugging" != "no"; then
    fi
 elif test "$esl_cflags_env_set" != "yes"; then
    CFLAGS="-O3"
+fi
+
+
+# Turn on a sanitizer, if asked.
+#
+if test "$enable_asan" = "yes"; then
+  CFLAGS="$CFLAGS -fsanitize=address"
+  LDFLAGS="$LDFLAGS -fsanitize=address"
+fi
+if test "$enable_tsan" = "yes"; then
+  if test "$enable_asan" = "yes"; then  
+    AC_MSG_FAILURE([The address and thread sanitizers are incompatible. Use only one of --enable-asan and --enable-tsan])
+  fi
+  CFLAGS="$CFLAGS -fsanitize=tsan"
+  LDFLAGS="$LDFLAGS -fsanitize=tsan"
 fi
 
 
@@ -551,23 +566,7 @@ AC_SYS_LARGEFILE
 
 
 #################################################################
-# 13. Configure sanitizers
-#################################################################
-if test "$enable_sanitize_address" = "yes"; then
-  CFLAGS="$CFLAGS -fsanitize=address"
-  LDFLAGS="$LDFLAGS -fsanitize=address"
-fi
-if test "$enable_sanitize_thread" = "yes"; then
-  if test "$enable_sanitize_address" = "yes"; then  
-    AC_MSG_FAILURE([The address and thread sanitizers are incompatible.  Please use at most one of --enable-sanitize-address and --enable-sanitize-thread])
-  fi
-  CFLAGS="$CFLAGS -fsanitize=thread"
-  LDFLAGS="$LDFLAGS -fsanitize=thread"
-fi
-AC_SUBST(LDFLAGS)
-
-#################################################################
-# 14. Write out esl_config.h header and the Makefiles
+# 13. Write out esl_config.h header and the Makefiles
 #################################################################
 
 # Easel Makefiles
@@ -612,7 +611,7 @@ AC_CONFIG_HEADERS([esl_config.h])
 
 
 #################################################################
-# 15. et voila!
+# 14. et voila!
 #################################################################
 AC_OUTPUT
 
