@@ -1024,10 +1024,9 @@ esl_rnd_floatstring(ESL_RANDOMNESS *rng, char *s)
     {
       s[i++] = 'e';
       exponent = -20 + esl_rnd_Roll(rng, 41);
-      i += sprintf(s+i, "%d", exponent);
+      i += snprintf(s+i, 20-i, "%d", exponent);
     }
   s[i++] = '\0';
-  ESL_DASSERT1(( i <= 20 ));
   return eslOK;
 }
 

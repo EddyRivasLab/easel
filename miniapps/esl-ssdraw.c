@@ -1670,10 +1670,9 @@ create_text_legend_for_consensus_sequence(const ESL_GETOPTS *go, int do_separato
   if(esl_opt_GetBoolean(go, "--cambig")) { 
     nlines = 5;
     ESL_ALLOC(text, sizeof(char *) * nlines);
-    for(i = 0; i < nlines; i++) { text[i] = NULL; }
-    if((status = esl_strcat(&(text[0]), -1, "Consensus nucleotides (nt) are displayed, calculated", -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
-    ESL_ALLOC(text[1], sizeof(char) * (strlen("as the least ambiguous nt that represents >= 1.00") + 1));
-   sprintf(text[1], "as the least ambiguous nt that represents >= %0.2f", esl_opt_GetReal(go, "--athresh"));
+    for (i = 0; i < nlines; i++) text[i] = NULL;
+    if ((status = esl_strcat(&(text[0]), -1, "Consensus nucleotides (nt) are displayed, calculated", -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
+    esl_sprintf(&(text[1]), "as the least ambiguous nt that represents >= %0.2f", esl_opt_GetReal(go, "--athresh"));
     if((status = esl_strcat(&(text[2]), -1, "of all non-gap nts at each position.", -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
     if((status = esl_strcat(&(text[3]), -1, "K=G|U, M=A|C, R=A|G, S=C|G, Y=C|U, W=A|U", -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
     if((status = esl_strcat(&(text[4]), -1, "B=C|G|U, D=A|G|U, H=A|C|U, V=A|C|G, N=A|C|G|U", -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
@@ -1684,8 +1683,7 @@ create_text_legend_for_consensus_sequence(const ESL_GETOPTS *go, int do_separato
     for(i = 0; i < nlines; i++) { text[i] = NULL; }
     if((status = esl_strcat(&(text[0]), -1, "Consensus nucleotides (nt) are displayed, defined", -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
     if((status = esl_strcat(&(text[1]), -1, "as the most frequent nt at each position.",         -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
-    ESL_ALLOC(text[2], sizeof(char) * (strlen("Capitalized nts occur in >= 1.00 fraction of sequences") + 1));
-    sprintf(text[2], "Capitalized nts occur in >= %0.2f fraction of sequences", esl_opt_GetReal(go, "--cthresh"));
+    esl_sprintf(&(text[2]), "Capitalized nts occur in >= %0.2f fraction of sequences", esl_opt_GetReal(go, "--cthresh"));
     if((status = esl_strcat(&(text[3]), -1, "that do not have a gap at the position.", -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
   }    
   

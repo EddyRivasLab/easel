@@ -1847,7 +1847,7 @@ make_ssi_index(ESL_ALPHABET *abc, const char *tmpfile, int format, char *ssifile
 
   int         bpl, rpl;
  
-  sprintf(ssifile, "%s.ssi", tmpfile);
+  snprintf(ssifile, 32, "%s.ssi", tmpfile);  // 32 is the allocation size of ssifile, from main()
   if (esl_newssi_Open(ssifile, TRUE, &ns)                       != eslOK) esl_fatal(msg);
   if (esl_newssi_AddFile(ns, tmpfile, format, &fh)              != eslOK) esl_fatal(msg);
   if (esl_sqfile_OpenDigital(abc, tmpfile, format, NULL, &sqfp) != eslOK) esl_fatal(msg);

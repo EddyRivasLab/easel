@@ -1281,7 +1281,7 @@ utest_read_float_err(ESL_RANDOMNESS *rng, int allow_badluck)
   for (trial = 0; trial < 10000; trial++)
     {
       if ( esl_rnd_floatstring(rng, s)            != eslOK) esl_fatal(msg);
-      if ( sprintf(sj, "{ \"a\" : %s }", s)       < 0)      esl_fatal(msg);
+      if ( snprintf(sj, 64, "{ \"a\" : %s }", s)  < 0)      esl_fatal(msg);
       if ( esl_buffer_OpenMem(sj, -1, &bf)        != eslOK) esl_fatal(msg);
       if ( esl_json_Parse(bf, &pi)                != eslOK) esl_fatal(msg);
       if ( esl_json_ReadFloat(pi, 2, bf, &(v2.f)) != eslOK) esl_fatal(msg);

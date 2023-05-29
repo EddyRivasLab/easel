@@ -170,6 +170,7 @@ msafile2_open(const char *filename, const char *env, ESL_MSAFILE2 **ret_afp)
   char         *envfile = NULL;
   char         *cmd     = NULL;
   int           n       = strlen(filename);
+  int           nc;
   int           status;
   
   ESL_ALLOC(afp, sizeof(ESL_MSAFILE2));
@@ -209,8 +210,9 @@ msafile2_open(const char *filename, const char *env, ESL_MSAFILE2 **ret_afp)
        * existence of file ourself.
        */
       if (! esl_FileExists(filename))	      { status = eslENOTFOUND; goto ERROR; }
-      ESL_ALLOC(cmd, sizeof(char) * (n+1+strlen("gzip -dc ")));
-      sprintf(cmd, "gzip -dc %s", filename);
+      nc = strlen("gzip -dc ") + n + 1;
+      ESL_ALLOC(cmd, nc);
+      snprintf(cmd, nc, "gzip -dc %s", filename);
       if ((afp->f = popen(cmd, "r")) == NULL) { status = eslENOTFOUND; goto ERROR; }
       if ((status = esl_strdup(filename, n, &(afp->fname))) != eslOK)  goto ERROR;
       afp->do_gzip  = TRUE;

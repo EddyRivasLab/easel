@@ -1885,9 +1885,9 @@ esl_FileConcat(const char *dir, const char *file, char **ret_path)
   else if (*file == eslDIRSLASH)     /* 2. <file> is already a path?   */
     strcpy(path, file); 
   else if (dir[nd-1] == eslDIRSLASH) /* 3. <dir><file> (dir is / terminated) */
-    sprintf(path, "%s%s", dir, file);
+    snprintf(path, nd+nf+2, "%s%s", dir, file);
   else				     /* 4. <dir>/<file> (usual case)   */
-    sprintf(path, "%s%c%s", dir, eslDIRSLASH, file);	
+    snprintf(path, nd+nf+2, "%s%c%s", dir, eslDIRSLASH, file);	
 
   *ret_path = path;
   return eslOK;
@@ -2019,7 +2019,7 @@ esl_FileEnvOpen(const char *fname, const char *env, FILE **opt_fp, char **opt_pa
   while (s != NULL) 
     {
       if ((s2 = strchr(s, ':')) != NULL) { *s2 = '\0'; s2++;} /* ~=strtok() */
-      sprintf(path, "%s%c%s", s, eslDIRSLASH, fname); /* // won't hurt */
+      snprintf(path, np, "%s%c%s", s, eslDIRSLASH, fname);    /* // won't hurt */
       if ((fp = fopen(path, "r")) != NULL) break;      
       s = s2;
     }
