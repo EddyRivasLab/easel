@@ -238,8 +238,8 @@ if test "$enable_tsan" = "yes"; then
   if test "$enable_asan" = "yes"; then  
     AC_MSG_FAILURE([The address and thread sanitizers are incompatible. Use only one of --enable-asan and --enable-tsan])
   fi
-  CFLAGS="$CFLAGS -fsanitize=tsan"
-  LDFLAGS="$LDFLAGS -fsanitize=tsan"
+  CFLAGS="$CFLAGS -fsanitize=thread"
+  LDFLAGS="$LDFLAGS -fsanitize=thread"
 fi
 
 
