@@ -388,16 +388,15 @@ main(int argc, char **argv)
 
   nali = 0;
   if (! esl_opt_GetBoolean(go, "--small")) { 
-    while ((status = esl_msafile_Read(afp, &msa)) != eslEOF)
-      {
-	if (status != eslOK) esl_msafile_ReadFailure(afp, status);
-	nali++;
+    while ((status = esl_msafile_Read(afp, &msa)) != eslEOF){
+	    if (status != eslOK) esl_msafile_ReadFailure(afp, status);
+	      nali++;
 
 	/* if RF exists, get i_am_rf array[0..alen] which tells us which positions are non-gap RF positions
 	 * and rf2a_map, a map of non-gap RF positions to overall alignment positions */
-	if(msa->rf != NULL) {
-	  if((status = map_rfpos_to_apos(msa, abc, errbuf, &i_am_rf, &rf2a_map, &rflen)) != eslOK) esl_fatal(errbuf);
-	}
+	    if(msa->rf != NULL) {
+	      if((status = map_rfpos_to_apos(msa, abc, errbuf, &i_am_rf, &rf2a_map, &rflen)) != eslOK) esl_fatal(errbuf);
+	    }
 
 	/********************************************************************
 	 * Remove sequences based on an input list file (--seq-k or --seq-r)
@@ -406,26 +405,26 @@ main(int argc, char **argv)
 	 * We've already read list file <f>, seqlist holds the seqlist_n sequences read from <f> 
 	 * (<f> from either --seq-k <f>, --seq-r <f>, --reorder <f>) 
 	 */
-	if ( esl_opt_IsOn(go, "--seq-k") || esl_opt_IsOn(go, "--seq-r") || esl_opt_IsOn(go, "--reorder")) {
-	  if((afp->format != eslMSAFILE_STOCKHOLM) && (afp->format != eslMSAFILE_PFAM)) {
-	    esl_fatal("--seq-k, --seq-r, --reorder only work on Stockholm formatted alignments");
-	  }
-	  if( esl_opt_IsOn(go, "--seq-k")) { 
-	    if((status = msa_keep_or_remove_seqs(msa, errbuf, seqlist, seqlist_n, TRUE, (esl_opt_GetBoolean(go, "--k-reorder")), nali, &new_msa)) != eslOK)        esl_fatal(errbuf);	  
+	    if ( esl_opt_IsOn(go, "--seq-k") || esl_opt_IsOn(go, "--seq-r") || esl_opt_IsOn(go, "--reorder")) {
+	      if((afp->format != eslMSAFILE_STOCKHOLM) && (afp->format != eslMSAFILE_PFAM)) {
+	        esl_fatal("--seq-k, --seq-r, --reorder only work on Stockholm formatted alignments");
+	      }
+	      if( esl_opt_IsOn(go, "--seq-k")) { 
+	        if((status = msa_keep_or_remove_seqs(msa, errbuf, seqlist, seqlist_n, TRUE, (esl_opt_GetBoolean(go, "--k-reorder")), nali, &new_msa)) != eslOK)        esl_fatal(errbuf);	  
 	    /* new_msa is msa but only with seqs listed in --seq-k <f> file */
-	  }
-	  else if( esl_opt_IsOn(go, "--reorder")) { 
-	    if(seqlist_n != msa->nseq) esl_fatal("With --reorder <f>, <f> contains %d names, but alignment %d has %d seqs (all seqs must be listed in <f>)", seqlist_n, nali, msa->nseq);
-	    if((status = msa_keep_or_remove_seqs(msa, errbuf, seqlist, seqlist_n, TRUE, TRUE, nali, &new_msa)) != eslOK)        esl_fatal(errbuf);	  
+	      }
+	      else if( esl_opt_IsOn(go, "--reorder")) { 
+	        if(seqlist_n != msa->nseq) esl_fatal("With --reorder <f>, <f> contains %d names, but alignment %d has %d seqs (all seqs must be listed in <f>)", seqlist_n, nali, msa->nseq);
+	        if((status = msa_keep_or_remove_seqs(msa, errbuf, seqlist, seqlist_n, TRUE, TRUE, nali, &new_msa)) != eslOK)        esl_fatal(errbuf);	  
 	    /* new_msa is msa but only with seqs listed in --seq-k <f> file */
-	  }
-	  else { /* --seq-r enabled */
-	    if((status = msa_keep_or_remove_seqs(msa, errbuf, seqlist, seqlist_n, FALSE, TRUE, nali, &new_msa)) != eslOK)        esl_fatal(errbuf);	  
-	    /* new_msa is msa but without seqs listed in --seq-r <f> file */
-	  }
-	  esl_msa_Destroy(msa);
-	  msa = new_msa;
-	}
+	      }
+	      else { /* --seq-r enabled */
+	        if((status = msa_keep_or_remove_seqs(msa, errbuf, seqlist, seqlist_n, FALSE, TRUE, nali, &new_msa)) != eslOK)        esl_fatal(errbuf);	  
+	        /* new_msa is msa but without seqs listed in --seq-r <f> file */
+	      }
+	      esl_msa_Destroy(msa);
+	      msa = new_msa;
+	    }
 	
 	/*************************************************************
 	 * Remove sequences based on length or number of ambiguities *
@@ -434,173 +433,174 @@ main(int argc, char **argv)
 	 * we do each separately, removing seqs for each as we go. 
 	 * They can be used in combination.
 	 */
-	if (esl_opt_IsOn(go, "--lnfract")) {
-	  median = msa_median_length(msa);
-	  minlen = esl_opt_GetReal(go, "--lnfract") * (float) median;
-	  msa_remove_seqs_below_minlen(msa, minlen, NULL, &new_msa); /* NULL: do not consider only nongap RF positions */
-	  /* new_msa is msa without seqs below minlen, swap ptrs */
-	  esl_msa_Destroy(msa);
-	  msa = new_msa;
-	  new_msa = NULL;
-	}
-	if (esl_opt_IsOn(go, "--lxfract")) {
-	  median = msa_median_length(msa);
-	  maxlen = esl_opt_GetReal(go, "--lxfract") * (float) median;
-	  msa_remove_seqs_above_maxlen(msa, maxlen, &new_msa);
-	  /* new_msa is msa without seqs above maxlen, swap ptrs */
-	  esl_msa_Destroy(msa);
-	  msa = new_msa;
-	  new_msa = NULL;
-	}
-	if (esl_opt_IsOn(go, "--lmin")) {
-	  minlen = esl_opt_GetInteger(go, "--lmin");
-	  msa_remove_seqs_below_minlen(msa, minlen, NULL, &new_msa); /* NULL: do not consider only nongap RF positions */
-	  /* new_msa is msa without seqs below minlen, swap ptrs */
-	  esl_msa_Destroy(msa);
-	  msa = new_msa;
-	  new_msa = NULL;
-	}
-	if (esl_opt_IsOn(go, "--lmax")) {
-	  maxlen = esl_opt_GetInteger(go, "--lmax");
-	  msa_remove_seqs_above_maxlen(msa, maxlen, &new_msa);
-	  /* new_msa is msa without seqs below maxlen, swap ptrs */
-	  esl_msa_Destroy(msa);
-	  msa = new_msa;
-	  new_msa = NULL;
-	}
-	if (esl_opt_IsOn(go, "--rffract")) {
+	    if (esl_opt_IsOn(go, "--lnfract")) {
+	      median = msa_median_length(msa);
+	      minlen = esl_opt_GetReal(go, "--lnfract") * (float) median;
+	      msa_remove_seqs_below_minlen(msa, minlen, NULL, &new_msa); /* NULL: do not consider only nongap RF positions */
+	      /* new_msa is msa without seqs below minlen, swap ptrs */
+	      esl_msa_Destroy(msa);
+	      msa = new_msa;
+	      new_msa = NULL;
+	    }
+	    if (esl_opt_IsOn(go, "--lxfract")) {
+	      median = msa_median_length(msa);
+	      maxlen = esl_opt_GetReal(go, "--lxfract") * (float) median;
+	      msa_remove_seqs_above_maxlen(msa, maxlen, &new_msa);
+	      /* new_msa is msa without seqs above maxlen, swap ptrs */
+	      esl_msa_Destroy(msa);
+	      msa = new_msa;
+	      new_msa = NULL;
+	    }
+	    if (esl_opt_IsOn(go, "--lmin")) {
+	      minlen = esl_opt_GetInteger(go, "--lmin");
+	      msa_remove_seqs_below_minlen(msa, minlen, NULL, &new_msa); /* NULL: do not consider only nongap RF positions */
+	      /* new_msa is msa without seqs below minlen, swap ptrs */
+	      esl_msa_Destroy(msa);
+	      msa = new_msa;
+	      new_msa = NULL;
+	    }
+	    if (esl_opt_IsOn(go, "--lmax")) {
+	      maxlen = esl_opt_GetInteger(go, "--lmax");
+	      msa_remove_seqs_above_maxlen(msa, maxlen, &new_msa);
+	      /* new_msa is msa without seqs below maxlen, swap ptrs */
+	      esl_msa_Destroy(msa);
+	      msa = new_msa;
+	      new_msa = NULL;
+	    }
+	    if (esl_opt_IsOn(go, "--rffract")) {
           /* determine nongap RF length */
-          if(msa->rf == NULL) esl_fatal("with --rffract, alignment(s) must have RF annotation, alignment %d does not", nali);
-          minlen = rflen * esl_opt_GetReal(go, "--rffract");
-	  msa_remove_seqs_below_minlen(msa, minlen, i_am_rf, &new_msa);
-	  /* new_msa is msa without seqs below minlen, swap ptrs */
-	  esl_msa_Destroy(msa);
-	  msa = new_msa;
-	  new_msa = NULL;
-	}
-	if( esl_opt_IsOn(go, "--detrunc")) {
-	  if((status = msa_remove_truncated_seqs(msa, errbuf, esl_opt_GetInteger(go, "--detrunc"), i_am_rf, &new_msa)) != eslOK) esl_fatal(errbuf);
-	  /* new_msa is msa without seqs below minlen, swap ptrs */
-	  esl_msa_Destroy(msa);
-	  msa = new_msa;
-	  new_msa = NULL;
-	}
-	if( esl_opt_IsOn(go, "--xambig")) {
-	  if((status = msa_remove_seqs_with_ambiguities(msa, esl_opt_GetInteger(go, "--xambig"), &new_msa)) != eslOK) esl_fatal(errbuf);
-	  /* new_msa is msa without seqs with > <n> (from --xambig <n>) ambiguities, swap ptrs */
-	  esl_msa_Destroy(msa);
-	  msa = new_msa;
-	  new_msa = NULL;
-	}
+        if(msa->rf == NULL) esl_fatal("with --rffract, alignment(s) must have RF annotation, alignment %d does not", nali);
+        minlen = rflen * esl_opt_GetReal(go, "--rffract");
+	      msa_remove_seqs_below_minlen(msa, minlen, i_am_rf, &new_msa);
+	     /* new_msa is msa without seqs below minlen, swap ptrs */
+	      esl_msa_Destroy(msa);
+	      msa = new_msa;
+	      new_msa = NULL;
+	    }
+      if( esl_opt_IsOn(go, "--detrunc")) {
+	      if((status = msa_remove_truncated_seqs(msa, errbuf, esl_opt_GetInteger(go, "--detrunc"), i_am_rf, &new_msa)) != eslOK) esl_fatal(errbuf);
+	      /* new_msa is msa without seqs below minlen, swap ptrs */
+	      esl_msa_Destroy(msa);
+	      msa = new_msa;
+	      new_msa = NULL;
+	    }
+	    if( esl_opt_IsOn(go, "--xambig")) {
+	      if((status = msa_remove_seqs_with_ambiguities(msa, esl_opt_GetInteger(go, "--xambig"), &new_msa)) != eslOK) esl_fatal(errbuf);
+	      /* new_msa is msa without seqs with > <n> (from --xambig <n>) ambiguities, swap ptrs */
+	      esl_msa_Destroy(msa);
+	      msa = new_msa;
+	      new_msa = NULL;
+	    } 
 
 	/*********************************************************
 	 * Remove sequences based on a specific insert (--seq-ins)
 	 *********************************************************/
-	if( esl_opt_IsOn(go, "--seq-ins")) { 
-	  if((status = find_seqs_with_given_insert(msa, i_am_rf, errbuf, esl_opt_GetInteger(go, "--seq-ins"), esl_opt_GetInteger(go, "--seq-ni"), esl_opt_GetInteger(go, "--seq-xi"), &useme)) != eslOK) esl_fatal(errbuf);	  
-	  if(esl_vec_ISum(useme, msa->nseq) == 0) esl_fatal("No sequences satisfy the --seq-ins option.");
-	  if((status = esl_msa_SequenceSubset(msa, useme, &new_msa)) != eslOK)  esl_fatal(errbuf);	  
+	    if( esl_opt_IsOn(go, "--seq-ins")) { 
+	      if((status = find_seqs_with_given_insert(msa, i_am_rf, errbuf, esl_opt_GetInteger(go, "--seq-ins"), esl_opt_GetInteger(go, "--seq-ni"), esl_opt_GetInteger(go, "--seq-xi"), &useme)) != eslOK) esl_fatal(errbuf);	  
+	      if(esl_vec_ISum(useme, msa->nseq) == 0) esl_fatal("No sequences satisfy the --seq-ins option.");
+	      if((status = esl_msa_SequenceSubset(msa, useme, &new_msa)) != eslOK)  esl_fatal(errbuf);	  
 	  /* new_msa is msa but without seqs that do not have an insert of length <a>..<b> (from --seq-ni <a> and --seq-xi <b>) after consensus column <n> from --seq-ins <n> file */
-	  esl_msa_Destroy(msa);
-	  msa = new_msa;
-	  new_msa = NULL;
-    if(useme != NULL){
-      free(useme); // not needed any more
-    }
-	}      
+	      esl_msa_Destroy(msa);
+	      msa = new_msa;
+	      new_msa = NULL;
+        if(useme != NULL){
+          free(useme); // not needed any more
+        }
+	    }      
 
 	/******************
 	 * Trim sequences *
 	 ******************/
-	if(esl_opt_GetString(go, "--trim") != NULL) { 
-	  if(nali > 1) { esl_fatal("--trim only works if the alignment file has a single alignment"); }
-	  status = esl_sqfile_Open(esl_opt_GetString(go, "--trim"), eslSQFILE_UNKNOWN, NULL, &(trimfp));
-	  if (status == eslENOTFOUND)    esl_fatal("File %s doesn't exist or is not readable\n", esl_opt_GetString(go, "--trim"));
-	  else if (status == eslEFORMAT) esl_fatal("Couldn't determine format of sequence file %s\n", esl_opt_GetString(go, "--trim"));
-	  else if (status == eslEINVAL)  esl_fatal("Can't autodetect stdin or .gz."); 
-	  else if (status != eslOK)      esl_fatal("Sequence file open failed with error %d\n", status);
+	    if(esl_opt_GetString(go, "--trim") != NULL) { 
+	      if(nali > 1) { esl_fatal("--trim only works if the alignment file has a single alignment"); }
+	      status = esl_sqfile_Open(esl_opt_GetString(go, "--trim"), eslSQFILE_UNKNOWN, NULL, &(trimfp));
+	      if (status == eslENOTFOUND)    esl_fatal("File %s doesn't exist or is not readable\n", esl_opt_GetString(go, "--trim"));
+	      else if (status == eslEFORMAT) esl_fatal("Couldn't determine format of sequence file %s\n", esl_opt_GetString(go, "--trim"));
+	      else if (status == eslEINVAL)  esl_fatal("Can't autodetect stdin or .gz."); 
+	      else if (status != eslOK)      esl_fatal("Sequence file open failed with error %d\n", status);
 	  /* read the sequences */
-	  read_sqfile(trimfp, msa->abc, msa->nseq, &trim_sq); /* dies on failure */
+	      read_sqfile(trimfp, msa->abc, msa->nseq, &trim_sq); /* dies on failure */
 	  /* trim the msa */
-	  if((status = trim_msa(msa, trim_sq, esl_opt_GetBoolean(go, "--t-keeprf"), errbuf)) != eslOK) esl_fatal(errbuf);
-	  for(i = 0; i < msa->nseq; i++) esl_sq_Destroy(trim_sq[i]); 
-	  free(trim_sq);
-	  trim_sq = NULL;
-	}
+	      if((status = trim_msa(msa, trim_sq, esl_opt_GetBoolean(go, "--t-keeprf"), errbuf)) != eslOK) esl_fatal(errbuf);
+	      for(i = 0; i < msa->nseq; i++) esl_sq_Destroy(trim_sq[i]); 
+	      free(trim_sq);
+	      trim_sq = NULL;
+	    }
 
 	/*****************************************************
 	 * Replace residues with PP values less than minimum *
 	 *****************************************************/
-	if(esl_opt_IsOn(go, "--minpp")) { 
-	  if(msa->pp == NULL) esl_fatal("--minpp requires all alignments have posterior probability annotation, %d does not\n", nali);
-	  if((status = prune_msa_based_on_posteriors(msa, esl_opt_GetReal(go, "--minpp"), errbuf)) != eslOK) esl_fatal(errbuf);
-	}
+	    if(esl_opt_IsOn(go, "--minpp")) { 
+	      if(msa->pp == NULL) esl_fatal("--minpp requires all alignments have posterior probability annotation, %d does not\n", nali);
+	      if((status = prune_msa_based_on_posteriors(msa, esl_opt_GetReal(go, "--minpp"), errbuf)) != eslOK) esl_fatal(errbuf);
+	    }
       
 	/**********************************************
 	 * Reorder sequences to tree order, if --tree *
 	 **********************************************/
 	/* handle the --tree option, if enabled */
-	if( esl_opt_IsOn(go, "--tree")) {
+	    if( esl_opt_IsOn(go, "--tree")) {
 	  /* Create distance matrix and infer tree by single linkage clustering */
-	  esl_dst_XDiffMx(msa->abc, msa->ax, msa->nseq, &D);
-	  esl_tree_SingleLinkage(D, &T);
-	  esl_tree_SetTaxaParents(T);
-	  esl_tree_SetTaxonlabels(T, msa->sqname);
-	  if((status = esl_tree_Validate(T, errbuf)) != eslOK) esl_fatal(errbuf);
+	      esl_dst_XDiffMx(msa->abc, msa->ax, msa->nseq, &D);
+	      esl_tree_SingleLinkage(D, &T);
+	      esl_tree_SetTaxaParents(T);
+	      esl_tree_SetTaxonlabels(T, msa->sqname);
+	      if((status = esl_tree_Validate(T, errbuf)) != eslOK) esl_fatal(errbuf);
 	
-	  esl_tree_WriteNewick(treefp, T); 
+	      esl_tree_WriteNewick(treefp, T); 
 	
 	  /* Get new order for seqs in the MSA based on the tree */
-	  if((status = get_tree_order(T, errbuf, &order)) != eslOK) esl_fatal(errbuf);
+	      if((status = get_tree_order(T, errbuf, &order)) != eslOK) esl_fatal(errbuf);
 	
 	  /*for(i = 0; i < msa->nseq; i++) printf("new MSA idx: %3d | orig MSA idx: %3d\n", i, order[i]);*/
-	  esl_tree_Destroy(T);
-	  esl_dmatrix_Destroy(D);
-	  T = NULL;
-	  D = NULL;
-	  if((status = reorder_msa(msa, order, errbuf)) != eslOK) esl_fatal(errbuf);
-	  free(order);
-	}	  
+	      esl_tree_Destroy(T);
+	      esl_dmatrix_Destroy(D);
+	      T = NULL;
+	      D = NULL;
+	      if((status = reorder_msa(msa, order, errbuf)) != eslOK) esl_fatal(errbuf);
+	      free(order);
+	    }	  
 
 	/******************************************
 	 * Modify/add annotation in the alignment *
 	 ******************************************/
 	/* Convert POST annotation (infernal 0.72-1.0) to PP, if nec */
 	/* Remove GC annotation, if nec */
-	if( esl_opt_IsOn(go, "--rm-gc")) {
-	  if((status = remove_gc_markup(msa, errbuf, esl_opt_GetString(go, "--rm-gc")) != eslOK)) esl_fatal(errbuf);
-	}
+  
+      if( esl_opt_IsOn(go, "--rm-gc")) {
+	      if((status = remove_gc_markup(msa, errbuf, esl_opt_GetString(go, "--rm-gc")) != eslOK)) esl_fatal(errbuf);
+	    }
 	/* Rewrite RF annotation based on a mask, if nec */
-	if(mask_for_rf != NULL) { /* --mask2rf enabled */
-	  if(msa->rf != NULL && mask_for_rf_len == rflen) { /* mask corresponds to RF len */
-	    if((status = write_rf_given_rflen(msa, errbuf, i_am_rf, esl_opt_GetBoolean(go, "--m-keeprf"), mask_for_rf, mask_for_rf_len)) != eslOK) esl_fatal(errbuf);
-	  }
-	  else if(mask_for_rf_len == msa->alen) { 
-	    if((status = write_rf_given_alen(msa, errbuf, i_am_rf, esl_opt_GetBoolean(go, "--m-keeprf"), mask_for_rf, mask_for_rf_len)) != eslOK) esl_fatal(errbuf);
-	  }
-	  else { 
-	    if(msa->rf != NULL) esl_fatal("msa %d, alignment length is %d, nongap RF length is %d, --mask2rf mask length is neither (%d)", msa->alen, rflen);
-	    else                esl_fatal("msa %d, alignment length is %d (no RF annotation), --mask2rf mask length is neither (%d)", msa->alen, rflen);
-	  }
-	}
+	    if(mask_for_rf != NULL) { /* --mask2rf enabled */
+	      if(msa->rf != NULL && mask_for_rf_len == rflen) { /* mask corresponds to RF len */
+	        if((status = write_rf_given_rflen(msa, errbuf, i_am_rf, esl_opt_GetBoolean(go, "--m-keeprf"), mask_for_rf, mask_for_rf_len)) != eslOK) esl_fatal(errbuf);
+	      }
+	      else if(mask_for_rf_len == msa->alen) { 
+	        if((status = write_rf_given_alen(msa, errbuf, i_am_rf, esl_opt_GetBoolean(go, "--m-keeprf"), mask_for_rf, mask_for_rf_len)) != eslOK) esl_fatal(errbuf);
+	      }
+	      else { 
+	        if(msa->rf != NULL) esl_fatal("msa %d, alignment length is %d, nongap RF length is %d, --mask2rf mask length is neither (%d)", msa->alen, rflen);
+	      else                esl_fatal("msa %d, alignment length is %d (no RF annotation), --mask2rf mask length is neither (%d)", msa->alen, rflen);
+	      }
+	    }
 	/* Add annotation numbering the nongap RF columns, if nec */
-	if( esl_opt_IsOn(go, "--num-rf")) { 
-	  if(msa->rf == NULL) esl_fatal("--num-rf requires all alignments have #=GC RF annotation, but alignment %d does not", nali);
-	  if((status = number_columns(msa, FALSE, i_am_rf, errbuf) != eslOK)) esl_fatal(errbuf);
-	}
+	    if( esl_opt_IsOn(go, "--num-rf")) { 
+	      if(msa->rf == NULL) esl_fatal("--num-rf requires all alignments have #=GC RF annotation, but alignment %d does not", nali);
+	      if((status = number_columns(msa, FALSE, i_am_rf, errbuf) != eslOK)) esl_fatal(errbuf);
+	    }
 	/* Add annotation numbering all columns, if nec */
-	if( esl_opt_IsOn(go, "--num-all")) { 
-	  if((status = number_columns(msa, TRUE, i_am_rf, errbuf) != eslOK)) esl_fatal(errbuf);
-	}
+	    if( esl_opt_IsOn(go, "--num-all")) { 
+	      if((status = number_columns(msa, TRUE, i_am_rf, errbuf) != eslOK)) esl_fatal(errbuf);
+	    }
 	/* Convert POST to PP annotation, if nec */
-	if(esl_opt_GetBoolean(go, "--post2pp")) { 
-	  if(msa->pp != NULL) esl_fatal("--post2pp enabled but alignment %d already has PP annotation.\n", nali);
-	  if((status = convert_post_to_pp(msa, errbuf, nali)) != eslOK) esl_fatal(errbuf);
-	}
+	    if(esl_opt_GetBoolean(go, "--post2pp")) { 
+	      if(msa->pp != NULL) esl_fatal("--post2pp enabled but alignment %d already has PP annotation.\n", nali);
+	      if((status = convert_post_to_pp(msa, errbuf, nali)) != eslOK) esl_fatal(errbuf);
+	    }
 	/* Impose consensus structure to get individual secondary structures, if nec */
-	if((esl_opt_GetBoolean(go, "--sindi")) || (esl_opt_GetBoolean(go, "--cindi"))) { 
-	  if((status = individualize_consensus(go, errbuf, msa) != eslOK)) esl_fatal(errbuf);
-	}
+	    if((esl_opt_GetBoolean(go, "--sindi")) || (esl_opt_GetBoolean(go, "--cindi"))) { 
+	      if((status = individualize_consensus(go, errbuf, msa) != eslOK)) esl_fatal(errbuf);
+	    }
 
 	/****************************************************
 	 * Handle 'in development' options, that are undocumented 
@@ -608,93 +608,93 @@ main(int argc, char **argv)
 	 * These are even less stable than the other options.
 	 ***************************************************/
 	/* --xmask option: expand the alignment to fit lanemask in xmask <f>, number of TOTAL msa columns must equal number of 1s in <f>. */
-	if(xmask != NULL) { 
-	  if((status = expand_msa2mask(errbuf, msa, xmask, &new_msa)) != eslOK) esl_fatal(errbuf);
-	  esl_msa_Destroy(msa);
-	  msa = new_msa;
-	}
+	    if(xmask != NULL) { 
+	      if((status = expand_msa2mask(errbuf, msa, xmask, &new_msa)) != eslOK) esl_fatal(errbuf);
+	      esl_msa_Destroy(msa);
+	      msa = new_msa;
+	    }
 
 	/*******************************************************
 	 * Handle the 'in development' cluster options. (--c-*) 
 	 * (these should probably go into a different miniapp eventually)
 	 *******************************************************/
-	if(do_id_cluster || do_insert_cluster) { 
-	  if(msa->rf == NULL) esl_fatal("--c* options require #=GC RF annotation marking consensus columns.");
-	  if(do_id_cluster) { 
-	    if(msa->rf == NULL) esl_fatal("Error, --cn-id, --cs-id and --cx-id require all alignments have #=GC RF anntotation, aln %d does not.", nali);
+	    if(do_id_cluster || do_insert_cluster) { 
+	      if(msa->rf == NULL) esl_fatal("--c* options require #=GC RF annotation marking consensus columns.");
+	      if(do_id_cluster) { 
+	        if(msa->rf == NULL) esl_fatal("Error, --cn-id, --cs-id and --cx-id require all alignments have #=GC RF anntotation, aln %d does not.", nali);
 	    /* create distance matrix and infer tree by single linkage clustering */
 	    /* first, remove all non-consensus columns */
-	    rfmsa = esl_msa_Clone(msa);
-	    if((status = esl_msa_ColumnSubset(rfmsa, errbuf, i_am_rf)) != eslOK) esl_fatal(errbuf);
-	    dst_nongap_XDiffMx(rfmsa->abc, rfmsa->ax, rfmsa->nseq, &D);
-	    esl_msa_Destroy(rfmsa);
-	    rfmsa = NULL;
-	    do_ctarget_nc    = esl_opt_IsOn(go, "--cn-id");
-	    do_ctarget_nsize = esl_opt_IsOn(go, "--cs-id");
-	    do_cmindiff      = esl_opt_IsOn(go, "--cx-id");
-	    nc               = esl_opt_IsOn(go, "--cn-id") ? esl_opt_GetInteger(go, "--cn-id")   : 0;
-	    nsize            = esl_opt_IsOn(go, "--cs-id") ? esl_opt_GetInteger(go, "--cs-id")   : 0;
-	    mindiff          = esl_opt_IsOn(go, "--cx-id") ? 1. - esl_opt_GetReal(go, "--cx-id") : 0; 
-	  }
-	  else { /* do_insert_cluster, create insert distance matrix and infer tree by SLC */ 
-	    if(msa->rf == NULL) esl_fatal("Error, --cn-ins, --cs-ins and --cx-ins require all alignments have #=GC RF anntotation, aln %d does not.", nali);
-	    if((status = insert_x_diffmx(go, errbuf, msa, rflen, i_am_rf, TRUE, TRUE, &D)) != eslOK) esl_fatal(errbuf);
-	    do_ctarget_nc    = esl_opt_IsOn(go, "--cn-ins");
-	    do_ctarget_nsize = esl_opt_IsOn(go, "--cs-ins");
-	    do_cmindiff      = esl_opt_IsOn(go, "--cx-ins");
-	    nc               = esl_opt_IsOn(go, "--cn-ins") ? esl_opt_GetInteger(go, "--cn-ins")   : 0;
-	    nsize            = esl_opt_IsOn(go, "--cs-ins") ? esl_opt_GetInteger(go, "--cs-ins")   : 0;
-	    mindiff          = esl_opt_IsOn(go, "--cx-ins") ? 1. - esl_opt_GetReal(go, "--cx-ins") : 0;
-	  }
-	  /* print out the id matrix if nec */
-	  if( esl_opt_IsOn(go, "--c-mx")) { 
-	    for(i = 0; i < msa->nseq; i++) { 
-	      for(j = 0; j < msa->nseq; j++) { 
-		fprintf(mxfp, "%5d  %5d  %-30s  %-30s  %.5f\n", i, j, msa->sqname[i], msa->sqname[j], 1. - D->mx[i][j]);
+	        rfmsa = esl_msa_Clone(msa);
+	        if((status = esl_msa_ColumnSubset(rfmsa, errbuf, i_am_rf)) != eslOK) esl_fatal(errbuf);
+	        dst_nongap_XDiffMx(rfmsa->abc, rfmsa->ax, rfmsa->nseq, &D);
+	        esl_msa_Destroy(rfmsa);
+	        rfmsa = NULL;
+	        do_ctarget_nc    = esl_opt_IsOn(go, "--cn-id");
+	        do_ctarget_nsize = esl_opt_IsOn(go, "--cs-id");
+	        do_cmindiff      = esl_opt_IsOn(go, "--cx-id");
+	        nc               = esl_opt_IsOn(go, "--cn-id") ? esl_opt_GetInteger(go, "--cn-id")   : 0;
+	        nsize            = esl_opt_IsOn(go, "--cs-id") ? esl_opt_GetInteger(go, "--cs-id")   : 0;
+	        mindiff          = esl_opt_IsOn(go, "--cx-id") ? 1. - esl_opt_GetReal(go, "--cx-id") : 0; 
 	      }
-	    }	  
-	    fclose(mxfp);
-	  }
-	  if((status = MSADivide(msa, D, do_cmindiff, do_ctarget_nc, do_ctarget_nsize, mindiff, nc, nsize, &nmsa, &cmsa, &xsize, errbuf)) != eslOK) esl_fatal(errbuf);
-	  esl_msa_Destroy(msa); 
-	  msa = NULL;
-	  nmin = esl_opt_IsOn(go, "--c-nmin") ? esl_opt_GetInteger(go, "--c-nmin") : 1;
-	  for(m = 0; m < nmsa; m++) { 
-	    if(cmsa[m]->nseq >= nmin) { 
-	      status = esl_msafile_Write(ofp, cmsa[m], outfmt);
-	      if      (status == eslEMEM) esl_fatal("Memory error when outputting alignment\n");
-	      else if (status != eslOK)   esl_fatal("Writing alignment file failed with error %d\n", status);
+	      else { /* do_insert_cluster, create insert distance matrix and infer tree by SLC */ 
+	        if(msa->rf == NULL) esl_fatal("Error, --cn-ins, --cs-ins and --cx-ins require all alignments have #=GC RF anntotation, aln %d does not.", nali);
+	        if((status = insert_x_diffmx(go, errbuf, msa, rflen, i_am_rf, TRUE, TRUE, &D)) != eslOK) esl_fatal(errbuf);
+	        do_ctarget_nc    = esl_opt_IsOn(go, "--cn-ins");
+	        do_ctarget_nsize = esl_opt_IsOn(go, "--cs-ins");
+	        do_cmindiff      = esl_opt_IsOn(go, "--cx-ins");
+	        nc               = esl_opt_IsOn(go, "--cn-ins") ? esl_opt_GetInteger(go, "--cn-ins")   : 0;
+	        nsize            = esl_opt_IsOn(go, "--cs-ins") ? esl_opt_GetInteger(go, "--cs-ins")   : 0;
+	        mindiff          = esl_opt_IsOn(go, "--cx-ins") ? 1. - esl_opt_GetReal(go, "--cx-ins") : 0;
+	      } 
+	  /* print out the id matrix if nec */
+	      if( esl_opt_IsOn(go, "--c-mx")) { 
+	        for(i = 0; i < msa->nseq; i++) { 
+	          for(j = 0; j < msa->nseq; j++) { 
+		          fprintf(mxfp, "%5d  %5d  %-30s  %-30s  %.5f\n", i, j, msa->sqname[i], msa->sqname[j], 1. - D->mx[i][j]);
+	          }
+	        }	  
+	        fclose(mxfp);
+	      }
+	      if((status = MSADivide(msa, D, do_cmindiff, do_ctarget_nc, do_ctarget_nsize, mindiff, nc, nsize, &nmsa, &cmsa, &xsize, errbuf)) != eslOK) esl_fatal(errbuf);
+	      esl_msa_Destroy(msa); 
+	      msa = NULL;
+	      nmin = esl_opt_IsOn(go, "--c-nmin") ? esl_opt_GetInteger(go, "--c-nmin") : 1;
+	      for(m = 0; m < nmsa; m++) { 
+	        if(cmsa[m]->nseq >= nmin) { 
+	          status = esl_msafile_Write(ofp, cmsa[m], outfmt);
+	          if      (status == eslEMEM) esl_fatal("Memory error when outputting alignment\n");
+	          else if (status != eslOK)   esl_fatal("Writing alignment file failed with error %d\n", status);
+	        }
+	        esl_msa_Destroy(cmsa[m]);
+	      }
+	      free(cmsa);
 	    }
-	    esl_msa_Destroy(cmsa[m]);
-	  }
-	  free(cmsa);
-	}
-	else if ( esl_opt_IsOn(go, "--c-mx")) esl_fatal("--c-mx option requires at least one of: --cn-id, --cs-id, --cx-id, --cn-ins, --cs-ins, --cx-ins"); 
+	    else if ( esl_opt_IsOn(go, "--c-mx")) esl_fatal("--c-mx option requires at least one of: --cn-id, --cs-id, --cx-id, --cn-ins, --cs-ins, --cx-ins"); 
 	/*******************************
 	 * End of cluster option block 
 	 *******************************/
 
 	/* handle the *in development* -M option, if enabled */
-	if( esl_opt_IsOn(go, "-M")) { 
-	  if((status = minorize_msa(go, msa, errbuf, ofp, esl_opt_GetString(go, "-M"), outfmt) != eslOK)) esl_fatal(errbuf);
-	}
+	    if( esl_opt_IsOn(go, "-M")) { 
+	      if((status = minorize_msa(go, msa, errbuf, ofp, esl_opt_GetString(go, "-M"), outfmt) != eslOK)) esl_fatal(errbuf);
+	    }
 
 	/********************
 	 * Output alignment *
 	 ********************/
-	if(! esl_opt_IsOn(go, "-M")) { /* if -M, we already output the alignments in minorize_msa() */
-	  status = esl_msafile_Write(ofp, msa, outfmt);
-	  if      (status == eslEMEM) esl_fatal("Memory error when outputting alignment\n");
-	  else if (status != eslOK)   esl_fatal("Writing alignment file failed with error %d\n", status);
-	}
+	    if(! esl_opt_IsOn(go, "-M")) { /* if -M, we already output the alignments in minorize_msa() */
+	      status = esl_msafile_Write(ofp, msa, outfmt);
+	      if      (status == eslEMEM) esl_fatal("Memory error when outputting alignment\n");
+	      else if (status != eslOK)   esl_fatal("Writing alignment file failed with error %d\n", status);
+	    }
 
 	/* Clean up for this msa */
-        esl_arr2_Destroy((void **) abc_ct, msa? msa->alen:0);  abc_ct   = NULL; 
-        esl_arr2_Destroy((void **) pp_ct,  msa? msa->alen:0);  pp_ct    = NULL; 
-	esl_msa_Destroy(msa);                                  msa      = NULL; 
-	esl_free(i_am_rf);                                     i_am_rf  = NULL; 
-	esl_free(rf2a_map);                                    rf2a_map = NULL; 
-      }	/* end loop over msa's */
+      esl_arr2_Destroy((void **) abc_ct, msa? msa->alen:0);  abc_ct   = NULL; 
+      esl_arr2_Destroy((void **) pp_ct,  msa? msa->alen:0);  pp_ct    = NULL; 
+	    esl_msa_Destroy(msa);                                  msa      = NULL; 
+	    esl_free(i_am_rf);                                     i_am_rf  = NULL; 
+      esl_free(rf2a_map);                                    rf2a_map = NULL; 
+    }	/* end loop over msa's */
     if (nali   == 0) esl_fatal("No alignments found in file %s\n", alifile);
   } /* end of 'if (! esl_opt_IsOn(go, "--small"))' */
 
@@ -3274,6 +3274,7 @@ convert_post_to_pp(ESL_MSA *msa, char *errbuf, int nali)
       free(msa->gr[ridx1][i]);
     }
     free(msa->gr[ridx1]);
+    free(msa->gr_tag[ridx1]);
   }
   else { /* ndigits == 2 */
     for(i = 0; i < msa->nseq; i++) { 
@@ -3301,6 +3302,8 @@ convert_post_to_pp(ESL_MSA *msa, char *errbuf, int nali)
     }
     free(msa->gr[ridx1]);
     free(msa->gr[ridx2]);
+    free(msa->gr_tag[ridx1]);
+    free(msa->gr_tag[ridx2]);
   }
   /* done filling msa->pp, now free gr annotation, we know from check above 
    * the msa's GR annotation only consists of the posterior annotation, so 
