@@ -1280,6 +1280,9 @@ main(int argc, char **argv)
   esl_arr3_Destroy((void ***) bp_ct, msa? msa->alen:0, abc? abc->Kp: 0);
   esl_arr2_Destroy((void **) per_seq_ins_ct, msa_nseq);
 
+  if(nins_ct){
+    free(nins_ct);
+  }
   esl_free(spos_ct);
   esl_free(epos_ct);
   esl_free(srfoff_ct);
@@ -1287,6 +1290,9 @@ main(int argc, char **argv)
   esl_free(span_ct);
   esl_free(nseq_with_ins_ct);
   esl_free(mask);
+  if(mask2 !=0){
+    free(mask2);
+  }
   esl_free(date);
   esl_free(hc_nbins);
 
@@ -1538,12 +1544,12 @@ free_sspostscript(SSPostscript_t *ps)
   if(ps->sclAA != NULL) { 
     for(p = 0; p < ps->npage; p++) { 
       if(ps->sclAA[p] != NULL) { 
-	if(ps->sclAA[p]->limits != NULL) free(ps->sclAA[p]->limits);
-	if(ps->sclAA[p]->counts != NULL) free(ps->sclAA[p]->counts);
-	if(ps->sclAA[p]->counts_masked != NULL) free(ps->sclAA[p]->counts_masked);
-	if(ps->sclAA[p]->text1 != NULL) free(ps->sclAA[p]->text1);
-	if(ps->sclAA[p]->text2 != NULL) free(ps->sclAA[p]->text2);
-	free(ps->sclAA[p]); /* statically allocated memory */
+	      if(ps->sclAA[p]->limits != NULL) free(ps->sclAA[p]->limits);
+	      if(ps->sclAA[p]->counts != NULL) free(ps->sclAA[p]->counts);
+	      if(ps->sclAA[p]->counts_masked != NULL) free(ps->sclAA[p]->counts_masked);
+	      if(ps->sclAA[p]->text1 != NULL) free(ps->sclAA[p]->text1);
+	      if(ps->sclAA[p]->text2 != NULL) free(ps->sclAA[p]->text2);
+	      free(ps->sclAA[p]); /* statically allocated memory */
       }
     }
     free(ps->sclAA);
@@ -1552,13 +1558,14 @@ free_sspostscript(SSPostscript_t *ps)
   if(ps->tlAAA != NULL) { 
     for(p = 0; p < ps->npage; p++) { 
       if(ps->tlAAA[p] != NULL) { 
-	for(l = 0; l < ps->ntlA[p]; l++) { 
-	  for(l2 = 0; l2 < ps->tlAAA[p][l]->nlines; l2++) { 
-	    free(ps->tlAAA[p][l]->text_per_line[l2]);
-	  }
-	  free(ps->tlAAA[p][l]); /* the rest is statically allocated memory */
-	}
-	free(ps->tlAAA[p]);
+	      for(l = 0; l < ps->ntlA[p]; l++) { 
+	        for(l2 = 0; l2 < ps->tlAAA[p][l]->nlines; l2++) { 
+	          free(ps->tlAAA[p][l]->text_per_line[l2]);
+	        }
+          free(ps->tlAAA[p][l]->text_per_line);
+	        free(ps->tlAAA[p][l]); /* the rest is statically allocated memory */
+	      }
+	      free(ps->tlAAA[p]);
       }
     }
     free(ps->tlAAA);
@@ -3522,6 +3529,9 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
 	break;
       }
     }
+    if(ps->sclAA[pp] != NULL){
+      free(ps->sclAA[pp]);  // prevent memory leak when create_scheme_colorlegend overwrites this 
+    }
     ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx_s, hc_nbins_s, limits_s, TRUE, TRUE, TRUE, FALSE);
     /* init one cell legend counters */
     nextdel_s = nwc_s = ngu_s = nnc_s = ndgi_s = nhgi_s = ndge_s = nhge_s = noutline_min = noutline_max = noutline_bp_good = noutline_bp_bad = 0;
@@ -3709,38 +3719,72 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
       stack[1] = ps->leg_cellsize * OUTLINE_LINEWIDTH_CELL_FRACTION_MIN;
       /* add one-cell color legend for minimal outline */
       ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], noutline_min, OCCL_BLANK_COUNT, FALSE, FALSE);
-      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "!= x and freq(x) <  0.75", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "!= x and freq(x) <  0.75", ps->legx_max_chars, errbuf)) != eslOK) {
+        free(stack);
+        return status;
+      }
       if((status = add_procedure_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], OUTLINE_PROCEDURE, stack, 2, errbuf)) != eslOK) return status;
       ps->nocclA[pp]++;
 
       stack[1] = ps->leg_cellsize * OUTLINE_LINEWIDTH_CELL_FRACTION_MAX;
       /* add one-cell color legend for maximal outline */
       ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], noutline_max, OCCL_BLANK_COUNT, FALSE, FALSE);
-      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "!= x and freq(x) >= 0.75", ps->legx_max_chars, errbuf)) != eslOK) return status;
-      if((status = add_procedure_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], OUTLINE_PROCEDURE, stack, 2, errbuf)) != eslOK) return status;
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "!= x and freq(x) >= 0.75", ps->legx_max_chars, errbuf)) != eslOK){
+        free(stack);
+        return status;
+      }
+      if((status = add_procedure_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], OUTLINE_PROCEDURE, stack, 2, errbuf)) != eslOK){
+        free(stack);
+        return status;
+      }
       ps->nocclA[pp]++;
 
       /* add a psuedo-one-cell color legends, the explanatory text for outline basepairs: */
       ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], OCCL_BLANK_COUNT, OCCL_BLANK_COUNT, FALSE, TRUE);
-      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "Number of bps != most common bp a:b", ps->legx_max_chars, errbuf)) != eslOK) return status;
-      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK) return status;
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "Number of bps != most common bp a:b", ps->legx_max_chars, errbuf)) != eslOK){
+        free(stack);
+        return status;
+      }
+      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK){
+        free(stack);
+        return status;
+      }
       ps->nocclA[pp]++;
 
       /* add a psuedo-one-cell color legends, the explanatory text for outline basepairs: */
       ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], OCCL_BLANK_COUNT, OCCL_BLANK_COUNT, FALSE, FALSE);
-      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "and a:b is Watson-Crick, GU or UG:", ps->legx_max_chars, errbuf)) != eslOK) return status;
-      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK) return status;
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "and a:b is Watson-Crick, GU or UG:", ps->legx_max_chars, errbuf)) != eslOK){
+        free(stack);
+        return status;
+      }
+      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK){
+        free(stack);
+        return status;
+      }
       ps->nocclA[pp]++;
 
       ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], noutline_bp_good, OCCL_BLANK_COUNT, FALSE, FALSE);
-      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], " Watson-Crick, GU or UG but != a:b", ps->legx_max_chars, errbuf)) != eslOK) return status;
-      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK) return status;
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], " Watson-Crick, GU or UG but != a:b", ps->legx_max_chars, errbuf)) != eslOK){
+        free(stack);
+        return status;
+      }
+      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK){
+        free(stack);
+        return status;
+      }
       ps->nocclA[pp]++;
 
       ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], noutline_bp_bad, OCCL_BLANK_COUNT, TRUE, FALSE);
-      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], " non-canonical or w/gap and != a:b", ps->legx_max_chars, errbuf)) != eslOK) return status;
-      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK) return status;
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], " non-canonical or w/gap and != a:b", ps->legx_max_chars, errbuf)) != eslOK){
+        free(stack);
+        return status;
+      }
+      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK){
+        free(stack);
+        return status;
+      }
       ps->nocclA[pp]++;
+      free(stack);
     }
 
     /* add description to ps */
@@ -3758,7 +3802,9 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
      ***************************************/
     if(do_prob) { /* contract checked that msa->pp[i] is non-NULL */
       pp++;
-
+      if(ps->sclAA[pp] != NULL){  // Prevent memory leak when this was previously allocated
+        free(ps->sclAA[pp]);
+      }
       ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx_p, hc_nbins_p, limits_p, FALSE, TRUE, TRUE, FALSE);
       ngap_p = 0;
       ngap_masked_p = (ps->mask == NULL) ? -1 : 0;
@@ -4217,7 +4263,8 @@ infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1);
+    //ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1); Don't need this because create_scheme_colorlegend allocates a
+    //SchemeColorLegend_t object
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t *) * 1);
     if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
       ESL_ALLOC(ps->rAA[p],     sizeof(char) *  ps->rflen);
@@ -4391,7 +4438,8 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t) * 1);
+    //ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t) * 1); Don't need this because create_scheme_colorlegend allocates 
+    //a SchemeColorLegend_t object
     ESL_ALLOC(ps->occlAAA[p],  sizeof(OneCellColorLegend_t *) * 2);
     if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
       ESL_ALLOC(ps->rAA[p],     sizeof(char) *  ps->rflen);
@@ -4612,7 +4660,8 @@ insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1);
+    //ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1); not needed because create_scheme_colorlegend allocates the //
+    //SchemeColorLegend_t object
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t *) * 2);
     if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
       ESL_ALLOC(ps->rAA[p],     sizeof(char) *  ps->rflen);
@@ -4788,7 +4837,8 @@ insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *p
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1);
+    //ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1); Don't need this because create_scheme_colorlegend allocates
+    //a SchemeColorLegend_t object
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t *) * 1);
     if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
       ESL_ALLOC(ps->rAA[p],     sizeof(char) *  ps->rflen);
@@ -4958,7 +5008,8 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1);
+    //ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1); Don't need this because create_scheme_colorlegend allocates 
+    // a SchemeColorLegend_t object
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t *) * 2);
     if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
       ESL_ALLOC(ps->rAA[p],     sizeof(char) *  ps->rflen);
@@ -5133,7 +5184,8 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1);
+    //ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1); Don't need this because create_scheme_colorlegend allocates
+    // a SchemeColorLegend_t object
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t *) * 1);
     if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
       ESL_ALLOC(ps->rAA[p],     sizeof(char) *  ps->rflen);
@@ -5342,7 +5394,7 @@ colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, 
   if((status = add_page_desc_to_sspostscript(ps, pp, mask_desc, errbuf)) != eslOK) return status;
 
   ps->nocclA[pp] = 2;
-
+  free(mask_desc);
   return eslOK;
   
  ERROR: ESL_FAIL(status, errbuf, "colormask_sspostscript(): memory allocation error.");
@@ -5544,6 +5596,7 @@ read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen, 
   *ret_mask_has_internal_zeroes = seen_1_then_0_then_1;
 
   esl_fileparser_Close(efp);
+
   return eslOK;
   
  ERROR:
@@ -5591,7 +5644,8 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1);
+    //ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1);  This is unnecessary because create_scheme_colorlegend allocates 
+    //the SchemeColorLegend_t object
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t *) * 2);
     if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
       ESL_ALLOC(ps->rAA[p],     sizeof(char) *  ps->rflen);
@@ -6249,7 +6303,6 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
       
       fprintf(fp, "(%-*s) %.2f %.2f moveto show\n", desc_column_width, desc_string, x, y);
       y -= header_fontsize * 0.75;
-      free(desc_string);
       fprintf(fp, "(%-*s) %.2f %.2f moveto show\n", desc_column_width, desc_dashes, x, y);
       y -= header_fontsize * 0.75;
       free(desc_dashes);
@@ -6310,6 +6363,7 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
   }
 
   if(model2print != NULL) free(model2print);
+  if(desc_string != NULL) free(desc_string);
   return eslOK;
 
  ERROR: ESL_FAIL(eslEINVAL, errbuf, "draw_header_and_footer(), memory error.");
@@ -6986,6 +7040,9 @@ drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, f
 	    }
 	  }
 	  pp++; /* if first page, pp == orig_npage now */
+    if(ps->sclAA[pp]!= NULL){ // prevent memory leak
+      free(ps->sclAA[pp]);
+    }
 	  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE, TRUE, TRUE, TRUE);
 	}
 	/* now parse the line, it should have a single number, a numerical value for a position */
