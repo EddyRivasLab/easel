@@ -95,11 +95,14 @@ typedef struct {
   char    *name;           /* name; one word, no whitespace ("\0" if no name)  */
   char    *acc;            /* optional accession (1 word) ("\0" if none)       */
   char    *desc;           /* description line ("\0" if no description)        */
+  char    *orfid;          /* ORF ID, required for translated search only ("\0" if no description) */
   int32_t  tax_id;         /* NCBI taxonomy id (-1 if none)                    */
   char    *seq;            /* sequence [0..n-1], or NULL if digital            */
   ESL_DSQ *dsq;            /* digitized sequence [1..n], or NULL if text       */
   char    *ss;             /* optional sec structure [0..n-1], [1..n], or NULL */
   int64_t  n;              /* length of seq (or dsq) and ss                    */
+  int64_t  prev_n;         /* total number of residues in all previously captured sequences; used for naming orfs in translated search only */
+
   /*::cexcerpt::sq_sq::end::*/
 
   /* Source-tracking coordinate info for:                       seq       subseq     window     info */
@@ -117,6 +120,7 @@ typedef struct {
   int      nalloc;         /* allocated length of name                         */
   int      aalloc;         /* allocated length of accession                    */
   int      dalloc;         /* allocated length of description                  */
+  int      orfalloc;       /* allocated length of description                  */
   int64_t  salloc;         /* alloc for seq or dsq, and ss if present          */
   int      srcalloc;	   /* allocated length for source name                 */
 
@@ -147,7 +151,8 @@ typedef struct {
 } ESL_SQ_BLOCK;
 
 /* These control default initial allocation sizes in an ESL_SQ.     */
-#define eslSQ_NAMECHUNK   32	// allocation unit for name, source 
+#define eslSQ_NAMECHUNK   32	// allocation unit for name, source
+#define eslSQ_ORFCHUNK    16    // allocation unit for orfid
 #define eslSQ_ACCCHUNK    32	// allocation unit for accession    
 #define eslSQ_DESCCHUNK  128	// allocation unit for description  
 #define eslSQ_SEQCHUNK   256	// allocation unit for seqs         
@@ -169,6 +174,8 @@ extern int     esl_sq_SetName        (ESL_SQ *sq, const char *name);
 extern int     esl_sq_SetAccession   (ESL_SQ *sq, const char *acc);
 extern int     esl_sq_SetDesc        (ESL_SQ *sq, const char *desc);
 extern int     esl_sq_SetSource      (ESL_SQ *sq, const char *source);
+extern int     esl_sq_SetORFid       (ESL_SQ *sq, const char *orfid);
+
 extern int     esl_sq_FormatName     (ESL_SQ *sq, const char *name,   ...) ESL_ATTRIBUTE_FORMAT(printf, 2, 3);
 extern int     esl_sq_FormatAccession(ESL_SQ *sq, const char *acc,    ...) ESL_ATTRIBUTE_FORMAT(printf, 2, 3);
 extern int     esl_sq_FormatDesc     (ESL_SQ *sq, const char *desc,   ...) ESL_ATTRIBUTE_FORMAT(printf, 2, 3);
@@ -193,6 +200,7 @@ extern int     esl_sq_GetFromMSA  (const ESL_MSA *msa, int which, ESL_SQ *sq);
 extern int     esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq);
 
 extern ESL_SQ_BLOCK *esl_sq_CreateBlock(int count);
+extern void esl_sq_ReuseBlock(ESL_SQ_BLOCK *block);
 extern int esl_sq_BlockGrowTo(ESL_SQ_BLOCK *sqblock, int newsize, int do_digital, const ESL_ALPHABET *abc);
 extern ESL_SQ_BLOCK *esl_sq_CreateDigitalBlock(int count, const ESL_ALPHABET *abc);
 extern void          esl_sq_DestroyBlock(ESL_SQ_BLOCK *sqBlock);

@@ -292,10 +292,12 @@ esl_sq_Copy(const ESL_SQ *src, ESL_SQ *dst)
   }
   
   if ((status = esl_sq_SetName     (dst, src->name))   != eslOK) goto ERROR;
+  if ((status = esl_sq_SetORFid    (dst, src->orfid))  != eslOK) goto ERROR;
   if ((status = esl_sq_SetSource   (dst, src->source)) != eslOK) goto ERROR;
   if ((status = esl_sq_SetAccession(dst, src->acc))    != eslOK) goto ERROR;
   if ((status = esl_sq_SetDesc     (dst, src->desc))   != eslOK) goto ERROR;
   if ((status = esl_sq_GrowTo      (dst, src->n))      != eslOK) goto ERROR;
+
 
   if (src->seq != NULL && dst->seq != NULL) /* text to text */
     {
@@ -445,6 +447,7 @@ esl_sq_Reuse(ESL_SQ *sq)
   int   x;        /* index for optional extra residue markups */
 
   sq->name[0]   = '\0';
+  sq->orfid[0]  = '\0';
   sq->acc[0]    = '\0';
   sq->desc[0]   = '\0';
   sq->tax_id    = -1;
@@ -520,7 +523,8 @@ sq_free_internals(ESL_SQ *sq)
   if (sq)
     {
       int   x;        /* index for optional extra residue markups */
-      free(sq->name);  
+      free(sq->name);
+      free(sq->orfid);
       free(sq->acc);   
       free(sq->desc);  
       free(sq->seq);   
@@ -550,10 +554,10 @@ void
 esl_sq_Destroy(ESL_SQ *sq)
 {
   if (sq)
-    {
+  {
       sq_free_internals(sq);
       free(sq);
-    }
+  }
   return;
 }
 
@@ -573,6 +577,38 @@ esl_sq_CreateBlock(int count)
 {
   return sq_createblock(count, FALSE);
 }
+
+/* Function:  esl_sq_ReuseBlock()
+ * Synopsis:  Prepare a sequence block to be reused.
+ *
+ * Purpose:   Given a ESL_SQ_BLOCK object <block> already in use,
+ *            reinitialize all its data. This allows a block to be
+ *            reused without a lot of wasted allocation/free cycling.
+ *
+ * Returns:
+ *
+ * Throws:
+ */
+void
+esl_sq_ReuseBlock(ESL_SQ_BLOCK *block)
+{
+    int i;
+
+    if (block == NULL) return;
+
+    for (i = 0; i < block->count; ++i)
+    {
+        esl_sq_Reuse(block->list + i);
+    }
+
+    block->count = 0;
+    block->first_seqidx = -1;
+    block->complete = TRUE;
+
+
+    return;
+}
+
 
 /* Function:  esl_sq_DestroyBlock()
  * Synopsis:  Frees an <ESL_SQ_BLOCK>.
@@ -1183,6 +1219,44 @@ esl_sq_SetSource(ESL_SQ *sq, const char *source)
   return status;
 }
 
+/* Function:  esl_sq_SetORFid()
+ * Synopsis:  Set the ORF identifier field in a sequence.
+ *
+ * Purpose:   In the context of translated search, a collection of ORFs may be
+ * 			  identified from each target DNA sequence. Each such ORF has a
+ * 			  unique identifier (e.g. as provided by easel's translation function).
+ * 			  This allows that identifier to be assigned to the sequence, setting
+ * 			  orfid of the sequence <sq> to <orfid>, reallocating
+ *            as needed.
+ *            For example, <esl_sq_SetORFid(sq, "ORF1")>.
+ *
+ *            A copy of <orfid> is made, so if caller had <orfid> allocated,
+ *            it is still responsible for freeing it.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ *
+ */
+int
+esl_sq_SetORFid(ESL_SQ *sq, const char *orfid)
+{
+  int     n;
+  void   *tmp;
+  int     status;
+  if (orfid == NULL) { sq->orfid[0] = '\0'; return eslOK; }
+  n = strlen(orfid);
+  if (n >= sq->orfalloc)
+    {
+      ESL_RALLOC(sq->orfid, tmp, sizeof(char) * (n+1));
+      sq->orfalloc = n+1;
+    }
+  strcpy(sq->orfid, orfid);
+  return eslOK;
+
+ ERROR:
+  return status;
+}
 
 /* Function:  esl_sq_FormatName()
  * Synopsis:  Format a name of a sequence, printf()-style.
@@ -1792,6 +1866,7 @@ esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
   }
 
   if ((status = esl_sq_SetName     (sq, msa->sqname[which])) != eslOK) goto ERROR;
+  if ((status = esl_sq_SetORFid    (sq, NULL))               != eslOK) goto ERROR;
   if ((status = esl_sq_SetAccession(sq, acc))                != eslOK) goto ERROR;
   if ((status = esl_sq_SetDesc     (sq, desc))               != eslOK) goto ERROR;
   if ((status = esl_sq_SetSource   (sq, msa->name))          != eslOK) goto ERROR;
@@ -2098,6 +2173,8 @@ esl_sq_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int maxL, ESL_SQ **ret_sq)
   } while (ispunct(buf[0]));                            // #, // are bad things for names to start with in Stockholm 
   esl_sq_SetName(sq, buf);
   
+  esl_sq_SetORFid (sq, NULL);
+
   /* Optional accession */
   if (esl_rnd_Roll(rng, 2))                              // 50% chance of an accession
     {
@@ -2202,6 +2279,7 @@ sq_init(ESL_SQ *sq, int do_digital)
   int status;
 
   sq->name     = NULL;
+  sq->orfid    = NULL;
   sq->acc      = NULL;
   sq->desc     = NULL;
   sq->source   = NULL;
@@ -2211,7 +2289,8 @@ sq_init(ESL_SQ *sq, int do_digital)
   sq->ss       = NULL;		/* Note that ss is optional - it will only be allocated if needed */
   /* n, coord bookkeeping, and strings are all set below by a call to Reuse() */
 
-  sq->nalloc   = eslSQ_NAMECHUNK;	
+  sq->nalloc   = eslSQ_NAMECHUNK;
+  sq->orfalloc = eslSQ_ORFCHUNK;
   sq->aalloc   = eslSQ_ACCCHUNK;
   sq->dalloc   = eslSQ_DESCCHUNK;
   sq->salloc   = eslSQ_SEQCHUNK; 
@@ -2225,6 +2304,7 @@ sq_init(ESL_SQ *sq, int do_digital)
   sq->xr     = NULL;
 
   ESL_ALLOC(sq->name,   sizeof(char) * sq->nalloc);
+  ESL_ALLOC(sq->orfid,  sizeof(char) * sq->orfalloc);
   ESL_ALLOC(sq->acc,    sizeof(char) * sq->aalloc);
   ESL_ALLOC(sq->desc,   sizeof(char) * sq->dalloc);
   ESL_ALLOC(sq->source, sizeof(char) * sq->srcalloc);
@@ -2257,6 +2337,7 @@ sq_create_from(const char *name, const char *desc, const char *acc)
 
   ESL_ALLOC(sq, sizeof(ESL_SQ));
   sq->name   = NULL;
+  sq->orfid  = NULL;
   sq->acc    = NULL;
   sq->desc   = NULL;
   sq->seq    = NULL;
@@ -2291,6 +2372,12 @@ sq_create_from(const char *name, const char *desc, const char *acc)
       ESL_ALLOC(sq->name, sizeof(char) * sq->nalloc);
       sq->name[0] = '\0';
     }
+
+
+  sq->orfalloc = eslSQ_ORFCHUNK;
+  ESL_ALLOC(sq->orfid, sizeof(char) * sq->orfalloc);
+  sq->orfid[0] = '\0';
+
   
   if (desc != NULL) 
     {
@@ -2332,6 +2419,7 @@ sq_create_from(const char *name, const char *desc, const char *acc)
   esl_sq_Destroy(sq);
   return NULL;
 }
+
 
 /*----------------- end, internal functions ---------------------*/
 
@@ -2397,7 +2485,8 @@ utest_Set(ESL_RANDOMNESS *r)
       L = esl_rnd_Roll(r, maxn) + 1;
       memset(buf, 'x', L);
       buf[L] = '\0';
-      if (esl_sq_SetName(sq, buf) != eslOK) esl_fatal(msg);
+      if (esl_sq_SetName(sq, buf)   != eslOK) esl_fatal(msg);
+      if (esl_sq_SetORFid(sq, buf)  != eslOK) esl_fatal(msg);
     }
   for (i = 0; i < ntrials; i++)
     {
