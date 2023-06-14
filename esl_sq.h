@@ -152,7 +152,7 @@ typedef struct {
 
 /* These control default initial allocation sizes in an ESL_SQ.     */
 #define eslSQ_NAMECHUNK   32	// allocation unit for name, source
-#define eslSQ_ORFCHUNK    16    // allocation unit for orfid
+#define eslSQ_ORFCHUNK    32    // allocation unit for orfid
 #define eslSQ_ACCCHUNK    32	// allocation unit for accession    
 #define eslSQ_DESCCHUNK  128	// allocation unit for description  
 #define eslSQ_SEQCHUNK   256	// allocation unit for seqs         
