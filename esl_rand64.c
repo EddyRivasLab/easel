@@ -38,9 +38,7 @@
 #include <unistd.h>    // getpid()
 #endif
 
-
 #include "easel.h"
-#include "esl_random.h"
 #include "esl_rand64.h"
 
 static void     mt64_seed_table(ESL_RAND64 *rng, uint64_t seed);
@@ -180,13 +178,13 @@ esl_rand64(ESL_RAND64 *rng)
  *
  * Note:      Starting with a 64-bit uint64_t, discards the most
  *            significant bit and returns the low-order 63 bits. This
- *            makes assumptions about the binary representation of
- *            unsigned/signed integers. It will work correctly for
- *            two's-complement, one's complement, and sign/magnitude
- *            integer systems. C99 allows any of the three systems
- *            (C99 6.2.6.2) for an <int>; exact-width types such as
- *            <int64_t> are required to use two's complement (C99
- *            7.18.1.1).
+ *            makes an assumption about the binary representation of
+ *            unsigned/signed integers, but the assumption is safe. It
+ *            will work correctly for two's-complement, one's
+ *            complement, and sign/magnitude integer systems. C99
+ *            allows any of the three systems (C99 6.2.6.2) for an
+ *            <int>; exact-width types such as <int64_t> are required
+ *            to use two's complement (C99 7.18.1.1).
  */
 int64_t
 esl_rand64_int64(ESL_RAND64 *rng)
@@ -196,7 +194,7 @@ esl_rand64_int64(ESL_RAND64 *rng)
 
 
 /* Function:  esl_rand64_Roll()
- * Synopsis:  Generate a random number 0..n-1.
+ * Synopsis:  Generate a uniform random integer 0..n-1.
  * Incept:    SRE, Tue 21 Aug 2018
  */
 uint64_t
@@ -487,8 +485,8 @@ choose_arbitrary_seed(void)
 #ifdef HAVE_GETPID
   b  = (uint32_t) getpid();	                           // preferable b choice, if we have POSIX getpid()
 #endif
-  seed = (uint64_t) esl_rnd_mix3(a,b,c);                   // high bits
-  seed = (seed << 32) + (uint64_t) esl_rnd_mix3(c,a,b);    // low bits: same #'s mixed in a different order
+  seed = (uint64_t) esl_mix3(a,b,c);                       // high bits
+  seed = (seed << 32) + (uint64_t) esl_mix3(c,a,b);        // low bits: same #'s mixed in a different order
   return (seed == 0 ? 42 : seed);                          // 42 is arbitrary, just to avoid seed==0.
 }
 

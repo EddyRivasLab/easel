@@ -9,9 +9,10 @@
  *    6. Additional string functions, esl_str*()
  *    7. File path/name manipulation, including tmpfiles.
  *    8. Typed comparison functions.
- *    9. Unit tests.
- *   10. Test driver.
- *   11. Examples. 
+ *    9. Other miscellaneous functions.
+ *   10. Unit tests.
+ *   11. Test driver.
+ *   12. Examples. 
  */
 #include "esl_config.h"
 
@@ -2264,7 +2265,6 @@ esl_getcwd(char **ret_cwd)
   return eslEUNIMPLEMENTED;
 #endif
 }
-
 /*----------------- end of file path/name functions ------------------------*/
 
 
@@ -2408,19 +2408,49 @@ esl_FCompare_old(float a, float b, float tol)
   if (2.*fabs(a-b) / fabs(a+b) <= tol)      return eslOK;
   return eslFAIL;
 }
-
-
-
 /*-------------- end, typed comparison routines --------------------*/
 
 
+
+/*****************************************************************
+ * 9. Other miscellaneous functions
+ *****************************************************************/
+
+/* Function:  esl_mix3()
+ * Synopsis:  Make a quasirandom number by mixing three inputs.
+ * Incept:    SRE, Tue 21 Aug 2018
+ *
+ * Purpose:   This is Bob Jenkin's <mix()>. Given <a,b,c>,
+ *            generate a number that's generated reasonably
+ *            uniformly on $[0,2^{32}-1]$ even for closely
+ *            spaced choices of $a,b,c$.
+ *
+ *            We have it in easel.c because it's used both in
+ *            esl_random and esl_rand64, which we want to be
+ *            independent of each other.
+ */
+uint32_t 
+esl_mix3(uint32_t a, uint32_t b, uint32_t c)
+{
+  a -= b; a -= c; a ^= (c>>13);		
+  b -= c; b -= a; b ^= (a<<8); 
+  c -= a; c -= b; c ^= (b>>13);
+  a -= b; a -= c; a ^= (c>>12);
+  b -= c; b -= a; b ^= (a<<16);
+  c -= a; c -= b; c ^= (b>>5); 
+  a -= b; a -= c; a ^= (c>>3); 
+  b -= c; b -= a; b ^= (a<<10);
+  c -= a; c -= b; c ^= (b>>15);
+  return c;
+}
+/*-------------- end, miscellaneous functions -------------------*/
 
 
 
 
 
 /*****************************************************************
- * 9. Unit tests.
+ * 10. Unit tests.
  *****************************************************************/
 #ifdef eslEASEL_TESTDRIVE
 
@@ -2688,7 +2718,7 @@ utest_compares(void)
 
 
 /*****************************************************************
- * 10. Test driver.
+ * 11. Test driver.
  *****************************************************************/
 
 #ifdef eslEASEL_TESTDRIVE
@@ -2738,7 +2768,7 @@ main(int argc, char **argv)
 #endif /*eslEASEL_TESTDRIVE*/
 
 /*****************************************************************
- * 11. Examples.
+ * 12. Examples.
  *****************************************************************/
 
 #ifdef eslEASEL_EXAMPLE

@@ -518,6 +518,9 @@ extern int  esl_CCompare(char *s1, char *s2);
 extern int  esl_DCompare_old(double a,  double b, double tol);
 extern int  esl_FCompare_old(float  a,  float  b, float  tol);
 
+/* 9. Other miscellaneous functions */
+extern uint32_t esl_mix3(uint32_t a, uint32_t b, uint32_t c);
+
 #endif /*eslEASEL_INCLUDED*/
 
 

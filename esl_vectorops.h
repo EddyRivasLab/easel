@@ -5,6 +5,7 @@
 #include "esl_config.h"
 
 #include "esl_random.h"
+#include "esl_rand64.h"
 
 extern void   esl_vec_DSet(double  *vec, int64_t n, double  value);
 extern void   esl_vec_FSet(float   *vec, int64_t n, float   value);
@@ -93,6 +94,11 @@ extern int    esl_vec_DShuffle(ESL_RANDOMNESS *r, double  *v, int64_t n);
 extern int    esl_vec_FShuffle(ESL_RANDOMNESS *r, float   *v, int64_t n);
 extern int    esl_vec_IShuffle(ESL_RANDOMNESS *r, int     *v, int64_t n);
 extern int    esl_vec_LShuffle(ESL_RANDOMNESS *r, int64_t *v, int64_t n);
+
+extern int    esl_vec_DShuffle64(ESL_RAND64 *rng, double  *v, int64_t n);
+extern int    esl_vec_FShuffle64(ESL_RAND64 *rng, float   *v, int64_t n);
+extern int    esl_vec_IShuffle64(ESL_RAND64 *rng, int     *v, int64_t n);
+extern int    esl_vec_LShuffle64(ESL_RAND64 *rng, int64_t *v, int64_t n);
 
 extern int    esl_vec_DCompare(const double  *vec1, const double  *vec2, int64_t n, double tol);
 extern int    esl_vec_FCompare(const float   *vec1, const float   *vec2, int64_t n, float tol);

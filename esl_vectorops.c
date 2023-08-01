@@ -14,9 +14,11 @@
 
 #include <math.h>
 #include <float.h>
+#include <stdint.h>
 
 #include "easel.h"
 #include "esl_random.h"
+#include "esl_rand64.h"
 
 #include "esl_vectorops.h"
 
@@ -806,10 +808,19 @@ esl_vec_LSortDecreasing(int64_t *vec, int64_t n)
  *
  * Purpose:   Shuffle a vector <v> of <n> items, using the
  *            random number generator <r>.
+ *
+ *            Although <n> is an int64, <n> cannot be larger than
+ *            INT32_MAX (2^{31}-1), basically because the
+ *            ESL_RANDOMNESS that we use for shuffling is a 32-bit
+ *            random number generator. To circumvent this limitation
+ *            and shuffle large vectors with >INT32_MAX elements, use
+ *            the 64-bit ESL_RAND64 RNG and the
+ *            esl_vec_{DFIL}Shuffle64() functions further below.
  */
 int
 esl_vec_DShuffle(ESL_RANDOMNESS *r, double *v, int64_t n)
 {
+  ESL_DASSERT1(( n <= INT32_MAX ));
   double   swap;
   int64_t  pos;
   for ( ; n > 1; n--)
@@ -824,6 +835,7 @@ esl_vec_DShuffle(ESL_RANDOMNESS *r, double *v, int64_t n)
 int
 esl_vec_FShuffle(ESL_RANDOMNESS *r, float *v, int64_t n)
 {
+  ESL_DASSERT1(( n <= INT32_MAX ));
   float   swap;
   int64_t pos;
   for ( ; n > 1; n--)
@@ -838,6 +850,7 @@ esl_vec_FShuffle(ESL_RANDOMNESS *r, float *v, int64_t n)
 int
 esl_vec_IShuffle(ESL_RANDOMNESS *r, int *v, int64_t n)
 {
+  ESL_DASSERT1(( n <= INT32_MAX ));
   int     swap;
   int64_t pos;
   for ( ; n > 1; n--)
@@ -852,6 +865,7 @@ esl_vec_IShuffle(ESL_RANDOMNESS *r, int *v, int64_t n)
 int
 esl_vec_LShuffle(ESL_RANDOMNESS *r, int64_t *v, int64_t n)
 {
+  ESL_DASSERT1(( n <= INT32_MAX ));
   int64_t swap;
   int64_t pos;
   for ( ; n > 1; n--)
@@ -863,6 +877,76 @@ esl_vec_LShuffle(ESL_RANDOMNESS *r, int64_t *v, int64_t n)
     }
   return eslOK;
 }
+
+
+/* Function:  esl_vec_{DFIL}Shuffle64()
+ * Synopsis:  Shuffle a large vector, in place.
+ *
+ * Purpose:   Shuffle a vector <v> of <n> items, using the
+ *            64-bit random number generator <rng>.
+ *
+ *            These are intended for the unusual case where <v>
+ *            contains a very large number of elements, > INT32_MAX of
+ *            them (>=2^31; ~2.15B).
+ */
+int
+esl_vec_DShuffle64(ESL_RAND64 *rng, double *v, int64_t n)
+{
+  double   swap;
+  int64_t  pos;
+  for ( ; n > 1; n--)
+    {
+      pos    = esl_rand64_Roll(rng, n);
+      swap   = v[pos]; 
+      v[pos] = v[n-1];
+      v[n-1] = swap;
+    }
+  return eslOK;
+}
+int
+esl_vec_FShuffle64(ESL_RAND64 *rng, float *v, int64_t n)
+{
+  float   swap;
+  int64_t pos;
+  for ( ; n > 1; n--)
+    {
+      pos    = esl_rand64_Roll(rng, n);
+      swap   = v[pos]; 
+      v[pos] = v[n-1];
+      v[n-1] = swap;
+    }
+  return eslOK;
+}
+int
+esl_vec_IShuffle64(ESL_RAND64 *rng, int *v, int64_t n)
+{
+  int     swap;
+  int64_t pos;
+  for ( ; n > 1; n--)
+    {
+      pos    = esl_rand64_Roll(rng, n);
+      swap   = v[pos]; 
+      v[pos] = v[n-1];
+      v[n-1] = swap;
+    }
+  return eslOK;
+}
+int
+esl_vec_LShuffle64(ESL_RAND64 *rng, int64_t *v, int64_t n)
+{
+  int64_t swap;
+  int64_t pos;
+  for ( ; n > 1; n--)
+    {
+      pos    = esl_rand64_Roll(rng, n);
+      swap   = v[pos]; 
+      v[pos] = v[n-1];
+      v[n-1] = swap;
+    }
+  return eslOK;
+}
+
+
 
 /* Function:  esl_vec_{DFIL}Compare()
  * Synopsis:  Return <eslOK> if two vectors are equal.
