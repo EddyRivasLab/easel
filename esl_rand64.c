@@ -1,4 +1,4 @@
-/* Portable, threadsafe, 64-bit Mersenne Twister random number generator.
+/* 64-bit Mersenne Twister random number generator: portable, threadsafe.
  * 
  * Contents:
  *    1. <ESL_RAND64> object
@@ -40,6 +40,20 @@
 
 #include "easel.h"
 #include "esl_rand64.h"
+
+
+
+#if !defined(eslRAND64_BENCHMARK) && !defined(eslRAND64_TESTDRIVE) && !defined(eslRAND64_EXAMPLE)
+/* Usually we don't need to #if out the main code block(s) in our
+   idiom for compiling Easel driver programs.  This particular #if is
+   a workaround for a bug that cropped up in esl_rand64 in a specific
+   case of the Intel (2023.0.0) icx compiler with -O3 optimization
+   (but not -O2 or less) and -fp-model=precise (but not default or
+   strict), which caused a baffling failure in the
+   esl_rand64_utest::utest_rand64() test. It's unclear why the #if
+   fixes the problem, but it does. [xref 2023/0803-h3-icx-fpmodel]
+*/
+
 
 static void     mt64_seed_table(ESL_RAND64 *rng, uint64_t seed);
 static void     mt64_fill_table(ESL_RAND64 *rng);
@@ -515,6 +529,8 @@ esl_rand64_Dump(FILE *fp, ESL_RAND64 *rng)
   fprintf(fp, "\n");
   return eslOK;
 }
+
+#endif // !defined(eslRAND64_BENCHMARK) && !defined(eslRAND64_TESTDRIVE) && !defined(eslRAND64_EXAMPLE)
 
 
 /*****************************************************************

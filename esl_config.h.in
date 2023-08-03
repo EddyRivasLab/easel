@@ -32,9 +32,9 @@
 
 #undef eslHAVE_NEON_AARCH64
 
-#undef eslENABLE_CUDA  // Should we build CUDA acceleration?
+#undef eslENABLE_CUDA              // Should we build CUDA GPU acceleration?
 
-#undef HAVE_FLUSH_ZERO_MODE        // on x86 platforms: we can turn off denormalized floating point math,
+#undef HAVE_FLUSH_ZERO_MODE        // On x86 platforms: we can turn off denormalized floating point math,
 #undef HAVE_DENORMALS_ZERO_MODE    //   which often incurs performance penalty. See simdvec.md in HMMER.
 
 #undef HAVE_MPI
