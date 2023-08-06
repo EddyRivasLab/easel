@@ -379,9 +379,9 @@ global or static variables.
 
 ##  managing memory allocation
 
-We allocate memory using `ESL_ALLOC()`, a macro wrapper around
-`malloc()`. Pointers are always initialized to `NULL` when they are
-declared. 
+We allocate memory using `ESL_ALLOC(ptr, size)`, a macro wrapper
+around `malloc()`. Pointers are always initialized to `NULL` when they
+are declared, before the `ESL_ALLOC()`.
 
 The `ESL_ALLOC()` macro depends on having an `int status` variable and
 an `ERROR:` goto target in scope. If an allocation fails,
@@ -420,6 +420,17 @@ We want to avoid having `NULL` as a successful result of an
 allocation, because it confuses static analysis tools when they see
 dereferences of possibly `NULL` pointers.
 
+The `size` argument is >= 0. It can be either signed or unsigned, but
+beware of mixed constructs like `(sizeof(foo) * n)`. `sizeof()`
+returns unsigned; (unsigned * signed) first converts the signed
+operand to unsigned; if the signed operand is negative, the conversion
+adds `UINT_MAX+1` modulo `UINT_MAX+1`, and a small negative signed
+number becomes a ridiculously large unsigned one. Even when you know n
+is positive, a `-Walloc-size-larger-than` warning in some gcc versions
+is very aggressively looking for problems of this sort, where it may
+assume that your n could have any value from INT_MIN to -1, generating
+a false positive compiler warning. To suppress this warning we
+typically use a signed cast, `(ptrdiff_t) sizeof(foo) * n`.
 		
 
 
