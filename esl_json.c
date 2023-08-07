@@ -17,7 +17,7 @@
  *   www.json.org
  *   tools.ietf.org/html/rfc8259 
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <ctype.h>

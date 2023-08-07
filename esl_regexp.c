@@ -55,7 +55,7 @@
  *   5. Test driver
  *   6. Examples
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1813,7 +1813,7 @@ utest_basic_ops(void)
  *****************************************************************/
 
 #ifdef eslREGEXP_TESTDRIVE
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 

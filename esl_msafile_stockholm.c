@@ -11,7 +11,7 @@
  *   7. Test driver.
  *   8. Example.
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <string.h>
 #include <ctype.h>
@@ -2450,7 +2450,7 @@ utest_bad_read(ESL_ALPHABET **byp_abc, int fmt, char *expected_errmsg, int expec
  *  (gcov): gcc -g -Wall -fprofile-arcs -ftest-coverage -I. -L. -o esl_msafile_stockholm_utest -DeslMSAFILE_STOCKHOLM_TESTDRIVE esl_msafile_stockholm.c -leasel -lm
  * run:     ./esl_msafile_stockholm_utest
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 

@@ -28,7 +28,7 @@
  *    1. esl_rand64() stream matches mt19937-64.c stream
  *    2. esl_rand64() passes NIST sts-2.1.2 (2014) RNG statistical test suite  
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdint.h>

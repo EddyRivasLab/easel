@@ -17,7 +17,7 @@
  *    ~   : nucleotide is unaligned to a structure profile, because of local structure alignment
  *
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <string.h>
 #include <ctype.h>

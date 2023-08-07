@@ -2,7 +2,7 @@
  */
 #ifndef eslSQ_INCLUDED
 #define eslSQ_INCLUDED
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include "esl_alphabet.h"
 #include "esl_msa.h"

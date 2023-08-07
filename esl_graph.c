@@ -6,7 +6,7 @@
  *    3. Test driver
  */
 
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

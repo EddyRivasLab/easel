@@ -5,7 +5,7 @@
  */
 #ifndef eslGETOPTS_INCLUDED
 #define eslGETOPTS_INCLUDED
-#include "esl_config.h"
+#include <esl_config.h>
 #include "easel.h"
 #ifdef __cplusplus // magic to make C++ compilers happy
 extern "C" {

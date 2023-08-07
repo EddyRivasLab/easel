@@ -2,7 +2,7 @@
  */
 #ifndef eslALPHABET_INCLUDED
 #define eslALPHABET_INCLUDED
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <ctype.h>		/* isascii() */
 #include "easel.h"

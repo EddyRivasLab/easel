@@ -32,7 +32,7 @@
  *   8. Test driver
  *   9. Examples
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <string.h>

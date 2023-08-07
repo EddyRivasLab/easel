@@ -9,7 +9,7 @@
  *    4. Unit tests
  *    5. Test driver
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <stdlib.h>

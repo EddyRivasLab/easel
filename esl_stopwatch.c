@@ -7,7 +7,7 @@
  *     Creative Commons Attribution 3.0 Unported License
  *     http://creativecommons.org/licenses/by/3.0/deed.en_US
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include "easel.h"
 #include "esl_stopwatch.h"

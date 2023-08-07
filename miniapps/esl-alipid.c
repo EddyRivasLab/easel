@@ -1,6 +1,6 @@
 /* Calculates pairwise %id for all aligned sequence pairs in MSA
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

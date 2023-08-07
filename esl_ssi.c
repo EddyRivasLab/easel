@@ -8,7 +8,7 @@
  *  5. Test driver.
  *  6. Example code.
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -1968,7 +1968,7 @@ utest_enchilada(ESL_GETOPTS *go, ESL_RANDOMNESS *rng, int do_external, int do_du
  *****************************************************************/ 
 
 #ifdef eslSSI_TESTDRIVE
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

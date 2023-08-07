@@ -7,7 +7,7 @@
  *    4. Sequence reading (sequential).
  *    5. Parsing routines
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

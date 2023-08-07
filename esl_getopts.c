@@ -12,7 +12,7 @@
  * 
  * xref STL8/p152; STL9/p5.
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h> 
 #include <stdio.h> 

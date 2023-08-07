@@ -16,7 +16,7 @@
  *   :: add memory-efficient ESL_MSA w/ API
  *   :: add space-efficient MSA file format
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -1423,7 +1423,7 @@ utest_RegurgitatePfam(char *filename)
  *  (gcov): gcc -g -Wall -fprofile-arcs -ftest-coverage -I. -L. -o esl_msafile2_utest -DeslMSAFILE2_TESTDRIVE esl_msafile2.c -leasel -lm
  * run:     ./esl_msafile2_utest
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 

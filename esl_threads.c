@@ -14,7 +14,7 @@
  *    2. Determining thread number to use.
  *    3. Examples.
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #ifdef HAVE_PTHREAD
 

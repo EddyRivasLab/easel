@@ -23,7 +23,7 @@
  * 
  * Competitive alternatives to MT exist, including PCG [http://www.pcg-random.org/].
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -1291,7 +1291,7 @@ utest_Deal(ESL_RANDOMNESS *rng)
  * 9. Test driver.
  *****************************************************************/
 #ifdef eslRANDOM_TESTDRIVE
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 

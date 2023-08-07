@@ -9,7 +9,7 @@
  *     esl-selectn and esl-sfetch) to extract subsets of sequences
  *     from a large file.
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

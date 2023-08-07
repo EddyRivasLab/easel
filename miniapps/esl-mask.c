@@ -2,7 +2,7 @@
  * 
  * SRE, Sat Oct 31 09:58:56 2009 [Janelia]
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

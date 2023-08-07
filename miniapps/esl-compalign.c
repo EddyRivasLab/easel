@@ -1,7 +1,7 @@
 /* esl-compalign - compare two multiple sequence alignments
  *
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <string.h>

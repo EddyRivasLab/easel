@@ -1,6 +1,6 @@
 /* Manipulate a multiple sequence alignment in various ways.
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

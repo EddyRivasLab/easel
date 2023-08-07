@@ -3,7 +3,7 @@
  * SRE, Wed Jan 16 15:30:05 2008 [UA5230 to New York]
  * from squid's shuffle (1995)
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

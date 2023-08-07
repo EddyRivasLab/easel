@@ -1,6 +1,6 @@
 /* Show statistics about a multiple sequence alignment file or MSA database.
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

@@ -64,7 +64,7 @@
  *     7. Test driver
  *     8. Example
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 
@@ -1336,7 +1336,7 @@ seq11 MMMMMMMMMM\n\
  *****************************************************************/
 #ifdef eslISET_TESTDRIVE
 
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <math.h>

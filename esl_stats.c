@@ -11,7 +11,7 @@
  *      - driver for linear regression
  *      - driver for G-test
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <math.h>
 

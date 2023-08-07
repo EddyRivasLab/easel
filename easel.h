@@ -16,7 +16,7 @@
  */
 #ifndef eslEASEL_INCLUDED
 #define eslEASEL_INCLUDED
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>		/* for FILE */

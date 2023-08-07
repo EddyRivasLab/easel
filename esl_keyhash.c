@@ -10,7 +10,7 @@
  *    6. Test driver.
  *    7. Example.
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -513,7 +513,7 @@ key_upsize(ESL_KEYHASH *kh)
    gcc -g -O2 -o keyhash_benchmark -I. -L. -DeslKEYHASH_BENCHMARK esl_keyhash.c -leasel -lm
    time ./keyhash_benchmark /usr/share/dict/words /usr/share/dict/words
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 
@@ -598,7 +598,7 @@ main(int argc, char **argv)
 /* gcc -O2 -o keyhash_benchmark2 -I. -L. -DeslKEYHASH_BENCHMARK2 esl_keyhash.c -leasel -lm
  * ./keyhash_benchmark2 <keyfile>
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <math.h>
@@ -845,7 +845,7 @@ utest_memkeys(void)
  * 6. Test driver
  *****************************************************************/
 #ifdef eslKEYHASH_TESTDRIVE
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

@@ -14,7 +14,7 @@
  *   11. Test driver.
  *   12. Examples. 
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <stdlib.h>

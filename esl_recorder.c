@@ -9,7 +9,7 @@
  *   6. Test driver
  *   7. Examples
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <string.h>
 

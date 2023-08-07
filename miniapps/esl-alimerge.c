@@ -20,7 +20,7 @@
  *
  * EPN, Fri Nov 20 16:28:59 2009
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

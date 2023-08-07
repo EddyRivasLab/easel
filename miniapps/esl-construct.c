@@ -3,7 +3,7 @@
  *
  * EPN, Mon May 11 06:49:37 2009
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

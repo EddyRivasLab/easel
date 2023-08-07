@@ -4,7 +4,7 @@
  * http://www.rna.ccbb.utexas.edu/). 
  *
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

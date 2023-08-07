@@ -20,7 +20,7 @@
  * remain. Thanks Don!
  *
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -2219,7 +2219,7 @@ utest_guess_empty_seq()
  * ./sqio_utest
  */
 #ifdef eslSQIO_TESTDRIVE
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

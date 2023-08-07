@@ -4,7 +4,7 @@
  *    1. Work queue routines
  *    2. Examples.
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #ifdef HAVE_PTHREAD
 

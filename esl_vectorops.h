@@ -2,7 +2,7 @@
  */
 #ifndef eslVECTOROPS_INCLUDED
 #define eslVECTOROPS_INCLUDED
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include "esl_random.h"
 #include "esl_rand64.h"

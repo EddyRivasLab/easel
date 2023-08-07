@@ -4,7 +4,7 @@
  */
 #ifndef eslRECORDER_INCLUDED
 #define eslRECORDER_INCLUDED
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #ifdef HAVE_SYS_TYPES_H

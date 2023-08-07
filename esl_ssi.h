@@ -4,7 +4,7 @@
  */
 #ifndef eslSSI_INCLUDED
 #define eslSSI_INCLUDED
-#include "esl_config.h"
+#include <esl_config.h>
 
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>

@@ -10,7 +10,7 @@
  *    3. Test driver.
  *    4. Examples.
  */                      
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <math.h>
 #include <float.h>

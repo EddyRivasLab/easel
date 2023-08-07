@@ -9,7 +9,7 @@
  *   cmd_filter.c      remove similar seqs from an MSA
  *   cmd_index.c       create SSI index for sequence file
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <string.h>
 

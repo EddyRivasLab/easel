@@ -7,7 +7,7 @@
  *    4. gen    : generate synthetic count data from a mixture Dirichlet
  *    5. sample : sample a random mixture Dirichlet
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

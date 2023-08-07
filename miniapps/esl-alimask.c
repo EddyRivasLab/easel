@@ -1,6 +1,6 @@
 /* Remove columns from a multiple sequence alignment.
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>
