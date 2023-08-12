@@ -317,9 +317,7 @@ esl_dst_XPairId(const ESL_ALPHABET *abc, const ESL_DSQ *ax1, const ESL_DSQ *ax2,
  *
  *            IUPAC degeneracy codes count as residues both in
  *            counting match (XX residue/residue) and delete/insert
- *            (X-, -X) states. This is unlike XPairId(), which
- *            does not count aligned pairs involving IUPAC
- *            degeneracy.
+ *            (X-, -X) states.
  *
  * Args:      abc      - digital alphabet in use
  *            ax1      - aligned digital seq 1

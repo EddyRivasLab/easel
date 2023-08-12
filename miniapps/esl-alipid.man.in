@@ -17,16 +17,43 @@ calculates the pairwise percent identity of each sequence pair in
 in the MSA(s) in 
 .I msafile.
 For each sequence pair, it outputs a line of 
-.I <sqname1> <sqname2> <pid> <nid> <n>
+.I <seqname1> <seqname2> <%id> <nid> <denomid> <%match> <nmatch> <denommatch>
 where 
-.I <pid> 
+.I <%id> 
 is the percent identity,
 .I <nid>
 is the number of identical aligned pairs,
 and 
-.I <n> 
+.I <denomid> 
 is the denominator used for the calculation: the
 shorter of the two (unaligned) sequence lengths.
+The %identity is defined as 100*nid/denomid.
+
+.PP
+The last three fields are the pairwise percent match calculation, in
+the pair\-HMM sense of a "match state" that aligns two residues XY
+(whether identical or different) versus delete \-Y and insert X\- states
+that have a residue in one sequence and a gap character in the other.
+That is, the %match is the percentage of the alignment that
+consists of aligned residues as opposed to insertions or deletions in
+either sequence. The %match is defined as 100*nmatch/denommatch.
+
+.PP
+There are many ways that one could choose a denominator for these
+percentages. We always define %id using MIN(len1,len2) as the
+denominator. In multiple sequence alignments, you will often have short
+sequence fragments which may have very little overlap, or even none at
+all. Several ways to calculate %identity, such as ignoring columns
+with gaps (100* n_identities / (n_identities + n_mismatches)) , or
+dividing by the total alignment length (100 * n_identities / ali_len),
+are not robust to having overlapping fragments or long indels, because
+you can get spuriously high or low %id's.
+
+.PP
+For both %identity and %match calculations, alignments of a gap
+character in both sequences, \-\-,  aren't counted. Also, if the denominator
+is zero (which can happen, when two sequence fragments in the same MSA
+don't overlap each other), the resulting % is defined to be 0.
 
 .PP
 If
