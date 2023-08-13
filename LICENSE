@@ -1,7 +1,7 @@
 Easel - a library of C functions for biological sequence analysis
-Copyright (C) 1990-2022 Sean R. Eddy
-Copyright (C) 2000-2022 Howard Hughes Medical Institute
-Copyright (C) 2015-2022 President and Fellows of Harvard College
+Copyright (C) 1990-2023 Sean R. Eddy
+Copyright (C) 2015-2023 President and Fellows of Harvard College
+Copyright (C) 2000-2023 Howard Hughes Medical Institute
 Copyright (C) 1995-2006 Washington University School of Medicine
 Copyright (C) 1992-1995 MRC Laboratory of Molecular Biology, UK
 -------------------------------------------------------------------
@@ -27,6 +27,7 @@ individual files. Copyright holders and contributors include:
    Barry W. Brown, James Lovato        esl_random:esl_rnd_Gaussian()   
    Bob Jenkins                         esl_random::esl_rnd_mix3()
    Steven G. Johnson, and others       autoconf macros in m4/
+   Martin Larralde                     ARM Neon support
    Kevin Lawler                        esl_rand64::esl_rand64_Deal()
    Stephen Moshier                     SIMD vectorized logf,expf
    Takuji Nishimura, Makoto Matsumoto  esl_random, esl_rand64
