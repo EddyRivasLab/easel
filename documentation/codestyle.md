@@ -141,7 +141,7 @@ For example, this is the top of start of `esl_json`:
      *   www.json.org
      *   tools.ietf.org/html/rfc8259 
      */
-     #include "esl_config.h"
+     #include <esl_config.h>
 
 The short table of contents description lines are repeated in comments
 at the top of each section later in the file, facilitating
@@ -163,17 +163,23 @@ of external functions from the .c file.
 The first include is a project-wide configuration header named
 `<project_prefix>_config.h`.  It must be included first, because it
 may contain configuration constants that affect the behavior of other
-headers, even including system headers.  System headers come next,
-because they might contain configuration that affects our
-headers. Finally come our headers. I tend to group our headers
-together by project, and alphabetize them, but (aside from the
-project-wide config.h) our headers don't depend on any particular
+headers, even including system headers. It must be included with angle
+brackets, not double quotes, so compilation commands can control the
+order that -I include directories are searched (build tree first,
+source tree last), to assure that we don't erroneously use a stray
+previous config file in the source tree when we're building in a build
+tree.
+
+System headers come next, because they might contain configuration
+that affects our headers. Finally come our headers. I tend to group
+our headers together by project, and alphabetize them, but (aside from
+the project-wide config.h) our headers don't depend on any particular
 inclusion order.
 
 For example:
 
 
-    #include "h4_config.h"
+    #include <h4_config.h>
 
     #include <stdio.h>
     #include <stdlib.h>
@@ -199,7 +205,7 @@ included once during compilation, regardless of the order of
 ```
 #ifndef eslJSON_INCLUDED
 #define eslJSON_INCLUDED
-#include "esl_config.h"
+#include <esl_config.h>
 
  /* ...contents here... */
 
@@ -379,9 +385,9 @@ global or static variables.
 
 ##  managing memory allocation
 
-We allocate memory using `ESL_ALLOC()`, a macro wrapper around
-`malloc()`. Pointers are always initialized to `NULL` when they are
-declared. 
+We allocate memory using `ESL_ALLOC(ptr, size)`, a macro wrapper
+around `malloc()`. Pointers are always initialized to `NULL` when they
+are declared, before the `ESL_ALLOC()`.
 
 The `ESL_ALLOC()` macro depends on having an `int status` variable and
 an `ERROR:` goto target in scope. If an allocation fails,
@@ -420,6 +426,17 @@ We want to avoid having `NULL` as a successful result of an
 allocation, because it confuses static analysis tools when they see
 dereferences of possibly `NULL` pointers.
 
+The `size` argument is >= 0. It can be either signed or unsigned, but
+beware of mixed constructs like `(sizeof(foo) * n)`. `sizeof()`
+returns unsigned; (unsigned * signed) first converts the signed
+operand to unsigned; if the signed operand is negative, the conversion
+adds `UINT_MAX+1` modulo `UINT_MAX+1`, and a small negative signed
+number becomes a ridiculously large unsigned one. Even when you know n
+is positive, a `-Walloc-size-larger-than` warning in some gcc versions
+is very aggressively looking for problems of this sort, where it may
+assume that your n could have any value from INT_MIN to -1, generating
+a false positive compiler warning. To suppress this warning we
+typically use a signed cast, `(ptrdiff_t) sizeof(foo) * n`.
 		
 
 
@@ -640,7 +657,7 @@ headers, see [`devkit/autodoc.md`](../devkit/autodoc.md).
 	reallocation strategy (often by doubling). Returns `eslOK` on
     success. Throws `eslEMEM` on allocation failure.
 	
-* **_GrowTo():** increase object's allocation to a given size, if necessary
+* **_GrowTo(n):** increase object's allocation to a given size, if necessary
 
 		int esl_foo_GrowTo(ESL_FOO *obj, int n)
 		
@@ -648,6 +665,45 @@ headers, see [`devkit/autodoc.md`](../devkit/autodoc.md).
     reallocates to at least that size. Returns `eslOK` on success.
 	Throws `eslEMEM` on allocation failure.
 
+* **_GrowFor(n):** increase object's allocation to hold at least n elements
+
+		int esl_foo_GrowFor(ESL_FOO *obj, int n)
+
+    Check to see if `obj` can hold `n` elements, and increase the 
+	allocation if needed. If the allocation is already large enough,
+	do nothing.
+	
+	`<n>` does not include sentinels, if any. For an array of elements
+    1..n with sentinels at 0 and n+1, for example, you pass n as 
+    the argument, and the object is reallocated for at least n+2.
+	
+	A `_GrowFor()` gets used when we're building a large object
+    incrementally by appending several elements at once. **All data must
+    remain unchanged.** Only things having to do with allocation can be
+    changed.
+	
+    In general we reallocate by doubling. However, if
+	we're already very large (over redline), we don't want to pay the 2x
+    cost of a redoubling strategy. Also, it's reasonable (and harmless)
+	to guess that if the object is empty, maybe the caller is only
+	going to resize us once, not build us incrementally, so we can make
+    the first reallocation at the exactly requested size. So
+    in pseudocode:
+```
+      if (n+s < redline || obj not empty): 
+        reallocate by doubling until nalloc >= n+s
+	  else
+	    reallocate for n+s exactly
+```
+
+    When using redoubling strategies, be careful not to pathologically
+    overflow the allocation size:
+```
+      if (n+s > INT32_MAX/2) ESL_XEXCEPTION(eslERANGE, "n too large");
+```
+
+    Example: `h4_anchorset_GrowFor()`  
+    [xref J14/1]
 
 ### reusing objects
 
@@ -771,16 +827,19 @@ objects.
 
 * **_Compare():** compare two objects for equality
 
-		int esl_foo_Compare(const ESL_FOO *obj1, const ESL_FOO *obj2, float rtol, float atol)
+		int esl_foo_Compare(const ESL_FOO *obj1, const ESL_FOO *obj2, float r_tol, float a_tol)
 		
 	Returns `eslOK` if contents of `obj1` and `obj2` are judged to be
     identical; returns `eslFAIL` if they differ. 
 	
-	Floating point number comparisons call `esl_FCompareNew()` with
-	relative tolerance `rtol` and absolute tolerance `atol` with the
+	Floating point number comparisons call `esl_FCompare()` with
+	relative tolerance `r_tol` and absolute tolerance `a_tol` with the
 	`obj1` value treated as the reference
-	($x_0$)). `esl_FCompareNew()` defines floating point equality as
-	$|x_0-x| < |x_0|*\mbox{rtol} + \mbox{atol}$,
+	($x_0$)). `esl_FCompare()` defines floating point equality as
+	$|x_0-x| < |x_0|*\mbox{r_tol} + \mbox{a_tol}$,
+
+    (Do not use `atol` as a variable name, because it can get confused
+	 with the atol() function.)
 
 	`eslFAIL` can arise in normal use, for example when a `_Compare()`
 	routine is used to test for convergence of an iterative algorithm.

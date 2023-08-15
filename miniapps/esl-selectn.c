@@ -4,7 +4,7 @@
  * never reads the entire input into memory.
  *
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

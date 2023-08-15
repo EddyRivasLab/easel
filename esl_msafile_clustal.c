@@ -10,7 +10,7 @@
  * This module is responsible for i/o of both eslMSAFILE_CLUSTAL and
  * eslMSAFILE_CLUSTALLIKE alignment formats.
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -214,10 +214,14 @@ esl_msafile_clustal_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   while ( (status = esl_msafile_GetLine(afp, &p, &n)) == eslOK  && esl_memspn(afp->line, afp->n, " \t") == afp->n) ;
   if      (status != eslOK)  goto ERROR; /* includes normal EOF */
     
-  /* That first line says something like: "CLUSTAL W (1.83) multiple sequence alignment" */
+  /* That first line says something like:
+   *   "CLUSTAL W (1.83) multiple sequence alignment" 
+   *   "CLUSTAL format alignment by MAFFT FFT-NS-i (v7.309)"
+   *   "MUSCLE (3.7) multiple sequence alignment"
+   */
   if (esl_memtok(&p, &n, " \t", &tok, &ntok) != eslOK)                             ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing CLUSTAL header");
   if (afp->format == eslMSAFILE_CLUSTAL && ! esl_memstrpfx(tok, ntok, "CLUSTAL"))  ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing CLUSTAL header"); 
-  if (! esl_memstrcontains(p, n, "multiple sequence alignment"))                   ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing CLUSTAL header");
+  if (! esl_memstrcontains(p, n, "alignment"))                                     ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing CLUSTAL header");
 
   /* skip blank lines again */
   do {
@@ -869,7 +873,7 @@ read_test_msas_text(char *alnfile, char *stkfile)
  *  (gcov): gcc -g -Wall -fprofile-arcs -ftest-coverage -I. -L. -o esl_msafile_clustal_utest -DeslMSAFILE_CLUSTAL_TESTDRIVE esl_msafile_clustal.c -leasel -lm
  * run:     ./esl_msafile_clustal_utest
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 

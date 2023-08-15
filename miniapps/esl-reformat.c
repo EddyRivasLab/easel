@@ -1,6 +1,6 @@
 /* Convert between sequence file formats
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -53,12 +53,13 @@ static ESL_OPTIONS options[] = {
   { "--wussify",  eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "--dewuss,--fullwuss", "convert old RNA structure markup lines to WUSS",     0 },
   { "--dewuss",   eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "--wussify,--fullwuss","convert WUSS RNA structure markup to old format",    0 },
   { "--fullwuss", eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "--wussify,--dewuss",  "convert simple WUSS notation to full (output) WUSS", 0 },
-  { "--ignore",   eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "ignore input seq characters listed in string <s>",   0 },
-  { "--acceptx",  eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "accept input seq chars in string <s> as X",          0 },
-  { "--rename",   eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "rename and number each sequence <s>.<n>",            0 },
-  { "--replace",  eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "<s> = <s1>:<s2> replace characters in <s1> with those in <s2>", 0},
+  { "--ignore",   eslARG_STRING,  NULL, NULL, NULL, NULL, NULL,       NULL,                  "ignore input seq characters listed in string <s>",   0 },
+  { "--acceptx",  eslARG_STRING,  NULL, NULL, NULL, NULL, NULL,       NULL,                  "accept input seq chars in string <s> as X",          0 },
+  { "--rename",   eslARG_STRING,  NULL, NULL, NULL, NULL, NULL,       NULL,                  "rename and number each sequence <s>.<n>",            0 },
+  { "--replace",  eslARG_STRING,  NULL, NULL, NULL, NULL, NULL,       NULL,                  "<s> = <s1>:<s2> replace characters in <s1> with those in <s2>", 0},
   { "--small",    eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       INCOMPATWITHSMALLOPT,  "use minimal RAM, input must be pfam, output must be afa or pfam",0 },
-  { "--id_map",   eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "if format is hmmpgmd, put the id map into file <s>", 0 },
+  { "--id_map",   eslARG_STRING,  NULL, NULL, NULL, NULL, NULL,       NULL,                  "if format is hmmpgmd, put the id map into file <s>", 0 },
+  { "--namelen",  eslARG_INT,     NULL, NULL,"n>0", NULL, NULL,       NULL,                  "for PHYLIP formats, set name len to <n> not 10",     0 },
   { 0,0,0,0,0,0,0,0 },
 };
 
@@ -81,7 +82,6 @@ main(int argc, char **argv)
   int          status;		                        /* return code from an Easel call          */
   FILE        *ofp;		                        /* output stream                           */
 
-
   char  *outfile;		/* output file, or NULL                      */
   int    force_rna;		/* TRUE to force RNA alphabet                */
   int    force_dna;		/* TRUE to force DNA alphabet                */
@@ -103,6 +103,7 @@ main(int argc, char **argv)
   int    reached_eof;           /* reached EOF? used only in small mem mode  */
   int    idx;                   /* counter over sequences                    */
   int    nali;                  /* number of alignments read                 */
+  int    phylip_namelen = -1;   /* -1 = use default of 10                    */
   char   errbuf[eslERRBUFSIZE]; /* for error messages                        */
 
 
@@ -165,6 +166,9 @@ main(int argc, char **argv)
   do_small    = esl_opt_GetBoolean(go, "--small");
   rstring     = esl_opt_GetString( go, "--replace");
   do_fixbps   = (force_rna || force_dna || wussify || dewuss || fullwuss) ? TRUE : FALSE;
+
+  if (esl_opt_IsOn(go, "--namelen"))
+    phylip_namelen = esl_opt_GetInteger(go, "--namelen");
 
   /* if --small, make sure infmt == pfam and (outfmt == afa || outfmt == pfam) */
   if(do_small && (infmt != eslMSAFILE_PFAM || (outfmt != eslMSAFILE_AFA && outfmt != eslMSAFILE_PFAM)))  
@@ -290,7 +294,17 @@ main(int argc, char **argv)
 		      }
 	      }
 
-	    esl_msafile_Write(ofp, msa, outfmt);
+            if (phylip_namelen > 0 && (outfmt == eslMSAFILE_PHYLIP || outfmt == eslMSAFILE_PHYLIPS))
+              {
+                ESL_MSAFILE_FMTDATA optfmt;
+                esl_msafile_fmtdata_Init(&optfmt);
+                optfmt.namewidth = phylip_namelen;
+                esl_msafile_phylip_Write(ofp, msa, outfmt, &optfmt);
+              }
+            else
+              esl_msafile_Write(ofp, msa, outfmt);
+
+
 	    esl_msa_Destroy(msa);
 	  }
       }

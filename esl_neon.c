@@ -28,7 +28,7 @@
  * and Pommier for their clear code. Additional copyright and license
  * information is appended at the end of the file.
  */
-#include "esl_config.h"
+#include <esl_config.h>
 #ifdef eslENABLE_NEON
 
 #include <stdlib.h>
@@ -288,7 +288,7 @@ esl_neon_dump_float(FILE *fp, esl_neon_128f_t v)
 
 /* gcc -mfpu=neon -O3 -o benchmark-neon -I ~/src/hmmer/easel -L ~/src/hmmer/easel -DeslNEON_BENCHMARK esl_neon.c -leasel -lm
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <math.h>
@@ -571,6 +571,27 @@ utest_hmax_s16(ESL_RANDOMNESS *rng)
 }
 
 
+static void
+utest_hmax_f32(ESL_RANDOMNESS *rng)
+{
+  union { esl_neon_128f_t v; float x[4]; } u;
+  float r1, r2;
+  int   i,z;
+
+  for (i = 0; i < 100; i++)
+    {
+      r1 = 0;
+      for (z = 0; z < 4; z++)
+        {
+          u.x[z] = (float) esl_random(rng);
+          if (u.x[z] > r1) r1 = u.x[z];
+        }
+      r2 = esl_neon_hmax_f32(u.v);
+      if (r1 != r2) esl_fatal("hmax_f32 utest failed: %f != %f", r1, r2);
+    }
+}
+
+
 #endif /*eslNEON_TESTDRIVE*/
 
 
@@ -583,7 +604,7 @@ utest_hmax_s16(ESL_RANDOMNESS *rng)
 #ifdef eslNEON_TESTDRIVE
 /* gcc -mfpu=neon -g -Wall -o test -I. -L. -DeslNEON_TESTDRIVE esl_neon.c -leasel -lm
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <math.h>
@@ -625,6 +646,7 @@ main(int argc, char **argv)
   utest_hmax_u8(rng);
   utest_hmax_s8(rng);
   utest_hmax_s16(rng);
+  utest_hmax_f32(rng);
 
   fprintf(stderr, "#  status   = ok\n");
 
@@ -645,7 +667,7 @@ main(int argc, char **argv)
 /*::cexcerpt::neon_example::begin::*/
 /* gcc -mfpu=neon -g -Wall -o example -I. -L. -DeslNEON_EXAMPLE esl_neon.c -leasel -lm
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <math.h>

@@ -20,7 +20,7 @@
  *
  * EPN, Fri Nov 20 16:28:59 2009
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -912,7 +912,10 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
 		free(dealigned2); 
 		dealigned2 = NULL; 
 		break; /* if we matched, do_add remains TRUE */
-	      }
+	      } /* end of 'if(validate_no_nongaps_in_rf_gaps(msaA[ai]->abc...)' */
+              else { 
+                do_add = FALSE;
+              }
 	    }
 	  }
 	} /* end of (for(ai = 1...)) */
@@ -928,7 +931,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
 	else { 
 	  if(be_verbose) fprintf(stdout, "# GC tag %s annotation from first alignment absent from or different in >= 1 other alignments; not included in merged alignment.\n", msaA[0]->gc_tag[j]);
 	}
-      } 
+      } /* end of 'if(validate_no_nongaps_in_rf_gaps(msaA[0]->abc' */
     } /* end of for(j = 0 j < msaA[0]->ngc... */
   } /* end of if(msaA[0]->ngc > 0) */
   else if(be_verbose) fprintf(stdout, "# Unparsed GC annotation absent from (at least) first alignment; not included in merged alignment.\n"); 
@@ -958,7 +961,10 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
 	  free(dealigned2); 
 	  dealigned2 = NULL; 
 	  break; /* if we matched, do_add remains TRUE */
-	}
+        } /* end of 'if(validate_no_nongaps_in_rf_gaps(msaA[ai]->abc...)' */
+        else { 
+          do_add = FALSE;
+        }
       } /* end of (for(ai = 1...)) */
       if(dealigned != NULL) { free(dealigned); dealigned = NULL; }
       if(do_add) { 
@@ -975,7 +981,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
       else { 
 	if(be_verbose) fprintf(stdout, "# SS_cons annotation from first alignment absent from or different in >= 1 other alignments; not included in merged alignment.\n");
       }
-    }
+    } /* end of 'if(validate_no_nongaps_in_rf_gaps(msaA[0]->abc' */
   } /* end of if(msaA[0]->ss_cons != NULL) */
   else if(be_verbose) fprintf(stdout, "# SS_cons annotation absent from (at least) first alignment; not included in merged alignment.\n"); 
 
@@ -1004,7 +1010,10 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
 	  free(dealigned2); 
 	  dealigned2 = NULL; 
 	  break; /* if we matched, do_add remains TRUE */
-	}
+        } /* end of 'if(validate_no_nongaps_in_rf_gaps(msaA[ai]->abc...)' */
+        else { 
+          do_add = FALSE;
+        }
       } /* end of (for(ai = 1...)) */
       if(dealigned != NULL) { free(dealigned); dealigned = NULL; }
       if(do_add) { 
@@ -1019,7 +1028,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
       else { 
 	if(be_verbose) fprintf(stdout, "# SA_cons annotation from first alignment absent from or different in >= 1 other alignments; not included in merged alignment.\n");
       }
-    }
+    } /* end of 'if(validate_no_nongaps_in_rf_gaps(msaA[0]->abc' */
   } /* end of if(msaA[0]->sa_cons != NULL) */
   else if(be_verbose) fprintf(stdout, "# SA_cons annotation absent from (at least) first alignment; not included in merged alignment.\n"); 
 
@@ -1048,7 +1057,10 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
 	  free(dealigned2); 
 	  dealigned2 = NULL; 
 	  break; /* if we matched, do_add remains TRUE */
-	}
+        } /* end of 'if(validate_no_nongaps_in_rf_gaps(msaA[ai]->abc...)' */
+        else { 
+          do_add = FALSE;
+        }
       } /* end of (for(ai = 1...)) */
       if(dealigned != NULL) { free(dealigned); dealigned = NULL; }
       if(do_add) { 
@@ -1063,7 +1075,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
       else { 
 	if(be_verbose) fprintf(stdout, "# PP_cons annotation from first alignment absent from or different in >= 1 other alignments; not included in merged alignment.\n");
       }
-    }
+    } /* end of 'if(validate_no_nongaps_in_rf_gaps(msaA[0]->abc' */
   } /* end of if(msaA[0]->pp_cons != NULL) */
   else if(be_verbose) fprintf(stdout, "# PP_cons annotation absent from (at least) first alignment; not included in merged alignment.\n"); 
 

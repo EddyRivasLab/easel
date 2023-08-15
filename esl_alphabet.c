@@ -7,7 +7,7 @@
  *    5. Test driver.
  *    6. Examples.
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -1609,6 +1609,9 @@ esl_abc_DExpectScVec(const ESL_ALPHABET *a, double *sc, const double *p)
  *            not 0..K-1. If <x> is a missing data symbol, or a nonresidue
  *            data symbol, nothing is done.
  *            
+ *            A negative <wt> causes subtraction of the count, instead of
+ *            addition.
+ *
  *            <esl_abc_DCount()> does the same, but for double-precision
  *            count vectors and weights.
  *

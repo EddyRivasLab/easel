@@ -2,7 +2,7 @@
  */
 #ifndef eslALPHABET_INCLUDED
 #define eslALPHABET_INCLUDED
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <ctype.h>		/* isascii() */
 #include "easel.h"
@@ -48,7 +48,6 @@ extern int           esl_alphabet_SetDegeneracy(ESL_ALPHABET *a, char c, char *d
 extern int           esl_alphabet_SetIgnored(ESL_ALPHABET *a, const char *ignoredchars);
 extern size_t        esl_alphabet_Sizeof(ESL_ALPHABET *a);
 extern void          esl_alphabet_Destroy(ESL_ALPHABET *a);
-
 /* 2. Digitized sequences.
  */
 extern int     esl_abc_CreateDsq(const ESL_ALPHABET *a, const char    *seq,        ESL_DSQ **ret_dsq);

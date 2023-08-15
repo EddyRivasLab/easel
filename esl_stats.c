@@ -11,7 +11,7 @@
  *      - driver for linear regression
  *      - driver for G-test
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <math.h>
 
@@ -37,8 +37,8 @@
  *
  * Args:      x        - samples x[0]..x[n-1]
  *            n        - number of samples
- *            opt_mean - optRETURN: mean
- *            opt_var  - optRETURN: estimate of population variance       
+ *            opt_mean - optRETURN: sample mean
+ *            opt_var  - optRETURN: sample variance
  *
  * Returns:   <eslOK> on success.
  */
@@ -55,7 +55,7 @@ esl_stats_DMean(const double *x, int n, double *opt_mean, double *opt_var)
       sqsum += x[i]*x[i];
     }
   if (opt_mean != NULL)  *opt_mean = sum / (double) n;
-  if (opt_var  != NULL)  *opt_var  = (sqsum - sum*sum/(double)n) / ((double)n-1);
+  if (opt_var  != NULL)  *opt_var  = (n > 1 ? fabs((sqsum - sum*sum/(double)n) / ((double)n-1)) : 0.); // fabs() avoids -epsilon result for zero variance.
   return eslOK;
 }
 int
@@ -71,7 +71,7 @@ esl_stats_FMean(const float *x, int n, double *opt_mean, double *opt_var)
       sqsum += x[i]*x[i];
     }
   if (opt_mean != NULL)  *opt_mean = sum / (double) n;
-  if (opt_var  != NULL)  *opt_var  = (sqsum - sum*sum/(double)n) / ((double)n-1);
+  if (opt_var  != NULL)  *opt_var  = (n > 1 ? fabs((sqsum - sum*sum/(double)n) / ((double)n-1)) : 0.); // fabs() avoids -epsilon result for zero variance.
   return eslOK;
 }
 int
@@ -87,7 +87,7 @@ esl_stats_IMean(const int *x, int n, double *opt_mean, double *opt_var)
       sqsum += x[i]*x[i];
     }
   if (opt_mean != NULL)  *opt_mean = sum / (double) n;
-  if (opt_var  != NULL)  *opt_var  = (sqsum - sum*sum/(double)n) / ((double)n-1);
+  if (opt_var  != NULL)  *opt_var  = (n > 1 ? fabs((sqsum - sum*sum/(double)n) / ((double)n-1)) : 0.); // fabs() avoids -epsilon result for zero variance.
   return eslOK;
 }
 /*--------------- end, summary statistics -----------------------*/
@@ -157,51 +157,76 @@ esl_stats_LogGamma(double x, double *ret_answer)
 /* Function:  esl_stats_Psi()
  * Synopsis:  Calculates $\Psi(x)$ (the digamma function).
  *
- * Purpose:   Computes $\Psi(x)$ (the "digamma" function), which is
- *            the derivative of log of the Gamma function:
+ * Purpose:   Computes $\Psi(x)$ (the "digamma" function), the 
+ *            derivative of $\log \Gamma(x)$ for $x > 0$:
  *            $d/dx \log \Gamma(x) = \frac{\Gamma'(x)}{\Gamma(x)} = \Psi(x)$.
- *            Argument $x$ is $> 0$. 
  * 
- *            This is J.M. Bernardo's "Algorithm AS103",
- *            Appl. Stat. 25:315-317 (1976).  
+ *            Implements J.M. Bernardo's "Algorithm AS 103", J Royal
+ *            Stat. Soc. C (Appl. Stat.) 25:315-317 (1976).
+ *
+ * Throws:    <eslERANGE> if x <= 0
  */
 int
 esl_stats_Psi(double x, double *ret_answer)
 {
-  double answer = 0.;
+  double psi = 0.;
   double x2;
 
-  if (x <= 0.0) ESL_EXCEPTION(eslERANGE, "invalid x <= 0 in esl_stats_Psi()");
-  
-  /* For small x, Psi(x) ~= -0.5772 - 1/x + O(x), we're done.
-   */
-  if (x <= 1e-5) {
-    *ret_answer = -eslCONST_EULER - 1./x;
-    return eslOK;
-  }
+  if      (x <= 0.0)  ESL_EXCEPTION(eslERANGE, "invalid x <= 0 in esl_stats_Psi()");
+  else if (x <= 1e-5) { *ret_answer = -eslCONST_EULER - 1./x; return eslOK; }  // For small x < S, Psi(x) ~= -0.5772 - 1/x + O(x), we're done.
 
   /* For medium x, use Psi(1+x) = \Psi(x) + 1/x to c.o.v. x,
    * big enough for Stirling approximation to work...
    */
-  while (x < 8.5) {
-    answer = answer - 1./x;
-    x += 1.;
-  }
+  while (x < 8.5)  // This is bound C, which Bernardo sets to 8.5.
+    {
+      psi -= 1./x;
+      x += 1.;
+    }
   
-  /* For large X, use Stirling approximation
-   */
-  x2 = 1./x;
-  answer += log(x) - 0.5 * x2;
-  x2 = x2*x2;
-  answer -= (1./12.)*x2;
-  answer += (1./120.)*x2*x2;
-  answer -= (1./252.)*x2*x2*x2;
+  /* For large X, use Stirling approximation */
+  x2 = 1./x;  psi += log(x) - 0.5 * x2;
+  x2 = x2*x2; psi += (-1./12.)*x2 + (1./120.)*x2*x2 - (1./252.)*x2*x2*x2;
 
-  *ret_answer = answer;
+  *ret_answer = psi; // Bernardo chose S,C bounds so rel error < 1e-10.
   return eslOK;
 }
 
 
+/* Function:  esl_stats_Trigamma()
+ * Synopsis:  Compute $Psi'(x)$ (the trigamma function)
+ * Incept:    SRE, Wed 18 May 2022
+ *
+ * Purpose:   Computes $\Psi'(x)$, the "trigamma" function, the second
+ *            derivative of $\log \Gamma(x)$, for $x > 0$.  Needed in
+ *            maximum likelihood fitting of Gamma distributions.
+ *
+ *            Implements "Algorithm AS 121": B.E. Schneider, J. Royal
+ *            Stat. Soc. C (Appl. Stat.), 27:97-99 (1978).
+ *
+ * Throws:    <eslERANGE> if x <= 0.
+ */
+int
+esl_stats_Trigamma(double x, double *ret_answer)
+{
+  double trigam = 0.;
+  double y;
+
+  if      (x <= 0.)     ESL_EXCEPTION(eslERANGE, "invalid x <= 0 in esl_stats_Trigamma()");
+  else if (x <= 1.0e-4) { *ret_answer = 1.0 / (x*x); return eslOK; }                          // approximation for small value case x <= A; Schneider (1978) justifies the A=1e-4 choice
+
+  while (x < 5.0)               // B=5.0 is also a choice justified by Schneider (1978).
+    {                           // For x >= B, we go straight on to a series approximation for large x
+      trigam += 1. / (x*x);     // For A < x < B, here we use the relation Psi'(x+1) = \Psi(x) - 1/x^2 to get Psi'(x) as a constant + Psi'(z) with z=x+i >= B
+      x      += 1.;       
+    }
+
+  y = 1.0 / (x*x);
+  trigam += 0.5 * y + (1. + y*((1./6.) + y*((1./30.)+ y*((1./42.)+ y*(1./30.))))) / x;    // This is the series approximation, for large x >= B.
+                                                                     // Schneider chose A,B so rel error of approximations is < 1e-8.
+  *ret_answer = trigam;
+  return eslOK;
+}
 
 /* Function: esl_stats_IncompleteGamma()
  * Synopsis: Calculates the incomplete Gamma function.
@@ -382,10 +407,6 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
 double
 esl_stats_erfc(double x)
 {
-  static const double tiny = 1e-300;
-  static const double half = 5.00000000000000000000e-01; /* 0x3FE00000, 0x00000000 */
-  static const double one  = 1.00000000000000000000e+00; /* 0x3FF00000, 0x00000000 */
-  static const double two  = 2.00000000000000000000e+00; /* 0x40000000, 0x00000000 */
   static const double erx  = 8.45062911510467529297e-01; /* 0x3FEB0AC1, 0x60000000 */
   /*
    * Coefficients for approximation to erf on [0,0.84375]
@@ -436,7 +457,7 @@ esl_stats_erfc(double x)
   static const double sa7 =  6.57024977031928170135e+00; /* 0x401A47EF, 0x8E484A93 */
   static const double sa8 = -6.04244152148580987438e-02; /* 0xBFAEEFF2, 0xEE749A62 */
   /*
-   * Coefficients for approximation to erfc in [1/.35,28]
+   * Coefficients for approximation to erfc in [1/0.35,28]
    */
   static const double rb0 = -9.86494292470009928597e-03; /* 0xBF843412, 0x39E86F4A */
   static const double rb1 = -7.99283237680523006574e-01; /* 0xBFE993BA, 0x70C285DE */
@@ -459,70 +480,70 @@ esl_stats_erfc(double x)
   ESL_GET_HIGHWORD(hx, x);  // SRE: replaced original Sun incantation here.
   ix = hx & 0x7fffffff;
   if (ix>=0x7ff00000) /* erfc(nan)=nan; erfc(+-inf)=0,2 */
-    return (double)(((unsigned)hx>>31)<<1)+one/x;
+    return (double)(((unsigned)hx>>31)<<1)+1.0/x;
 
   if (ix < 0x3feb0000)  /* |x|<0.84375 */
     {
-      if (ix < 0x3c700000) return one-x; /* |x|<2**-56 */
+      if (ix < 0x3c700000) return 1.0-x; /* |x|<2**-56 */
       z = x*x;
       r = pp0+z*(pp1+z*(pp2+z*(pp3+z*pp4)));
-      s = one+z*(qq1+z*(qq2+z*(qq3+z*(qq4+z*qq5))));
+      s = 1.0+z*(qq1+z*(qq2+z*(qq3+z*(qq4+z*qq5))));
       y = r/s;
       if (hx < 0x3fd00000) /* x<1/4 */
 	{ 
-	  return one-(x+x*y);
+	  return 1.0-(x+x*y);
 	} 
       else 
 	{
 	  r = x*y;
-	  r += (x-half);
-	  return half - r ;
+	  r += (x-0.5);
+	  return 0.5 - r ;
 	}
     }
 
   if (ix < 0x3ff40000) /* 0.84375 <= |x| < 1.25 */
     { 
-      s = fabs(x)-one;
+      s = fabs(x)-1.0;
       P = pa0+s*(pa1+s*(pa2+s*(pa3+s*(pa4+s*(pa5+s*pa6)))));
-      Q = one+s*(qa1+s*(qa2+s*(qa3+s*(qa4+s*(qa5+s*qa6)))));
+      Q = 1.0+s*(qa1+s*(qa2+s*(qa3+s*(qa4+s*(qa5+s*qa6)))));
       if (hx>=0) 
 	{
-	  z = one-erx; 
+	  z = 1.0-erx; 
 	  return z - P/Q;
 	}
       else 
 	{
 	  z = erx+P/Q;
-	  return one+z;
+	  return 1.0+z;
 	}
     }
 
   if (ix < 0x403c0000) /* |x|<28 */
     { 
       x = fabs(x);
-      s = one/(x*x);
+      s = 1.0/(x*x);
       if (ix< 0x4006DB6D) /* |x| < 1/.35 ~ 2.857143*/ 
 	{ 
 	  R = ra0+s*(ra1+s*(ra2+s*(ra3+s*(ra4+s*(ra5+s*(ra6+s*ra7))))));
-	  S = one+s*(sa1+s*(sa2+s*(sa3+s*(sa4+s*(sa5+s*(sa6+s*(sa7+s*sa8)))))));
+	  S = 1.0+s*(sa1+s*(sa2+s*(sa3+s*(sa4+s*(sa5+s*(sa6+s*(sa7+s*sa8)))))));
 	}
       else  /* |x| >= 1/.35 ~ 2.857143 */
 	{
-	  if (hx < 0 && ix >= 0x40180000) return two-tiny; /* x < -6 */
+	  if (hx < 0 && ix >= 0x40180000) return 2.0; /* x < -6 */
 	  R = rb0+s*(rb1+s*(rb2+s*(rb3+s*(rb4+s*(rb5+s*rb6)))));
-	  S = one+s*(sb1+s*(sb2+s*(sb3+s*(sb4+s*(sb5+s*(sb6+s*sb7))))));
+	  S = 1.0+s*(sb1+s*(sb2+s*(sb3+s*(sb4+s*(sb5+s*(sb6+s*sb7))))));
 	}
       z = x;
       ESL_SET_LOWWORD(z, 0);  // SRE: replaced original Sun incantation here.
       r = exp(-z*z-0.5625) * exp((z-x)*(z+x)+R/S);
 
       if (hx>0) return r/x;
-      else      return two-r/x;
+      else      return 2.0-r/x;
     } 
   else 
     {
-      if (hx>0) return tiny*tiny; 
-      else      return two-tiny;
+      if (hx>0) return 0.;
+      else      return 2.0;
     }
 }
 /*----------------- end, special functions ----------------------*/
@@ -828,6 +849,91 @@ esl_stats_LinearRegression(const double *x, const double *y, const double *sigma
 #endif
 
 
+static void
+utest_DMean(ESL_RANDOMNESS *rng)
+{
+  char   msg[] = "esl_stats:: DMean unit test failed";
+  double x[10000];
+  int    n = 10000;
+  int    i;
+  double mean, var;
+
+  for (i = 0; i < n; i++) x[i] = esl_random(rng);
+  esl_stats_DMean(x, n, &mean, &var);
+  if (esl_DCompare(0.5,    mean, 0., 0.01) != eslOK) esl_fatal(msg); // mean of U(0,1) = 0.5
+  if (esl_DCompare(1./12., var,  0., 0.01) != eslOK) esl_fatal(msg); // var of U(0,1)  = 1/12
+  
+  /* pathological case 1: all x[i] equal. */
+  for (i = 1; i < n; i++) x[i] = x[0];
+  esl_stats_DMean(x, n, &mean, &var);
+  if (esl_DCompare(x[0],   mean, 0., 1e-5) != eslOK) esl_fatal(msg); 
+  if (esl_DCompare(0.0,    var,  0., 1e-5) != eslOK) esl_fatal(msg); // zero variance
+
+  /* pathological case 2: n=1 */
+  esl_stats_DMean(x, 1, &mean, &var);
+  if (esl_DCompare(x[0],   mean, 0., 1e-5) != eslOK) esl_fatal(msg); 
+  if (esl_DCompare(0.0,    var,  0., 1e-5) != eslOK) esl_fatal(msg); // zero variance
+}
+
+static void
+utest_FMean(ESL_RANDOMNESS *rng)
+{
+  char   msg[] = "esl_stats:: FMean unit test failed";
+  float  x[10000];
+  int    n = 10000;
+  int    i;
+  double mean, var;
+
+  for (i = 0; i < n; i++) x[i] = esl_random(rng);
+  esl_stats_FMean(x, n, &mean, &var);                                // mean, var are in doubles
+  if (esl_DCompare(0.5,    mean, 0., 0.01) != eslOK) esl_fatal(msg); // mean of U(0,1) = 0.5
+  if (esl_DCompare(1./12., var,  0., 0.01) != eslOK) esl_fatal(msg); // var of U(0,1)  = 1/12
+  
+  /* pathological case 1: all x[i] equal. */
+  for (i = 1; i < n; i++) x[i] = x[0];
+  esl_stats_FMean(x, n, &mean, &var);
+  if (esl_DCompare(x[0],   mean, 0., 1e-5) != eslOK) esl_fatal(msg); 
+  if (esl_DCompare(0.0,    var,  0., 1e-5) != eslOK) esl_fatal(msg); // zero variance
+
+  /* pathological case 2: n=1 */
+  esl_stats_FMean(x, 1, &mean, &var);
+  if (esl_DCompare(x[0],   mean, 0., 1e-5) != eslOK) esl_fatal(msg); 
+  if (esl_DCompare(0.0,    var,  0., 1e-5) != eslOK) esl_fatal(msg); // zero variance
+}
+
+static void
+utest_IMean(ESL_RANDOMNESS *rng)
+{
+  char   msg[] = "esl_stats:: IMean unit test failed";
+  int    x[10000];
+  int    n = 10000;
+  int    i;
+  double mean, var;
+  double mean0,var0; 
+
+  for (i = 0; i < n; i++) x[i] = esl_rnd_Roll(rng, 101);             // U(0,100)
+  mean0 = 100./2.;                                                   // mean of discrete U(a,b) = (a+b)/2
+  var0 = (101.0*101.0-1.)/12.;                                       // variance of discrete U(a,b) = ((b-a+1)^2 -1)/12
+  esl_stats_IMean(x, n, &mean, &var);                                // mean, var are in doubles
+  if (esl_DCompare(mean0, mean, 0.02, 0.02) != eslOK) esl_fatal(msg); 
+  if (esl_DCompare(var0,  var,  0.02, 0.02) != eslOK) esl_fatal(msg); 
+  
+  /* pathological case 1: all x[i] equal. */
+  for (i = 1; i < n; i++) x[i] = x[0];
+  esl_stats_IMean(x, n, &mean, &var);
+  mean0 = (double) x[0];
+  var0  = 0.;
+  if (esl_DCompare(mean0,  mean, 0., 1e-5) != eslOK) esl_fatal(msg); 
+  if (esl_DCompare(var0,   var,  0., 1e-5) != eslOK) esl_fatal(msg); // zero variance
+
+  /* pathological case 2: n=1 */
+  esl_stats_IMean(x, 1, &mean, &var);
+  if (esl_DCompare(mean0, mean, 0., 1e-5) != eslOK) esl_fatal(msg); 
+  if (esl_DCompare(var0,  var,  0., 1e-5) != eslOK) esl_fatal(msg); // zero variance
+}
+
+
+
 /* Macros for treating IEEE754 double as two uint32_t halves, with
  * compile-time handling of endianness; see esl_stats.h.
  */
@@ -895,7 +1001,7 @@ utest_LogGamma(ESL_RANDOMNESS *r, int N, int be_verbose)
   if (be_verbose) esl_stopwatch_Display(stdout, w, "gsl_sf_lngamma() timing:     ");
   
   for (i = 0; i < N; i++)
-    if (esl_DCompare(lg[i], lg2[i], 1e-2) != eslOK) esl_fatal(msg);
+    if (esl_DCompare_old(lg[i], lg2[i], 1e-2) != eslOK) esl_fatal(msg);
 #endif
   
   free(lg2);
@@ -904,6 +1010,56 @@ utest_LogGamma(ESL_RANDOMNESS *r, int N, int be_verbose)
   esl_stopwatch_Destroy(w);
 }
 
+static void
+utest_psi(ESL_RANDOMNESS *rng)
+{
+  char   msg[]  = "esl_stats:: psi unit test failed";
+  int    ntrials = 5;          // number of random x's to check
+  int    regime;               // distribute our checks into all three regimes for esl_stats_Psi()'s approximations
+  double x, psi_slow, psi, n;  // those three regimes are 0 < x <= 1e-5;  1e-5 < x < 8.5;  x >= 8.5
+
+  while (ntrials--)
+    {
+      regime = esl_rnd_Roll(rng, 3);                                   // x <= S, S < x < C, x >= C regimes for esl_stats_Psi(); for 
+      if      (regime == 0) x = 1.0e-5 * esl_rnd_UniformPositive(rng); // (0,1e-5); only rarely tests < 1e-6, won't test 1e-5 exactly, but fine
+      else if (regime == 1) x = 8.5 * esl_rnd_UniformPositive(rng);    // (0,8.5);  rarely this'll be < 1e-4 but that's fine
+      else                  x = 8.5 + 91.5*esl_random(rng);            // [8.5,100)
+      
+      // Check against (slowly converging) series approximations eqn(3) and eqn(2) combined, from Bernardo (1976)
+      // The esl_stats_Psi() function already uses eqn(2) for x<=1e-5, so it's sort of pointless to test x<=1e-5, but whatever, it's not nothing to check
+      psi_slow = -eslCONST_EULER - 1./x;
+      for (n = 1.; n < 500000.; n += 1.) psi_slow += x / (n*(n+x));
+      
+      if (esl_stats_Psi(x, &psi) != eslOK)         esl_fatal(msg);
+      if (esl_DCompare(psi, psi_slow, 1e-4, 1e-4)) esl_fatal(msg);
+    }
+}
+
+static void
+utest_trigamma(ESL_RANDOMNESS *rng)
+{
+  char   msg[]   = "esl_stats:: trigamma unit test failed";
+  int    ntrials = 5;                 // number of random x's to check
+  int    regime;                      // distribute our checks into all three regimes of esl_stats_Trigamma()'s approximations
+  double x, trigam_slow, trigam, i;   // those regimes are 0 < x <= 1e-4, 1e-4 < x < 5.0, x >= 5.0
+
+  while (ntrials--)
+    {
+      regime = esl_rnd_Roll(rng, 3);   // x <= A, A < x < B, x >= B regimes for esl_stats_Trigamma()
+      if      (regime == 0) x = 1.0e-4 * esl_rnd_UniformPositive(rng); // (0,1e-4); only rarely tests < 1e-5, won't test 1e-4 exactly, but fine
+      else if (regime == 1) x = 5.0 * esl_rnd_UniformPositive(rng);    // (0,5);    rarely this'll be < 1e-4 but that's fine
+      else                  x = 5.0 + 95.*esl_random(rng);             // [5,100)
+      if (x <= 0. || x >= 100.) esl_fatal(msg);  // this would probably mean a failure in the ranges of esl_random functions above
+
+      // This is series approximation eqn(2) from Schneider (1978),
+      // and boy he's not kidding that it's slowly converging
+      trigam_slow = 0.;   
+      for (i = 0.; i < 1000000.; i += 1.0) trigam_slow += 1./((x+i)*(x+i));
+
+      if (esl_stats_Trigamma(x, &trigam) != eslOK)       esl_fatal(msg);
+      if (esl_DCompare(trigam, trigam_slow, 1e-4, 1e-4)) esl_fatal(msg);
+    }
+}  
 
 /* The test of esl_stats_LinearRegression() is a statistical test,
  * so we can't be too aggressive about testing results. 
@@ -999,7 +1155,7 @@ utest_erfc(ESL_RANDOMNESS *rng, int be_verbose)
       result = esl_stats_erfc(x);
       if (!isfinite(result)) esl_fatal(msg);
 #ifdef HAVE_ERFC
-      if (esl_DCompare(result, erfc(x), 1e-6) != eslOK) esl_fatal(msg);
+      if (esl_DCompare_old(result, erfc(x), 1e-6) != eslOK) esl_fatal(msg);
       if (be_verbose)
 	printf("%15f %15f %15f\n", x, result, erfc(x));
 #endif
@@ -1050,9 +1206,14 @@ main(int argc, char **argv)
 
   if (be_verbose) printf("seed = %" PRIu32 "\n", esl_randomness_GetSeed(r));
 
+  utest_DMean(r);
+  utest_FMean(r);
+  utest_IMean(r);
   utest_doublesplitting(r);
   utest_erfc(r, be_verbose);
   utest_LogGamma(r, N, be_verbose);
+  utest_psi(r);
+  utest_trigamma(r);
   utest_LinearRegression(r, TRUE,  be_verbose);
   utest_LinearRegression(r, FALSE, be_verbose);
   

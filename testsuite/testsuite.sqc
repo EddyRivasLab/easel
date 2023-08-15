@@ -33,8 +33,10 @@
 # hmm
 1 exercise huffman-utest      @esl_huffman_utest@
 1 exercise hyperexp-utest     @esl_hyperexp_utest@
+1 exercise iset-utest         @esl_iset_utest@
 1 exercise json-utest         @esl_json_utest@
 1 exercise keyhash-utest      @esl_keyhash_utest@
+1 exercise lognormal-utest    @esl_lognormal_utest@
 1 exercise matrixops-utest    @esl_matrixops_utest@
 1 exercise mem-utest          @esl_mem_utest@
 1 exercise minimizer-utest    @esl_minimizer_utest@
@@ -90,6 +92,7 @@
 1 exercise degen-residues     !testsuite/i1-degen-residues.pl! @@ !! %TESTPFX%
 1 exercise ncbi-indices       !testsuite/i2-ncbi-indices.pl!   @@ !! %TESTPFX%
 1 exercise blank-gf           !testsuite/i3-blank-gf.pl!       @@ !! %TESTPFX%
+1 exercise sindi              !testsuite/i4-alimanip-sindi.sh! @@ !! %TESTPFX%
 
 1 exercise esl-translate      !miniapps/esl-translate.itest.pl! @@ !! %TESTPFX%
 
@@ -151,8 +154,10 @@
 # hmm
 3 valgrind huffman-utest      @esl_huffman_utest@
 3 valgrind hyperexp-utest     @esl_hyperexp_utest@
+3 valgrind iset-utest         @esl_iset_utest@
 3 valgrind json-utest         @esl_json_utest@
 3 valgrind keyhash-utest      @esl_keyhash_utest@
+3 valgrind lognormal-utest    @esl_lognormal_utest@
 3 valgrind matrixops-utest    @esl_matrixops_utest@
 3 valgrind mem-utest          @esl_mem_utest@
 3 valgrind minimizer-utest    @esl_minimizer_utest@

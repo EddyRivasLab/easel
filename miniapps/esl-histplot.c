@@ -6,7 +6,7 @@
 /* Wish list
  *    - segfaults if you feed it nonnumeric data
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

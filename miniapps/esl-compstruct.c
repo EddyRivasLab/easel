@@ -1,6 +1,6 @@
 /* esl-compstruct - calculate accuracy of RNA secondary structure predictions
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <string.h>

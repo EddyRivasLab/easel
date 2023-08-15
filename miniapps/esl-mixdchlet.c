@@ -3,11 +3,11 @@
  * Contents:
  *    1. main   : subcommand brokerage
  *    2. fit    : fit new mixture Dirichlet to count data
- *    2. score  : score count data with a mixture Dirichlet
- *    3. gen    : generate synthetic count data from a mixture Dirichlet
- *    4. sample : sample a random mixture Dirichlet
+ *    3. score  : score count data with a mixture Dirichlet
+ *    4. gen    : generate synthetic count data from a mixture Dirichlet
+ *    5. sample : sample a random mixture Dirichlet
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -104,7 +104,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * x. Fit
+ * 2. Fit
  *****************************************************************/
 
 static ESL_OPTIONS fit_options[] = {
@@ -176,7 +176,7 @@ cmd_fit(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 
 
 /*****************************************************************
- * x. Score
+ * 3. Score
  *****************************************************************/
 
 static ESL_OPTIONS score_options[] = {
@@ -236,7 +236,7 @@ cmd_score(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 
 
 /*****************************************************************
- * x. Generate
+ * 4. Generate
  *****************************************************************/
 
 static ESL_OPTIONS gen_options[] = {
@@ -297,7 +297,7 @@ cmd_gen(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 
 
 /*****************************************************************
- * x. Sample
+ * 5. Sample
  *****************************************************************/
 
 static ESL_OPTIONS sample_options[] = {

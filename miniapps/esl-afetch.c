@@ -1,6 +1,6 @@
 /* Fetch an MSA from a multi-MSA database (such as Pfam or Rfam).
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

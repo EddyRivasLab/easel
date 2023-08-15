@@ -3,7 +3,7 @@
 #ifndef eslMSA_INCLUDED
 #define eslMSA_INCLUDED
 
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 
@@ -198,7 +198,7 @@ extern ESL_MSA *esl_msa_CreateFromString(const char *s, int fmt);
 extern int      esl_msa_Compare         (ESL_MSA *a1, ESL_MSA *a2);
 extern int      esl_msa_CompareMandatory(ESL_MSA *a1, ESL_MSA *a2);
 extern int      esl_msa_CompareOptional (ESL_MSA *a1, ESL_MSA *a2);
-extern int      esl_msa_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int max_nseq, int max_alen, ESL_MSA **ret_msa);
+extern int      esl_msa_Sample(ESL_RANDOMNESS *rng, const ESL_ALPHABET *abc, int max_nseq, int max_alen, ESL_MSA **ret_msa);
 
 #ifdef __cplusplus // magic to make C++ compilers happy
 }

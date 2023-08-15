@@ -3,7 +3,7 @@
  *
  * EPN, Mon May 11 06:49:37 2009
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -665,6 +665,16 @@ main(int argc, char **argv)
   }
   esl_msafile_Close(afp);
   esl_getopts_Destroy(go);
+  free(has_conflict);
+  free(nmates_r2l);
+  free(nmates_l2r);
+  free(removebp);
+  free(nconsistentA);
+  free(nbpsA);
+  free(noverlapsA);
+  free(nconflictsA);
+  free(namedashes);
+  free(ngaps);
   return 0;
 
  ERROR:

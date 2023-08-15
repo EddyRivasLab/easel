@@ -12,7 +12,7 @@
  * See also:
  *    esl_huffman : Huffman coding
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <limits.h>
@@ -336,7 +336,7 @@ esl_varint_delta(int v, uint64_t *opt_code, int *opt_n)
 int
 esl_varint_delta_decode(uint64_t code, int *opt_v, int *opt_n)
 {
-  int a,b,n,v, status;
+  int a,b,n,status;
 
   if (code == 0) { status = eslEOD; goto ERROR; }
 
@@ -346,9 +346,6 @@ esl_varint_delta_decode(uint64_t code, int *opt_v, int *opt_n)
   n = 2*b + a + 1;
 
   if (n > 64) { status = eslECORRUPT; goto ERROR; }
-
-  v = (code >> (63 - 2*b -a));           //  ... and a bits encodes v mod 2^a, all but its highest order bit
-  v += (1 << a);                         // put the 2^a bit back
 
   // Last a bits encodes v mod 2^a, all but the highest order bit;
   // shift and mask to get those a bits, then add 2^a back.

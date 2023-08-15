@@ -6,7 +6,7 @@
  *     3. Test driver
  *     4. Example
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 
@@ -132,8 +132,8 @@
  *            the contents of <*assignments> is undefined, and <*ret_C> is 0.
  */
 int
-esl_cluster_SingleLinkage(void *base, size_t n, size_t size, 
-			  int (*linkfunc)(const void *, const void *, const void *, int *), void *param,
+esl_cluster_SingleLinkage(const void *base, size_t n, size_t size, 
+			  int (*linkfunc)(const void *, const void *, const void *, int *), const void *param,
 			  int *workspace, int *assignments, int *ret_C)
 {
   int na, *a = NULL;		/* stack of available vertices (still unconnected)       */
@@ -240,7 +240,7 @@ utest_singlelinkage(double *testdata, int n, double threshold, int *correct_assi
 #ifdef eslCLUSTER_TESTDRIVE
 /* gcc -g -Wall -o test -I. -L. -DeslCLUSTER_TESTDRIVE esl_cluster.c -leasel -lm
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <math.h>
@@ -286,7 +286,7 @@ main(int argc, char **argv)
 #ifdef eslCLUSTER_EXAMPLE
 /*::cexcerpt::cluster_example::begin::*/
 /* gcc -g -Wall -o example -I. -L. -DeslCLUSTER_EXAMPLE esl_cluster.c easel.c -lm  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <stdlib.h>

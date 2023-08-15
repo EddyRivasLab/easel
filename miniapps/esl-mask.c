@@ -2,7 +2,7 @@
  * 
  * SRE, Sat Oct 31 09:58:56 2009 [Janelia]
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -75,6 +75,7 @@ main(int argc, char **argv)
   int             infmt    = eslSQFILE_UNKNOWN;         /* format code for seqfile         */
   int             outfmt   = eslSQFILE_FASTA;           /* format code for output seqs     */
   ESL_SQFILE     *sqfp     = NULL;                      /* open sequence file              */
+  ESL_SQ         *sq       = NULL;		        /* current sequence                */
   ESL_FILEPARSER *maskefp  = NULL;	                /* open mask coord file            */
   FILE           *ofp      = NULL;	                /* output stream for masked seqs   */
   char           *source   = NULL;			/* name of current seq to mask     */
@@ -82,7 +83,7 @@ main(int argc, char **argv)
   int64_t         start, end;				/* start, end coord for masking    */
   int64_t         i, j, pos;				/* coords in a sequence            */
   int64_t         overmask;				/* # of extra residues to mask     */
-  ESL_SQ         *sq       = esl_sq_Create();		/* current sequence                */
+
   int             do_fetching;
   int             do_lowercase;
   int             maskchar;
@@ -112,6 +113,7 @@ main(int argc, char **argv)
     infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (infmt == eslSQFILE_UNKNOWN) cmdline_failure(argv[0], "%s is not a valid input sequence file format for --informat"); 
   }
+  sq     = esl_sq_Create();
   status = esl_sqfile_Open(seqfile, infmt, NULL, &sqfp);
   if      (status == eslENOTFOUND) cmdline_failure(argv[0], "Sequence file %s not found.\n",     seqfile);
   else if (status == eslEFORMAT)   cmdline_failure(argv[0], "Format of file %s unrecognized.\n", seqfile);

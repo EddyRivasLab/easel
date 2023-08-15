@@ -3,7 +3,7 @@
  * SRE, Wed Jan 16 15:30:05 2008 [UA5230 to New York]
  * from squid's shuffle (1995)
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -165,7 +165,9 @@ msa_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
       esl_msa_Destroy(shuf);
       esl_msa_Destroy(msa);
     }
-
+  if(abc != NULL){
+    esl_alphabet_Destroy(abc);
+  }
   esl_msafile_Close(afp);
   return eslOK;
 }

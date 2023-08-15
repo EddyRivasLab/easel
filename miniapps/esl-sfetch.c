@@ -3,7 +3,7 @@
  * From squid's sfetch and ffetch
  * SRE, Mon Mar 31 16:12:50 2008 [Janelia] 
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <stdio.h>

@@ -21,7 +21,7 @@
  *     SRE, Mon Aug  6 13:42:09 2007
  *
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <math.h>
@@ -543,7 +543,7 @@ esl_gumbel_FitCompleteLoc(double *x, int n, double lambda, double *ret_mu)
 }
 
 
-#if eslDEBUGLEVEL >=3
+#if 0
 /* direct_mv_fit()
  * SRE, Wed Jun 29 08:23:47 2005
  * 

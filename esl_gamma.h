@@ -4,7 +4,7 @@
  */
 #ifndef eslGAMMA_INCLUDED
 #define eslGAMMA_INCLUDED
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include "esl_histogram.h"
 #include "esl_random.h"
@@ -28,8 +28,8 @@ extern int esl_gam_Plot(FILE *fp, double mu, double lambda, double tau,
 
 extern double esl_gam_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double tau);
 
-extern int esl_gam_FitComplete(double *x, int n, double mu, double *ret_lambda, double *ret_tau);
-
+extern int esl_gam_FitComplete      (double *x,  int n, double mu, double *ret_lambda, double *ret_tau);
+extern int esl_gam_FitCountHistogram(double *ct, int n, double mu, double *ret_lambda, double *ret_tau);
 extern int esl_gam_FitCompleteBinned(ESL_HISTOGRAM *h, double *ret_mu, double *ret_lambda, double *ret_tau);
 
 #endif /*eslGAMMA_INCLUDED*/

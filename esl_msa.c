@@ -9,7 +9,7 @@
  *    6. Unit tests
  *    7. Test driver
  */
-#include "esl_config.h"
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -718,8 +718,7 @@ esl_msa_GuessAlphabet(const ESL_MSA *msa, int *ret_type)
 {
   int64_t namino   = 0,
           ndna     = 0,
-          nrna     = 0,
-          nunknown = 0;
+          nrna     = 0;
   int     type;
   int     i,x;
   int64_t j,n;
@@ -750,7 +749,8 @@ esl_msa_GuessAlphabet(const ESL_MSA *msa, int *ret_type)
       case eslAMINO:   namino++; break;
       case eslDNA:     ndna++;   break;
       case eslRNA:     nrna++;   break;
-      default:         nunknown++; 
+      case eslUNKNOWN:           break;
+      default:                   break;  
       }
     }
   if      (namino    > 0 && (ndna+nrna)   == 0) *ret_type = eslAMINO;
@@ -1035,8 +1035,8 @@ int
 esl_msa_SetName(ESL_MSA *msa, const char *s, esl_pos_t n)
 {
   if (msa->name) free(msa->name); 
-  if (n > 0) return esl_memstrdup(s,  n, &(msa->name)); 
-  else       return esl_strdup(   s, -1, &(msa->name)); 
+  if (n >= 0) return esl_memstrdup(s,  n, &(msa->name)); 
+  else        return esl_strdup(   s, -1, &(msa->name)); 
 }
 
 
@@ -1063,8 +1063,8 @@ int
 esl_msa_SetDesc(ESL_MSA *msa, const char *s, esl_pos_t n)
 {
   if (msa->desc) free(msa->desc);
-  if (n > 0) return esl_memstrdup(s,  n, &(msa->desc)); 
-  else       return esl_strdup(   s, -1, &(msa->desc)); 
+  if (n >= 0) return esl_memstrdup(s,  n, &(msa->desc)); 
+  else        return esl_strdup(   s, -1, &(msa->desc)); 
 }
 
 /* Function:  esl_msa_SetAccession()
@@ -1090,8 +1090,8 @@ int
 esl_msa_SetAccession(ESL_MSA *msa, const char *s, esl_pos_t n)
 {
   if (msa->acc) free(msa->acc);
-  if (n > 0) return esl_memstrdup(s,  n, &(msa->acc)); 
-  else       return esl_strdup(   s, -1, &(msa->acc)); 
+  if (n >= 0) return esl_memstrdup(s,  n, &(msa->acc)); 
+  else        return esl_strdup(   s, -1, &(msa->acc)); 
 }
 
 
@@ -1118,8 +1118,8 @@ int
 esl_msa_SetAuthor(ESL_MSA *msa, const char *s, esl_pos_t n)
 {
   if (msa->au) free(msa->au);
-  if (n > 0) return esl_memstrdup(s,  n, &(msa->au)); 
-  else       return esl_strdup(   s, -1, &(msa->au)); 
+  if (n >= 0) return esl_memstrdup(s,  n, &(msa->au)); 
+  else        return esl_strdup(   s, -1, &(msa->au)); 
 }
 
 
@@ -1150,8 +1150,8 @@ esl_msa_SetSeqName(ESL_MSA *msa, int idx, const char *s, esl_pos_t n)
   if (s == NULL)            ESL_EXCEPTION(eslEINCONCEIVABLE, "seq names are mandatory; NULL is not a valid name");
 
   if (msa->sqname[idx]) free(msa->sqname[idx]);
-  if (n > 0) return esl_memstrdup(s,  n, &(msa->sqname[idx])); 
-  else       return esl_strdup(   s, -1, &(msa->sqname[idx])); 
+  if (n >= 0) return esl_memstrdup(s,  n, &(msa->sqname[idx])); 
+  else        return esl_strdup(   s, -1, &(msa->sqname[idx])); 
 }
 
 /* Function:  esl_msa_SetSeqAccession()
@@ -1197,8 +1197,8 @@ esl_msa_SetSeqAccession(ESL_MSA *msa, int idx, const char *s, esl_pos_t n)
     for (i = 0; i < msa->sqalloc; i++) msa->sqacc[i] = NULL;
   } 
 
-  if (n > 0) status = esl_memstrdup(s,  n, &(msa->sqacc[idx])); 
-  else       status = esl_strdup(   s, -1, &(msa->sqacc[idx])); 
+  if (n >= 0) status = esl_memstrdup(s,  n, &(msa->sqacc[idx])); 
+  else        status = esl_strdup(   s, -1, &(msa->sqacc[idx])); 
 
   return status;
   
@@ -1249,8 +1249,8 @@ esl_msa_SetSeqDescription(ESL_MSA *msa, int idx, const char *s, esl_pos_t n)
     for (i = 0; i < msa->sqalloc; i++) msa->sqdesc[i] = NULL;
   } 
 
-  if (n > 0) status = esl_memstrdup(s,  n, &(msa->sqdesc[idx])); 
-  else       status = esl_strdup(   s, -1, &(msa->sqdesc[idx])); 
+  if (n >= 0) status = esl_memstrdup(s,  n, &(msa->sqdesc[idx])); 
+  else        status = esl_strdup(   s, -1, &(msa->sqdesc[idx])); 
 
  ERROR:
   return status;
@@ -3231,7 +3231,7 @@ esl_msa_CompareMandatory(ESL_MSA *a1, ESL_MSA *a2)
   for (i = 0; i < a1->nseq; i++)
     {
       if (strcmp(a1->sqname[i], a2->sqname[i])        != 0)     return eslFAIL;
-      if (esl_DCompare(a1->wgt[i], a2->wgt[i], 0.001) != eslOK) return eslFAIL;
+      if (esl_DCompare_old(a1->wgt[i], a2->wgt[i], 0.001) != eslOK) return eslFAIL;
 
       if ((a1->flags & eslMSA_DIGITAL) &&
 	  memcmp(a1->ax[i], a2->ax[i], sizeof(ESL_DSQ) * (a1->alen+2)) != 0) 
@@ -3289,7 +3289,7 @@ esl_msa_CompareOptional(ESL_MSA *a1, ESL_MSA *a2)
   for (i = 0; i < eslMSA_NCUTS; i++)
     {
       if (a1->cutset[i] && a2->cutset[i]) {
-	if (esl_FCompare(a1->cutoff[i], a2->cutoff[i], 0.01) != eslOK) return eslFAIL;
+	if (esl_FCompare_old(a1->cutoff[i], a2->cutoff[i], 0.01) != eslOK) return eslFAIL;
       } else if (a1->cutset[i] || a2->cutset[i]) return eslFAIL;
     }
   return eslOK;
@@ -3325,7 +3325,7 @@ esl_msa_CompareOptional(ESL_MSA *a1, ESL_MSA *a2)
  *            doesn't generate.
  */
 int
-esl_msa_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int max_nseq, int max_alen, ESL_MSA **ret_msa)
+esl_msa_Sample(ESL_RANDOMNESS *rng, const ESL_ALPHABET *abc, int max_nseq, int max_alen, ESL_MSA **ret_msa)
 {
   ESL_MSA *msa    = NULL;
   int      nseq   = 1 + esl_rnd_Roll(rng, max_nseq); // 1..max_nseq
