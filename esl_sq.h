@@ -102,14 +102,14 @@ typedef struct {
   int64_t  n;              /* length of seq (or dsq) and ss                    */
   /*::cexcerpt::sq_sq::end::*/
 
-  /* Source-tracking coordinate info for:                       seq       subseq     window     info */
-  /*                                                           ----       ------     ------    ----- */
-  int64_t  start;  /* coord of seq[0],dsq[1] on source  [1..L]    1      1<=i<=L    1<=i<=L      0   */
-  int64_t  end;    /* coord of seq[n-1],dsq[n] on source[1..L]    L      1<=j<=L    1<=j<=L      0   */
-  int64_t  C;      /* # of context residues for a window          0            0        n-W      0   */
-  int64_t  W;      /* window width                                L            n        n-C      0   */
-  int64_t  L;      /* source sequence length in residues          L     L (or -1)   L (or -1)    L   */
-  /* and   n: length of seq (or dsq) and ss actually stored:      L   abs(j-i)+1        C+W      0   */
+  /* Source-tracking coordinate info for:                       seq       subseq     window     info   orf         */
+  /*                                                           ----       ------     ------    -----   -----       */
+  int64_t  start;  /* coord of seq[0],dsq[1] on source  [1..L]    1      1<=i<=L    1<=i<=L      0      ia         */
+  int64_t  end;    /* coord of seq[n-1],dsq[n] on source[1..L]    L      1<=j<=L    1<=j<=L      0      ib         */
+  int64_t  C;      /* # of context residues for a window          0            0        n-W      0       0         */
+  int64_t  W;      /* window width                                L            n        n-C      0       0         */
+  int64_t  L;      /* source sequence length in residues          L     L (or -1)   L (or -1)    L      -1         */
+  /* and   n: length of seq (or dsq) and ss actually stored:      L   abs(j-i)+1        C+W      0   (ib-ia+1)/3   */
   /* In all the above bookkeeping, a -1 means "unknown" */
   char    *source; /* name of the source of a subseq/window; or MSA name; or ""*/
 

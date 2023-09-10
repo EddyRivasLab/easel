@@ -2441,7 +2441,7 @@ main(int argc, char **argv)
   int           status;
 
   if (esl_opt_IsOn(go, "--informat")) {
-    if ((infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat")))==eslSQFILE_UNKNOWN)
+    if ((infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslSQFILE_UNKNOWN)
       esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
 

@@ -1100,7 +1100,7 @@ esl_dst_XAverageMatch(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_comp
  *            multiple sequence alignment <ax> of <N> sequences in
  *            alphabet <abc>.
  *
- *            As in <esl_dsq_XAvgId()>, if an exhaustive calculation
+ *            As in <esl_dst_XAvgId()>, if an exhaustive calculation
  *            would require more than <max_comparisons> pairwise
  *            comparisons, then instead of looking at all pairs,
  *            calculate the average over a stochastic sample of
