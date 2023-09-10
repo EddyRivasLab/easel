@@ -664,6 +664,7 @@ main(int argc, char **argv)
     fclose(ofp);
   }
   esl_msafile_Close(afp);
+  if(abc != NULL) esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
   free(has_conflict);
   free(nmates_r2l);
