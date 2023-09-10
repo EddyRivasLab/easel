@@ -94,7 +94,6 @@
 1 exercise blank-gf           !testsuite/i3-blank-gf.pl!       @@ !! %TESTPFX%
 1 exercise sindi              !testsuite/i4-alimanip-sindi.sh! @@ !! %TESTPFX%
 
-1 exercise esl-translate      !miniapps/esl-translate.itest.pl! @@ !! %TESTPFX%
 
 1 exercise esl-afetch         !miniapps/esl-afetch.itest.pl!    @miniapps/esl-afetch@    %TESTPFX%
 1 exercise esl-alimanip       !miniapps/esl-alimanip.itest.pl!  @miniapps/esl-alimanip@  %TESTPFX%
@@ -108,6 +107,7 @@
 1 exercise esl-seqrange       !miniapps/esl-seqrange.itest.pl!  @miniapps/esl-seqrange@  @miniapps/esl-sfetch@ %TESTPFX%
 1 exercise esl-shuffle        !miniapps/esl-shuffle.itest.py!   @@ !! %TESTPFX%
 1 exercise esl-ssdraw         !miniapps/esl-ssdraw.itest.pl!    @miniapps/esl-ssdraw@    !testsuite/trna-ssdraw.ps! !testsuite/trna-5.stk! %TESTPFX%
+1 exercise esl-translate      !miniapps/esl-translate.itest.pl! @@ !! %TESTPFX%
 
 
 # Still to do:

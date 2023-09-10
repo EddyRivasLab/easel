@@ -658,13 +658,13 @@ main(int argc, char **argv)
 
   /* Cleanup, normal return
    */
-  if(lfp != NULL) fclose(lfp);
-  if(ofp != NULL) { 
+  if (lfp) fclose(lfp);
+  if (ofp) { 
     printf("# Alignment(s) saved to file %s\n", esl_opt_GetString(go, "-o"));
     fclose(ofp);
   }
   esl_msafile_Close(afp);
-  if(abc != NULL) esl_alphabet_Destroy(abc);
+  esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
   free(has_conflict);
   free(nmates_r2l);
@@ -679,11 +679,12 @@ main(int argc, char **argv)
   return 0;
 
  ERROR:
-  if(afp) esl_msafile_Close(afp);
-  if(go)  esl_getopts_Destroy(go);
-  if(msa) esl_msa_Destroy(msa);
-  if(lfp) fclose(lfp);
-  if(ofp) fclose(ofp);
+  esl_msafile_Close(afp);
+  esl_alphabet_Destroy(abc);
+  esl_getopts_Destroy(go);
+  esl_msa_Destroy(msa);
+  if (lfp) fclose(lfp);
+  if (ofp) fclose(ofp);
   esl_fatal("ERROR\n");
   return 1;
   
