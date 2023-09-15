@@ -3143,7 +3143,7 @@ end_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
 
 /* Function:  esl_sqascii_WriteFasta()
- * Synopsis:  Write a sequence in FASTA foramt
+ * Synopsis:  Write a sequence in FASTA format
  *
  * Purpose:   Write sequence <sq> in FASTA format to the open stream <fp>.
  * 

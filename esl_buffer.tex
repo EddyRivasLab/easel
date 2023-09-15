@@ -272,7 +272,7 @@ truncated part.
 
 A \esldef{token} is a substring consisting of characters not in a set
 of caller-defined \esldef{separator} characters. Typically, separator
-chararacters might be whitespace (\ccode{" \t"}).
+characters might be whitespace (\ccode{" \t"}).
 
 Additionally, newlines are always considered to be separators. Tokens
 cannot include newlines. 
@@ -363,7 +363,7 @@ ASCII text files.
 \subsection{Implementation notes (for developers)}
 
 \paragraph{The state guarantee.} An \ccode{ESL\_BUFFER} is exchangeable
-and sharable even amongst entirely different types of parsers because
+and shareable even amongst entirely different types of parsers because
 it is virtually always guaranteed to be in a well-defined
 state. Specifically:
 

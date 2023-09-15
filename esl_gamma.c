@@ -558,7 +558,7 @@ esl_gam_FitCountHistogram(double *ct, int n, double mu, double *ret_lambda, doub
  *            becomes equivalent to optimizing $\sum_i n_i * log P(x=c_i)$.
  *
  *            The optimization is then equivalent to the non-binned case,
- *            but subsituting in averages such as $\sum_i x(i)$ by
+ *            but substituting in averages such as $\sum_i x(i)$ by
  *            $\sum_i n_i*c_i i$, and so forth.
  *
  *            If the binned data in <g> were set to focus on 

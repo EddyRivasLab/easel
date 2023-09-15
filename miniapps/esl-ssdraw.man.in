@@ -52,7 +52,7 @@ the alignment consensus sequence, information content per position,
 mutual information per position, frequency of inserts per position,
 average length of inserts per position, frequency of
 deletions (gaps) per position, and average posterior probability per
-position (if posterior probabilites exist in the alignment)
+position (if posterior probabilities exist in the alignment)
 If 
 .B \-d 
 is enabled, all of these pages plus additional ones, such as
@@ -306,7 +306,7 @@ consensus position <d1>; <d2> specifies the size of a cell in the
 legend and <f3> specifies how many extra points should be between the
 right hand edge of the legend and the end of the page. the offset of
 the right hand end of the legend . For example, the line '% 34
-\-40. \-30. 12 0.' specfies that the legend be placed 40 points to the left
+\-40. \-30. 12 0.' specifies that the legend be placed 40 points to the left
 and 30 points below the 34th consensus position, that cells
 appearing in the legend be squares of size 12 points by 12 points, and
 that the right hand side of the legend flush against the right hand

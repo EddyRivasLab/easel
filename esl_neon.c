@@ -213,7 +213,7 @@ esl_neon_expf(esl_neon_128f_t x)
   /* perform a floorf */
   tmp.f32x4 = vcvtq_f32_s32(vcvtq_s32_f32(fx.f32x4));
 
-  /* if greater, substract 1 */
+  /* if greater, subtract 1 */
   mask.u32x4 = vcgtq_f32(tmp.f32x4, fx.f32x4);    
   mask.u32x4 = vandq_u32(mask.u32x4, vreinterpretq_u32_f32(one.f32x4));
 

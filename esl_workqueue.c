@@ -291,7 +291,7 @@ int esl_workqueue_queuelock_Init(ESL_WORK_QUEUE_QUEUELOCK *queue, void *ptr)
  *            is removed the the producers list.  If there are no empty
  *            objects, a <obj> is set to NULL.
  *
- *            The pointer to the object is returned in the obj arguement.
+ *            The pointer to the object is returned in the obj argument.
  *
  * Returns:   <eslOK>  on success.
  *            <eslEOD> if no objects are in the queue.
@@ -335,7 +335,7 @@ esl_workqueue_Remove(ESL_WORK_QUEUE *queue, void **obj)
  *            is removed the the producers list.  If there are no empty
  *            objects, a <obj> is set to NULL.
  *
- *            The pointer to the object is returned in the obj arguement.
+ *            The pointer to the object is returned in the obj argument.
  *
  * Returns:   <eslOK>  on success.
  *            <eslEOD> if no objects are in the queue.

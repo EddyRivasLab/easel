@@ -910,7 +910,7 @@ esl_buffer_Get(ESL_BUFFER *bf, char **ret_p, esl_pos_t *ret_n)
  *            BEFORE calling RaiseAnchor().
  * 
  *            As a special case, if <p> is NULL, then <nused> is
- *            ignored, <bf->pos> is left whereever it was, and the
+ *            ignored, <bf->pos> is left wherever it was, and the
  *            only thing the <Set()> attempts to do is to fulfill the
  *            pagesize guarantee from the current position. If a
  *            <NULL> <p> has been returned by a Get*() call because we

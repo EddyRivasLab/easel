@@ -41,7 +41,7 @@ contain more gaps ('.') than they did in their respective input
 alignments. This is because 
 .B esl\-alimerge
 must add 100% gap columns to each individual input alignment so that
-insert columns in the other input alignments can be accomodated in the
+insert columns in the other input alignments can be accommodated in the
 merged alignment.
 
 .PP

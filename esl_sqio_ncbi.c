@@ -306,7 +306,7 @@ sqncbi_DbOpen(ESL_SQNCBI_DATA *ncbi, char *filename, int dbtype)
 /* sqncbi_AliasOpen()
  *
  * Opens an alias file parsing the DBLIST directive building
- * a list of all the volumes makeing up this database.  As each
+ * a list of all the volumes making up this database.  As each
  * volume is successfully parsed, the name of the volume, number
  * of sequences and offsets are kept for quick reference.
  */
@@ -417,7 +417,7 @@ sqncbi_AliasOpen(ESL_SQNCBI_DATA *ncbi, char *filename, int dbtype)
 	/* if successful, copy the db information */
 	vol = ncbi->volumes++;
 
-	/* allocate the name of the string big enought so the buffer can
+	/* allocate the name of the string big enough so the buffer can
 	 * handle an extension, i.e. ".pin" or ".nsq" tacked on to the end
 	 * of it without reallocating.
 	 */
@@ -485,12 +485,12 @@ sqncbi_AliasOpen(ESL_SQNCBI_DATA *ncbi, char *filename, int dbtype)
  *            files are present.  Parse the index file for database 
  *            information filling in the ncbi data structure.
  * 
- * Returns:   <eslOK> on success, and the ncbi data structre is filled
+ * Returns:   <eslOK> on success, and the ncbi data structure is filled
  *            in with the database information.
  *            
  *            Returns <eslENOTFOUND> if <filename> can't be found or
  *            opened.  Returns <eslEFORMAT> if the index file is an
- *            upsupported version.
+ *            unsupported version.
  *             
  * Throws:    <eslEMEM> on allocation failure.
  */
@@ -535,7 +535,7 @@ sqncbi_Open(ESL_SQNCBI_DATA *ncbi, char *filename)
   ncbi->hdr_alloced = INIT_HDR_BUFFER_SIZE;
   ESL_ALLOC(ncbi->hdr_buf, sizeof(unsigned char) * INIT_HDR_BUFFER_SIZE);
 
-  /* skip the first sentinal byte in the .psq file */
+  /* skip the first sentinel byte in the .psq file */
   fgetc(ncbi->fppsq);
 
   if (name != NULL) free(name);
@@ -1470,7 +1470,7 @@ volume_open(ESL_SQNCBI_DATA *ncbi, int volume)
   ncbi->index_start = -1;
   ncbi->index_end   = -1;
 
-  /* skip the first sentinal byte in the .psq file */
+  /* skip the first sentinel byte in the .psq file */
   fgetc(ncbi->fppsq);
 
   /* zero terminate the name other functions can just
@@ -2272,7 +2272,7 @@ parse_expect(ESL_SQNCBI_DATA *ncbi, void *str, int len)
   size  = ncbi->hoff - ncbi->roff;
   limit = ncbi->hdr_buf + size;
 
-  /* verify the buffer has atleast len bytes remaining */
+  /* verify the buffer has at least len bytes remaining */
   if (ncbi->hdr_ptr + len > limit) {
       ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Expecting %d bytes at %d : 0x%X(%d)\n",
 	       len, (uint32_t) (ncbi->hdr_ptr - ncbi->hdr_buf), ncbi->roff, size); 
@@ -2349,7 +2349,7 @@ parse_peek(ESL_SQNCBI_DATA *ncbi, unsigned char *c)
   size  = ncbi->hoff - ncbi->roff;
   limit = ncbi->hdr_buf + size;
 
-  /* verify the buffer has atleast len bytes remaining */
+  /* verify the buffer has at least len bytes remaining */
   if (ncbi->hdr_ptr + 1 > limit)    return eslEFORMAT;
 
   *c = *ncbi->hdr_ptr;
@@ -2380,7 +2380,7 @@ parse_consume(ESL_SQNCBI_DATA *ncbi, void *str, int len)
   size  = ncbi->hoff - ncbi->roff;
   limit = ncbi->hdr_buf + size;
 
-  /* verify the buffer has atleast len bytes remaining */
+  /* verify the buffer has at least len bytes remaining */
   if (ncbi->hdr_ptr + len > limit) {
       ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Expecting %d bytes at %d : 0x%X(%d)\n",
 	       len, (uint32_t) (ncbi->hdr_ptr - ncbi->hdr_buf), ncbi->roff, size); 
@@ -2415,7 +2415,7 @@ parse_advance(ESL_SQNCBI_DATA *ncbi, int len)
   size  = ncbi->hoff - ncbi->roff;
   limit = ncbi->hdr_buf + size;
 
-  /* verify the buffer has atleast len bytes remaining */
+  /* verify the buffer has at least len bytes remaining */
   if (ncbi->hdr_ptr + len > limit) {
       ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Expecting %d bytes at %d : 0x%X(%d)\n",
 	       len, (uint32_t) (ncbi->hdr_ptr - ncbi->hdr_buf), ncbi->roff, size); 
@@ -2436,7 +2436,7 @@ parse_advance(ESL_SQNCBI_DATA *ncbi, int len)
  *
  *            The blast db header can have multiple definitions defined
  *            within it.  Only the information from the first usable
- *            defition will be used.
+ *            definition will be used.
  *
  * Returns:   <eslOK> on success; the new sequence is stored in <s>.
  * 

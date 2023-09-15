@@ -440,7 +440,7 @@ typically use a signed cast, `(ptrdiff_t) sizeof(foo) * n`.
 		
 
 
-###  resizeable objects
+###  resizable objects
 
 ###  reusable objects
 
@@ -941,7 +941,7 @@ more **example** program, and may also include **statistics
 collections**, **benchmarks**, **experiments**, and special
 **regression/comparison tests**. Having a unit test program and an
 example program directly embedded in the .c code of a module
-encourages throrough systematic testing, and makes the module more
+encourages thorough systematic testing, and makes the module more
 self-documented.
 
 Appropriate conditional compilation is handled automatically by

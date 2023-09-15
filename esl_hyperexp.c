@@ -147,7 +147,7 @@ esl_hyperexp_Copy(ESL_HYPEREXP *src, ESL_HYPEREXP *dest)
 
 /* Function:  esl_hyperexp_FixedUniformMixture()
  *
- * Purpose:   Set the mixture coeffients to a uniform (1/K) distribution,
+ * Purpose:   Set the mixture coefficients to a uniform (1/K) distribution,
  *            and fix them there so they aren't estimable parameters.
  */
 int
