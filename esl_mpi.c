@@ -376,7 +376,7 @@ esl_sq_MPIPack(ESL_SQ *sq, char *buf, int n, int *pos, MPI_Comm comm)
   status = MPI_Pack         ((              int *) &(sq->nxr),                 1, MPI_INT,           buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
   status = MPI_Pack         ((unsigned long int *) &(    salloc),              1, MPI_UNSIGNED_LONG, buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
 
-  /* pack coordenate info */
+  /* pack coordinate info */
   status = MPI_Pack         ((unsigned long int *) &(sq_n),                    1, MPI_UNSIGNED_LONG, buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
   status = MPI_Pack         ((unsigned long int *) &(start),                   1, MPI_UNSIGNED_LONG, buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
   status = MPI_Pack         ((unsigned long int *) &(end),                     1, MPI_UNSIGNED_LONG, buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
@@ -461,7 +461,7 @@ esl_sq_MPIUnpack(const ESL_ALPHABET *abc, char *buf, int n, int *pos, MPI_Comm c
   status = MPI_Unpack(buf, n, pos, &(sq->nxr),      1, MPI_INT,            comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
   status = MPI_Unpack(buf, n, pos, &(salloc),       1, MPI_UNSIGNED_LONG,  comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
 
-  /* unpack coordenate info */
+  /* unpack coordinate info */
   status = MPI_Unpack(buf, n, pos, &(sq_n),         1, MPI_UNSIGNED_LONG,  comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
   status = MPI_Unpack(buf, n, pos, &(start),        1, MPI_UNSIGNED_LONG,  comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
   status = MPI_Unpack(buf, n, pos, &(end),          1, MPI_UNSIGNED_LONG,  comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");

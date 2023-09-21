@@ -80,7 +80,7 @@ main(int argc, char **argv)
   int           do_indi2cons = FALSE;          /* TRUE if --indi <x> */
   int           have_cons;                     /* TRUE if first alignment has consensus sequence */
   int           do_newcons = FALSE;            /* TRUE if we're creating a new consensus structure
-						* and outputing a new alignment (if -x -f -c or --indi)
+						* and outputting a new alignment (if -x -f -c or --indi)
 						*/
   int           do_a = FALSE;                  /* TRUE if -a */
   char         *indi;                          /* for <x> from --indi <x> */

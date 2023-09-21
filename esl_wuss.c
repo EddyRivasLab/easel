@@ -147,7 +147,7 @@ esl_wuss2ct(char *ss, int len, int *ct)
  *            ER, Sat Aug 18 13:22:03 EDT 2012 
  *            esl\_ct2wuss() extended to deal with pseudoknots structures.
  *            Pseudoknots are annotated as AA...aa, BB...bb,..., ZZ..zz.
- *            Attemting to convert a <ct> that requires more letters
+ *            Attempting to convert a <ct> that requires more letters
  *            than [A-Z] will return an <eslEINVAL> error.
  *
  *            Attempting to convert a <ct> that involves triplet interactions
@@ -276,7 +276,7 @@ esl_ct2wuss(int *ct, int n, char *ss)
 	      
 	      else if (cct[i] == 0) 
 		{
-		  /* add to auxss only if originally sigle stranded */
+		  /* add to auxss only if originally single stranded */
 		  if (ct[i] == 0) { if (esl_stack_IPush(auxss, i) != eslOK) goto FINISH; }
 		}
 
@@ -374,7 +374,7 @@ esl_ct2wuss(int *ct, int n, char *ss)
  *            The string <ss> has basepairs annotated as <>, Aa, Bb, ..., Zz;
  *            unpaired bases are annotated as '.'.
  *
- *            Attemting to convert a <ct> that requires more letters
+ *            Attempting to convert a <ct> that requires more letters
  *            than [A-Z] will return an <eslEINVAL> error.
  *
  *            Attempting to convert a <ct> that involves triplet interactions

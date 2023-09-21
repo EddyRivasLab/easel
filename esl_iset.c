@@ -421,7 +421,7 @@ i_update_workspace(int *dec_o, int *label_o, int *status_d, int *to_add, int *as
       to_add[i] = 0;
     }
 
-  /* clear decison order */
+  /* clear decision order */
   for (i = 0; i < *k; i++) dec_o[i]=0;
 
   /* put all vertices left in graph (i.e. status order is >=0 and is in label order) into decision order */
@@ -724,7 +724,7 @@ bi_select_blue(const void *base, int n, size_t size,
  *                  
  *                    //now check if v is adjacent to a vertex with a lower label
  *                    found_self=False //will become true after v is reached during iteration through label_o
- *                    adj=False //will become true if v is adjcent to a vertex in label_o that is eligible
+ *                    adj=False //will become true if v is adjacent to a vertex in label_o that is eligible
  *                    j=0// current vertex in label order being evaluated
  *                   
  *                    while !found_self && !adj:
@@ -752,7 +752,7 @@ bi_select_blue(const void *base, int n, size_t size,
  *                        lta++
  *                        status_d[v]=-1
  *
- *                // Remove eligibility of vertices adjacent to vertices in to_add (This is necesary when a vertex y
+ *                // Remove eligibility of vertices adjacent to vertices in to_add (This is necessary when a vertex y
  *                // in to_add is adjacent to an eligible vertex x whose fate was decided before y)
  *                for i=0 to k:
  *                    v=dec_o[i] //check whether v is adjacent to any vertex in to_add

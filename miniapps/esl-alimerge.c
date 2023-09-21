@@ -845,7 +845,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
   else if(be_verbose) fprintf(stdout, "# Unparsed GF annotation absent from (at least) first alignment; not included in merged alignment.\n"); 
 
   /*********************************************************************/
-  /* Check comments, all must be identically ordered and identical in all msaA[] aligments to include them */
+  /* Check comments, all must be identically ordered and identical in all msaA[] alignments to include them */
   if(msaA[0]->ncomment > 0) { 
     do_add = TRUE; /* until proven otherwise */
     /* make sure all alignments have same number of comments */

@@ -105,51 +105,51 @@ if ($output !~ /\#=GC SS_cons     :::::<_______>::<<_______>>/)   { die "FAIL: c
 system("$eslconstruct -o $tmppfx.stk -c $tmppfx.1 > /dev/null");
 if ($? != 0)                                                      { die "FAIL: esl-construct failed unexpectedly"; }
 $output = `cat $tmppfx.stk`;
-if ($output !~ /#=GC SS_cons     ::::<<<____>->>:<<-<____>>>/)    { die "FAIL: consensus stucture calculated incorrectly"; }
+if ($output !~ /#=GC SS_cons     ::::<<<____>->>:<<-<____>>>/)    { die "FAIL: consensus structure calculated incorrectly"; }
 
 system("$eslconstruct -o $tmppfx.stk -c --rfc $tmppfx.1 > /dev/null");
 if ($? != 0)                                                      { die "FAIL: esl-construct failed unexpectedly"; }
 $output = `cat $tmppfx.stk`;
-if ($output !~ /#=GC SS_cons     ::::<<<____>->>:<<-<____>>>/)    { die "FAIL: consensus stucture calculated incorrectly"; }
-if ($output !~ /#=GC RF          --ACGUUUUG-GAACGGG-U-CCAACC/)    { die "FAIL: consensus stucture calculated incorrectly"; }
+if ($output !~ /#=GC SS_cons     ::::<<<____>->>:<<-<____>>>/)    { die "FAIL: consensus structure calculated incorrectly"; }
+if ($output !~ /#=GC RF          --ACGUUUUG-GAACGGG-U-CCAACC/)    { die "FAIL: consensus structure calculated incorrectly"; }
 
 system("$eslconstruct -o $tmppfx.stk --indi simpex-2 $tmppfx.1 > /dev/null");
 if ($? != 0)                                                      { die "FAIL: esl-construct failed unexpectedly"; }
 $output = `cat $tmppfx.stk`;
-if ($output !~ /\#=GC SS_cons     ::::<<<____>->>::<--<___>>:/)   { die "FAIL: consensus stucture calculated incorrectly"; }
+if ($output !~ /\#=GC SS_cons     ::::<<<____>->>::<--<___>>:/)   { die "FAIL: consensus structure calculated incorrectly"; }
 
 system("$eslconstruct -o $tmppfx.stk --indi simpex-2 --rfindi $tmppfx.1 > /dev/null");
 if ($? != 0)                                                      { die "FAIL: esl-construct failed unexpectedly"; }
 $output = `cat $tmppfx.stk`;
-if ($output !~ /\#=GC SS_cons     ::::<<<____>->>::<--<___>>:/)   { die "FAIL: consensus stucture calculated incorrectly"; }
-if ($output !~ /\#=GC RF          AAAAUACGUCGGCUG-AAUACCCAGUA/)   { die "FAIL: consensus stucture calculated incorrectly"; }
+if ($output !~ /\#=GC SS_cons     ::::<<<____>->>::<--<___>>:/)   { die "FAIL: consensus structure calculated incorrectly"; }
+if ($output !~ /\#=GC RF          AAAAUACGUCGGCUG-AAUACCCAGUA/)   { die "FAIL: consensus structure calculated incorrectly"; }
 
 system("$eslconstruct -o $tmppfx.stk --ffreq 0.6 $tmppfx.1 > /dev/null");
 if ($? != 0)                                                      { die "FAIL: esl-construct failed unexpectedly"; }
 $output = `cat $tmppfx.stk`;
-if ($output !~ /#=GC SS_cons     ::::<<<____>->>:<<-<____>>>/)    { die "FAIL: consensus stucture calculated incorrectly"; }
+if ($output !~ /#=GC SS_cons     ::::<<<____>->>:<<-<____>>>/)    { die "FAIL: consensus structure calculated incorrectly"; }
 
 system("$eslconstruct -o $tmppfx.stk --ffreq 0.7 $tmppfx.1 > /dev/null");
 if ($? != 0)                                                      { die "FAIL: esl-construct failed unexpectedly"; }
 $output = `cat $tmppfx.stk`;
-if ($output !~ /#=GC SS_cons     :::::::::::::::::<_______>:/)    { die "FAIL: consensus stucture calculated incorrectly"; }
+if ($output !~ /#=GC SS_cons     :::::::::::::::::<_______>:/)    { die "FAIL: consensus structure calculated incorrectly"; }
 
 system("$eslconstruct -o $tmppfx.stk --fmin $tmppfx.1 > /dev/null");
 if ($? != 0)                                                      { die "FAIL: esl-construct failed unexpectedly"; }
 $output = `cat $tmppfx.stk`;
-if ($output !~ /#=GC SS_cons     ::::<<<____>->>:<<-<____>>>/)    { die "FAIL: consensus stucture calculated incorrectly"; }
+if ($output !~ /#=GC SS_cons     ::::<<<____>->>:<<-<____>>>/)    { die "FAIL: consensus structure calculated incorrectly"; }
 
 system("$eslconstruct -l $tmppfx.list -o $tmppfx.stk --fmin $tmppfx.1 > /dev/null");
 if ($? != 0)                                                      { die "FAIL: esl-construct failed unexpectedly"; }
 $output = `cat $tmppfx.list`;
-if ($output !~ /simpex-1/)    { die "FAIL: consensus stucture calculated incorrectly"; }
-if ($output !~ /simpex-2/)    { die "FAIL: consensus stucture calculated incorrectly"; }
+if ($output !~ /simpex-1/)    { die "FAIL: consensus structure calculated incorrectly"; }
+if ($output !~ /simpex-2/)    { die "FAIL: consensus structure calculated incorrectly"; }
 
 system("$eslconstruct --lmax 1 -l $tmppfx.list -o $tmppfx.stk --fmin $tmppfx.1 > /dev/null");
 if ($? != 0)                                                      { die "FAIL: esl-construct failed unexpectedly"; }
 $output = `cat $tmppfx.list`;
-if ($output !~ /simpex-1/)    { die "FAIL: consensus stucture calculated incorrectly"; }
-if ($output =~ /simpex-2/)    { die "FAIL: consensus stucture calculated incorrectly"; }
+if ($output !~ /simpex-1/)    { die "FAIL: consensus structure calculated incorrectly"; }
+if ($output =~ /simpex-2/)    { die "FAIL: consensus structure calculated incorrectly"; }
 
 print "ok\n"; 
 unlink "$tmppfx.1";

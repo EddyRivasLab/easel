@@ -547,7 +547,7 @@ esl_gumbel_FitCompleteLoc(double *x, int n, double lambda, double *ret_mu)
 /* direct_mv_fit()
  * SRE, Wed Jun 29 08:23:47 2005
  * 
- * Purely for curiousity: a complete data fit using the
+ * Purely for curiosity: a complete data fit using the
  * simple direct method, calculating mu and lambda from mean
  * and variance.
  */
@@ -646,7 +646,7 @@ lawless422(double *x, int n, int z, double phi,
  * Returns:  <eslOK> on success.
  * 
  *           <eslEINVAL> if n<=1. 
- *           <eslENORESULT> if the fit fails, likey because the number
+ *           <eslENORESULT> if the fit fails, likely because the number
  *           of samples is too small.
  *           On either error, <*ret_mu> and <*ret_lambda> are 0.0.
  *           These are classed as failures (normal errors) because the

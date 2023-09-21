@@ -39,7 +39,7 @@ typedef struct {
  * compiled and used. Without this persistency, we would have to
  * create/destroy every time we used a different pattern, instead of
  * one create/destroy per block of code that uses regex matching
- * functionaility.
+ * functionality.
  *
  * Plus, if we ever need to keep other persistent info 
  * beyond Spencer's compiled NDFA (which we'd rather not mess

@@ -124,7 +124,7 @@
  *            assignments - RETURN: assignments to clusters (caller provides n*sizeof(int) space)
  *            ret_C       - RETURN: number of clusters
  *
- * Returns:   <eslOK> on success; <assignments[0..n-1]> contains cluster assigments 
+ * Returns:   <eslOK> on success; <assignments[0..n-1]> contains cluster assignments
  *            <0..C-1> for each vertex, and <*ret_C> contains the number of clusters
  *            <C>
  *

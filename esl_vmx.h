@@ -75,7 +75,7 @@ esl_vmx_set_u8(unsigned char x)
 /* Function:  esl_vmx_hsum_float()
  * Synopsis:  Returns sum of all floats.
  *
- * Purpose:   Resturns the sum of all elements in the vector <float>.
+ * Purpose:   Returns the sum of all elements in the vector <float>.
  */
 static inline float
 esl_vmx_hsum_float(vector float v)
@@ -92,7 +92,7 @@ esl_vmx_hsum_float(vector float v)
 /* Function:  esl_vmx_hsum_s16()
  * Synopsis:  Returns sum of all shorts.
  *
- * Purpose:   Resturns the sum of all elements in the vector <signed short>.
+ * Purpose:   Returns the sum of all elements in the vector <signed short>.
  */
 static inline signed short
 esl_vmx_hsum_s16(vector signed short v)
@@ -110,7 +110,7 @@ esl_vmx_hsum_s16(vector signed short v)
 /* Function:  esl_vmx_hmax_float()
  * Synopsis:  Returns max of all floats.
  *
- * Purpose:   Resturns the maximum element in the vector <float>.
+ * Purpose:   Returns the maximum element in the vector <float>.
  */
 static inline float
 esl_vmx_hmax_float(vector float v)
@@ -127,7 +127,7 @@ esl_vmx_hmax_float(vector float v)
 /* Function:  esl_vmx_hmax_s16()
  * Synopsis:  Returns max of all shorts.
  *
- * Purpose:   Resturns the maximum element in the vector <signed short>.
+ * Purpose:   Returns the maximum element in the vector <signed short>.
  */
 static inline signed short
 esl_vmx_hmax_s16(vector signed short v)
@@ -145,7 +145,7 @@ esl_vmx_hmax_s16(vector signed short v)
 /* Function:  esl_vmx_hmax_u8()
  * Synopsis:  Returns max of all bytes.
  *
- * Purpose:   Resturns the maximum element in the vector <unsigned char>.
+ * Purpose:   Returns the maximum element in the vector <unsigned char>.
  */
 static inline unsigned char
 esl_vmx_hmax_s8(vector signed char v)

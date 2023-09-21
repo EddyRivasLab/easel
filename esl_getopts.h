@@ -35,8 +35,8 @@ typedef struct {
 /* Argument types: the "type" variable in <ESL_OPTIONS>.
  */
 #define eslARG_NONE      0	/* option takes no argument (so, is boolean)   */
-#define eslARG_INT       1	/* arg convertable by atoi()               <n> */
-#define eslARG_REAL      2	/* arg convertable by atof()               <x> */
+#define eslARG_INT       1	/* arg convertible by atoi()               <n> */
+#define eslARG_REAL      2	/* arg convertible by atof()               <x> */
 #define eslARG_CHAR      3	/* arg is a single character               <c> */
 #define eslARG_STRING    4	/* unchecked arg type                      <s> */
 #define eslARG_INFILE    5      /* input file - same as string, shown as   <f> */

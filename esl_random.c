@@ -717,7 +717,7 @@ esl_rnd_Gamma(ESL_RANDOMNESS *r, double a)
  * Incept:    SRE, Wed Feb 17 12:20:53 2016 [H1/76]
  *
  * Purpose:   Using generator <rng>, sample a Dirichlet-distributed
- *            probabilty vector <p> of <K> elements, using Dirichlet
+ *            probability vector <p> of <K> elements, using Dirichlet
  *            parameters <alpha> (also of <K> elements). 
  *
  *            Caller provides the allocated space for <p>.
