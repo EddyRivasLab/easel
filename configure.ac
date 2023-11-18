@@ -213,7 +213,7 @@ if test "$enable_gcov" = "yes"; then
    if test "$sre_cflags_env_set" = "yes"; then 
      AC_MSG_ERROR([--enable-gcov overrides CFLAGS, so don't set CFLAGS])
    fi
-   CFLAGS="-g -Wall -fprofile-arcs -ftest-coverage"
+   CFLAGS="-g -Wall --coverage"
 elif test "$enable_gprof" = "yes"; then
    if test "$sre_cflags_env_set" = "yes"; then 
      AC_MSG_ERROR([--enable-gprof overrides CFLAGS, so don't set CFLAGS])

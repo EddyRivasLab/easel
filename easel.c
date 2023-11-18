@@ -1038,148 +1038,6 @@ esl_strcat(char **dest, int64_t ldest, const char *src, int64_t lsrc)
   return status;
 }
 
-/* Function:  esl_strmapcat()
- * Synopsis:  Version of esl_strcat that uses an inmap.
- *
- * Purpose:   Append the contents of string or memory line <src>
- *            of length <lsrc> to a string. The destination 
- *            string and its length are passed as pointers <*dest>
- *            and <*ldest>, so the string can be reallocated
- *            and the length updated. When appending, map each
- *            character <src[i]> to a new character <inmap[src[i]]>
- *            in the destination string. The destination string
- *            <*dest> is NUL-terminated on return (even if it 
- *            wasn't to begin with).
- *            
- *            One reason to use the inmap is to enable parsers to
- *            ignore some characters in an input string or buffer,
- *            such as whitespace (mapped to <eslDSQ_IGNORED>).  Of
- *            course this means, unlike <esl_strcat()> the new length
- *            isn't just <ldest+lsrc>, because we don't know how many
- *            characters get appended until we've processed them
- *            through the inmap -- that's why this function takes
- *            <*ldest> by reference, whereas <esl_strcat()> takes it
- *            by value.
- *            
- *            If <*dest> is a NUL-terminated string and the caller
- *            doesn't know its length, <*ldest> may be passed as -1.
- *            Providing the length saves a <strlen()> call. If <*dest>
- *            is a memory line, providing <*ldest> is mandatory.  Same
- *            goes for <src> and <lsrc>.
- *            
- *            <*dest> may be <NULL>, in which case it is allocated
- *            and considered to be an empty string to append to. 
- *            When <*dest> is <NULL> the input <*ldest> should be <0>
- *            or <-1>.
- *
- *            The caller must provide a <src> that it already knows
- *            should be entirely appended to <*dest>, except for
- *            perhaps some ignored characters. No characters may be
- *            mapped to <eslDSQ_EOL> or <eslDSQ_EOD>. The reason for
- *            this is that we're going to allocate <*dest> for
- *            <*ldest+lsrc> chars. If <src> were a large memory buffer,
- *            only a fraction of which needed to be appended (up to
- *            an <eslDSQ_EOL> or <eslDSQ_EOD>), this reallocation would
- *            be inefficient.
- *
- * Args:       inmap  - an Easel input map, inmap[0..127];
- *                      inmap[0] is special: set to the 'unknown' character to
- *                      replace invalid input chars.
- *            *dest   - destination string or memory to append to, passed by reference
- *            *ldest  - length of <*dest> (or -1), passed by reference
- *             src    - string or memory to inmap and append to <*dest>
- *             lsrc   - length of <src> to map and append (or -1).
- *
- * Returns:   <eslOK> on success. Upon successful return, <*dest> is
- *            reallocated and contains the new string (with from 0 to <lsrc>
- *            appended characters), NUL-terminated.
- *            
- *            <eslEINVAL> if one or more characters in the input <src>
- *            are mapped to <eslDSQ_ILLEGAL>. Appending nonetheless
- *            proceeds to completion, with any illegal characters
- *            represented as '?' in <*dest> and counted in <*ldest>.
- *            This is a normal error, because the string <src> may be
- *            user input. The caller may want to call some sort of
- *            validation function on <src> if an <eslEINVAL> error is
- *            returned, in order to report some helpful diagnostics to
- *            the user.
- *
- * Throws:    <eslEMEM> on allocation or reallocation failure.
- *            <eslEINCONCEIVABLE> on internal coding error; for example,
- *            if the inmap tries to map an input character to <eslDSQ_EOD>,
- *            <eslDSQ_EOL>, or <eslDSQ_SENTINEL>. On exceptions, <*dest>
- *            and <*ldest> should not be used by the caller except to
- *            free <*dest>; their state may have been corrupted.
- *
- * Note:      This deliberately mirrors <esl_abc_dsqcat()>, so
- *            that sequence file parsers have comparable behavior whether
- *            they're working with text-mode or digital-mode input.
- *            
- *            Might be useful to create a variant that also handles
- *            eslDSQ_EOD (and eslDSQ_EOL?) and returns the number of
- *            residues parsed. This'd allow a FASTA parser, for
- *            instance, to use this method while reading buffer pages
- *            rather than lines; it could define '>' as eslDSQ_EOD.
- */
-int
-esl_strmapcat(const ESL_DSQ *inmap, char **dest, int64_t *ldest, const char *src, esl_pos_t lsrc)
-{
-  int       status = eslOK;
-
-  if (*ldest < 0) *ldest = ( (*dest) ? strlen(*dest) : 0);
-  if ( lsrc  < 0)  lsrc  = ( (*src)  ? strlen(src)   : 0);
-
-  if (lsrc == 0) goto ERROR;	/* that'll return eslOK, leaving *dest untouched, and *ldest its length. */
-
-  ESL_REALLOC(*dest, sizeof(char) * (*ldest + lsrc + 1)); /* includes case of a new alloc of *dest */
-  return esl_strmapcat_noalloc(inmap, *dest, ldest, src, lsrc);
-
- ERROR:
-  return status;
-}
-
-/* Function:  esl_strmapcat_noalloc()
- * Synopsis:  Version of esl_strmapcat() that does no reallocation.
- *
- * Purpose:   Same as <esl_strmapcat()>, but with no reallocation.  The
- *            pointer to the destination string <dest> is passed by
- *            value, not by reference, because it will not be changed.
- *            Caller has allocated at least <*ldest + lsrc + 1> bytes
- *            in <dest>. In this version, <*ldest> and <lsrc> are not
- *            optional; caller must know the lengths of both the old
- *            string and the new source.
- * 
- * Note:      (see note on esl_abc_dsqcat_noalloc() for rationale)
- */
-int
-esl_strmapcat_noalloc(const ESL_DSQ *inmap, char *dest, int64_t *ldest, const char *src, esl_pos_t lsrc)
-{
-  int64_t   xpos;
-  esl_pos_t cpos;
-  ESL_DSQ   x;
-  int       status = eslOK;
-
-  for (xpos = *ldest, cpos = 0; cpos < lsrc; cpos++)
-    {
-      if (! isascii(src[cpos])) { dest[xpos++] = inmap[0]; status = eslEINVAL;  continue; }
-
-      x = inmap[(int) src[cpos]];
-      if       (x <= 127)      dest[xpos++] = x;
-      else switch (x) {
-	case eslDSQ_SENTINEL:  ESL_EXCEPTION(eslEINCONCEIVABLE, "input char mapped to eslDSQ_SENTINEL"); break;
-	case eslDSQ_ILLEGAL:   dest[xpos++] = inmap[0]; status = eslEINVAL;                              break;
-	case eslDSQ_IGNORED:   break;
-	case eslDSQ_EOL:       ESL_EXCEPTION(eslEINCONCEIVABLE, "input char mapped to eslDSQ_EOL");      break;
-	case eslDSQ_EOD:       ESL_EXCEPTION(eslEINCONCEIVABLE, "input char mapped to eslDSQ_EOD");      break;
-	default:               ESL_EXCEPTION(eslEINCONCEIVABLE, "bad inmap, no such ESL_DSQ code");      break;
-	}
-    }
-
-  dest[xpos] = '\0';
-  *ldest = xpos;
-  return status;
-}
-
 
 /* Function: esl_strtok()
  * Synopsis: Threadsafe version of C's <strtok()>
@@ -1591,6 +1449,9 @@ esl_strchop(char *s, int64_t n)
  *            It is safe to pass a <NULL> <s> (an unset optional
  *            annotation), in which case the function no-ops and
  *            returns <eslOK>.
+ *
+ *            The digital sequence versions of this are
+ *            esl_dsq_Dealign() and esl_dsq_DealignAnnotation().
  *            
  * Args:      s        - string to dealign
  *            aseq     - reference aligned sequence seq
@@ -1615,6 +1476,9 @@ esl_strdealign(char *s, const char *aseq, const char *gapchars, int64_t *opt_rle
   if (opt_rlen != NULL) *opt_rlen = n;
   return eslOK;
 }
+
+
+
 
 
 /* Function:  esl_str_IsBlank()
@@ -2526,55 +2390,6 @@ utest_IsReal(void)
 }
 
 
-static void
-utest_strmapcat(void)
-{
-  char      *msg  = "esl_strmapcat() unit test failed";
-  ESL_DSQ   inmap[128];
-  char     *pfx     = "testing testing";
-  char     *append  = "one two three";
-  char     *bad     = "1 2 three";
-  char     *dest;
-  int64_t   L1;
-  esl_pos_t L2;
-  int       x;
-  
-  /* a simple input map, for testing */
-  for (x = 0;   x < 128; x++) inmap[x] = eslDSQ_ILLEGAL;
-  for (x = 'a'; x < 'z'; x++) inmap[x] = x;
-  for (x = 'A'; x < 'Z'; x++) inmap[x] = x;
-  inmap[' '] = eslDSQ_IGNORED;
-  inmap[0]   = '?';
-  
-  L1 = strlen(pfx);
-  L2 = strlen(append);
-  if ( ( esl_strdup   (pfx, L1, &dest))                != eslOK)  esl_fatal(msg);
-  if ( ( esl_strmapcat(inmap, &dest, &L1, append, L2)) != eslOK)  esl_fatal(msg);
-  if ( strcmp(dest, "testing testingonetwothree")      != 0)      esl_fatal(msg);
-  free(dest);
-  
-  L1 = -1;
-  L2 = -1;
-  if ( ( esl_strdup   (pfx, L1, &dest))                != eslOK)  esl_fatal(msg);
-  if ( ( esl_strmapcat(inmap, &dest, &L1, append, L2)) != eslOK)  esl_fatal(msg);
-  if ( strcmp(dest, "testing testingonetwothree")      != 0)      esl_fatal(msg);
-  free(dest);
-
-  L1   = 0;
-  dest = NULL;
-  if ( ( esl_strmapcat(inmap, &dest, &L1, pfx,    -1))   != eslOK)  esl_fatal(msg);
-  if ( ( esl_strmapcat(inmap, &dest, &L1, append, -1))   != eslOK)  esl_fatal(msg);
-  if ( strcmp(dest, "testingtestingonetwothree")         != 0)      esl_fatal(msg);
-  free(dest);
-
-
-  if ( ( esl_strdup(pfx, -1, &dest))                 != eslOK)      esl_fatal(msg);
-  L1   = 8;
-  if ( ( esl_strmapcat(inmap, &dest, &L1, bad, -1))  != eslEINVAL)  esl_fatal(msg);
-  if ( strcmp(dest, "testing ??three")               != 0)          esl_fatal(msg);
-  free(dest);
-}
-
 
 static void
 utest_strtok(void)
@@ -2752,7 +2567,6 @@ main(int argc, char **argv)
   utest_resize(rng);
   utest_IsInteger();
   utest_IsReal();
-  utest_strmapcat();
   utest_strtok();
   utest_sprintf();
   utest_FileExists();

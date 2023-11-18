@@ -24,6 +24,7 @@
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_arr2.h"
+#include "esl_dsq.h"
 #include "esl_random.h"
 #include "esl_randomseq.h"
 
@@ -909,7 +910,7 @@ esl_rsq_XShuffle(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, ESL_DSQ *shuffled
   int     i;
   ESL_DSQ x;
 
-  if (dsq != shuffled) esl_abc_dsqcpy(dsq, L, shuffled);
+  if (dsq != shuffled) esl_dsq_Copy(dsq, L, shuffled);
   while (L > 1) {
     i           = 1 + esl_rnd_Roll(r, L);
     x           = shuffled[i];
@@ -1083,7 +1084,7 @@ esl_rsq_XShuffleKmers(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_D
   char *swap = NULL;
   int   status;
 
-  if (shuffled != dsq) esl_abc_dsqcpy(dsq, L, shuffled);
+  if (shuffled != dsq) esl_dsq_Copy(dsq, L, shuffled);
   ESL_ALLOC(swap, sizeof(char) * K);
   while (W > 1) 
     {				/* use memmove, not memcpy, because i==W-1 is an overlap case */
@@ -1162,7 +1163,7 @@ esl_rsq_XShuffleWindows(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int w, ESL
   ESL_DSQ x;
   int  i, j, k;
 
-  if (dsq != shuffled) esl_abc_dsqcpy(dsq, L, shuffled);
+  if (dsq != shuffled) esl_dsq_Copy(dsq, L, shuffled);
   for (i = 1; i <= L; i += w)
     for (j = ESL_MIN(L, i+w-1); j > i; j--)
       {
@@ -1365,6 +1366,7 @@ esl_rsq_XMarkov1(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *m
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_distance.h"
+#include "esl_dsq.h"
 #include "esl_getopts.h"
 #include "esl_random.h"
 #include "esl_randomseq.h"
@@ -1799,7 +1801,7 @@ utest_XShufflers(ESL_RANDOMNESS *r, int L, int K)
   if (composition_compare(m1, NULL, m2, NULL, K) != eslOK) esl_fatal(logmsg);
 
   /* esl_rsq_XShuffle, in place */
-  if (esl_abc_dsqcpy(ds2, L, dsq)                != eslOK) esl_fatal(logmsg);
+  if (esl_dsq_Copy(ds2, L, dsq)                  != eslOK) esl_fatal(logmsg);
   if (xcomposition(ds2, L, K, m1,  di1)          != eslOK) esl_fatal(logmsg);
   if (esl_rsq_XShuffle(r, ds2, L, ds2)           != eslOK) esl_fatal(logmsg);      
   if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
@@ -1813,7 +1815,7 @@ utest_XShufflers(ESL_RANDOMNESS *r, int L, int K)
   if (composition_compare(m1, di1, m2, di2, K)   != eslOK) esl_fatal(logmsg);
 
   /* esl_rsq_XShuffleDP, in place */
-  if (esl_abc_dsqcpy(ds2, L, dsq)                != eslOK) esl_fatal(logmsg);
+  if (esl_dsq_Copy(ds2, L, dsq)                  != eslOK) esl_fatal(logmsg);
   if (xcomposition(ds2, L, K, m1, di1)           != eslOK) esl_fatal(logmsg);
   if (esl_rsq_XShuffleDP(r, ds2, L, K, ds2)      != eslOK) esl_fatal(logmsg);      
   if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
@@ -1827,7 +1829,7 @@ utest_XShufflers(ESL_RANDOMNESS *r, int L, int K)
   if (composition_compare(m1, NULL, m2, NULL, K) != eslOK) esl_fatal(logmsg);
 
   /* esl_rsq_XShuffleKmers, in place */
-  if (esl_abc_dsqcpy(ds2, L, dsq)                != eslOK) esl_fatal(logmsg);
+  if (esl_dsq_Copy(ds2, L, dsq)                  != eslOK) esl_fatal(logmsg);
   if (xcomposition(ds2, L, K, m1, di1)           != eslOK) esl_fatal(logmsg);
   if (esl_rsq_XShuffleKmers(r, ds2, L, 3, ds2)   != eslOK) esl_fatal(logmsg);      
   if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
@@ -1841,7 +1843,7 @@ utest_XShufflers(ESL_RANDOMNESS *r, int L, int K)
   if (composition_compare(m1, NULL, m2, NULL, K) != eslOK) esl_fatal(logmsg);
   
   /* esl_rsq_XShuffleWindows(), in place */
-  if (esl_abc_dsqcpy(ds2, L, dsq)                != eslOK) esl_fatal(logmsg);
+  if (esl_dsq_Copy(ds2, L, dsq)                  != eslOK) esl_fatal(logmsg);
   if (xcomposition(ds2, L, K, m1,  di1)          != eslOK) esl_fatal(logmsg);
   if (esl_rsq_XShuffleWindows(r, ds2, L, w, ds2) != eslOK) esl_fatal(logmsg);      
   if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
@@ -1914,7 +1916,7 @@ utest_XMarkovs(ESL_RANDOMNESS *r, int L, int K)
   if (memcmp(ds2, dsq, sizeof(ESL_DSQ)*(L+2)) == 0)     esl_fatal(logmsg);  
   
   /* esl_rsq_CMarkov0(), in place */
-  if (esl_abc_dsqcpy(ds2, L, dsq)             != eslOK) esl_fatal(logmsg);
+  if (esl_dsq_Copy(ds2, L, dsq)               != eslOK) esl_fatal(logmsg);
   if (esl_rsq_XMarkov0(r, ds2, L, K, ds2)     != eslOK) esl_fatal(logmsg);
   if (xcomposition(ds2, L, K, m2, di2)        != eslOK) esl_fatal(logmsg);  
   if (m2[pzero]                               != 0)     esl_fatal(logmsg);  
@@ -1941,7 +1943,7 @@ utest_XMarkovs(ESL_RANDOMNESS *r, int L, int K)
   if (memcmp(ds2, dsq, sizeof(ESL_DSQ)*(L+2)) == 0)     esl_fatal(logmsg);  
 
   /* esl_rsq_XMarkov1(), in place  */
-  if (esl_abc_dsqcpy(ds2, L, dsq)             != eslOK) esl_fatal(logmsg);
+  if (esl_dsq_Copy(ds2, L, dsq)               != eslOK) esl_fatal(logmsg);
   if (esl_rsq_XMarkov1(r, ds2, L, K, ds2)     != eslOK) esl_fatal(logmsg);
   if (xcomposition(ds2, L, K, m2, di2)        != eslOK) esl_fatal(logmsg);  
   for (x = 0; x < K; x++) {

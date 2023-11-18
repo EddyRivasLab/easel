@@ -9,6 +9,7 @@
 #include "esl_alphabet.h"
 #include "esl_arr2.h"
 #include "esl_arr3.h"
+#include "esl_dsq.h"
 #include "esl_getopts.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
@@ -248,7 +249,7 @@ main(int argc, char **argv)
 	small = large = -1;
 	for (i = 0; i < msa->nseq; i++)
 	  {
-	    rlen  = esl_abc_dsqrlen(msa->abc, msa->ax[i]);
+	    rlen  = esl_dsq_GetRawLen(msa->abc, msa->ax[i]);
 	    nres += rlen;
 	    if (small == -1 || rlen < small) small = rlen;
 	    if (large == -1 || rlen > large) large = rlen;

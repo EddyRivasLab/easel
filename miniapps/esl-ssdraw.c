@@ -14,10 +14,12 @@
 #include <time.h>
 
 #include "easel.h"
+#include "esl_alphabet.h"
 #include "esl_arr2.h"
 #include "esl_arr3.h"
 #include "esl_distance.h"
 #include "esl_dmatrix.h"
+#include "esl_dsq.h"
 #include "esl_fileparser.h"
 #include "esl_getopts.h"
 #include "esl_keyhash.h"
@@ -4185,7 +4187,7 @@ int count_msa(const ESL_ALPHABET *abc, ESL_MSA *msa, char *errbuf, double ***ret
   for(i = 0; i < msa->nseq; i++) { 
     seen_start = FALSE;
     epos       = 0;       // all seqs should have at least one residue, so we only need to initialize epos to make static analyzers happy.
-    if((status = esl_abc_Digitize(abc, msa->aseq[i], tmp_dsq)) != eslOK) ESL_FAIL(status, errbuf, "problem digitizing sequence %d", i);
+    if((status = esl_dsq_Digitize(abc, msa->aseq[i], tmp_dsq)) != eslOK) ESL_FAIL(status, errbuf, "problem digitizing sequence %d", i);
     for(apos = 0; apos < msa->alen; apos++) { /* update appropriate abc count, careful, tmp_dsq ranges from 1..msa->alen (not 0..msa->alen-1) */
       if((status = esl_abc_DCount(abc, abc_ct[apos], tmp_dsq[apos+1], 1.0)) != eslOK) ESL_FAIL(status, errbuf, "problem counting nucleotide %d of seq %d", apos, i);
       if(! esl_abc_XIsGap(abc, tmp_dsq[apos+1])) { 

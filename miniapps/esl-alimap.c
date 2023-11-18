@@ -12,7 +12,9 @@
 #include <limits.h>
 
 #include "easel.h"
+#include "esl_alphabet.h"
 #include "esl_distance.h"
+#include "esl_dsq.h"
 #include "esl_fileparser.h"
 #include "esl_getopts.h"
 #include "esl_sq.h"
@@ -243,8 +245,8 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, int 
   total_res = 0;
   for(i = 0; i < msa1->nseq; i++) { 
     /* ensure raw (unaligned) seq i in the 2 msas is the same */
-    esl_abc_Textize(msa1->abc, msa1->ax[i], alen1, seq1); 
-    esl_abc_Textize(msa1->abc, msa2->ax[i], alen2, seq2); /* note: msa*1*->abc used on purpose, allows DNA/RNA to peacefully coexist in this func */
+    esl_dsq_Textize(msa1->abc, msa1->ax[i], alen1, seq1); 
+    esl_dsq_Textize(msa1->abc, msa2->ax[i], alen2, seq2); /* note: msa*1*->abc used on purpose, allows DNA/RNA to peacefully coexist in this func */
     esl_strdealign(seq1, seq1, "-_.~", &len1);
     esl_strdealign(seq2, seq2, "-_.~", &len2);
 

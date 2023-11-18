@@ -14,6 +14,7 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_dsq.h"
 #include "esl_mem.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
@@ -260,8 +261,8 @@ esl_msafile_psiblast_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 
       /* Append the sequence. */
       cur_alen = alen;
-      if (msa->abc)    { status = esl_abc_dsqcat(afp->inmap, &(msa->ax[idx]),   &(cur_alen), afp->line+seq_start, seq_len); }
-      if (! msa->abc)  { status = esl_strmapcat (afp->inmap, &(msa->aseq[idx]), &(cur_alen), afp->line+seq_start, seq_len); }
+      if (msa->abc)    { status = esl_dsq_Append (afp->inmap, &(msa->ax[idx]),   &(cur_alen), afp->line+seq_start, seq_len); }
+      if (! msa->abc)  { status = esl_dsq_CAppend(afp->inmap, &(msa->aseq[idx]), &(cur_alen), afp->line+seq_start, seq_len); }
       if      (status == eslEINVAL)    ESL_XFAIL(eslEFORMAT, afp->errmsg, "one or more invalid sequence characters");
       else if (status != eslOK)        goto ERROR;
       if (cur_alen - alen != seq_len)  ESL_XFAIL(eslEFORMAT, afp->errmsg, "unexpected number of seq characters");

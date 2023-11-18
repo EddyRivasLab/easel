@@ -13,6 +13,7 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_dsq.h"
 #include "esl_msa.h"
 #include "esl_random.h"
 
@@ -339,11 +340,11 @@ esl_msashuffle_XQRNA(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, ESL_DSQ *x, ESL_DSQ *
   char xsym, ysym;
   int  status;
 
-  L = esl_abc_dsqlen(x);
-  if (esl_abc_dsqlen(y) != L) ESL_XEXCEPTION(eslEINVAL, "sequences of different lengths in qrna shuffle");
+  L = esl_dsq_GetLen(x);
+  if (esl_dsq_GetLen(y) != L) ESL_XEXCEPTION(eslEINVAL, "sequences of different lengths in qrna shuffle");
 
-  if (xs != x) esl_abc_dsqcpy(x, L, xs);
-  if (ys != y) esl_abc_dsqcpy(y, L, ys);
+  if (xs != x) esl_dsq_Copy(x, L, xs);
+  if (ys != y) esl_dsq_Copy(y, L, ys);
 
   /* First, construct three arrays containing lists of the column positions
    * of the three types of columns. (If a column contains gaps in both x and y,

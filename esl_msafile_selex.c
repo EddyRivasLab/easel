@@ -33,6 +33,7 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_dsq.h"
 #include "esl_mem.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
@@ -314,7 +315,7 @@ esl_msafile_selex_Write(FILE *fp, const ESL_MSA *msa)
 
       for (i = 0; i < msa->nseq; i++)
 	{
-	  if (msa->abc)   esl_abc_TextizeN(msa->abc, msa->ax[i]+apos+1, cpl, buf);
+	  if (msa->abc)   esl_dsq_TextizeN(msa->abc, msa->ax[i]+apos+1, cpl, buf);
 	  if (! msa->abc) strncpy(buf, msa->aseq[i]+apos, cpl);
 	  if (fprintf(fp, "%-*s %s\n", maxnamelen, msa->sqname[i], buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "selex msa write failed");
 
@@ -685,7 +686,7 @@ selex_append_block(ESL_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
 	      if (msa->alen == 0) msa->ax[seqi][0] = eslDSQ_SENTINEL;
 	      for (alen = msa->alen; alen < msa->alen+nleft;  alen++) msa->ax[seqi][alen+1] = esl_abc_XGetGap(msa->abc);
 
-	      status = esl_abc_dsqcat_noalloc(afp->inmap, msa->ax[seqi], &alen, b->line[idx] + b->lpos[idx], ntext);
+	      status = esl_dsq_Append_noalloc(afp->inmap, msa->ax[seqi], &alen, b->line[idx] + b->lpos[idx], ntext);
 	      if      (status == eslEINVAL) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "illegal residue(s) in sequence line"); }
 	      else if (status != eslOK)     { selex_ErrorInBlock(afp, b, idx); goto ERROR; }
 	      if (alen != msa->alen + nleft + ntext) { selex_ErrorInBlock(afp, b, idx); ESL_EXCEPTION(eslEINCONCEIVABLE, afp->errmsg, "unexpected inconsistency appending a sequence"); };
@@ -699,7 +700,7 @@ selex_append_block(ESL_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
 	      ESL_REALLOC(msa->aseq[seqi], sizeof(char)    * (msa->alen + nadd + 1)); 
 	      for (alen = msa->alen; alen < msa->alen+nleft; alen++) msa->aseq[seqi][alen] = '.';
 
-	      status = esl_strmapcat_noalloc(afp->inmap, msa->aseq[seqi], &alen, b->line[idx] + b->lpos[idx], ntext);
+	      status = esl_dsq_CAppend_noalloc(afp->inmap, msa->aseq[seqi], &alen, b->line[idx] + b->lpos[idx], ntext);
 	      if      (status == eslEINVAL) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "illegal residue(s) in input line"); }
 	      else if (status != eslOK)     { selex_ErrorInBlock(afp, b, idx); goto ERROR; }
 	      if (alen != msa->alen + nleft + ntext) { selex_ErrorInBlock(afp, b, idx); ESL_EXCEPTION(eslEINCONCEIVABLE, afp->errmsg, "unexpected inconsistency appending a sequence"); };

@@ -8,6 +8,8 @@
 #include <ctype.h>
 
 #include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_dsq.h"
 #include "esl_fileparser.h"
 #include "esl_getopts.h"
 #include "esl_sq.h"
@@ -193,11 +195,11 @@ main(int argc, char **argv)
 	    if(strcmp(ka->sqname[i], ta->sqname[i]) != 0) esl_fatal("sequence %d of trusted alignment %s has different name than seq %d of predicted alignment %s\n", (i+1), ka->sqname[i], (i+1), ta->sqname[i]); 
 	    ESL_ALLOC(ks, sizeof(ESL_DSQ) * (ka->alen+2));
 	    memcpy(ks, ka->ax[i], (ka->alen+2) * sizeof(ESL_DSQ));
-	    esl_abc_XDealign(ka->abc, ks, ka->ax[i], &klen);
+	    esl_dsq_Dealign(ka->abc, ks, &klen);
 
 	    ESL_ALLOC(ts, sizeof(ESL_DSQ) * (ta->alen+2));
 	    memcpy(ts, ta->ax[i], (ta->alen+2) * sizeof(ESL_DSQ));
-	    esl_abc_XDealign(ta->abc, ts, ta->ax[i], &tlen);
+	    esl_dsq_Dealign(ta->abc, ts, &tlen);
 
 	    if (tlen != klen)
 	      esl_fatal("dealigned sequence mismatch, seq %d, when dealigned, is %d residues in the known alignment, but %d residues in the trusted alignment.", (i+1), klen, tlen);

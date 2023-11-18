@@ -110,6 +110,7 @@ HDRS = 	easel.h\
 	esl_dirichlet.h\
 	esl_distance.h\
 	esl_dmatrix.h\
+	esl_dsq.h\
 	esl_dsqdata.h\
 	esl_exponential.h\
 	esl_fileparser.h\
@@ -193,6 +194,7 @@ OBJS =	easel.o\
 	esl_dirichlet.o\
 	esl_distance.o\
 	esl_dmatrix.o\
+	esl_dsq.o\
 	esl_dsqdata.o\
 	esl_exponential.o\
 	esl_fileparser.o\
@@ -288,6 +290,7 @@ UTESTS =\
 	esl_buffer_utest\
 	esl_cluster_utest\
 	esl_cpu_utest\
+	esl_dsq_utest\
 	esl_dirichlet_utest\
 	esl_distance_utest\
 	esl_dmatrix_utest\
@@ -432,6 +435,7 @@ EXAMPLES = \
         esl_dirichlet_example\
 	esl_distance_example\
         esl_dmatrix_example\
+	esl_dsq_example\
         esl_dsqdata_example\
         esl_dsqdata_example2\
         esl_exponential_example\

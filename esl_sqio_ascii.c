@@ -29,6 +29,7 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_dsq.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
 #include "esl_sqio.h"
@@ -3172,7 +3173,7 @@ esl_sqascii_WriteFasta(FILE *fp, ESL_SQ *sq, int save_offsets)
   if (save_offsets) sq->doff = ftello(fp);
   for (pos = 0; pos < sq->n; pos += 60)
   {
-      if (sq->dsq != NULL) esl_abc_TextizeN(sq->abc, sq->dsq+pos+1, 60, buf);
+      if (sq->dsq != NULL) esl_dsq_TextizeN(sq->abc, sq->dsq+pos+1, 60, buf);
       else                 strncpy(buf, sq->seq+pos, 60);
       if (fprintf(fp, "%s\n", buf) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "fasta seq write failed");
   }

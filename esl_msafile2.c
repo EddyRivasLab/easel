@@ -27,6 +27,7 @@
 #include "esl_alphabet.h"	/* digital alphabet                                                   */
 #include "esl_arr2.h"
 #include "esl_arr3.h"
+#include "esl_dsq.h"
 #include "esl_keyhash.h"	/* string hashes, for mapping unique seq names                        */
 #include "esl_msa.h"		/* ESL_MSA structure                                                  */
 #include "esl_msafile.h"	/* preferred msafile interface, inc. fmt codes shared w/ ESL_MSAFILE2 */
@@ -584,7 +585,7 @@ esl_msafile2_ReadInfoPfam(ESL_MSAFILE2 *afp, FILE *listfp, ESL_ALPHABET *abc, in
 	    else if(alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad aligned seq line, len %d, expected %" PRId64, afp->linenumber, textlen, alen);
 	    if(opt_abc_ct != NULL || opt_bp_ct != NULL) { 
 	      /* update appropriate abc and/or bp count. first, digitize the text */
-	      if((status = esl_abc_Digitize(abc, text, tmp_dsq)) != eslOK) ESL_XFAIL(status, afp->errbuf, "small mem parse failed (line %d): problem digitizing sequence", afp->linenumber);
+	      if((status = esl_dsq_Digitize(abc, text, tmp_dsq)) != eslOK) ESL_XFAIL(status, afp->errbuf, "small mem parse failed (line %d): problem digitizing sequence", afp->linenumber);
 	    }
 	    if(opt_abc_ct != NULL) { 
 	      for(apos = 0; apos < alen; apos++) { /* update appropriate abc count, careful, tmp_dsq ranges from 1..alen (not 0..alen-1) */

@@ -31,14 +31,20 @@
 #
 # It assumes you have 'sloccount' installed, so it can count 
 # ANSI C lines in files with no test driver. If you don't, use
-#    ./coverage_report.pl -s
+#    ../testsuite/coverage_report.pl -s . ..
+#
+# On OS/X, use a proper GNU gcov, not the OS/X default which is not
+# a real gcov. Specify the gcov path with -g <gcov>, e.g.:
+#    ../testsuite/coverage_report.pl -g gcov-13 . ..
 
 
 use Getopt::Std;
 use File::Basename;
 $have_sloccount = 1;
-getopts('s');
-if ($opt_s) { $have_sloccount   = 0; }
+$gcov           = "gcov";
+getopts('sg:');
+if ($opt_s) { $have_sloccount = 0;      }   # -s: sloccount not installed; don't try to use it
+if ($opt_g) { $gcov           = $opt_g; }   # -g <gcov>: use a different gcov program; e.g. `-g gcov-13`
 
 if ($#ARGV+1 != 2) { die("Usage: coverage_report.pl <top_builddir> <top_srcdir>"); }
 $top_builddir = shift;
@@ -83,7 +89,7 @@ foreach $module (@modules) {
     if ($? != 0) { printf("%40s[UTEST FAILED ]\n", "");       next; };
     $nsuccess++;
 
-    $output = `(cd $top_builddir; gcov $basecfile)`;
+    $output = `(cd $top_builddir; $gcov $progname-$basecfile)`;
     if ($output =~ /File.*$basecfile.*\nLines executed:\s*(\d+\.\d+)% of\s+(\d+)/) {
 	$pct_cvg        = $1;
 	$nlines         += $2;

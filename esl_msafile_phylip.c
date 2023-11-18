@@ -21,6 +21,7 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_dsq.h"
 #include "esl_mem.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
@@ -442,8 +443,8 @@ phylip_interleaved_Read(ESL_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_s
       
       /* Append the sequence. */
       cur_alen = alen;
-      if (msa->abc)    { status = esl_abc_dsqcat(afp->inmap, &(msa->ax[idx]),   &(cur_alen), p, n); }
-      if (! msa->abc)  { status = esl_strmapcat (afp->inmap, &(msa->aseq[idx]), &(cur_alen), p, n); }
+      if (msa->abc)    { status = esl_dsq_Append (afp->inmap, &(msa->ax[idx]),   &(cur_alen), p, n); }
+      if (! msa->abc)  { status = esl_dsq_CAppend(afp->inmap, &(msa->aseq[idx]), &(cur_alen), p, n); }
       if      (status == eslEINVAL)    ESL_XFAIL(eslEFORMAT, afp->errmsg, "one or more invalid sequence characters");
       else if (status != eslOK)        goto ERROR;
 
@@ -511,7 +512,7 @@ phylip_interleaved_Write(FILE *fp, const ESL_MSA *msa, ESL_MSAFILE_FMTDATA *opt_
 	{
 	  if (msa->abc) 
 	    {
-	      esl_abc_TextizeN(msa->abc, msa->ax[idx]+apos+1, rpl, buf);
+	      esl_dsq_TextizeN(msa->abc, msa->ax[idx]+apos+1, rpl, buf);
 	      phylip_rectify_output_seq_digital(buf);
 	    }
 	  if (! msa->abc) 
@@ -571,8 +572,8 @@ phylip_sequential_Read(ESL_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_st
 	      n -= namewidth;
 	    }
 	  
-	  if (msa->abc)    { status = esl_abc_dsqcat(afp->inmap, &(msa->ax[idx]),   &alen, p, n); }
-	  if (! msa->abc)  { status = esl_strmapcat (afp->inmap, &(msa->aseq[idx]), &alen, p, n); }
+	  if (msa->abc)    { status = esl_dsq_Append (afp->inmap, &(msa->ax[idx]),   &alen, p, n); }
+	  if (! msa->abc)  { status = esl_dsq_CAppend(afp->inmap, &(msa->aseq[idx]), &alen, p, n); }
 	  if      (status == eslEINVAL)    ESL_XFAIL(eslEFORMAT, afp->errmsg, "one or more invalid sequence characters");
 	  else if (status != eslOK)        goto ERROR;
 
@@ -626,7 +627,7 @@ phylip_sequential_Write(FILE *fp, const ESL_MSA *msa, ESL_MSAFILE_FMTDATA *opt_f
 	{
 	  if (msa->abc) 
 	    {
-	      esl_abc_TextizeN(msa->abc, msa->ax[idx]+apos+1, rpl, buf);
+	      esl_dsq_TextizeN(msa->abc, msa->ax[idx]+apos+1, rpl, buf);
 	      phylip_rectify_output_seq_digital(buf);
 	    }
 	  if (! msa->abc) 

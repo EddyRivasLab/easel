@@ -6,6 +6,7 @@
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_distance.h"
+#include "esl_dsq.h"
 #include "esl_getopts.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
@@ -107,7 +108,7 @@ alistat_oneline(const char *msafile, ESL_MSAFILE *afp)
       smallest = largest = -1;
       for (i = 0; i < msa->nseq; i++)
 	{
-	  rlen  = esl_abc_dsqrlen(msa->abc, msa->ax[i]); 
+	  rlen  = esl_dsq_GetRawLen(msa->abc, msa->ax[i]); 
 	  nres += rlen;  // <nres> output is deferred to next time around the loop
 	  if (smallest == -1 || rlen < smallest) smallest = rlen;
 	  if (largest  == -1 || rlen > largest)  largest  = rlen;
@@ -161,7 +162,7 @@ alistat_default(const char *msafile, ESL_MSAFILE *afp)
       smallest = largest = -1;
       for (i = 0; i < msa->nseq; i++)
 	{
-	  rlen  = esl_abc_dsqrlen(msa->abc, msa->ax[i]); 
+	  rlen  = esl_dsq_GetRawLen(msa->abc, msa->ax[i]); 
 	  nres += rlen; 
 	  if (smallest == -1 || rlen < smallest) smallest = rlen;
 	  if (largest  == -1 || rlen > largest)  largest  = rlen;

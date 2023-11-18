@@ -25,6 +25,7 @@
 #include "esl_bitfield.h"
 #include "esl_arr2.h"
 #include "esl_arr3.h"
+#include "esl_dsq.h"
 #include "esl_keyhash.h"
 #include "esl_mem.h"
 #include "esl_random.h"
@@ -895,7 +896,7 @@ esl_msa_Digitize(const ESL_ALPHABET *abc, ESL_MSA *msa, char *errbuf)
   for (i = 0; i < msa->nseq; i++)
     {
       ESL_ALLOC(msa->ax[i], (msa->alen+2) * sizeof(ESL_DSQ));
-      status = esl_abc_Digitize(abc, msa->aseq[i], msa->ax[i]);
+      status = esl_dsq_Digitize(abc, msa->aseq[i], msa->ax[i]);
       if (status != eslOK) goto ERROR;
       free(msa->aseq[i]);
     }    
@@ -950,7 +951,7 @@ esl_msa_Textize(ESL_MSA *msa)
   for (i = 0; i < msa->nseq; i++)
     {
       ESL_ALLOC(msa->aseq[i], (msa->alen+1) * sizeof(char));
-      status = esl_abc_Textize(msa->abc, msa->ax[i], msa->alen, msa->aseq[i]);
+      status = esl_dsq_Textize(msa->abc, msa->ax[i], msa->alen, msa->aseq[i]);
       if (status != eslOK) goto ERROR;
       free(msa->ax[i]);
     }
@@ -995,7 +996,7 @@ esl_msa_ConvertDegen2X(ESL_MSA *msa)
   if (! (msa->flags & eslMSA_DIGITAL)) ESL_EXCEPTION(eslEINVAL, "esl_msa_ConvertDegen2X only works on digital sequences");
   
   for (i = 0; i < msa->nseq; i++)
-    if ((status = esl_abc_ConvertDegen2X(msa->abc, msa->ax[i])) != eslOK) return status;
+    if ((status = esl_dsq_Degen2X(msa->abc, msa->ax[i])) != eslOK) return status;
 
   return eslOK;
 }
@@ -2948,7 +2949,7 @@ msa_get_rlen(const ESL_MSA *msa, int seqidx)
   int     pos;
 
 
-  if (msa->flags & eslMSA_DIGITAL) rlen = esl_abc_dsqrlen(msa->abc, msa->ax[seqidx]);
+  if (msa->flags & eslMSA_DIGITAL) rlen = esl_dsq_GetRawLen(msa->abc, msa->ax[seqidx]);
 
   if (! (msa->flags & eslMSA_DIGITAL))
     {
@@ -3007,7 +3008,7 @@ esl_msa_ReverseComplement(ESL_MSA *msa)
 
   for (i = 0; i < msa->nseq; i++)
     {
-      if ((status = esl_abc_revcomp(msa->abc, msa->ax[i], msa->alen)) != eslOK) goto ERROR;
+      if ((status = esl_dsq_Revcomp(msa->abc, msa->ax[i], msa->alen)) != eslOK) goto ERROR;
       if (msa->ss && msa->ss[i]) esl_wuss_reverse(msa->ss[i], msa->ss[i]);
       if (msa->sa && msa->sa[i]) esl_vec_CReverse(msa->sa[i], msa->sa[i], msa->alen);
       if (msa->pp && msa->pp[i]) esl_vec_CReverse(msa->pp[i], msa->pp[i], msa->alen);
@@ -3159,7 +3160,7 @@ esl_msa_Validate(const ESL_MSA *msa, char *errmsg)
       if (msa->flags & eslMSA_DIGITAL)
 	{
 	  if (! msa->ax || ! msa->ax[idx])               ESL_FAIL(eslFAIL, errmsg, "seq %d: no sequence", idx); 
-	  if (esl_abc_dsqlen(msa->ax[idx]) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "seq %d: wrong length", idx);
+	  if (esl_dsq_GetLen(msa->ax[idx]) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "seq %d: wrong length", idx);
 	}
 
       if (! (msa->flags & eslMSA_DIGITAL))

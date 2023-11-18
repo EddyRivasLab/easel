@@ -10,9 +10,11 @@
 #include <limits.h>
 
 #include "easel.h"
+#include "esl_alphabet.h"
 #include "esl_arr2.h"
 #include "esl_distance.h"
 #include "esl_dmatrix.h"
+#include "esl_dsq.h"
 #include "esl_fileparser.h"
 #include "esl_getopts.h"
 #include "esl_keyhash.h"
@@ -1090,8 +1092,8 @@ static int trim_msa(ESL_MSA *msa, ESL_SQ **sq, int do_keeprf, char *errbuf)
 	  ua2a_map[a2ua_map[apos]] = apos;
 
       ESL_ALLOC(uasubseq, sizeof(char) * (sq[i]->n+1));
-      esl_abc_Textize(msa->abc, sq[i]->dsq, sq[i]->n, uasubseq);
-      esl_abc_Textize(msa->abc, msa->ax[i], msa->alen, aseq);
+      esl_dsq_Textize(msa->abc, sq[i]->dsq, sq[i]->n, uasubseq);
+      esl_dsq_Textize(msa->abc, msa->ax[i], msa->alen, aseq);
 
       esl_strdup(aseq, -1, &(uaseq));
       esl_strdealign(uaseq, uaseq, "-_.~", NULL);

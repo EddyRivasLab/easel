@@ -17,6 +17,7 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_dsq.h"
 #include "esl_mem.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
@@ -291,8 +292,8 @@ esl_msafile_a2m_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 	  }
 	csflag[nseq][spos] = TRUE; /* need a sentinel, because of the way the padding functions work */
 
-	if (msa->abc)   { status = esl_abc_dsqcat(afp->inmap, &(msa->ax[nseq]),   &thislen, p, n); } 
-	if (! msa->abc) { status = esl_strmapcat (afp->inmap, &(msa->aseq[nseq]), &thislen, p, n); }
+	if (msa->abc)   { status = esl_dsq_Append (afp->inmap, &(msa->ax[nseq]),   &thislen, p, n); } 
+	if (! msa->abc) { status = esl_dsq_CAppend(afp->inmap, &(msa->aseq[nseq]), &thislen, p, n); }
 	if (status == eslEINVAL)   ESL_XFAIL(eslEFORMAT, afp->errmsg, "one or more invalid sequence characters");
 	else if (status != eslOK)  goto ERROR;
 	ESL_DASSERT1( (spos == thislen) );

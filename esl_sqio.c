@@ -32,6 +32,7 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_dsq.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
 #include "esl_sqio.h"
@@ -1397,7 +1398,7 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
       if ((status = esl_strdup(sq->desc, -1, &(msa->sqdesc[0]))) != eslOK) goto ERROR;
     }
 
-  if (sq->dsq != NULL) esl_abc_dsqcpy(sq->dsq, sq->n, msa->ax[0]);
+  if (sq->dsq != NULL) esl_dsq_Copy(sq->dsq, sq->n, msa->ax[0]);
   else                 strcpy(msa->aseq[0], sq->seq);
   
   if (sq->ss != NULL)
@@ -1694,6 +1695,7 @@ benchmark_mmap(char *filename, int bufsize, int64_t *ret_magic)
  *#  10. Unit tests
  *****************************************************************/ 
 #ifdef eslSQIO_TESTDRIVE
+
 #include "esl_keyhash.h"
 #include "esl_random.h"
 #include "esl_randomseq.h"
@@ -1801,7 +1803,7 @@ write_ugly_fasta(ESL_RANDOMNESS *r, FILE *fp, ESL_SQ *sq)
   for (pos = 1; pos <= sq->n; pos+=60)
     {
       while (esl_rnd_Roll(r, 10) == 0) fputc(' ', fp);
-      esl_abc_TextizeN(sq->abc, sq->dsq+pos, 60, buf);
+      esl_dsq_TextizeN(sq->abc, sq->dsq+pos, 60, buf);
       fputs(buf, fp);
       fputc('\n', fp);
     }
@@ -1826,7 +1828,7 @@ write_spaced_fasta(FILE *fp, ESL_SQ *sq)
   buf[10]  = '\0';
   for (pos = 1; pos <= sq->n; pos += 10)
     {
-      esl_abc_TextizeN(sq->abc, sq->dsq+pos, 10, buf);
+      esl_dsq_TextizeN(sq->abc, sq->dsq+pos, 10, buf);
       fputs(buf, fp);
       if (pos+9 >= sq->n || (pos+9) % 60 == 0) fputc('\n',  fp);
       else                                     fputc(' ', fp);

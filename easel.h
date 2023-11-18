@@ -9,10 +9,9 @@
  *   3. Macros implementing Easel function argument conventions
  *   4. Macros implementing Easel debugging output conventions
  *   5. Defined constants
- *   6. Basic support for Easel digitized biosequences
- *   7. Using optional compiler attributes
- *   8. Miscellaneous
- *   9. API declarations of easel.c
+ *   6. Using optional compiler attributes
+ *   7. Miscellaneous
+ *   8. API declarations of easel.c
  */
 #ifndef eslEASEL_INCLUDED
 #define eslEASEL_INCLUDED
@@ -332,42 +331,7 @@
 
 
 /*****************************************************************
- * 6. Basic support for Easel's digitized biosequences.
- *****************************************************************/
-
-/* Most of this support is in the alphabet module, but we externalize 
- * some into the easel foundation because ESL_INMAP is used in 
- * sqio, msa modules.
- * 
- * A digital sequence residue (ESL_DSQ) is an unsigned 8-bit type
- * (0..255).  A valid digital residue has a value in the range 0..127
- * (Easel can represent alphabets of up to 128 different characters).
- * Values 128..255 are reserved for flags.
- *
- * An "inmap" is ESL_DSQ[128], or *ESL_DSQ allocated for 128 values;
- * it is a many-to-one construct for mapping 7-bit ASCII chars (in
- * range 0..127) either to new ASCII chars (in the case of raw
- * sequence input in sqio, msa) or to digital codes (in the alphabet
- * module).  Valid mapped values are 0..127; any value in range
- * 128..255 is some kind of flag.
- */
-typedef uint8_t ESL_DSQ;
-#define eslDSQ_SENTINEL 255	/* sentinel bytes 0,L+1 in a dsq */
-#define eslDSQ_ILLEGAL  254	/* input symbol is unmapped and unexpected */
-#define eslDSQ_IGNORED  253     /* input symbol is unmapped and ignored */
-#define eslDSQ_EOL      252	/* input symbol marks end of a line */
-#define eslDSQ_EOD      251     /* input symbol marks end of a seq record */
-
-/* If you try to test sym > 0 && sym <= 127 below, instead of isascii(sym),
- * you'll get a compiler warning for an always-successful test regardless
- * of whether a char is signed or unsigned. So we trust that isascii() is
- * doing the Right Thing.
- */
-#define esl_inmap_IsValid(inmap, sym)  (isascii(sym) && (inmap)[(int)sym] <= 127)
-
-
-/*****************************************************************
- * 7. Using optional compiler attributes
+ * 6. Using optional compiler attributes
  *****************************************************************/
 /* It's convenient to be able to use some optional features of
  * gcc-like compilers, especially when developing, but we have to be
@@ -407,7 +371,7 @@ typedef uint8_t ESL_DSQ;
 
 
 /*****************************************************************
- * 8. Miscellaneous.
+ * 7. Miscellaneous.
  *****************************************************************/
 /* A placeholder for helping w/ portability of filenames/paths.
  * I think, but have not tested, that:
@@ -455,7 +419,7 @@ typedef int64_t esl_pos_t;
 
 
 /*****************************************************************
- * 9. The API declarations for easel.c
+ * 8. The API declarations for easel.c
  *****************************************************************/
 
 /* 1. Error handling. */
@@ -484,8 +448,6 @@ extern int  esl_fprintf(FILE *fp, const char *format, ...);
 extern int  esl_printf(const char *format, ...);
 extern int  esl_strdup(const char *s, int64_t n, char **ret_dup);
 extern int  esl_strcat(char **dest, int64_t ldest, const char *src, int64_t lsrc);
-extern int  esl_strmapcat        (const ESL_DSQ *inmap, char **dest, int64_t *ldest, const char *src, esl_pos_t lsrc);
-extern int  esl_strmapcat_noalloc(const ESL_DSQ *inmap,  char *dest, int64_t *ldest, const char *src, esl_pos_t lsrc);
 extern int  esl_strtok    (char **s, char *delim, char **ret_tok);
 extern int  esl_strtok_adv(char **s, char *delim, char **ret_tok, int *opt_toklen, char *opt_endchar);
 extern int  esl_sprintf (char **ret_s, const char *format, ...);

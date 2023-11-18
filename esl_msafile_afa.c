@@ -15,6 +15,7 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_dsq.h"
 #include "esl_mem.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
@@ -216,19 +217,19 @@ esl_msafile_afa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 
     /* The code below will do a realloc on every line. Possible optimization: once you know
      * alen (from first sequence), allocate subsequent seqs once, use noalloc versions of
-     * esl_strmapcat/esl_abc_dsqcat(). Requires implementing protection against overrun, if
+     * esl_dsq_CAppend()/esl_dsq_Append(). Requires implementing protection against overrun, if
      * input is bad and a sequence is too long. Could gain ~25% or so that way (quickie
      * test on PF00005 Full)
      */
     this_alen = 0;
     while ((status = esl_msafile_GetLine(afp, &p, &n)) == eslOK)
     {
-      while (n && isspace(*p)) { p++; n--; } /* tolerate and skip leading whitespace on line */
-      if (n  == 0)   continue;	       /* tolerate and skip blank lines */
+      while (n && isspace(*p)) { p++; n--; } // tolerate and skip leading whitespace on line
+      if (n  == 0)   continue;	             // tolerate and skip blank lines
       if (*p == '>') break;
 
-      if (msa->abc)   { status = esl_abc_dsqcat(afp->inmap, &(msa->ax[idx]),   &this_alen, p, n); }
-      if (! msa->abc) { status = esl_strmapcat (afp->inmap, &(msa->aseq[idx]), &this_alen, p, n); }
+      if (msa->abc)   { status = esl_dsq_Append (afp->inmap, &(msa->ax[idx]),   &this_alen, p, n); }
+      if (! msa->abc) { status = esl_dsq_CAppend(afp->inmap, &(msa->aseq[idx]), &this_alen, p, n); }
       if (status == eslEINVAL)   ESL_XFAIL(eslEFORMAT, afp->errmsg, "one or more invalid sequence characters");
       else if (status != eslOK)  goto ERROR;
     }
@@ -292,7 +293,7 @@ esl_msafile_afa_Write(FILE *fp, const ESL_MSA *msa)
 	{
 	  acpl = (msa->alen - pos > 60)? 60 : msa->alen - pos;
 
-	  if (msa->abc)   esl_abc_TextizeN(msa->abc, msa->ax[i] + pos + 1, acpl, buf);
+	  if (msa->abc)   esl_dsq_TextizeN(msa->abc, msa->ax[i] + pos + 1, acpl, buf);
 	  if (! msa->abc) strncpy(buf, msa->aseq[i] + pos, acpl);
 
 	  buf[acpl] = '\0';

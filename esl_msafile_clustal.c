@@ -19,6 +19,7 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_dsq.h"
 #include "esl_mem.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
@@ -265,8 +266,8 @@ esl_msafile_clustal_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 
       /* Append the sequence. */
       cur_alen = alen;
-      if (msa->abc)    { status = esl_abc_dsqcat(afp->inmap, &(msa->ax[idx]),   &(cur_alen), p+seq_start, seq_len); }
-      if (! msa->abc)  { status = esl_strmapcat (afp->inmap, &(msa->aseq[idx]), &(cur_alen), p+seq_start, seq_len); }
+      if (msa->abc)    { status = esl_dsq_Append (afp->inmap, &(msa->ax[idx]),   &(cur_alen), p+seq_start, seq_len); }
+      if (! msa->abc)  { status = esl_dsq_CAppend(afp->inmap, &(msa->aseq[idx]), &(cur_alen), p+seq_start, seq_len); }
       if      (status == eslEINVAL)    ESL_XFAIL(eslEFORMAT, afp->errmsg, "one or more invalid sequence characters");
       else if (status != eslOK)        goto ERROR;
       if (cur_alen - alen != seq_len) ESL_XFAIL(eslEFORMAT, afp->errmsg, "unexpected number of seq characters");
@@ -372,7 +373,7 @@ esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa, int fmt)
       if (fprintf(fp, "\n") < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "clustal msa write failed"); 
       for (i = 0; i < msa->nseq; i++)
 	{
-	  if (msa->abc)   esl_abc_TextizeN(msa->abc, msa->ax[i]+apos+1, cpl, buf);
+	  if (msa->abc)   esl_dsq_TextizeN(msa->abc, msa->ax[i]+apos+1, cpl, buf);
 	  if (! msa->abc) strncpy(buf, msa->aseq[i]+apos, cpl);
 	  if (fprintf(fp, "%-*s %s\n", maxnamelen, msa->sqname[i], buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "clustal msa write failed"); 
 	}
