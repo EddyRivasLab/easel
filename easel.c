@@ -1503,7 +1503,7 @@ esl_str_IsBlank(char *s)
  *            by the rules of <strtol()> or <atoi()>. 
  *            
  *            Leading and trailing whitespace is allowed, but otherwise
- *            the entire string <s> must be convertable. (Unlike <strtol()>
+ *            the entire string <s> must be convertible. (Unlike <strtol()>
  *            itself, which will convert a prefix. ' 99 foo' converts
  *            to 99, but <esl_str_IsInteger()> will return FALSE.
  *            

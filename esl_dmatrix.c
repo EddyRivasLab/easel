@@ -763,7 +763,7 @@ esl_dmx_Sum(const ESL_DMATRIX *A)
  * Incept:    SRE, Thu Mar 15 17:59:35 2007 [Janelia]
  *
  * Purpose:   Calculates the Frobenius norm of a matrix, which
- *            is the element-wise equivalant of a 
+ *            is the element-wise equivalent of a 
  *            Euclidean vector norm: 
  *               $ = \sqrt(\sum a_{ij}^2)$
  *

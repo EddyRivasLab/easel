@@ -387,7 +387,7 @@ esl_sqio_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
  *
  * Purpose:   Read the next sequence from open sequence file <sqfp>,
  *            skipping over the header data.  Upon successful return, 
- *            <s> holds just the sequece data.  File offsets will be
+ *            <s> holds just the sequence data.  File offsets will be
  *            filled in.
  *            
  *            This is useful fast reads of binary formats where the
@@ -1128,7 +1128,7 @@ esl_sqfile_Cache(const ESL_ALPHABET *abc, const char *seqfile, int fmt, const ch
   /* if we can't rewind the database, stop now.  */
   if (!esl_sqfile_IsRewindable(sqfp)) return eslFAIL;
 
-  /* loop through the database reading all the sequnces */
+  /* loop through the database reading all the sequences */
   max = 0;
   count = 0;
   sq  = esl_sq_CreateDigital(abc);

@@ -169,7 +169,7 @@ main(int argc, char **argv)
       puts("\n  Only one usage listed above can be used per execution with the exception of");
       puts("  -p and -g, which can be used in combination with each other.\n");
       puts("  With -t, <coords> is a string that specifies positive integer start and end");
-      puts("  coordinates seperated by any nonnumeric, nonspace character(s).");
+      puts("  coordinates separated by any nonnumeric, nonspace character(s).");
       puts("  For example, \"23..100\" or \"23/100\" or \"23-100\" all specify that columns");
       puts("  23 to 100 be kept and all other columns be removed. Additionally, to retrieve");
       puts("  all columns from a position to the end, omit the end coord; \"23:\" will work.");

@@ -1097,7 +1097,7 @@ static int trim_msa(ESL_MSA *msa, ESL_SQ **sq, int do_keeprf, char *errbuf)
 
       esl_strdup(aseq, -1, &(uaseq));
       esl_strdealign(uaseq, uaseq, "-_.~", NULL);
-      offset = strstr(uaseq, uasubseq); /* we'll replace the first occurence of uasubseq in uaseq */
+      offset = strstr(uaseq, uasubseq); /* we'll replace the first occurrence of uasubseq in uaseq */
       if(offset == NULL) ESL_FAIL(eslEINVAL, errbuf, "in trim_msa(), sq[%d] is not a subseq of msa seq %d\n", i, i);
       uastart = offset  - uaseq + 1;
       uaend   = uastart + strlen(uasubseq) - 1;
@@ -2253,7 +2253,7 @@ insert_x_diffmx(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int rflen, in
  * float   mindiff      - the minimum fractional difference allowed between 2 seqs of different clusters
  *                        (0. indicates mode 2 or 3) 
  * int     target_nc    - if(do_nc) number of clusters to define, else irrelevant
- * int     target_nsize - if(do_nsize) min size of largets cluster, else irrelevant
+ * int     target_nsize - if(do_nsize) min size of largest cluster, else irrelevant
  * int     *ret_num_msa - number of MSAs in ret_MSA
  * ESL_MSA  ***ret_cmsa - new MSAs, one for each cluster
  * ESL_MSA  *ret_xsize  - max size of a cluster
@@ -2356,7 +2356,7 @@ MSADivide(ESL_MSA *mmsa, ESL_DMATRIX *D, int do_mindiff, int do_nc, int do_nsize
     if(target_nsize > (T->N)) target_nsize = T->N; /* max num clusters is num seqs */
     if((status = find_mindiff(T, diff, TRUE, target_nsize, &clust, &nc, &xsize, &best, &mindiff, errbuf)) != eslOK) return status;
     printf("# Alignment split into %d clusters.\n", nc);
-    printf("# Largets cluster contains %d sequences.\n", xsize);
+    printf("# Largest cluster contains %d sequences.\n", xsize);
     printf("# Maximum identity b/t any 2 seqs in different clusters: %.2f\n", (1.-mindiff));
     printf("#\n");
   }

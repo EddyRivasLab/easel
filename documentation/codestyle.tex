@@ -133,7 +133,7 @@ advocate. Easel module code is designed to be \emph{read}, to be
 \emph{self-documenting}, to contain its own \emph{testing methods},
 and to provide useful \emph{working examples}.  Thus the size of the
 files is a little deceptive, compared to C code that's solely
-implementating some functions. In general, only about a a quarter of
+implementing some functions. In general, only about a a quarter of
 an Easel module's \ccode{.c} file is the actual module implementation.
 Typically, around half of an Easel \ccode{.c} file is documentation,
 and much of this gets automatically parsed into the PDF userguide. The
@@ -870,7 +870,7 @@ use \ccode{\_Build()} instead. A caller is allowed to assume that a
 \ccode{NULL} return from \ccode{\_Create()} is equivalent to
 \ccode{eslEMEM}.)
 
-The internals of some resizeable objects have an \ccode{nredline}
+The internals of some resizable objects have an \ccode{nredline}
 parameter that controls an additional memory management rule. These
 objects are allowed to grow to arbitrary size (either by doubling with
 \ccode{\_Grow} or by a specific allocation with \ccode{\_Reinit} or
@@ -881,11 +881,11 @@ a \ccode{\_Reuse()} or \ccode{\_Reinit()} call will shrink the
 allocation back to the \ccode{nredline} limit.  The idea is for a
 frequently-reused object to be able to briefly handle a rare
 exceptionally large problem, while not permanently committing the
-resizeable object to an extreme allocation size.
+resizable object to an extreme allocation size.
 
 At least one module (\ccode{esl\_tree}) allows for creating either a
-fixed-size or a resizeable object; in this case, there is a
-\ccode{\_CreateGrowable()} call for the resizeable version.
+fixed-size or a resizable object; in this case, there is a
+\ccode{\_CreateGrowable()} call for the resizable version.
 
 
 
@@ -1120,7 +1120,7 @@ growable, it typically would keep the last allocation size, and it
 must keep at least the same allocation size that a default
 \ccode{\_Create()} call would give.
 
-If the object is arbitrarily resizeable and it has a \ccode{nredline}
+If the object is arbitrarily resizable and it has a \ccode{nredline}
 control on its memory, the allocation is shrunk back to
 \ccode{nredline} (which must be at least the default initial
 allocation).

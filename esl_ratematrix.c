@@ -398,7 +398,7 @@ esl_rmx_ValidateQ(ESL_DMATRIX *Q, double tol, char *errbuf)
  *
  * Args:      Q     - rate matrix to normalize
  *            pi    - stationary residue frequencies
- *            unit  - expected subsitution rate per dt 
+ *            unit  - expected substitution rate per dt
  *                    (1.0 = substitutions/site; 0.01 = PAMs)
  *
  * Returns:   <eslOK> on success, and matrix Q is rescaled.

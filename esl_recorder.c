@@ -537,7 +537,7 @@ linearray_reverse(ESL_RECORDER *rc, int pos, int n)
  * In general, must succeed, returning <eslOK>. If new baseline
  * is <= old one, throws <eslEINVAL>, but you shouldn't do that.
  * 
- * This is done in place in O(1) memory (no addiional or temporary
+ * This is done in place in O(1) memory (no additional or temporary
  * allocation) and O(nalloc) time, using a trick: we can redo any
  * circular permutation by no more than four in-place substring
  * reversals:

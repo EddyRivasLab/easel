@@ -552,7 +552,7 @@ static ESL_OPTIONS options[] = {
   { "--no-ntpp", eslARG_NONE, FALSE, NULL, NULL, NULL,"--indi", "--no-pp", "w/--indi, do not draw nts on individual post prob diagrams", 9 },
 
   { "--no-cnt", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,       NULL,       "do not draw consensus nts on alignment summary diagrams", 7 },
-  { "--cthresh",eslARG_REAL, "0.75", NULL,"0<x<=1.0", NULL,NULL, "--no-cnt", "capitalize cons nts occuring in >= <x> fraction of seqs", 7 },
+  { "--cthresh",eslARG_REAL, "0.75", NULL,"0<x<=1.0", NULL,NULL, "--no-cnt", "capitalize cons nts occurring in >= <x> fraction of seqs", 7 },
   { "--cambig", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,      "--no-cnt", "allow ambiguous nts in consensus sequence", 7 },
   { "--athresh",eslARG_REAL,  "0.9", NULL,"0<x<=1.0", NULL,"--cambig",NULL,   "w/--cambig, cons nt must represent >= <x> fraction of seqs", 7 },
 
@@ -3293,7 +3293,7 @@ parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
     if (strcmp(tok, "lineto") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines main section, seventh token should be 'lineto', line %d", efp->linenumber);
     /* verify stroke */
     if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines main section should include 8-tokens ending with 'stroke'");
-    if (strcmp(tok, "stroke") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines main section, eigth token should be 'stroke', line %d", efp->linenumber);
+    if (strcmp(tok, "stroke") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines main section, eighth token should be 'stroke', line %d", efp->linenumber);
     
     if(do_ticks) ps->nticks++;
     if(do_bpconnects) ps->nbp++;
@@ -4117,7 +4117,7 @@ rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
  * <ret_epos_ct> [0..apos..alen-1]
  * - per position count of final nongap position over all seqs.
  *
- * A 'gap' has a looser defintion than in esl_abc here, esl_abc's gap, 
+ * A 'gap' has a looser definition than in esl_abc here, esl_abc's gap, 
  * missing nucleotides and nonnucleotides are all considered 'gaps' here.
  * 
  * If we encounter an error, we return non-eslOK status and fill
@@ -6560,7 +6560,7 @@ get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *us
   int            *srfoff_ct = NULL; /* [0..rfpos..rflen-1] correction for spos_ct[rfpos], add this value to spos_ct
 				     * to correct the miscounting that occurs if the msa has had all inserts removed, but
 				     * an insert file with insert info has been supplied and is read in this function */
-  int            *erfoff_ct = NULL; /* [0..rfpos..rflen-1] correction for epos_ct[rfpos] (analagous to srfoff_ct) */
+  int            *erfoff_ct = NULL; /* [0..rfpos..rflen-1] correction for epos_ct[rfpos] (analogous to srfoff_ct) */
   int             already_handled_special_spos = FALSE;
   int             prv_e_increment, prv_e_decrement; 
 
@@ -6670,7 +6670,7 @@ get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *us
 		 * first nongap consensus nucleotide at cpos. 
 		 * NOTE a nasty off-by-one: RF (consensus) positions in the ifile are indexed 1..rflen, whereas srfoff_ct is 0..rflen-1 */
 		srfoff_ct[(spos-1)]--;    /* this position was overcounted */
-		srfoff_ct[(rfpos-1)+1]++; /* this position was undercounted, we do +1 because insert occured after rfpos */
+		srfoff_ct[(rfpos-1)+1]++; /* this position was undercounted, we do +1 because insert occurred after rfpos */
 		/* printf("decremented srfoff_ct[%d] for seq %d\n", spos-1, i);
 		   printf("incremented srfoff_ct[%d] for seq %d\n", rfpos-1+1, i);
 		*/

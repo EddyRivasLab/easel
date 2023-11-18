@@ -1247,7 +1247,7 @@ esl_msafile_GetLine(ESL_MSAFILE *afp, char **opt_p, esl_pos_t *opt_n)
  *            
  * Args:      afp  - the open input stream
  *
- * Returns:   <eslOK> on succes
+ * Returns:   <eslOK> on success
  *
  * Throws:    <eslEMEM>, <eslESYS>, <eslEINCONCEIVABLE> if the
  *            <esl_buffer_Set()> call fails.
