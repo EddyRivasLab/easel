@@ -59,6 +59,7 @@
 1 exercise msaweight-utest    @esl_msaweight_utest@
 1 exercise neon-utest	      @esl_neon_utest@
 1 exercise normal-utest       @esl_normal_utest@
+1 exercise orfreader-utest    @esl_orfreader_utest@
 # paml
 1 exercise quicksort-utest    @esl_quicksort_utest@
 1 exercise random-utest       @esl_random_utest@
@@ -141,6 +142,7 @@
 3 valgrind dirichlet-utest    @esl_dirichlet_utest@
 3 valgrind distance-utest     @esl_distance_utest@
 3 valgrind dmatrix-utest      @esl_dmatrix_utest@
+3 valgrind dsq-utest          @esl_dsq_utest@
 3 valgrind dsqdata-utest      @esl_dsqdata_utest@
 3 valgrind exponential-utest  @esl_exponential_utest@
 3 valgrind fileparser-utest   @esl_fileparser_utest@
@@ -180,6 +182,7 @@
 3 valgrind msaweight-utest    @esl_msaweight_utest@
 3 valgrind neon-utest         @esl_neon_utest@
 3 valgrind normal-utest       @esl_normal_utest@
+3 valgrind orfreader-utest    @esl_orfreader_utest@
 # paml
 3 valgrind quicksort-utest    @esl_quicksort_utest@
 3 valgrind random-utest       @esl_random_utest@

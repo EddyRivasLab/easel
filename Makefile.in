@@ -150,6 +150,7 @@ HDRS = 	easel.h\
 	esl_msaweight.h\
 	esl_neon.h\
 	esl_normal.h\
+	esl_orfreader.h\
 	esl_paml.h\
 	esl_quicksort.h\
 	esl_random.h\
@@ -233,6 +234,7 @@ OBJS =	easel.o\
 	esl_msashuffle.o\
 	esl_msaweight.o\
 	esl_normal.o\
+	esl_orfreader.o\
 	esl_paml.o\
 	esl_quicksort.o\
 	esl_random.o\
@@ -328,6 +330,7 @@ UTESTS =\
 	esl_msafile_stockholm_utest\
 	esl_msaweight_utest\
 	esl_normal_utest\
+	esl_orfreader_utest\
 	esl_quicksort_utest\
 	esl_random_utest\
 	esl_rand64_utest\
@@ -481,6 +484,7 @@ EXAMPLES = \
         esl_msashuffle_example\
         esl_msaweight_example\
         esl_normal_example\
+	esl_orfreader_example\
         esl_random_example\
         esl_rand64_example\
 	esl_regexp_example\
