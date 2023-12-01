@@ -1,21 +1,14 @@
-/* Genetic code tables for translation, whether canonical or noncanonical.
+/* Genetic code tables for translation, canonical or alternative.
  * 
  * Table of contents:
- *   1. NCBI genetic code tables, in Easel digital form
+ *   1. NCBI genetic code table data, partially pre-parsed
  *   2. ESL_GENCODE genetic code object
  *   3. Reading and writing genetic codes in NCBI format
  *   4. DNA->protein digital translation, allowing ambiguity chars
- *   5. Functions for creating/destroying ESL_GENCODE_WORKSTATE
- *   6. Functions for processing ORFs
- *   7. Debugging/development utilities
- *   8. Unit tests
- *   9. Test driver
- *   10. Examples
- *   
- * To do:  
- *   - Remove dependency on ESL_GETOPTS. Use a configuration params _CFG   
- *     structure instead. (See `msaweight` for example).
- *     [xref SRE:2019/0415-easel-tech-tree-v3]
+ *   5. Debugging/development utilities
+ *   6. Unit tests
+ *   7. Test driver
+ *   8. Examples
  */
 #include <esl_config.h>
 
@@ -26,7 +19,6 @@
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_fileparser.h"
-#include "esl_getopts.h"     // problematic. See TO DO note.
 #include "esl_regexp.h"
 #include "esl_sq.h"
 #include "esl_sqio.h"
@@ -35,144 +27,63 @@
 
 
 /*****************************************************************
- * 1. NCBI genetic code tables, in Easel digital form
+ * 1. NCBI genetic code table data, partially pre-parsed
  *****************************************************************/
 
 /* 
  * From: http://www.ncbi.nlm.nih.gov/Taxonomy/taxonomyhome.html/index.cgi?chapter=cgencodes
- * NCBI text files are digitized by the esl_gencode_example driver:
+ * NCBI text files are parsed by the esl_gencode_example driver:
  *     make esl_gencode_example
  *     ./esl_gencode_example <file>
  *
  * The NCBI page has useful information about these code tables, references and caveats.
+ *
+ * The <is_context_dependent> flag is a warning that we don't
+ * currently handle context-dependent codes that read certain codons
+ * as either sense or terminator. In these cases, we err to calling
+ * the codon a terminator. This is seriously wrong - we just aren't
+ * dealing with these genetic codes properly.
  */
 
-static const ESL_GENCODE esl_transl_tables[] = {
-  { 1, "Standard",
-  /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 27,  1, 18,  1,  9,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0 },
-  /*   K   N   K   N   T   T   T   T   R   S   R   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   *   C   W   C   L   F   L   F */
-    NULL, NULL },
+typedef struct {
+  int  ncbi_transl_table;
+  char aa[65];
+  char starts[65];
+  int  is_context_dependent;
+  char desc[128];
+} ESL_GENCODE_DATA;
   
-  { 2, "Vertebrate mitochondrial",
-  /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    {  8, 11,  8, 11, 16, 16, 16, 16, 27, 15, 27, 15, 10,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 18,  1, 18,  1,  9,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
-  /*   K   N   K   N   T   T   T   T   *   S   *   S   M   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   W   C   W   C   L   F   L   F */
-    NULL, NULL },
-
-  { 3, "Yeast mitochondrial",
-  /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15, 10,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14, 16, 16, 16, 16,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 18,  1, 18,  1,  9,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
-  /*   K   N   K   N   T   T   T   T   R   S   R   S   M   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   T   T   T   T   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   W   C   W   C   L   F   L   F */
-    NULL, NULL },
-
-  { 4, "Mold, protozoan, coelenterate mitochondrial; Mycoplasma/Spiroplasma",
-  /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 18,  1, 18,  1,  9,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  1,  0 },
-  /*   K   N   K   N   T   T   T   T   R   S   R   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   W   C   W   C   L   F   L   F */
-    NULL, NULL },
-
-  { 5, "Invertebrate mitochondrial",
-  /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    {  8, 11,  8, 11, 16, 16, 16, 16, 15, 15, 15, 15, 10,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 18,  1, 18,  1,  9,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0 },
-  /*   K   N   K   N   T   T   T   T   S   S   S   S   M   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   W   C   W   C   L   F   L   F */
-    NULL, NULL },
-  
-  { 6, "Ciliate, dasycladacean, Hexamita nuclear",
-  /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 13, 19, 13, 19, 15, 15, 15, 15, 27,  1, 18,  1,  9,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
-  /*   K   N   K   N   T   T   T   T   R   S   R   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   Q   Y   Q   Y   S   S   S   S   *   C   W   C   L   F   L   F */
-    NULL, NULL },
-
-  { 9, "Echinoderm and flatworm mitochondrial",
-  /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    { 11, 11,  8, 11, 16, 16, 16, 16, 15, 15, 15, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 18,  1, 18,  1,  9,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
-  /*   N   N   K   N   T   T   T   T   S   S   S   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   W   C   W   C   L   F   L   F */
-    NULL, NULL },
-
-  { 10, "Euplotid nuclear",
-   /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15,  1,  1, 18,  1,  9,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
-  /*   K   N   K   N   T   T   T   T   R   S   R   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   C   C   W   C   L   F   L   F */
-    NULL, NULL },
-
-  { 11, "Bacterial, archaeal; and plant plastid",
-  /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 27,  1, 18,  1,  9,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0 },
-  /*   K   N   K   N   T   T   T   T   R   S   R   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   *   C   W   C   L   F   L   F */
-    NULL, NULL },
-
-  { 12, "Alternative yeast", 
-  /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9, 15,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 27,  1, 18,  1,  9,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
-  /*   K   N   K   N   T   T   T   T   R   S   R   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   S   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   *   C   W   C   L   F   L   F */
-    NULL, NULL },
-
-  { 13, "Ascidian mitochondrial", 
-  /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    {  8, 11,  8, 11, 16, 16, 16, 16,  5, 15,  5, 15, 10,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 18,  1, 18,  1,  9,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0 },
-  /*   K   N   K   N   T   T   T   T   G   S   G   S   M   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   W   C   W   C   L   F   L   F */
-    NULL, NULL },
-
-  { 14, "Alternative flatworm mitochondrial",
-  /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    { 11, 11,  8, 11, 16, 16, 16, 16, 15, 15, 15, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 19, 19, 27, 19, 15, 15, 15, 15, 18,  1, 18,  1,  9,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
-  /*   N   N   K   N   T   T   T   T   S   S   S   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   Y   Y   *   Y   S   S   S   S   W   C   W   C   L   F   L   F */
-    NULL, NULL },
-
-  { 16, "Chlorophycean mitochondrial",
-  /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19,  9, 19, 15, 15, 15, 15, 27,  1, 18,  1,  9,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
-  /*   K   N   K   N   T   T   T   T   R   S   R   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   L   Y   S   S   S   S   *   C   W   C   L   F   L   F */
-    NULL, NULL },
-
-  { 21, "Trematode mitochondrial", 
-  /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    { 11, 11,  8, 11, 16, 16, 16, 16, 15, 15, 15, 15, 10,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 18,  1, 18,  1,  9,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
-  /*   N   N   K   N   T   T   T   T   S   S   S   S   M   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   W   C   W   C   L   F   L   F */
-    NULL, NULL },
-
-  { 22, "Scenedesmus obliquus mitochondrial",
-  /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19,  9, 19, 27, 15, 15, 15, 27,  1, 18,  1,  9,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
-  /*   K   N   K   N   T   T   T   T   R   S   R   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   L   Y   *   S   S   S   *   C   W   C   L   F   L   F */
-    NULL, NULL },
-
-  { 23, "Thraustochytrium mitochondrial", 
-  /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 27,  1, 18,  1, 27,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
-  /*   K   N   K   N   T   T   T   T   R   S   R   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   *   C   W   C   *   F   L   F */
-    NULL, NULL },
-
-  { 24, "Pterobranchia mitochondrial", 
-  /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    {  8, 11,  8, 11, 16, 16, 16, 16, 15, 15,  8, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 18,  1, 18,  1,  9,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0 },
-  /*   K   N   K   N   T   T   T   T   S   S   K   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   W   C   W   C   L   F   L   F */
-    NULL, NULL },
-
-  { 25, "Candidate Division SR1 and Gracilibacteria",
-  /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
-    {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15,  5,  1, 18,  1,  9,  4,  9,  4 },
-    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0 },
-  /*   K   N   K   N   T   T   T   T   R   S   R   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   G   C   W   C   L   F   L   F */
-    NULL, NULL },
+static const ESL_GENCODE_DATA esl_transl_tables[] = {
+  /*     AAAAAAAAAAAAAAAACCCCCCCCCCCCCCCCGGGGGGGGGGGGGGGGUUUUUUUUUUUUUUUU    AAAAAAAAAAAAAAAACCCCCCCCCCCCCCCCGGGGGGGGGGGGGGGGUUUUUUUUUUUUUUUU
+         AAAACCCCGGGGUUUUAAAACCCCGGGGUUUUAAAACCCCGGGGUUUUAAAACCCCGGGGUUUU    AAAACCCCGGGGUUUUAAAACCCCGGGGUUUUAAAACCCCGGGGUUUUAAAACCCCGGGGUUUU
+         ACGUACGUACGUACGUACGUACGUACGUACGUACGUACGUACGUACGUACGUACGUACGUACGU    ACGUACGUACGUACGUACGUACGUACGUACGUACGUACGUACGUACGUACGUACGUACGUACGU
+  */
+  {  1, "KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*Y*YSSSS*CWCLFLF", "--------------M---------------M-------------------------------M-", FALSE, "Standard"                                                            },
+  {  2, "KNKNTTTT*S*SMIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*Y*YSSSSWCWCLFLF", "------------MMMM------------------------------M-----------------", FALSE, "Vertebrate mitochondrial"                                            },
+  {  3, "KNKNTTTTRSRSMIMIQHQHPPPPRRRRTTTTEDEDAAAAGGGGVVVV*Y*YSSSSWCWCLFLF", "------------M-M-------------------------------M-----------------", FALSE, "Yeast mitochondrial"                                                 },
+  {  4, "KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*Y*YSSSSWCWCLFLF", "------------MMMM--------------M---------------M-------------M-M-", FALSE, "Mold, protozoan, coelenterate mitochondrial; Mycoplasma/Spiroplasma" },
+  {  5, "KNKNTTTTSSSSMIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*Y*YSSSSWCWCLFLF", "------------MMMM------------------------------M---------------M-", FALSE, "Invertebrate mitochondrial"                                          },
+  {  6, "KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVVQYQYSSSS*CWCLFLF", "--------------M-------------------------------------------------", FALSE, "Ciliate, Dasycladacean and Hexamita nuclear"                         },
+  {  9, "NNKNTTTTSSSSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*Y*YSSSSWCWCLFLF", "--------------M-------------------------------M-----------------", FALSE, "Echinoderm and flatworm mitochondrial"                               },
+  { 10, "KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*Y*YSSSSCCWCLFLF", "--------------M-------------------------------------------------", FALSE, "Euplotid nuclear"                                                    },
+  { 11, "KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*Y*YSSSS*CWCLFLF", "------------MMMM--------------M---------------M---------------M-", FALSE, "Bacterial, archaeal, and plant plastid"                              },
+  { 12, "KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLSLEDEDAAAAGGGGVVVV*Y*YSSSS*CWCLFLF", "--------------M---------------M---------------------------------", FALSE, "Alternative yeast"                                                   },
+  { 13, "KNKNTTTTGSGSMIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*Y*YSSSSWCWCLFLF", "------------M-M-------------------------------M---------------M-", FALSE, "Ascidian mitochondrial"                                              },
+  { 14, "NNKNTTTTSSSSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVVYY*YSSSSWCWCLFLF", "--------------M-------------------------------------------------", FALSE, "Alternative flatworm mitochondrial"                                  },
+  { 15, "KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*YQYSSSS*CWCLFLF", "--------------M-------------------------------------------------", FALSE, "Blepharisma nuclear"                                                 },
+  { 16, "KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*YLYSSSS*CWCLFLF", "--------------M-------------------------------------------------", FALSE, "Chlorophycean mitochondrial"                                         },
+  { 21, "NNKNTTTTSSSSMIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*Y*YSSSSWCWCLFLF", "--------------M-------------------------------M-----------------", FALSE, "Trematode mitocondrial"                                              },
+  { 22, "KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*YLY*SSS*CWCLFLF", "--------------M-------------------------------------------------", FALSE, "Scenedesmus obliquus mitochondrial"                                  },
+  { 23, "KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*Y*YSSSS*CWC*FLF", "--------------MM------------------------------M-----------------", FALSE, "Thraustochytrium mitochondrial"                                      },
+  { 24, "KNKNTTTTSSKSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*Y*YSSSSWCWCLFLF", "--------------M---------------M---------------M---------------M-", FALSE, "Rhabdopleuridae mitochondrial"                                       },
+  { 25, "KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*Y*YSSSSGCWCLFLF", "--------------M-------------------------------M---------------M-", FALSE, "Candidate Division SR1 and Gracilibacteria"                          },
+  { 26, "KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLALEDEDAAAAGGGGVVVV*Y*YSSSS*CWCLFLF", "--------------M---------------M---------------------------------", FALSE, "Pachysolen tannophilus nuclear"                                      },
+  { 27, "KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVVQYQYSSSS*CWCLFLF", "--------------M-------------------------------------------------", TRUE,  "Karyorelict nuclear"                                                 }, // UGA = W|*. I put * here so we have at least one stop. We can't handle context-dependent stops yet.
+  { 28, "KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*Y*YSSSS*CWCLFLF", "--------------M-------------------------------------------------", TRUE,  "Condylostoma nuclear"                                                }, // All three stops are context-dependent
+  { 29, "KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVVYYYYSSSS*CWCLFLF", "--------------M-------------------------------------------------", FALSE, "Mesodinium nuclear"                                                  },
+  { 30, "KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVVEYEYSSSS*CWCLFLF", "--------------M-------------------------------------------------", FALSE, "Peritrich nuclear"                                                   },
+  { 31, "KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*Y*YSSSSWCWCLFLF", "--------------M-------------------------------------------------", TRUE,  "Blastocrithidia nuclear"                                             }, // UAG|UAA are context-dependent
+  { 33, "KNKNTTTTSSKSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVVYY*YSSSSWCWCLFLF", "--------------M---------------M---------------M---------------M-", FALSE, "Cephalodiscidae mitochondrial"                                       },
 };
 
 
@@ -276,7 +187,7 @@ esl_gencode_Destroy(ESL_GENCODE *gcode)
 int
 esl_gencode_Set(ESL_GENCODE *gcode,  int ncbi_transl_table)
 {
-  int ntables = sizeof(esl_transl_tables) / sizeof(ESL_GENCODE);
+  int ntables = sizeof(esl_transl_tables) / sizeof(ESL_GENCODE_DATA);
   int t, c;
   
   if (gcode->nt_abc && (gcode->nt_abc->type != eslDNA && gcode->nt_abc->type != eslRNA))
@@ -285,40 +196,19 @@ esl_gencode_Set(ESL_GENCODE *gcode,  int ncbi_transl_table)
     ESL_EXCEPTION(eslEINVAL, "NCBI translation tables are precomputed using Easel standard alphabets; your amino alphabet is nonstandard");
 
   for (t = 0; t < ntables; t++)
-    if ( esl_transl_tables[t].transl_table == ncbi_transl_table) break;
+    if ( esl_transl_tables[t].ncbi_transl_table == ncbi_transl_table) break;
   if (t == ntables) return eslENOTFOUND;
   
-  gcode->transl_table = esl_transl_tables[t].transl_table;
+  gcode->transl_table = esl_transl_tables[t].ncbi_transl_table;
   strcpy(gcode->desc, esl_transl_tables[t].desc);
   for (c = 0; c < 64; c++)
     {
-      gcode->basic[c] = esl_transl_tables[t].basic[c];
-      gcode->is_initiator[c] = esl_transl_tables[t].is_initiator[c];
+      gcode->basic[c] = esl_abc_DigitizeSymbol(gcode->aa_abc, esl_transl_tables[t].aa[c]);
+
+      if      (esl_transl_tables[t].starts[c] == '-') gcode->is_initiator[c] = FALSE;
+      else if (esl_transl_tables[t].starts[c] == 'M') gcode->is_initiator[c] = TRUE;
+      else esl_fatal("bad precompiled data in the esl_transl_tables");
     }
-  return eslOK;
-}
-
-
-/* Function:  esl_gencode_SetInitiatorAny()
- * Synopsis:  Set initiator field so ORFs can start with any aa
- *
- * Purpose:   Set <gcode> to allow ORFs to start with any amino acid, as
- *            opposed to looking for initiation codons.
- *            
- *            We do this by overwriting the <is_initiator> field to be
- *            TRUE for all codons except terminators. Because we
- *            overwrite, the only way to revert a genetic code to use
- *            its official set of initiators is to reinitialize it
- *            completely.
- *
- * Returns:   <eslOK> on success.
- */
-int
-esl_gencode_SetInitiatorAny(ESL_GENCODE *gcode)
-{
-  int c; 	
-  for (c = 0; c < 64; c++)
-    gcode->is_initiator[c] = (esl_abc_XIsCanonical(gcode->aa_abc, gcode->basic[c]) ? TRUE : FALSE);
   return eslOK;
 }
 
@@ -329,10 +219,10 @@ esl_gencode_SetInitiatorAny(ESL_GENCODE *gcode)
  * Purpose:   Set <gcode> so that ORFs can only start with AUG, as opposed
  *            to using the possibly larger set of plausible initiator codons
  *            associated with the standard NCBI genetic codes. (For example,
- *            the standard code 1 allows ATG, CTG, and UUG initiators.)
+ *            the standard code 1 allows AUG, CUG, and UUG initiators.)
  *            
  *            We do this by overwriting the <is_initiator> field to be TRUE
- *            only for the ATG codon.
+ *            only for the AUG codon.
  *
  * Returns:   <eslOK> on success.
  */
@@ -475,11 +365,11 @@ esl_gencode_Read(ESL_FILEPARSER *efp, const ESL_ALPHABET *nt_abc, const ESL_ALPH
   
   for (pos = 0; pos < 64; pos++)
     {
-      if (! esl_abc_CIsValid(aa_abc,   aas[pos])   || ! (esl_abc_CIsCanonical(aa_abc, aas[pos]) || esl_abc_CIsNonresidue(aa_abc, aas[pos])))  ESL_XFAIL(eslEFORMAT, efp->errbuf, "Character %c on AAs line is not an amino acid or a * (stop)", aas[pos]);
-      if (! esl_abc_CIsValid(nt_abc, base1[pos]) || ! esl_abc_CIsCanonical(nt_abc, base1[pos]))                                              ESL_XFAIL(eslEFORMAT, efp->errbuf, "Character %c on Base1 line is not a nucleotide", base1[pos]);
-      if (! esl_abc_CIsValid(nt_abc, base2[pos]) || ! esl_abc_CIsCanonical(nt_abc, base2[pos]))                                              ESL_XFAIL(eslEFORMAT, efp->errbuf, "Character %c on Base2 line is not a nucleotide", base2[pos]);
-      if (! esl_abc_CIsValid(nt_abc, base3[pos]) || ! esl_abc_CIsCanonical(nt_abc, base3[pos]))                                              ESL_XFAIL(eslEFORMAT, efp->errbuf, "Character %c on Base3 line is not a nucleotide", base3[pos]);
-      if ( mline[pos] != '-' && mline[pos] != 'm' && mline[pos] != 'M')                                                                                ESL_XFAIL(eslEFORMAT, efp->errbuf, "Character %c on Starts line is neither a - or an M", mline[pos]);
+      if (! esl_abc_CIsValid(aa_abc,   aas[pos]) || ! (esl_abc_CIsCanonical(aa_abc, aas[pos]) || esl_abc_CIsNonresidue(aa_abc, aas[pos]))) ESL_XFAIL(eslEFORMAT, efp->errbuf, "Character %c on AAs line is not an amino acid or a * (stop)", aas[pos]);
+      if (! esl_abc_CIsValid(nt_abc, base1[pos]) || ! esl_abc_CIsCanonical(nt_abc, base1[pos]))                                            ESL_XFAIL(eslEFORMAT, efp->errbuf, "Character %c on Base1 line is not a nucleotide", base1[pos]);
+      if (! esl_abc_CIsValid(nt_abc, base2[pos]) || ! esl_abc_CIsCanonical(nt_abc, base2[pos]))                                            ESL_XFAIL(eslEFORMAT, efp->errbuf, "Character %c on Base2 line is not a nucleotide", base2[pos]);
+      if (! esl_abc_CIsValid(nt_abc, base3[pos]) || ! esl_abc_CIsCanonical(nt_abc, base3[pos]))                                            ESL_XFAIL(eslEFORMAT, efp->errbuf, "Character %c on Base3 line is not a nucleotide", base3[pos]);
+      if ( mline[pos] != '-' && mline[pos] != '*' && mline[pos] != 'm' && mline[pos] != 'M')                                               ESL_XFAIL(eslEFORMAT, efp->errbuf, "Character %c on Starts line is not a -, M, or *", mline[pos]);
 
       codon = 16 * esl_abc_DigitizeSymbol(nt_abc, base1[pos]) +
 	       4 * esl_abc_DigitizeSymbol(nt_abc, base2[pos]) +
@@ -489,17 +379,30 @@ esl_gencode_Read(ESL_FILEPARSER *efp, const ESL_ALPHABET *nt_abc, const ESL_ALPH
       ESL_DASSERT1(( codon >= 0 && codon < 64 ));
       ESL_DASSERT1(( x >= 0 && (x < 20 || x == esl_abc_XGetNonresidue(aa_abc))));
 
+      /* A couple of codes, e.g. the Karyorelict code, use
+       * context-dependent stops [Swart et al, Cell 2016]. NCBI
+       * encodes this in their files with the "Starts" line having a
+       * terminator "*" while the AAs line has an aa.  We don't have
+       * any facility to handle context-dependent stops yet, and when
+       * we're doing six-frame translation there needs to be at least
+       * one stop. As a workaround, we decode such context-dependent
+       * stops as stops.
+       */
+      if (mline[pos] == '*' && ! esl_abc_XIsNonresidue(aa_abc, x))
+        x = esl_abc_XGetNonresidue(aa_abc); 
+
       if (x < 20) aa_seen[x]++; else stop_seen++;
       codon_seen[codon]++;
       
       gcode->basic[codon]        = x;
-      gcode->is_initiator[codon] = ( mline[pos] == '-' ? FALSE : TRUE );   // We already checked above that it's one of "-mM"
+      gcode->is_initiator[codon] = ( (mline[pos] == 'm' || mline[pos] == 'M') ? TRUE : FALSE);  
     }
 
   /* A genetic code must provide a translation for all 64 codons, and
    * all 20 amino acids to be encoded. (No organism is yet known to
    * encode fewer than 20 amino acids [Kawahara-Kobayashi et al, NAR
-   * 40:10576, 2012].) The code must include at least one stop codon.
+   * 40:10576, 2012].) And as above, the code must include at least
+   * one stop codon.
    */
   if (! stop_seen)           ESL_XFAIL(eslEFORMAT, efp->errbuf, "No stop codon found in that genetic code");
   for (codon = 0; codon < 64; codon++)
@@ -604,22 +507,23 @@ esl_gencode_Write(FILE *ofp, const ESL_GENCODE *gcode, int add_comment)
  *            Also, caller must be sure that a full codon dsqp[0..2] exists
  *            at this location.
  *            
- *            Ambiguity codes are allowed in the DNA/RNA codon. If 
- *            the amino acid is unambiguous, despite codon ambiguity,
- *            the correct amino acid is still determined: for example,
- *            GGR translates as Gly, UUY as Phe, AUH as Ile. If 
- *            there is no single unambiguous amino acid translation, the codon
- *            is translated as X (unknown). 
+ *            Ambiguity codes are allowed in the DNA/RNA codon. If the
+ *            amino acid (or terminator) is unambiguous, despite codon
+ *            ambiguity, the correct amino acid (or terminator) is
+ *            still determined: for example, GGN translates as Gly,
+ *            UUY as Phe, AUH as Ile, UAR as stop. Otherwise, if there
+ *            is no unambiguous translation for the set of possible
+ *            codons, the codon is translated as X (unknown); for
+ *            example, NNN and URR decode to X.
  *            
  *            Other than X, no amino acid ambiguity code is
  *            returned. We do not, for example, decode SAR as Z (Q|E),
  *            MUH as J (I|L), or RAY as B (N|D), because the extra
  *            complexity needed to do this doesn't seem worthwhile.
  *
- * Returns:   digital amino acid code (0..19 or esl_abc_XGetUnknown()) in
- *            the protein alphabet.
- *
- * Throws:    (no abnormal error conditions)
+ * Returns:   digital amino acid code (0..19,
+ *            esl_abc_XGetNonresidue()=27, or
+ *            esl_abc_XGetUnknown()=26) in the eslAMINO alphabet.
  */
 int
 esl_gencode_GetTranslation(const ESL_GENCODE *gcode, ESL_DSQ *dsqp)
@@ -665,13 +569,12 @@ esl_gencode_GetTranslation(const ESL_GENCODE *gcode, ESL_DSQ *dsqp)
  *            TRUE.
  *            
  *            Because stop codons never have the <is_initiator> flag,
- *            even if we used <esl_gencode_SetAnyInitiator()>, NNN
- *            will never be used to initiate an open reading frame,
- *            nor will other degenerate codons that are consistent
- *            with at least one stop. This is desirable: we don't want
- *            to call all-X ORFs across long stretches of N's that
- *            are prevalent in DNA sequence assemblies.
- *            
+ *            NNN will never be used to initiate an open reading frame
+ *            when we're requiring initiation codons and testing them
+ *            with <esl_gencode_IsInitiator()>; nor will other
+ *            degenerate codons that are consistent with at least one
+ *            stop.
+ *
  *            Works fine on nondegenerate codons too, but if caller
  *            knows the codon is nondegenerate, it should simply
  *            test <gcode->is_initiator[0..63]> directly.
@@ -729,224 +632,10 @@ esl_gencode_IsInitiator(const ESL_GENCODE *gcode, ESL_DSQ *dsqp)
 }
 
 
-/*****************************************************************
- * 5. Functions for creating/destroying ESL_GENCODE_WORKSTATE
- *****************************************************************/
-void
-esl_gencode_WorkstateDestroy(ESL_GENCODE_WORKSTATE *wrk)
-{
-  int f;
-  if (wrk)
-    {
-      for (f = 0; f < 3; f++) esl_sq_Destroy(wrk->psq[f]);
-
-      if(wrk->orf_block != NULL)
-      {
-         esl_sq_DestroyBlock(wrk->orf_block);
-         wrk->orf_block = NULL;
-      }
-
-      free(wrk);
-    }
-}
-
-ESL_GENCODE_WORKSTATE *
-esl_gencode_WorkstateCreate(ESL_GETOPTS *go, ESL_GENCODE *gcode)
-{
-  ESL_GENCODE_WORKSTATE *wrk = NULL;
-  int    f;
-  int    status;
-
-  ESL_ALLOC(wrk, sizeof(ESL_GENCODE_WORKSTATE));
-  for (f = 0; f < 3; f++) wrk->psq[f] = NULL;
-
-  for (f = 0; f < 3; f++)
-    {
-      wrk->psq[f]         = esl_sq_CreateDigital(gcode->aa_abc);
-      wrk->psq[f]->dsq[0] = eslDSQ_SENTINEL;
-      wrk->in_orf[f]      = FALSE;
-    }
-
-  wrk->apos             = 1;
-  wrk->frame            = 0;
-  wrk->codon            = 0;
-  wrk->inval            = 0;
-  wrk->is_revcomp       = FALSE;
-  wrk->orfcount         = 0;
-
-  wrk->orf_block           = NULL;
-
-  wrk->do_watson        = (esl_opt_GetBoolean(go, "--crick")  ? FALSE : TRUE);
-  wrk->do_crick         = (esl_opt_GetBoolean(go, "--watson") ? FALSE : TRUE);
-  wrk->using_initiators = ((esl_opt_GetBoolean(go, "-m") || esl_opt_GetBoolean(go, "-M")) ? TRUE : FALSE);
-  wrk->minlen           = esl_opt_GetInteger(go, "-l");
-  wrk->outfp            = stdout;
-  wrk->outformat        = eslSQFILE_FASTA;
-
-  return wrk;
-
- ERROR:
-  esl_gencode_WorkstateDestroy(wrk);
-  return NULL;
-}
-
-/*****************************************************************
- *  6. Functions for processing ORFs
- *****************************************************************/
-
-int
-esl_gencode_ProcessOrf(ESL_GENCODE_WORKSTATE *wrk, ESL_SQ *sq)
-{
-
-  int              status   = eslOK;
-  ESL_SQ *psq = wrk->psq[wrk->frame];
-  psq->end = (wrk->is_revcomp ? wrk->apos+1 : wrk->apos-1);
-  if (wrk->in_orf[wrk->frame] && psq->n >= wrk->minlen)
-    {
-      wrk->orfcount++;
-      if (psq->n+2 > psq->salloc)
-        esl_sq_Grow(psq, /*opt_nsafe=*/NULL);
-      psq->dsq[1+psq->n] = eslDSQ_SENTINEL;
-
-      esl_sq_FormatName(psq, "orf%d", wrk->orfcount);
-      esl_sq_FormatDesc(psq, "source=%s coords=%" PRId64 "..%" PRId64 " length=%" PRId64 " frame=%d desc=%s", psq->source, psq->start, psq->end, psq->n, wrk->frame + 1 + (wrk->is_revcomp ? 3 : 0), sq->desc);
-      /* if we do not have a block to write ORFs to then write ORFs to file */
-      if (wrk->orf_block == NULL)
-      {
-        esl_sqio_Write(wrk->outfp, psq, wrk->outformat, /*sq ssi offset update=*/FALSE);
-      }
-      else
-      {
-        if (wrk->orf_block->count == wrk->orf_block->listSize)
-        {
-          status = esl_sq_BlockGrowTo(wrk->orf_block, wrk->orf_block->listSize + 128, TRUE, psq->abc);
-          if (status != eslOK) ESL_XEXCEPTION(eslEMEM, "Cannot increase size of ORF sequence block");
-        }
-        //printf("adding seq to block list num %d\n",wrk->orf_block->count);
-        //esl_sqio_Write(stdout, psq, eslSQFILE_FASTA, 0);
-        //printf("\n");
-        esl_sq_Copy(psq, &(wrk->orf_block->list[wrk->orf_block->count]));
-        //printf("incrementing block count to %d\n",wrk->orf_block->count+1);
-
-        wrk->orf_block->count++;
-      }
-    }
-
-  esl_sq_Reuse(psq);
-  esl_sq_SetSource(psq, sq->name);
-  wrk->in_orf[wrk->frame] = FALSE;
-
- ERROR:
-  return status;
-}
-
-void
-esl_gencode_ProcessStart(ESL_GENCODE *gcode, ESL_GENCODE_WORKSTATE *wrk, ESL_SQ *sq)
-{
-  int f;
-
-  ESL_DASSERT1(( sq->n >= 3 ));
-
-  for (f = 0; f < 3; f++)
-    {
-      esl_sq_SetSource(wrk->psq[f], sq->name);
-      wrk->in_orf[f] = FALSE;
-    }
-  wrk->frame      = 0;
-  wrk->codon      = 0;
-  wrk->inval      = 0;
-  wrk->is_revcomp = (sq->end > sq->start ? FALSE : TRUE  );   // this test fails for seqs of length 1, but we know that L>=3
-  wrk->apos       = (wrk->is_revcomp ?     sq->L : 1     );
-
-  if (esl_abc_XIsCanonical(gcode->nt_abc, sq->dsq[1])) wrk->codon += 4 * sq->dsq[1]; else wrk->inval = 1;
-  if (esl_abc_XIsCanonical(gcode->nt_abc, sq->dsq[2])) wrk->codon +=     sq->dsq[2]; else wrk->inval = 2;
-}
-
-
-int
-esl_gencode_ProcessPiece(ESL_GENCODE *gcode, ESL_GENCODE_WORKSTATE *wrk, ESL_SQ *sq)
-{
-  ESL_DSQ aa;
-  int     rpos;
-
-  for (rpos = 1; rpos <= sq->n-2; rpos++)
-    {
-      wrk->codon = (wrk->codon * 4) % 64;
-      if   ( esl_abc_XIsCanonical(gcode->nt_abc, sq->dsq[rpos+2])) wrk->codon += sq->dsq[rpos+2];
-      else wrk->inval = 3;
-
-      /* Translate the current codon starting at <pos>;
-       * see if it's an acceptable initiator
-       */
-      if (wrk->inval > 0) // degenerate codon: needs special, tedious handling
-      {
-        aa =  esl_gencode_GetTranslation(gcode, sq->dsq+rpos);                         // This function can deal with any degeneracy
-        if (! wrk->in_orf[wrk->frame] && esl_gencode_IsInitiator(gcode, sq->dsq+rpos)) //   ...as can IsInitiator.
-          {
-            if (wrk->using_initiators)  // If we're using initiation codons, initial codon translates to M even if it's something like UUG or CUG
-              aa = esl_abc_DigitizeSymbol(gcode->aa_abc, 'M');
-            wrk->in_orf[wrk->frame]     = TRUE;
-            wrk->psq[wrk->frame]->start = wrk->apos;
-          }
-        wrk->inval--;
-      }
-      else
-      {
-        aa = gcode->basic[wrk->codon];                             // If we know the digitized codon has no degeneracy, translation is a simple lookup
-        if (gcode->is_initiator[wrk->codon] && ! wrk->in_orf[wrk->frame])
-          {
-            if (wrk->using_initiators)  // If we're using initiation codons, initial codon translates to M even if it's something like UUG or CUG
-              aa = esl_abc_DigitizeSymbol(gcode->aa_abc, 'M');
-            wrk->psq[wrk->frame]->start = wrk->apos;
-            wrk->in_orf[wrk->frame]     = TRUE;
-          }
-      }
-
-      /* Stop codon: deal with this ORF sequence and reinitiate */
-      if ( esl_abc_XIsNonresidue(gcode->aa_abc, aa))
-        esl_gencode_ProcessOrf(wrk, sq);
-
-      /* Otherwise: we have a residue. If we're in an orf (if we've
-       * seen a suitable initiator), add this residue, reallocating as needed.
-       */
-      if (wrk->in_orf[wrk->frame])
-      {
-        if (wrk->psq[wrk->frame]->n + 2 > wrk->psq[wrk->frame]->salloc)
-          esl_sq_Grow(wrk->psq[wrk->frame], /*opt_nsafe=*/NULL);
-        wrk->psq[wrk->frame]->dsq[1+ wrk->psq[wrk->frame]->n] = aa;
-        wrk->psq[wrk->frame]->n++;
-      }
-
-      /* Advance +1 */
-      if (wrk->is_revcomp) wrk->apos--; else wrk->apos++;
-      wrk->frame = (wrk->frame + 1) % 3;
-    }
-  return eslOK;
-}
-
-
-int
-esl_gencode_ProcessEnd(ESL_GENCODE_WORKSTATE *wrk, ESL_SQ *sq)
-{
-  int f;
-
-  /* Done with the sequence. Now terminate all the orfs we were working on.
-   * <apos> is sitting at L-1 (or 2, if revcomp) and we're in some <frame>
-   * there.
-   */
-  ESL_DASSERT1(( (wrk->is_revcomp && wrk->apos == 2) || (! wrk->is_revcomp && wrk->apos == sq->L-1) ));
-  for (f = 0; f < 3; f++) // f counts 0..2, but it is *not* the <frame> index; <frame> is stateful
-    {
-      esl_gencode_ProcessOrf(wrk, sq);
-      if (wrk->is_revcomp) wrk->apos--; else wrk->apos++;
-      wrk->frame = (wrk->frame + 1) % 3;
-    }
-  return eslOK;
-}
 
 
 /*****************************************************************
- * 7. Debugging/development utilities
+ * 5. Debugging/development utilities
  *****************************************************************/ 
 
 /* Function:  esl_gencode_DecodeDigicodon()
@@ -986,13 +675,13 @@ esl_gencode_DecodeDigicodon(const ESL_GENCODE *gcode, int digicodon, char *codon
 int
 esl_gencode_DumpAltCodeTable(FILE *ofp)
 {
-  int ntables = sizeof(esl_transl_tables) / sizeof(ESL_GENCODE);
+  int ntables = sizeof(esl_transl_tables) / sizeof(ESL_GENCODE_DATA);
   int t;
 
   fprintf(ofp, "id  description\n");
   fprintf(ofp, "--- -----------------------------------\n");
   for (t = 0; t < ntables; t++)
-    fprintf(ofp, "%3d %s\n", esl_transl_tables[t].transl_table, esl_transl_tables[t].desc);
+    fprintf(ofp, "%3d %s\n", esl_transl_tables[t].ncbi_transl_table, esl_transl_tables[t].desc);
   return eslOK;
 }
   
@@ -1002,12 +691,13 @@ esl_gencode_DumpAltCodeTable(FILE *ofp)
  *
  * Purpose:   Compare the two genetic codes <gc1> and <gc2>. Return 
  *            <eslOK> if they are identical, <eslFAIL> if they differ.
+ *
+ *            (We only need this in a unit test right now.)
  */
 int 
 esl_gencode_Compare(const ESL_GENCODE *gc1, const ESL_GENCODE *gc2, int metadata_too)
 {
   int x;
-
 
   if (gc1->nt_abc->type != gc2->nt_abc->type) return eslFAIL;
   if (gc1->aa_abc->type != gc2->aa_abc->type) return eslFAIL;
@@ -1027,7 +717,7 @@ esl_gencode_Compare(const ESL_GENCODE *gc1, const ESL_GENCODE *gc2, int metadata
 
 
 /*****************************************************************
- * 8. Unit tests
+ * 7. Unit tests
  *****************************************************************/
 #ifdef eslGENCODE_TESTDRIVE
 
@@ -1036,7 +726,7 @@ utest_ReadWrite(void)
 {
   char msg[]             = "esl_gencode :: Read/Write unit test failed";
   char tmpfile[16]       = "esltmpXXXXXX";
-  int  ntables           = sizeof(esl_transl_tables) / sizeof(ESL_GENCODE);
+  int  ntables           = sizeof(esl_transl_tables) / sizeof(ESL_GENCODE_DATA);
   ESL_ALPHABET   *nt_abc = esl_alphabet_Create(eslDNA);
   ESL_ALPHABET   *aa_abc = esl_alphabet_Create(eslAMINO);
   ESL_GENCODE    *gc1    = NULL;
@@ -1048,8 +738,8 @@ utest_ReadWrite(void)
   for (t = 0; t < ntables; t++)
     {
       strcpy(tmpfile, "esltmpXXXXXX");
-      if ( (gc1 = esl_gencode_Create(nt_abc, aa_abc))              == NULL)  esl_fatal(msg);
-      if ( esl_gencode_Set(gc1, esl_transl_tables[t].transl_table) != eslOK) esl_fatal(msg);
+      if ( (gc1 = esl_gencode_Create(nt_abc, aa_abc))                   == NULL)  esl_fatal(msg);
+      if ( esl_gencode_Set(gc1, esl_transl_tables[t].ncbi_transl_table) != eslOK) esl_fatal(msg);
 
       if ( esl_tmpfile_named(tmpfile, &ofp)                        != eslOK) esl_fatal(msg);
       if ( esl_gencode_Write(ofp, gc1, /*add_comment=*/TRUE)       != eslOK) esl_fatal(msg);
@@ -1072,7 +762,7 @@ utest_ReadWrite(void)
 
 
 /*****************************************************************
- * 9. Test driver
+ * 8. Test driver
  *****************************************************************/
 #ifdef eslGENCODE_TESTDRIVE
 
@@ -1083,14 +773,18 @@ utest_ReadWrite(void)
 int 
 main(int argc, char **argv)
 {
+  fprintf(stderr, "## %s\n", argv[0]);
+
   utest_ReadWrite();
+
+  fprintf(stderr, "#  status = ok\n");
   return eslOK;
 }
 #endif /*eslGENCODE_TESTDRIVE*/
 
 
 /****************************************************************
- * 10. Example
+ * 9. Example
  ****************************************************************/
 
 #ifdef eslGENCODE_EXAMPLE
@@ -1102,7 +796,7 @@ main(int argc, char **argv)
 #include <stdio.h>
 
 /* The esl_gencode_example driver isn't an example so much as it's a tool.
- * It's for digitizing NCBI genetic code tables into the form that
+ * It's for reformatting NCBI genetic code tables into the form that
  * we keep in esl_transl_tables[]. This program does the hard work; 
  * you then just have to add the transl_table index and the short
  * description manually.
@@ -1115,8 +809,7 @@ main(int argc, char **argv)
   ESL_GENCODE    *gcode    = NULL;
   ESL_ALPHABET   *nt_abc   = esl_alphabet_Create(eslDNA);
   ESL_ALPHABET   *aa_abc   = esl_alphabet_Create(eslAMINO);
-  int  digicodon;
-  char codon[4];
+  int  c, x;
   int  status;
 
   if (esl_fileparser_Open(codefile, /*env=*/NULL, &efp) != eslOK) esl_fatal("Failed to open code file %s", codefile);
@@ -1126,25 +819,19 @@ main(int argc, char **argv)
   if      (status == eslEFORMAT) esl_fatal("Failed to parse genetic code datafile %s\n  %s\n", codefile, efp->errbuf);
   else if (status != eslOK)      esl_fatal("Unexpected failure parsing genetic code datafile %s : code %d\n", codefile, status);
 
-  printf("/* ");
-  for (digicodon = 0; digicodon < 64; digicodon++)
-    printf("%3s ", esl_gencode_DecodeDigicodon(gcode, digicodon, codon));
-  printf("*/\n");
+  printf("\"");
+  for (c = 0; c < 64; c++)
+    printf("%c", aa_abc->sym[gcode->basic[c]]);
+  printf("\", ");
 
-  printf("  {");
-  for (digicodon = 0; digicodon < 64; digicodon++)
-    printf("%3d%c", gcode->basic[digicodon], (digicodon < 63 ? ',' : ' '));
-  printf("},\n");
-
-  printf("  {");
-  for (digicodon = 0; digicodon < 64; digicodon++)
-    printf("%3d%c", gcode->is_initiator[digicodon], (digicodon < 63 ? ',' : ' '));
-  printf("},\n");
-
-  printf("/* ");
-  for (digicodon = 0; digicodon < 64; digicodon++)
-    printf("  %c ", gcode->aa_abc->sym [gcode->basic[digicodon]]);
-  printf("*/\n");
+  printf("\"");
+  for (c = 0; c < 64; c++)
+    {
+      if (gcode->is_initiator[c]) x = 'M';
+      else                        x = '-';
+      printf("%c", x);
+    }
+  printf("\"\n");
 
   esl_alphabet_Destroy(aa_abc);
   esl_alphabet_Destroy(nt_abc);

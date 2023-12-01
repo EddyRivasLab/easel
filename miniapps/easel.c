@@ -8,6 +8,8 @@
  *   cmd_downsample.c  downsampling random subsets of things
  *   cmd_filter.c      remove similar seqs from an MSA
  *   cmd_index.c       create SSI index for sequence file
+ *   cmd_shuffle.c     shuffling/randomizing sequences or alignments
+ *   cmd_translate.c   translate DNA sequence in six frames
  */
 #include <esl_config.h>
 
@@ -24,6 +26,8 @@ extern int esl_cmd_alistat   (const char *topcmd, const ESL_SUBCMD *sub, int arg
 extern int esl_cmd_downsample(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  // cmd_downsample.c
 extern int esl_cmd_filter    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  // cmd_filter.c
 extern int esl_cmd_index     (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  // cmd_index.c
+extern int esl_cmd_shuffle   (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  // cmd_shuffle.c
+extern int esl_cmd_translate (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  // cmd_translate.c
 
 
 
@@ -36,8 +40,9 @@ ESL_SUBCMD subcommands[] = {
   { esl_cmd_downsample, "downsample",    2, "[-options] <m> <infile>",      "downsample <m> things from larger <infile> of n things"   },
   { esl_cmd_filter,     "filter",        2, "[-options] <maxid> <msafile>", "remove seqs >= <maxid> fractional identity from MSA"      },
   { esl_cmd_index,      "index",         1, "[-options] <infile>",          "create SSI fast lookup index for sequence/alignment file" },
+  { esl_cmd_shuffle,    "shuffle",       1, "[-options] <seqfile|msafile>", "
+  { esl_cmd_translate,  "translate",     1, "[-options] <seqfile>",         "six-frame translation of nucleic acid seq to ORFs"        },
 };
-
 
 
 /* `easel` has its own options; each subcommand also has its own

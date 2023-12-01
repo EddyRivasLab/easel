@@ -64,14 +64,14 @@ PROGS = esl-afetch\
 	esl-sfetch\
 	esl-shuffle\
 	esl-ssdraw\
-        esl-translate\
 	esl-weight
 
 SUBCMDOBJS = \
 	cmd_alistat.o    \
 	cmd_downsample.o \
 	cmd_filter.o     \
-	cmd_index.o
+	cmd_index.o      \
+	cmd_translate.o
 
 # beautification magic stolen from git 
 #

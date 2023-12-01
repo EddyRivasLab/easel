@@ -391,6 +391,10 @@ finish_orf(ESL_ORFREADER *orffp, int f)
         }
       }
 
+      // If we're using initiation codon(s), initiation is always on methionine (M) regardless of the codon
+      if (orffp->require_init)
+        dsq[1] = esl_abc_DigitizeSymbol(orffp->gcode->aa_abc, 'M');
+
       esl_sq_FormatName(orffp->sq[f], "orf%" PRId64, orffp->norfs);
       esl_sq_FormatDesc(orffp->sq[f], "source=%s coords=%" PRId64 "..%" PRId64 " length=%" PRId64 " frame=%d desc=%s", orffp->dnasq->name, orffp->sq[f]->start, orffp->sq[f]->end, orffp->sq[f]->n, f+1, orffp->dnasq->desc);
       esl_sq_SetSource(orffp->sq[f], orffp->dnasq->name);
@@ -413,6 +417,189 @@ finish_orf(ESL_ORFREADER *orffp, int f)
 #ifdef eslORFREADER_TESTDRIVE
 
 #include "esl_regexp.h"
+
+/* utest_altcodes()
+ *
+ * Spot check a few alternative genetic code translations, on a
+ * sequence that contains all 64 codons (in Easel order) with short
+ * 9nt prefix and 9t suffix to exercise initiation/termination
+ * codons.
+ *
+ * The contrived sequence is such that there is only one ORF longer
+ * than 60aa, so we can set minlen=60 and only do one _Read().
+ *
+ * This was originally part of the integration test for
+ * esl-translate. I moved it into the code when I wrote esl_orfreader.
+ */
+static void
+utest_altcodes(void)
+{
+  char           msg[]       = "esl_orfreader altcodes unit test failed";
+  char           tmpfile[32] = "esltmpXXXXXX";
+  FILE          *fp          = NULL;
+  ESL_ALPHABET  *nt_abc      = esl_alphabet_Create(eslDNA);
+  ESL_ALPHABET  *aa_abc      = esl_alphabet_Create(eslAMINO);
+  ESL_GENCODE   *gcode       = esl_gencode_Create(nt_abc, aa_abc);
+  ESL_ORFREADER *orffp       = NULL;
+  ESL_SQFILE    *sqfp        = NULL;
+  ESL_SQ        *psq         = esl_sq_CreateDigital(aa_abc);
+  ESL_DSQ       *true_orf    = NULL;
+  struct orftest_s {
+    int  which_code;
+    int  require_init;
+    int  aug_only;
+    int  len;
+    int  start;
+    int  end;
+    char orf[128];
+  } orftest[] = {
+    { 1,  FALSE, FALSE, 64, 1, 192, "LIMKNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVVYYSSSSCWCLFLF"   }, // standard code
+    { 3,  FALSE, FALSE, 65, 1, 195, "LMMKNKNTTTTRSRSMIMIQHQHPPPPRRRRTTTTEDEDAAAAGGGGVVVVYYSSSSCWCLFLFW"  }, // yeast mito code
+    { 14, FALSE, FALSE, 66, 1, 198, "LIMNNKNTTTTSSSSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVVYYSSSSCWCLFLFWY" }, // alt flatworm code
+    { 1,  TRUE,  FALSE, 64, 1, 192, "MIMKNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVVYYSSSSCWCLFLF"   }, // standard code initiators: AUG|CUG|UUG; use UUG
+    { 3,  TRUE,  FALSE, 64, 4, 195,  "MMKNKNTTTTRSRSMIMIQHQHPPPPRRRRTTTTEDEDAAAAGGGGVVVVYYSSSSCWCLFLFW"  }, //    yeast mito initiators: AUG|AUA;     use AUA
+    { 14, TRUE,  FALSE, 64, 7, 198,   "MNNKNTTTTSSSSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVVYYSSSSCWCLFLFWY" }, //  alt flatworm initiator:  AUG
+    { 1,  TRUE,   TRUE, 62, 7, 192,   "MKNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVVYYSSSSCWCLFLF"   }, // AUG-only initiation
+    { 3,  TRUE,   TRUE, 63, 7, 195,   "MKNKNTTTTRSRSMIMIQHQHPPPPRRRRTTTTEDEDAAAAGGGGVVVVYYSSSSCWCLFLFW"  }, //  
+    { 14, TRUE,   TRUE, 64, 7, 198,   "MNNKNTTTTSSSSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVVYYSSSSCWCLFLFWY" }, //
+  };
+  int      n_orftests = sizeof(orftest) / sizeof(struct orftest_s);
+  int      which_test;
+  
+  if ( esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
+  if ( esl_fprintf(fp,
+                   ">altcodes_utest\n"
+                   "TTGATAATG\n"
+                   "AAAAACAAGAATACAACCACGACTAGAAGCAGGAGTATAATCATGATT\n"
+                   "CAACACCAGCATCCACCCCCGCCTCGACGCCGGCGTCTACTCCTGCTT\n"
+                   "GAAGACGAGGATGCAGCCGCGGCTGGAGGCGGGGGTGTAGTCGTGGTT\n"
+                   "TACTATTCATCCTCGTCTTGCTGGTGTTTATTCTTGTTTTGATAATAG\n") != eslOK) esl_fatal(msg);
+  if ( fclose(fp) != 0) esl_fatal(msg);                                  
+
+  for (which_test = 0; which_test < n_orftests; which_test++)
+    {
+      esl_gencode_Set(gcode, orftest[which_test].which_code);
+      if (orftest[which_test].aug_only) esl_gencode_SetInitiatorOnlyAUG(gcode);
+
+      if (esl_sqfile_OpenDigital(nt_abc, tmpfile, eslSQFILE_FASTA, NULL, &sqfp) != eslOK) esl_fatal(msg);
+
+      if (( orffp = esl_orfreader_Create(sqfp, gcode))                          == NULL)  esl_fatal(msg);
+      orffp->minlen = 60;     // make it so we only read our one ORF, top strand
+      orffp->do_fwd = TRUE;
+      orffp->do_rev = FALSE;
+      if (orftest[which_test].require_init) orffp->require_init = TRUE;
+
+      if (( esl_orfreader_Read(orffp, psq)) != eslOK) esl_fatal(msg);
+
+      if (psq->n     != orftest[which_test].len)   esl_fatal(msg);
+      if (psq->start != orftest[which_test].start) esl_fatal(msg);
+      if (psq->end   != orftest[which_test].end)   esl_fatal(msg);
+
+      if (( true_orf = malloc(sizeof(ESL_DSQ) * (orftest[which_test].len + 2)))        == NULL)  esl_fatal(msg);
+      if ( esl_dsq_Digitize(aa_abc, orftest[which_test].orf, true_orf)                 != eslOK) esl_fatal(msg);
+      if ( memcmp(true_orf, psq->dsq, sizeof(ESL_DSQ) * (orftest[which_test].len + 2)) != 0)     esl_fatal(msg);
+  
+      if (( esl_orfreader_Read(orffp, psq)) != eslEOF) esl_fatal(msg);
+
+      free(true_orf);
+      esl_orfreader_Destroy(orffp);
+      esl_sqfile_Close(sqfp);
+      esl_sq_Reuse(psq);
+    }
+
+  esl_alphabet_Destroy(nt_abc);
+  esl_alphabet_Destroy(aa_abc);
+  esl_gencode_Destroy(gcode);
+  esl_sq_Destroy(psq);
+  if ( remove(tmpfile) != 0) esl_fatal(msg);
+}
+
+
+/* utest_ambiguity
+ *
+ * Test ambiguous translation, using another contrived sequence.  The
+ * test includes an ambiguous stop (UAA|UAG) which should correctly
+ * decode to *.  Also includes an ambig initiator HUG=AUG|CUG|UUG,
+ * which should decode to M with require_init for the standard
+ * code. NNN, though, can't initiate (because it's consistent with a
+ * stop too).
+ *
+ * There are possible translations in all frames, so we have to select
+ * for the one we aim to test (frame 1).
+ */
+static void
+utest_ambiguity(void)
+{
+  char           msg[]       = "esl_orfreader ambiguity unit test failed";
+  char           tmpfile[32] = "esltmpXXXXXX";
+  FILE          *fp          = NULL;
+  ESL_ALPHABET  *nt_abc      = esl_alphabet_Create(eslDNA);
+  ESL_ALPHABET  *aa_abc      = esl_alphabet_Create(eslAMINO);
+  ESL_GENCODE   *gcode       = esl_gencode_Create(nt_abc, aa_abc);
+  ESL_ORFREADER *orffp       = NULL;
+  ESL_SQFILE    *sqfp        = NULL;
+  ESL_SQ        *psq         = esl_sq_CreateDigital(aa_abc);
+  ESL_DSQ       *true_orf    = NULL;
+  int            found_orf   = FALSE;
+  int            status;
+  struct orftest_s {
+    int  require_init;
+    int  len;
+    int  start;
+    int  end;
+    char orf[128];
+  } orftest[] = {
+    { FALSE, 27, 1, 81, "XXFLSYCLPHQRITNKSRVADEGXXXX" },
+    { TRUE,  26, 4, 81,  "MFLSYCLPHQRITNKSRVADEGXXXX" },
+  };
+  int      n_orftests = sizeof(orftest) / sizeof(struct orftest_s);
+  int      which_test;
+  
+  if ( esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
+  if ( esl_fprintf(fp,
+                   ">ambiguity_utest\n"
+                   "NNNHUGUUYUURUCNUAYUGYCUNCCNCAYCARCGNAUHACNAAYAARAGYAGRGUNGCNGAYGARGGN\n"
+                   "YUUYCUYAUYGUUAR\n") != eslOK) esl_fatal(msg);
+  if ( fclose(fp) != 0) esl_fatal(msg);                                  
+
+  for (which_test = 0; which_test < n_orftests; which_test++)
+    {
+      if (esl_sqfile_OpenDigital(nt_abc, tmpfile, eslSQFILE_FASTA, NULL, &sqfp) != eslOK) esl_fatal(msg);
+      if (( orffp = esl_orfreader_Create(sqfp, gcode))                          == NULL)  esl_fatal(msg);
+      orffp->do_rev = FALSE;
+      if (orftest[which_test].require_init)  orffp->require_init = TRUE;
+
+      found_orf = FALSE;
+      while ((status = esl_orfreader_Read(orffp, psq)) == eslOK)
+        {
+          if (strstr(psq->desc, "frame=1") != NULL)
+            {
+              if (psq->n     != orftest[which_test].len)   esl_fatal(msg);
+              if (psq->start != orftest[which_test].start) esl_fatal(msg);
+              if (psq->end   != orftest[which_test].end)   esl_fatal(msg);
+
+              if (( true_orf = malloc(sizeof(ESL_DSQ) * (orftest[which_test].len + 2)))        == NULL)  esl_fatal(msg);
+              if ( esl_dsq_Digitize(aa_abc, orftest[which_test].orf, true_orf)                 != eslOK) esl_fatal(msg);
+              if ( memcmp(true_orf, psq->dsq, sizeof(ESL_DSQ) * (orftest[which_test].len + 2)) != 0)     esl_fatal(msg);
+              
+              found_orf = TRUE;
+            }
+        }
+      if (status    != eslEOF) esl_fatal(msg);
+      if (found_orf != TRUE)   esl_fatal(msg);
+
+      free(true_orf);
+      esl_orfreader_Destroy(orffp);
+      esl_sqfile_Close(sqfp);
+      esl_sq_Reuse(psq);
+    }
+  esl_alphabet_Destroy(nt_abc);
+  esl_alphabet_Destroy(aa_abc);
+  esl_gencode_Destroy(gcode);
+  esl_sq_Destroy(psq);
+  if ( remove(tmpfile) != 0) esl_fatal(msg);
+}
+
 
 /* utest_sevenorfs()
  *
@@ -667,6 +854,8 @@ main(int argc, char **argv)
   fprintf(stderr, "## %s\n", argv[0]);
   fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
 
+  utest_altcodes();
+  utest_ambiguity();
   utest_sevenorfs(rng);
 
   fprintf(stderr, "#  status = ok\n");
