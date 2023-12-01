@@ -1,5 +1,4 @@
 /* `easel index` - create SSI index for sequence file
- * 
  */
 #include <esl_config.h>
 
