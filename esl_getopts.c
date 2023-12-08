@@ -100,6 +100,15 @@ esl_getopts_Create(const ESL_OPTIONS *opt)
     g->nopts++;
   }
   
+  /* Check the lengths of the option names. Their max length is 24.
+   * We need to enforce a max limit because of limitations of formatting
+   * fixed-length (eslERRBUFSIZE) error messages.
+   */
+  for (i = 0; i < g->nopts; i++)
+    if (strlen(g->opt[i].name) > 24)
+      ESL_XEXCEPTION(eslEINVAL, "option %s name is too long (max 24)", g->opt[i].name);
+
+
   /* Set default values for all options.
    * Note the valloc[] setting: we only need to dup strings
    * into allocated space if the value is volatile memory, and
@@ -737,14 +746,14 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
 	      if (g->val[reqi] == NULL)
 		{
 		  if (g->setby[i] >= eslARG_SETBY_CFGFILE)
-		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s (set by cfg file %d) requires (or has no effect without) option(s) %.24s", 
-			     g->opt[i].name, g->setby[i]-2, g->opt[i].required_opts);
+		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s (set by cfg file %d) requires (or has no effect without) option %.24s", 
+			     g->opt[i].name, g->setby[i]-2, g->opt[reqi].name);
 		  else if (g->setby[i] == eslARG_SETBY_ENV)
-		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s (set by env var %s) requires (or has no effect without) option(s) %.24s", 
-			     g->opt[i].name, g->opt[i].envvar, g->opt[i].required_opts);
+		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s (set by env var %s) requires (or has no effect without) option %.24s", 
+			     g->opt[i].name, g->opt[i].envvar, g->opt[reqi].name);
 		  else
-		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s requires (or has no effect without) option(s) %.24s", 
-			     g->opt[i].name, g->opt[i].required_opts);
+		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s requires (or has no effect without) option %.24s", 
+			     g->opt[i].name, g->opt[reqi].name);
 		}
 	    }
 	}
@@ -765,15 +774,15 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
 	      if (incompati != i && (g->setby[incompati] != eslARG_SETBY_DEFAULT && g->val[incompati] != NULL))
 		{
 		  if (g->setby[i] >= eslARG_SETBY_CFGFILE)
-		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s (set by cfg file %d) is incompatible with option(s) %.24s", 
-			     g->opt[i].name, g->setby[i]-2, g->opt[i].incompat_opts); 
+		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s (set by cfg file %d) is incompatible with option %.24s", 
+			     g->opt[i].name, g->setby[i]-2, g->opt[incompati].name); 
 		  
 		  else if (g->setby[i] == eslARG_SETBY_ENV)
-		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s (set by env var %s) is incompatible with option(s) %.24s", 
-			     g->opt[i].name, g->opt[i].envvar, g->opt[i].incompat_opts); 
+		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s (set by env var %s) is incompatible with option %.24s", 
+			     g->opt[i].name, g->opt[i].envvar, g->opt[incompati].name); 
 		  else
-		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s is incompatible with option(s) %.24s", 
-			     g->opt[i].name, g->opt[i].incompat_opts); 
+		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s is incompatible with option %.24s", 
+			     g->opt[i].name, g->opt[incompati].name); 
 		}
 	    }
 	}

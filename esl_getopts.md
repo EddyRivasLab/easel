@@ -199,6 +199,9 @@ All options must start with `-`. Options that start with one `-` are
 **short options**. Options that start with `--` are
 **long options**.
 
+The maximum length of an option name is 24, inclusive of the `-` or
+`--`.
+
 Short option names must be a single alphanumeric character: `-n`
 or `-1`, for example.  Short options can be concatenated on the
 command line: `-abc` is the same as `-a -b -c`.
@@ -212,6 +215,8 @@ happen to work, but nonetheless should not be used.
 Long options can be abbreviated (unambiguously) on the command line:
 if `--foobar` is an option, `--f` works too, so long as no other long
 option starts with the same prefix `--f`.
+
+
 
 You should avoid using option names that look like negative numbers if
 any of your other options would accept that value as a valid argument,
