@@ -97,19 +97,19 @@
 1 exercise sindi              !testsuite/i4-alimanip-sindi.sh! @@ !! %TESTPFX%
 
 
-1 exercise esl-afetch         !miniapps/esl-afetch.itest.pl!    @miniapps/esl-afetch@    %TESTPFX%
-1 exercise esl-alimanip       !miniapps/esl-alimanip.itest.pl!  @miniapps/esl-alimanip@  %TESTPFX%
-1 exercise esl-alimap         !miniapps/esl-alimap.itest.pl!    @miniapps/esl-alimap@    %TESTPFX%
-1 exercise esl-alimask        !miniapps/esl-alimask.itest.pl!   @miniapps/esl-alimask@   %TESTPFX%
-1 exercise esl-alimerge       !miniapps/esl-alimerge.itest.pl!  @miniapps/esl-alimerge@  %TESTPFX%
-1 exercise esl-alistat        !miniapps/esl-alistat.itest.pl!   @miniapps/esl-alistat@   %TESTPFX%
-1 exercise esl-compalign      !miniapps/esl-compalign.itest.pl! @miniapps/esl-compalign@ %TESTPFX%
-1 exercise esl-construct      !miniapps/esl-construct.itest.pl! @miniapps/esl-construct@ %TESTPFX%
-1 exercise esl-mask           !miniapps/esl-mask.itest.pl!      @miniapps/esl-mask@      %TESTPFX%
-1 exercise esl-seqrange       !miniapps/esl-seqrange.itest.pl!  @miniapps/esl-seqrange@  @miniapps/esl-sfetch@ %TESTPFX%
-1 exercise esl-shuffle        !miniapps/esl-shuffle.itest.py!   @@ !! %TESTPFX%
-1 exercise esl-ssdraw         !miniapps/esl-ssdraw.itest.pl!    @miniapps/esl-ssdraw@    !testsuite/trna-ssdraw.ps! !testsuite/trna-5.stk! %TESTPFX%
-1 exercise esl-translate      !miniapps/esl-translate.itest.pl! @@ !! %TESTPFX%
+1 exercise esl-afetch         !miniapps/esl-afetch.itest.pl!      @miniapps/esl-afetch@    %TESTPFX%
+1 exercise esl-alimanip       !miniapps/esl-alimanip.itest.pl!    @miniapps/esl-alimanip@  %TESTPFX%
+1 exercise esl-alimap         !miniapps/esl-alimap.itest.pl!      @miniapps/esl-alimap@    %TESTPFX%
+1 exercise esl-alimask        !miniapps/esl-alimask.itest.pl!     @miniapps/esl-alimask@   %TESTPFX%
+1 exercise esl-alimerge       !miniapps/esl-alimerge.itest.pl!    @miniapps/esl-alimerge@  %TESTPFX%
+1 exercise esl-alistat        !miniapps/esl-alistat.itest.pl!     @miniapps/esl-alistat@   %TESTPFX%
+1 exercise esl-compalign      !miniapps/esl-compalign.itest.pl!   @miniapps/esl-compalign@ %TESTPFX%
+1 exercise esl-construct      !miniapps/esl-construct.itest.pl!   @miniapps/esl-construct@ %TESTPFX%
+1 exercise esl-mask           !miniapps/esl-mask.itest.pl!        @miniapps/esl-mask@      %TESTPFX%
+1 exercise esl-seqrange       !miniapps/esl-seqrange.itest.pl!    @miniapps/esl-seqrange@  @miniapps/esl-sfetch@ %TESTPFX%
+1 exercise esl-shuffle        !miniapps/esl-shuffle.itest.py!     @@ !! %TESTPFX%
+1 exercise esl-ssdraw         !miniapps/esl-ssdraw.itest.pl!      @miniapps/esl-ssdraw@    !testsuite/trna-ssdraw.ps! !testsuite/trna-5.stk! %TESTPFX%
+1 exercise esl-translate      !miniapps/easel-translate-itest.py! @@ !! %TESTPFX%
 
 
 # Still to do:
