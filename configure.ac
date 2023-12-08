@@ -603,8 +603,8 @@ AC_CONFIG_FILES([ \
   miniapps/esl-sfetch.man      \
   miniapps/esl-shuffle.man     \
   miniapps/esl-ssdraw.man      \
-  miniapps/esl-translate.man   \
   miniapps/esl-weight.man      \
+  miniapps/easel-translate.man \
  ])
 
 AC_CONFIG_HEADERS([decoy_config.h])   # This keeps gnu 'autoheader' from overwriting our esl_config.h.in
