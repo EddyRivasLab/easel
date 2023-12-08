@@ -1183,6 +1183,8 @@ utest_Write(ESL_RANDOMNESS *rng)
   if (esl_sq_Reuse(sq)                              != eslOK)  esl_fatal(msg);
   esl_sqfile_Close(sqfp);
 
+  remove(tmpfile1);
+  remove(tmpfile2);
   esl_sq_Destroy(sq);
   free(dsq);
   free(p);
