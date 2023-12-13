@@ -381,6 +381,30 @@ applications. All functions must be reentrant. There should be no
 global or static variables.
 
 
+### write portable code
+
+We aim to be portable across any POSIX- and C99-compliant system and
+compiler.
+
+#### Don't assume  `char` is signed.
+
+Don't assign values other than 0..127 to a `char`. Don't do arithmetic
+on a `char`. Don't use -1 as an "unset" flag in a `char`. If you need
+a signed 8-bit quantity use `int8_t`.
+
+A system is allowed to treat `char` as signed or unsigned.  Linux,
+macOS, and Windows treat `char` as signed, but PowerPC and ARM (aside
+from macOS ARM) treat `char` as unsigned.
+
+To generate a warning on bad code that is assigning -1 to a `char`
+(for example), build and compile with `configure CC=gcc CFLAGS="-g
+-Wall -funsigned-char"`.
+
+
+  
+  
+
+
 ---------------------------------------------------
 
 ##  managing memory allocation
