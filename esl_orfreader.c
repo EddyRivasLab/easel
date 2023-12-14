@@ -684,6 +684,7 @@ sevenorfs_create(ESL_RANDOMNESS *rng, struct sevenorfs_s **ret_svs)
   for (; i < svs->a + 3*svs->b + 3; i++) dnaseq[i] = 'G';              // beta region:  [G]*
   dnaseq[i++] = 'T'; dnaseq[i++] = 'A'; dnaseq[i++] = 'G';             // TAG
   for (; i < svs->L; i++) dnaseq[i] = "CGT"[esl_rnd_Roll(rng, 3)];     // gamma region  [CGT]*
+  dnaseq[svs->L] = '\0';
   if ( esl_dsq_Create(svs->abc, dnaseq, &(svs->dsq)) != eslOK) esl_fatal(msg);
 
   svs->orf_start[0] = svs->a + 1;              svs->orf_end[0] = svs->a + 3*svs->b + 3;    // orf0  ATG..bbb..TER
