@@ -22,7 +22,9 @@
 /* Control of debugging instrumentation */
 #undef eslDEBUGLEVEL    // debugging/assertion verbosity level: (0=none;3=most verbose) 
 #undef eslENABLE_ASAN   // some unit tests may need to know if AddressSanitizer is in use
-#undef eslENABLE_TSAN   //   ... ditto, for ThreadSanitizer
+#undef eslENABLE_MSAN   //   ... or the MemorySanitizer
+#undef eslENABLE_TSAN   //   ... or the ThreadSanitizer
+
 
 /* Optional parallel implementation support */
 #undef eslENABLE_SSE
