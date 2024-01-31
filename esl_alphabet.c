@@ -1283,7 +1283,7 @@ utest_CreateCustom(void)
   if (esl_alphabet_SetCaseInsensitive(a)       != eslOK) esl_fatal(msg);  /* allow lower case input */
   if (esl_alphabet_SetDegeneracy(a, 'Z', "QE") != eslOK) esl_fatal(msg);
   
-  if (esl_dsq_Create(a, testseq, &dsq)         != eslOK)   esl_fatal(msg);
+  if (esl_dsq_Build(a, testseq, &dsq)          != eslOK)   esl_fatal(msg);
   if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (strlen(testseq)+2)) != 0) esl_fatal(msg);
 
   free(dsq);
@@ -1315,7 +1315,7 @@ utest_SetEquiv(void)
   if (esl_alphabet_SetEquiv(a, '2', 'V') != eslEINVAL)           esl_fatal(msg); /* c is not in internal alphabet */
 #endif
 
-  if (esl_dsq_Create(a, testseq, &dsq)                           != eslOK) esl_fatal(msg);
+  if (esl_dsq_Build(a, testseq, &dsq)                            != eslOK) esl_fatal(msg);
   if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (strlen(testseq)+2)) != 0)     esl_fatal(msg);
   free(dsq);
   esl_alphabet_Destroy(a);
@@ -1333,7 +1333,7 @@ utest_SetCaseInsensitive(void)
 
   if ((a = esl_alphabet_CreateCustom("acgt-n*~", 4, 8)) == NULL)       esl_fatal(msg);
   if (esl_alphabet_SetCaseInsensitive(a)  != eslOK)                    esl_fatal(msg);
-  if (esl_dsq_Create(a, testseq, &dsq)    != eslOK)                    esl_fatal(msg);
+  if (esl_dsq_Build(a, testseq, &dsq)     != eslOK)                    esl_fatal(msg);
   if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (strlen(testseq)+2)) != 0) esl_fatal(msg);
   free(dsq);
   esl_alphabet_Destroy(a);
@@ -1363,7 +1363,7 @@ utest_SetDegeneracy(void)
   if (esl_alphabet_SetDegeneracy(a, 'Y', "CT") != eslOK)            esl_fatal(msg);
   if (esl_alphabet_SetCaseInsensitive(a)       != eslOK)            esl_fatal(msg);
 
-  if (esl_dsq_Create(a, testseq, &dsq)                           != eslOK) esl_fatal(msg);
+  if (esl_dsq_Build(a, testseq, &dsq)                            != eslOK) esl_fatal(msg);
   if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (strlen(testseq)+2)) != 0)     esl_fatal(msg);
 
   x = esl_abc_DigitizeSymbol(a, 'a');  if (a->ndegen[x] != 1) esl_fatal(msg);
@@ -1402,7 +1402,7 @@ utest_SetIgnored(void)
   if ((a = esl_alphabet_Create(eslRNA)) == NULL)  esl_fatal(msg);
   if (esl_alphabet_SetIgnored(a, " \t") != eslOK) esl_fatal(msg);
 
-  if (esl_dsq_Create(a, testseq, &dsq)         != eslOK) esl_fatal(msg);
+  if (esl_dsq_Build(a, testseq, &dsq)          != eslOK) esl_fatal(msg);
   if (memcmp(dsq, expect, sizeof(ESL_DSQ) * L) != 0)     esl_fatal(msg);
   free(dsq);
   esl_alphabet_Destroy(a);

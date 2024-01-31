@@ -7,7 +7,7 @@
  * A digitized sequence is dsq[1..L], with eslDSQ_SENTINEL bytes at 0
  * and L+1. Callers often allocate an <ESL_DSQ *> directly, allocating
  * at least sizeof(ESL_DSQ) * (L+2) for a dsq of length L. Alternatively,
- * a caller can use esl_dsq_Create() to convert a text-mode sequence
+ * a caller can use esl_dsq_Build() to convert a text-mode sequence
  * into a newly allocated <ESL_DSQ *>.
  *
  * esl_alphabet: basic support for digitized alphabets;
@@ -41,6 +41,33 @@
  *****************************************************************/
 
 /* Function:  esl_dsq_Create()
+ * Synopsis:  Allocate a new ESL_DSQ
+ * Incept:    SRE, Wed 31 Jan 2024
+ *
+ * Purpose:   Allocate a new ESL_DSQ of length <L>, set
+ *            its sentinels at 0 and L+1.
+ *            ptr to it.
+ *
+ * Returns:   ptr to the new ESL_DSQ.
+ *
+ * Throws:    NULL on malloc failure.
+ */
+ESL_DSQ *
+esl_dsq_Create(int64_t L)
+{
+  ESL_DSQ *dsq = NULL;
+  int      status;
+
+  ESL_ALLOC(dsq, sizeof(ESL_DSQ) * (L+2));
+  dsq[0] = dsq[L+1] = eslDSQ_SENTINEL;
+  return dsq;
+
+ ERROR:
+  return NULL;
+}
+
+
+/* Function:  esl_dsq_Build()
  * Synopsis:  Create a new dsq by digitizing a text-mode sequence
  *
  * Purpose:   Given an alphabet <abc> and a text-mode sequence <seq>,
@@ -66,7 +93,7 @@
  * Xref:      STL11/63
  */
 int
-esl_dsq_Create(const ESL_ALPHABET *abc, const char *seq, ESL_DSQ **ret_dsq)
+esl_dsq_Build(const ESL_ALPHABET *abc, const char *seq, ESL_DSQ **ret_dsq)
 {
   ESL_DSQ *dsq = NULL;
   int64_t  L;
@@ -823,11 +850,11 @@ utest_basic_examples(void)
   /* Example 1. 
    * Create a DNA alphabet; digitize a DNA sequence.
    */
-  if ((a1 = esl_alphabet_Create(eslDNA)) == NULL)      esl_fatal(msg);
+  if ((a1 = esl_alphabet_Create(eslDNA)) == NULL)  esl_fatal(msg);
   L  = strlen(dnaseq);
-  if ((dsq = malloc(sizeof(ESL_DSQ) * (L+2))) == NULL) esl_fatal(msg);
-  if (esl_dsq_Digitize(a1, dnaseq, dsq) != eslOK)      esl_fatal(msg);
-  if (esl_dsq_GetLen(dsq) != L)                        esl_fatal(msg);
+  if ((dsq = esl_dsq_Create(L))          == NULL)  esl_fatal(msg);
+  if (esl_dsq_Digitize(a1, dnaseq, dsq)  != eslOK) esl_fatal(msg);
+  if (esl_dsq_GetLen(dsq) != L)                    esl_fatal(msg);
   esl_alphabet_Destroy(a1);
 
   /* Example 2. 
@@ -836,7 +863,7 @@ utest_basic_examples(void)
    * correctly synonymous on input).
    */
   if ((a2 = esl_alphabet_Create(eslRNA)) == NULL)       esl_fatal(msg);
-  if ((dsq2 = malloc(sizeof(ESL_DSQ) * (L+2))) == NULL) esl_fatal(msg);
+  if ((dsq2 = esl_dsq_Create(L))         == NULL)       esl_fatal(msg);
   if (esl_dsq_Digitize(a2, dnaseq, dsq2) != eslOK)      esl_fatal(msg);
   if (memcmp(dsq, dsq2, sizeof(ESL_DSQ) * (L+2)) != 0)  esl_fatal(msg);
   esl_alphabet_Destroy(a2);
@@ -867,9 +894,9 @@ utest_basic_examples(void)
 
 
 static void
-utest_Create(void) 
+utest_Build(void) 
 {
-  char msg[]  = "esl_dsq_Create() unit test failed";
+  char msg[]  = "esl_dsq_Build() unit test failed";
   ESL_ALPHABET *abc       = NULL;
   ESL_DSQ      *dsq       = NULL;
   char          goodseq[] = "ACDEF";
@@ -878,11 +905,11 @@ utest_Create(void)
 
   if ((abc = esl_alphabet_Create(eslAMINO)) == NULL) esl_fatal(msg);
 
-  if (esl_dsq_Create(abc, goodseq, &dsq) != eslOK) esl_fatal(msg);
+  if (esl_dsq_Build(abc, goodseq, &dsq) != eslOK) esl_fatal(msg);
   if (dsq[1] != 0 || dsq[2] != 1) esl_fatal(msg); // spot check; A=0, C=1 in amino alphabet
   free(dsq);
   
-  if (esl_dsq_Create(abc, badseq, &dsq) != eslEINVAL) esl_fatal(msg);
+  if (esl_dsq_Build(abc, badseq, &dsq) != eslEINVAL) esl_fatal(msg);
   x = esl_abc_XGetUnknown(abc);
   if (dsq[1] != x || dsq[2] != x) esl_fatal(msg); // bad chars all X's now, upon failure 
   free(dsq);
@@ -933,7 +960,7 @@ utest_Textize(void)
   L = strlen(goodseq);
   ESL_ALLOC(newseq, sizeof(char) * (L+1));
   if ((abc = esl_alphabet_Create(eslAMINO)) == NULL)  esl_fatal(msg);
-  if (esl_dsq_Create(abc, goodseq, &dsq)    != eslOK) esl_fatal(msg);
+  if (esl_dsq_Build(abc, goodseq, &dsq)    != eslOK) esl_fatal(msg);
   if (esl_dsq_Textize(abc, dsq, L, newseq)  != eslOK) esl_fatal(msg);
   if (strcmp(newseq, "ACDEF")               != 0)     esl_fatal(msg);
   free(dsq);
@@ -956,7 +983,7 @@ utest_TextizeN(void)
   int           W;
 
   if ((abc = esl_alphabet_Create(eslAMINO)) == NULL)  esl_fatal(msg);
-  if (esl_dsq_Create(abc, goodseq, &dsq)    != eslOK) esl_fatal(msg);
+  if (esl_dsq_Build(abc, goodseq, &dsq)    != eslOK) esl_fatal(msg);
 
   dptr = dsq+6; 		// points to "r", residue 6 
   W    = 5;			// copy/convert 5 residues "rynac"
@@ -1020,7 +1047,7 @@ utest_Clone(void)
 
   L = strlen(goodseq);
   if ((abc = esl_alphabet_Create(eslRNA))         == NULL)  esl_fatal(msg);
-  if (esl_dsq_Create(abc, goodseq, &d1)           != eslOK) esl_fatal(msg);
+  if (esl_dsq_Build(abc, goodseq, &d1)           != eslOK) esl_fatal(msg);
 
   if (esl_dsq_Clone(d1, -1, &d2)                  != eslOK) esl_fatal(msg);   // with L unknown (the -1)
   if (memcmp(d2, expect, sizeof(ESL_DSQ) * (L+2)) != 0)     esl_fatal(msg);
@@ -1057,14 +1084,14 @@ utest_Append(void)
 
   L1 = strlen(goodseq);
   L2 = strlen(addseq);
-  if (esl_dsq_Create(abc, goodseq, &dsq)                 != eslOK) esl_fatal(msg);
+  if (esl_dsq_Build(abc, goodseq, &dsq)                 != eslOK) esl_fatal(msg);
   if (esl_dsq_Append(abc->inmap, &dsq, &L1, addseq, L2)  != eslOK) esl_fatal(msg);   // L1, L2 both provided
   if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (L1+2))      != 0)     esl_fatal(msg);
   free(dsq);
 
   L1 = -1;
   L2 = -1;
-  if (esl_dsq_Create(abc, goodseq, &dsq)                 != eslOK) esl_fatal(msg);
+  if (esl_dsq_Build(abc, goodseq, &dsq)                 != eslOK) esl_fatal(msg);
   if (esl_dsq_Append(abc->inmap, &dsq, &L1, addseq, L2)  != eslOK) esl_fatal(msg);   // L1, L2 are -1
   if (L1 != esl_dsq_GetLen(dsq))                                   esl_fatal(msg);
   if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (L1+2))      != 0)     esl_fatal(msg);
@@ -1080,7 +1107,7 @@ utest_Append(void)
 
   L1 = -1;
   L2 = strlen(badseq);
-  if (esl_dsq_Create(abc, goodseq, &dsq)                 != eslOK)     esl_fatal(msg);  
+  if (esl_dsq_Build(abc, goodseq, &dsq)                 != eslOK)     esl_fatal(msg);  
   if (esl_dsq_Append(abc->inmap, &dsq, &L1, badseq,  L2) != eslEINVAL) esl_fatal(msg);  // bad input char becomes x
   if (L1 != esl_dsq_GetLen(dsq))                                       esl_fatal(msg);
   if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (L1+2))      != 0)         esl_fatal(msg);
@@ -1110,8 +1137,8 @@ utest_dealignment(void)
   int64_t       i;
   int64_t       rlen;
 
-  if ( esl_dsq_Create(abc, aseq1, &ax1) != eslOK) esl_fatal(msg);
-  if ( esl_dsq_Create(abc, aseq2, &ax2) != eslOK) esl_fatal(msg);
+  if ( esl_dsq_Build(abc, aseq1, &ax1) != eslOK) esl_fatal(msg);
+  if ( esl_dsq_Build(abc, aseq2, &ax2) != eslOK) esl_fatal(msg);
   if ( n1 != n2 )                                 esl_fatal(msg);  // only happens if you changed the alignment strings above and screwed up
   for (i = 0, ng1=0, ng2=0; aseq1[i] != '\0'; i++) {
     if (esl_abc_CIsGap(abc, aseq1[i])) ng1++;
@@ -1146,7 +1173,7 @@ utest_Write(ESL_RANDOMNESS *rng)
   ESL_ALPHABET *abc  = esl_alphabet_Create(eslDNA);
   double       *p    = malloc(sizeof(double) * abc->K);
   int64_t       L    = 100 + esl_rnd_Roll(rng, 101);    // L = 100..200
-  ESL_DSQ      *dsq  = malloc(sizeof(ESL_DSQ) * (L+2));
+  ESL_DSQ      *dsq  = esl_dsq_Create(L);
   FILE         *fp   = NULL;
   ESL_SQFILE   *sqfp = NULL;
   ESL_SQ       *sq   = esl_sq_CreateDigital(abc);
@@ -1210,7 +1237,7 @@ utest_Degen2X(ESL_RANDOMNESS *rng)
   default: esl_fatal(msg);
   }
 
-  if ( (dsq = malloc(sizeof(ESL_DSQ) * (L+2))) == NULL)  esl_fatal(msg);
+  if ( (dsq = esl_dsq_Create(L)) == NULL)  esl_fatal(msg);
   dsq[0] = dsq[L+1] = eslDSQ_SENTINEL;
   for (i = 1; i <= L; i++)
     dsq[i] = esl_rnd_Roll(rng, abc->Kp);  // random dsq, using all possible syms, including degen, gap, missing
@@ -1239,8 +1266,8 @@ utest_Revcomp(void)
   ESL_DSQ      *dsq2 = NULL;
   ESL_DSQ      *dsq3 = NULL;
 
-  if ( esl_dsq_Create(abc, seq, &dsq1)             != eslOK) esl_fatal(msg);
-  if ( esl_dsq_Create(abc, rev, &dsq2)             != eslOK) esl_fatal(msg);
+  if ( esl_dsq_Build(abc, seq, &dsq1)              != eslOK) esl_fatal(msg);
+  if ( esl_dsq_Build(abc, rev, &dsq2)              != eslOK) esl_fatal(msg);
   if ( esl_dsq_Clone(dsq1, L, &dsq3)               != eslOK) esl_fatal(msg);
   if ( esl_dsq_Revcomp(abc, dsq3, L)               != eslOK) esl_fatal(msg);
   if ( memcmp(dsq2, dsq3, (L+2) * sizeof(ESL_DSQ)) != 0)     esl_fatal(msg);
@@ -1338,7 +1365,7 @@ main(int argc, char **argv)
   fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
 
   utest_basic_examples();
-  utest_Create();
+  utest_Build();
   utest_Digitize();
   utest_Textize();
   utest_TextizeN();
@@ -1387,7 +1414,7 @@ main(int argc, char **argv)
   esl_rnd_Dirichlet(rng, NULL, abc->K, p);        // alpha=NULL gives a uniform distribution on p
   esl_rsq_IID(rng, abc->sym, p, abc->K, L, seq);
 
-  esl_dsq_Create(abc, seq, &dsq);
+  esl_dsq_Build(abc, seq, &dsq);
   esl_dsq_Write(stdout, abc, dsq, "test", "description goes here");
 
   free(dsq);

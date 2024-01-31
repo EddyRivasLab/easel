@@ -2524,7 +2524,7 @@ utest_CreateDigital()
   ESL_SQ       *sq2  = NULL;
   ESL_SQ       *sq3  = NULL;
 
-  if (esl_dsq_Create(abc, seq, &dsq)                                     != eslOK) esl_fatal(msg);
+  if (esl_dsq_Build(abc, seq, &dsq)                                         != eslOK) esl_fatal(msg);
   if ((sq1 = esl_sq_CreateDigitalFrom(abc, name, dsq, n, desc, acc, ss))    == NULL)  esl_fatal(msg);
 
   if ((sq2 = esl_sq_CreateDigital(abc))                                        == NULL)  esl_fatal(msg);
@@ -2852,7 +2852,7 @@ int main(void)
   abc = esl_alphabet_Create(eslRNA);
 
   /* Creating a digital ESL_SQ from text info: */
-  esl_dsq_Create(abc, testseq, &dsq);
+  esl_dsq_Build(abc, testseq, &dsq);
   sq1 = esl_sq_CreateDigitalFrom(abc, name, dsq, n, desc, acc, ss); 
   free(dsq);
   

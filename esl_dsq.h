@@ -15,10 +15,11 @@ extern "C" {
 
 /* ESL_DSQ is declared, and its constant values defined, in esl_alphabet.h.  */
 
-extern int     esl_dsq_Create   (const ESL_ALPHABET *abc, const char    *seq,             ESL_DSQ **ret_dsq);
-extern int     esl_dsq_Digitize (const ESL_ALPHABET *abc, const char    *seq,             ESL_DSQ *dsq);
-extern int     esl_dsq_Textize  (const ESL_ALPHABET *abc, const ESL_DSQ *dsq,  int64_t L, char    *seq);
-extern int     esl_dsq_TextizeN (const ESL_ALPHABET *abc, const ESL_DSQ *dptr, int64_t L, char    *buf);
+extern ESL_DSQ *esl_dsq_Create   (int64_t L);
+extern int      esl_dsq_Build    (const ESL_ALPHABET *abc, const char    *seq,             ESL_DSQ **ret_dsq);
+extern int      esl_dsq_Digitize (const ESL_ALPHABET *abc, const char    *seq,             ESL_DSQ *dsq);
+extern int      esl_dsq_Textize  (const ESL_ALPHABET *abc, const ESL_DSQ *dsq,  int64_t L, char    *seq);
+extern int      esl_dsq_TextizeN (const ESL_ALPHABET *abc, const ESL_DSQ *dptr, int64_t L, char    *buf);
 
 extern int     esl_dsq_Copy     (const ESL_DSQ *dsq, int64_t L, ESL_DSQ *dcopy);
 extern int     esl_dsq_Clone    (const ESL_DSQ *dsq, int64_t L, ESL_DSQ **ret_dup);
