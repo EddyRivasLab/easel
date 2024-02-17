@@ -264,6 +264,7 @@ int
 esl_sq_Copy(const ESL_SQ *src, ESL_SQ *dst)
 {
   int   x;        /* index for optional extra residue markups */
+  int64_t tagalloc;
   int status;
 
   /* If <src> has structure annotation and <dst> does not, initialize an allocation in <dst> */
@@ -285,8 +286,11 @@ esl_sq_Copy(const ESL_SQ *src, ESL_SQ *dst)
     ESL_ALLOC(dst->xr,     sizeof(char *) * dst->nxr);
     
     for (x = 0; x < dst->nxr; x++) {
-      ESL_ALLOC(dst->xr_tag[x], sizeof(char) * src->nalloc);
       ESL_ALLOC(dst->xr[x],     sizeof(char) * src->salloc);
+	  if (src->xr_tag[x] != NULL) {
+        tagalloc = strlen(src->xr_tag[x]) + 1;
+        ESL_ALLOC(dst->xr_tag[x], sizeof(char) * tagalloc);
+	  }
     }
   }
   
