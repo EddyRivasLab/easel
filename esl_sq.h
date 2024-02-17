@@ -130,8 +130,8 @@ typedef struct {
   /* Optional information for extra residue markups.
    * The number of them, and their tags are arbitrary
    */
-  char  **xr_tag;          /* markup tags for extra residue markups [0..ntr-1][free-text], [0..ntr-1][free-text], or NULL */
-  char  **xr;              /* annotations for extra residue markups [0..ntr-1][0..n-1],    [0..ntr-1][1..n],      or NULL */
+  char  **xr_tag;          /* markup tags for extra residue markups [0..nxr-1][free-text], [0..nxr-1][free-text], or NULL */
+  char  **xr;              /* annotations for extra residue markups [0..nxr-1][0..n-1],    [0..nxr-1][1..n],      or NULL */
   int     nxr;             /* number of extra residue markups                                                             */
 
   /* Copy of a pointer to the alphabet, if digital mode */
