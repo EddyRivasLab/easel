@@ -201,6 +201,7 @@ extern int           esl_sq_BlockReallocSequences(ESL_SQ_BLOCK *block);
 
 extern int esl_sq_Validate(ESL_SQ *sq, char *errmsg);
 extern int esl_sq_Sample(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, int maxL, ESL_SQ **ret_sq);
-
+extern int esl_sq_Serialize(const ESL_SQ *obj, uint8_t **buf, uint32_t *n, uint32_t *nalloc);
+extern int esl_sq_Deserialize(const uint8_t *buf, uint32_t *n, ESL_ALPHABET **byp_abc, ESL_SQ **byp_ret);
 #endif /*eslSQ_INCLUDED*/
 
