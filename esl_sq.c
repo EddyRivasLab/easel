@@ -1935,7 +1935,7 @@ extern int esl_sq_Serialize(const ESL_SQ *obj, uint8_t **buf, uint32_t *n, uint3
   // Don't need to serialize the sequence's alphabet, as we can just create one during deserialization
 
   // Update the location in the buffer for the next thing to be serialized
-  if((uint64_t) (ptr- *buf) != ser_size){
+  if((uint64_t) (ptr- (*buf + *n)) != ser_size){
     printf("Difference between actual and pre-computed size of serialized object, %lu vs %lu\n", (uint64_t) (ptr- *buf), ser_size);
   }
   *n = (ptr- *buf);
