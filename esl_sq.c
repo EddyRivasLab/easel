@@ -1771,7 +1771,451 @@ esl_sq_CountResidues(const ESL_SQ *sq, int start, int L, float *f)
   return eslOK;
 }
 
+#define ESL_SQ_HAS_SS 1
+#define ESL_SQ_DIGITAL_RNA 2
+#define ESL_SQ_DIGITAL_DNA 4
+#define ESL_SQ_DIGITAL_AMINO 8
+#define ESL_SQ_DIGITAL_COINS 16
+#define ESL_SQ_DIGITAL_DICE 32
 
+/* Function:  esl_sq_Serialize
+ * Synopsis:  Serialize an ESL_SQ object for transmission over sockets
+ *
+ * Purpose:   Given a digital ESL_SQ object whose alphabet is not eslNONSTANDARD,
+ *            serializes that object into the 
+ *            buffer buf, starting at position n.  If there is not enough
+ *            space in the buffer (nalloc-n < length of serialized ESL_SQ),
+ *            resizes the buffer to be large enough.  If *buf ==NULL, allocates 
+ *            a new buffer of sufficient size.  Attempting to serialize a text-mode 
+ *            sequence is an error.
+ *
+ * Returns:   <eslOK> on success, <eslEINVAL> if buf == NULL, obj == NULL, or n == NULL,
+ *            <eslEMEM> if unable to allocate memory.  Also returns eslEINVAL if the sequence
+ *            is in text mode, does not contain an ESL_ALPHABET object, or contains an ESL_ALPHABET
+ *            object whose type is eslNONSTANDARD
+ */
+
+extern int esl_sq_Serialize(const ESL_SQ *obj, uint8_t **buf, uint32_t *n, uint32_t *nalloc){
+  int status; 
+  if((obj == NULL) || (n == NULL) || (buf == NULL)){
+    return(eslEINVAL);
+  }
+  if(obj->seq != NULL){ // we don't support serializing text-mode sequences
+    return(eslEINVAL);
+  }
+  if(obj->abc == NULL || obj->abc->type == eslNONSTANDARD){ // need an alphabet of type != eslNONSTANDARD to serialize
+    return(eslEINVAL);
+  }
+
+  // If we get here, the ESL_SQ object is serializable and the only error condition we can generate is if
+  // we're unable to allocate memory
+  int8_t flags = 0;
+  // figure out how big the serialized object will be
+
+  uint64_t ser_size = 1;  // Presence and type flags
+  ser_size += sizeof(int32_t); // tax_id field
+  ser_size += 8* sizeof(int64_t); // n, start, end, C, W, L, salloc, idx fields
+  ser_size += 5 * sizeof(int); // nalloc, aaloc, dalloc, srcalloc, nxr
+  ser_size += strlen(obj->name)+1; // These fields are just end-of-string characters if not present
+  ser_size += strlen(obj->acc) +1;
+  ser_size += strlen(obj->desc) +1;
+  ser_size += strlen(obj->source) +1;
+
+  ser_size += obj->n + 2;  // The sequence itself
+  if(obj->ss != NULL){
+    flags |= ESL_SQ_HAS_SS;
+    ser_size+= obj->n +2;
+  }
+  for (int x = 0; x < obj->nxr; x ++) {
+    ser_size += strlen(obj->xr_tag[x]) +1;
+    ser_size += obj->n +2;
+  }
+  switch(obj->abc->type){
+    case eslRNA:
+      flags |= ESL_SQ_DIGITAL_RNA;
+      break;
+    case eslDNA:
+      flags |= ESL_SQ_DIGITAL_DNA;
+      break;
+    case eslAMINO:
+      flags |= ESL_SQ_DIGITAL_AMINO;
+      break;
+    case eslCOINS:
+      flags |= ESL_SQ_DIGITAL_COINS;
+      break;
+    case eslDICE:
+      flags |= ESL_SQ_DIGITAL_DICE;
+  }
+  if(*buf == NULL){
+    ESL_ALLOC(*buf, *n+ser_size);
+    *nalloc = *n + ser_size;
+  }
+  else if((*nalloc - *n) < ser_size){
+    ESL_REALLOC(*buf, *n + ser_size);
+    *nalloc = *n + ser_size;
+  }
+
+  // At this point, we know we have enough space in the buffer, and can proceed to serialize
+  uint32_t network32_bit;
+  uint64_t network_64bit;
+  uint8_t *ptr = *buf + *n;
+  memcpy((void *)ptr, (void *) &flags, sizeof(int8_t));
+  ptr+= sizeof(int8_t);
+
+  network_64bit = esl_hton64(obj->n);  // Put this at the beginning because we need the value of n to deserialize some of the variable-length fields
+  memcpy((void *) ptr, (void *) &network_64bit, sizeof(obj->n));
+  ptr += sizeof(obj->n);
+
+  // These also go early because we need them to allocate memory for variable-length fields
+  // This has the potential to fail horribly on a machine where ints aren't 32 bits,
+  network32_bit = esl_hton32(obj->nalloc);
+  memcpy((void *) ptr, (void *) &network32_bit, sizeof(obj->nalloc));
+  ptr += sizeof(obj->nalloc);
+
+  network32_bit = esl_hton32(obj->aalloc);
+  memcpy((void *) ptr, (void *) &network32_bit, sizeof(obj->aalloc));
+  ptr += sizeof(obj->aalloc);
+
+  network32_bit = esl_hton32(obj->dalloc);
+  memcpy((void *) ptr, (void *) &network32_bit, sizeof(obj->dalloc));
+  ptr += sizeof(obj->dalloc);
+  
+  network_64bit = esl_hton64(obj->salloc);
+  memcpy((void *) ptr, (void *) &network_64bit, sizeof(obj->salloc));
+  ptr += sizeof(obj->salloc);
+
+  network32_bit = esl_hton32(obj->srcalloc);
+  memcpy((void *) ptr, (void *) &network32_bit, sizeof(obj->srcalloc));
+  ptr += sizeof(obj->srcalloc);
+// Strings don't have byte-order issues
+  strcpy((char *) ptr, obj->name);
+  ptr+= strlen(obj->name) +1;
+
+  strcpy((char *) ptr, obj->acc);
+  ptr+= strlen(obj->acc) +1;
+
+  strcpy((char *) ptr, obj->desc);
+  ptr+= strlen(obj->desc) +1;
+
+  network32_bit = esl_hton32(obj->tax_id);
+  memcpy((void *) ptr, (void *) &network32_bit, sizeof(obj->tax_id));
+  ptr += sizeof(obj->tax_id);
+
+  memcpy((void *) ptr, (void *) obj->dsq, obj->n +2);
+  ptr += obj->n +2;
+  if(obj->ss != NULL){
+    memcpy((void *) ptr, (void *) obj->ss, obj->n +2);
+    ptr += obj->n +2;
+  }
+  
+  network_64bit = esl_hton64(obj->start);
+  memcpy((void *) ptr, (void *) &network_64bit, sizeof(obj->start));
+  ptr += sizeof(obj->start);
+
+  network_64bit = esl_hton64(obj->end);
+  memcpy((void *) ptr, (void *) &network_64bit, sizeof(obj->end));
+  ptr += sizeof(obj->end);
+  
+  network_64bit = esl_hton64(obj->C);
+  memcpy((void *) ptr, (void *) &network_64bit, sizeof(obj->C));
+  ptr += sizeof(obj->C);
+  
+  network_64bit = esl_hton64(obj->W);
+  memcpy((void *) ptr, (void *) &network_64bit, sizeof(obj->W));
+  ptr += sizeof(obj->W);
+
+  network_64bit = esl_hton64(obj->L);
+  memcpy((void *) ptr, (void *) &network_64bit, sizeof(obj->L));
+  ptr += sizeof(obj->L);
+ 
+  strcpy((char *) ptr, obj->source);
+  ptr+= strlen(obj->source)+1;
+
+  // Skip the offset fields -- they aren't relevant on some other machine
+
+  network_64bit = esl_hton64(obj->idx);
+  memcpy((void *) ptr, (void *) &network_64bit, sizeof(obj->idx));
+  ptr += sizeof(obj->idx);
+
+  // Do this out-of-order because we need nxr to deserialize the xr_tag and xr fields
+  network32_bit = esl_hton32(obj->nxr);
+  memcpy((void *) ptr, (void *) &network32_bit, sizeof(obj->nxr));
+  ptr += sizeof(obj->nxr);
+
+  for (int x = 0; x < obj->nxr; x ++) {
+    strcpy((char *) ptr, obj->xr_tag[x]);
+    ptr += strlen(obj->xr_tag[x]) +1;
+    memcpy((void *) ptr, (void *) obj->xr[x], obj->n+2);
+    ptr += obj->n +2;
+  }
+
+
+  // Don't need to serialize the sequence's alphabet, as we can just create one during deserialization
+
+  // Update the location in the buffer for the next thing to be serialized
+  if((uint64_t) (ptr- (*buf + *n)) != ser_size){
+    printf("Difference between actual and pre-computed size of serialized object, %lu vs %lu\n", (uint64_t) (ptr- *buf), ser_size);
+  }
+  *n = (ptr- *buf);
+  return(eslOK);
+
+ERROR: // We only get here if memory (re)allocation failed, so no cleanup required.
+  return(eslEMEM);
+}
+
+
+/* Function:  esl_sq_Deserialize
+ * Synopsis:  Deserializes a serialized ESL_SQ object
+ *
+ * Purpose:   Given a serialized ESL_SQ digital-mode object that starts at position n in buf, deserializes it and 
+ *            returns the deserialized object in byp_ret.  
+ *            If *byp_ret != NULL, re-uses that object for the new sequencea and the type of its abc object must 
+ *            match the type of the sequence being deserialized, or an error will occur.  If *byp_ret == NULL,
+ *            creates a new ESL_SQ object to hold the deserialized sequence.
+ *            If an ESL_ALPHABET object is provided in byp_abc and no ESL_SQ object is provided in byp_ret, 
+ *            uses that in the new ESL_SQ object if its type matches the serialized sequence, 
+ *            and returns an error if it does not.
+ *            If byp_abc != NULL, returns the alphabet of the deserialized sequence in *byp_abc.
+ *              
+ *
+ * Returns:   <eslOK> on success, <eslEINVAL> if buf == NULL, byp_ret == NULL, or n == NULL.
+ *            Also returns eslEINVAL if *byp_ret != NULL and the type of its abc object does not match the serialized
+ *            sequence, or if byp_ret == NULL, byp_abc != null, and the type of byp_abc does not match the serialized sequence.
+ */
+extern int esl_sq_Deserialize(const uint8_t *buf, uint32_t *n, ESL_ALPHABET **byp_abc, ESL_SQ **byp_ret){
+  int status;
+  uint64_t network64_bit;
+  uint32_t network32_bit;
+  ESL_SQ *the_sq = NULL;
+  ESL_ALPHABET *abc = NULL;
+  int created_sq = 0;
+  int created_alphabet = 0;
+  if(byp_ret == NULL || buf == NULL || n==NULL){ // bad inputs
+    return(eslEINVAL);
+  }
+
+  uint8_t *ptr = (uint8_t *) buf + *n; // Get pointer to start of object
+  uint8_t flags = *ptr;
+  ptr++;
+
+  switch (flags & 254){//zero out the low bit, which tells us if we have an SS field.
+    case ESL_SQ_DIGITAL_RNA:
+      if(*byp_ret != NULL){
+        if((*byp_ret)->abc->type != eslRNA){
+          return(eslEINVAL); 
+        }
+        the_sq = *byp_ret;
+      }
+      else{
+        if(byp_abc == NULL ||((*byp_abc != NULL) && (*byp_abc)->type != eslRNA)){ // Can't use the provided alphabet for this sequence
+          return(eslEINVAL);
+        }
+        if(*byp_abc == NULL){ // no alphabet provided
+          *byp_abc = esl_alphabet_Create(eslRNA); 
+          created_alphabet = 1;
+        }
+        the_sq = esl_sq_CreateDigital(*byp_abc);
+        created_sq = 1;
+      }
+      break;
+    case ESL_SQ_DIGITAL_DNA:
+      if(*byp_ret != NULL){
+        if((*byp_ret)->abc->type != eslDNA){
+          return(eslEINVAL); 
+        }
+        the_sq = *byp_ret;
+      }
+      else{
+        if(byp_abc == NULL ||((*byp_abc != NULL) && (*byp_abc)->type != eslDNA)){ // Can't use the provided alphabet for this sequence
+          return(eslEINVAL);
+        }
+        if(*byp_abc == NULL){ // no alphabet provided
+          *byp_abc = esl_alphabet_Create(eslDNA);
+          created_alphabet = 1;
+        }
+        the_sq = esl_sq_CreateDigital(*byp_abc);
+        created_sq = 1;
+      }
+      break;
+    case ESL_SQ_DIGITAL_AMINO:
+      if(*byp_ret != NULL){
+        if((*byp_ret)->abc->type != eslAMINO){
+          return(eslEINVAL); 
+        }
+        the_sq = *byp_ret;
+      }
+      else{
+        if(byp_abc == NULL ||((*byp_abc != NULL) && (*byp_abc)->type != eslAMINO)){ // Can't use the provided alphabet for this sequence
+          return(eslEINVAL);
+        }
+        if(*byp_abc == NULL){ // no alphabet provided
+          *byp_abc = esl_alphabet_Create(eslAMINO); 
+          created_alphabet = 1;
+        }
+        the_sq = esl_sq_CreateDigital(*byp_abc);
+        created_sq = 1;
+      }
+      break;
+    case ESL_SQ_DIGITAL_COINS:
+      if(*byp_ret != NULL){
+        if((*byp_ret)->abc->type != eslCOINS){
+          return(eslEINVAL); 
+        }
+        the_sq = *byp_ret;
+      }
+      else{
+        if(byp_abc == NULL ||((*byp_abc != NULL) && (*byp_abc)->type != eslCOINS)){ // Can't use the provided alphabet for this sequence
+          return(eslEINVAL);
+        }
+        if(*byp_abc == NULL){ // no alphabet provided
+          *byp_abc = esl_alphabet_Create(eslCOINS); 
+          created_alphabet = 1;
+        }
+        the_sq = esl_sq_CreateDigital(*byp_abc);
+        created_sq = 1;
+      }
+      break;
+    case ESL_SQ_DIGITAL_DICE:
+      if(*byp_ret != NULL){
+        if((*byp_ret)->abc->type != eslDICE){
+          return(eslEINVAL); 
+        }
+        the_sq = *byp_ret;
+      }
+      else{
+        if(byp_abc == NULL ||((*byp_abc != NULL) && (*byp_abc)->type != eslDICE)){ // Can't use the provided alphabet for this sequence
+          return(eslEINVAL);
+        }
+        if(*byp_abc == NULL){ // no alphabet provided
+          *byp_abc = esl_alphabet_Create(eslDICE); 
+          created_alphabet = 1;
+        }
+        the_sq = esl_sq_CreateDigital(*byp_abc);
+        created_sq = 1;
+      }
+      break;
+    default:
+      return(eslEINVAL);
+  }
+
+  // n field is first because we need it to unpack some of the other fields
+  memcpy((void *) &network64_bit, ptr, sizeof(int64_t));
+  the_sq->n = esl_ntoh64(network64_bit);
+  ptr += sizeof(int64_t);
+  
+  // Ditto for the *alloc fields
+  memcpy((void *) &network32_bit, ptr, sizeof(int32_t));
+  the_sq->nalloc = esl_ntoh32(network32_bit);
+  ptr += sizeof(int32_t);
+
+  memcpy((void *) &network32_bit, ptr, sizeof(int32_t));
+  the_sq->aalloc = esl_ntoh32(network32_bit);
+  ptr += sizeof(int32_t);
+
+  memcpy((void *) &network32_bit, ptr, sizeof(int32_t));
+  the_sq->dalloc = esl_ntoh32(network32_bit);
+  ptr += sizeof(int32_t);
+
+  memcpy((void *) &network64_bit, ptr, sizeof(int64_t));
+  the_sq->salloc = esl_ntoh64(network64_bit);
+  ptr += sizeof(int64_t);
+
+  memcpy((void *) &network32_bit, ptr, sizeof(int32_t));
+  the_sq->srcalloc = esl_ntoh32(network32_bit);
+  ptr += sizeof(int32_t);
+
+  ESL_REALLOC(the_sq->name, the_sq->nalloc);
+  strcpy(the_sq->name, (char *) ptr);
+  ptr+= strlen(the_sq->name) +1;
+
+  ESL_REALLOC(the_sq->acc, the_sq->aalloc);
+  strcpy(the_sq->acc, (char *) ptr);
+  ptr+= strlen(the_sq->acc) +1;
+
+  ESL_REALLOC(the_sq->desc, the_sq->dalloc);
+  strcpy(the_sq->desc, (char *) ptr);
+  ptr+= strlen(the_sq->desc) +1;
+
+  memcpy((void *) &network32_bit, ptr, sizeof(int32_t));
+  the_sq->tax_id = esl_ntoh32(network32_bit);
+  ptr += sizeof(int32_t);
+
+  ESL_REALLOC(the_sq->dsq, the_sq->n +2);
+  memcpy((void *) the_sq->dsq, (void *) ptr, the_sq->n +2);
+  ptr += the_sq->n +2;
+
+  if(flags & ESL_SQ_HAS_SS){
+    ESL_REALLOC(the_sq->ss, the_sq->salloc);
+    memcpy((void *) the_sq->ss, (void *) ptr, the_sq->n +2);
+    ptr += the_sq->n +2;
+  }
+  else{
+    if(the_sq->ss){  // Clean up ss field if byp_ret had one
+      free(the_sq->ss);
+    }
+    the_sq->ss = NULL;
+  }
+
+  memcpy((void *) &network64_bit, ptr, sizeof(int64_t));
+    the_sq->start = esl_ntoh64(network64_bit);
+  ptr += sizeof(int64_t);
+
+  memcpy((void *) &network64_bit, ptr, sizeof(int64_t));
+    the_sq->end = esl_ntoh64(network64_bit);
+  ptr += sizeof(int64_t);
+
+  memcpy((void *) &network64_bit, ptr, sizeof(int64_t));
+    the_sq->C = esl_ntoh64(network64_bit);
+  ptr += sizeof(int64_t);
+
+  memcpy((void *) &network64_bit, ptr, sizeof(int64_t));
+    the_sq->W = esl_ntoh64(network64_bit);
+  ptr += sizeof(int64_t);
+
+  memcpy((void *) &network64_bit, ptr, sizeof(int64_t));
+    the_sq->L = esl_ntoh64(network64_bit);
+  ptr += sizeof(int64_t);
+  
+  ESL_REALLOC(the_sq->source, the_sq->srcalloc);
+  strcpy(the_sq->source, (char *) ptr);
+  ptr += strlen(the_sq->source) +1;
+
+  memcpy((void *) &network64_bit, ptr, sizeof(int64_t));
+  the_sq->idx = esl_ntoh64(network64_bit);
+  ptr += sizeof(int64_t);
+  
+  memcpy((void *) &network32_bit, ptr, sizeof(int));
+  the_sq->nxr = esl_ntoh32(network32_bit);
+  ptr += sizeof(the_sq->nxr);
+  if(the_sq->nxr >0){
+    ESL_ALLOC(the_sq->xr_tag, the_sq->nxr * sizeof(char *));
+    ESL_ALLOC(the_sq->xr, the_sq->nxr * sizeof(char *));
+  }
+  for (int x = 0; x < the_sq->nxr; x ++) {
+    ESL_ALLOC(the_sq->xr_tag[x], strlen((char *) ptr)+1);
+    strcpy(the_sq->xr_tag[x], (char *) ptr);
+    ptr += strlen(the_sq->xr_tag[x]) +1;
+    ESL_ALLOC(the_sq->xr[x], the_sq->n +2);
+    memcpy((void *) the_sq->xr[x], (void *) ptr, the_sq->n+2);
+    ptr += the_sq->n +2;
+  }
+
+  the_sq->roff = -1;  // offsets are invalid for deserialized sequences
+  the_sq->hoff = -1;
+  the_sq->doff = -1;
+  the_sq->eoff = -1;
+
+  *byp_ret = the_sq;
+  return(eslOK);
+ERROR:  // Free any structures we created before we go
+  if(created_alphabet && abc != NULL){
+    esl_alphabet_Destroy(abc);
+  }
+  if (created_sq && the_sq != NULL){
+    esl_sq_Destroy(the_sq); // this doesn't free the alphabet object, so no danger of double-freeing; 
+  }
+  return(eslEMEM);
+}
 
 /*----------------------  end, other functions -------------------*/
 
@@ -2745,7 +3189,34 @@ ERROR:
   return;
 }
 
-
+static void utest_SerializeDeserialize(){
+  ESL_RANDOMNESS *rng = esl_randomness_Create(0);
+  uint8_t *buf = NULL;
+  uint32_t pos  = 0;
+  uint32_t nalloc = 0;
+  ESL_ALPHABET *ret_abc = NULL;
+  for(int i = eslRNA; i <=eslDICE; i++){  // This is bad form, as it counts on the values of these enums not changing
+    ESL_ALPHABET *abc=esl_alphabet_Create(i);
+    ESL_SQ *source_sq = esl_sq_CreateDigital(abc);
+    ESL_SQ *dest_sq = NULL;
+    esl_sq_Sample(rng, abc, 100, &source_sq);
+    esl_sq_Serialize(source_sq, &buf, &pos, &nalloc);
+    pos =0;
+    esl_sq_Deserialize(buf, &pos, &ret_abc, &dest_sq);
+    if(esl_sq_Compare(source_sq, dest_sq) != eslOK){
+        char         *msg  = "failure in utest_SerializeDeserialize()";
+        esl_fatal(msg);
+    }
+    esl_sq_Destroy(source_sq);
+    esl_sq_Destroy(dest_sq);
+    dest_sq = NULL;
+    esl_alphabet_Destroy(abc);
+    esl_alphabet_Destroy(ret_abc);
+    ret_abc = NULL;
+  }
+  esl_randomness_Destroy(rng);
+  free(buf);
+}
 #endif /* eslSQ_TESTDRIVE*/
 /*--------------------- end, unit tests -------------------------*/
 
@@ -2793,7 +3264,7 @@ main(int argc, char **argv)
   utest_CreateDigital();
 
   utest_ExtraResMarkups();
-
+  utest_SerializeDeserialize();
   esl_randomness_Destroy(r);
   esl_getopts_Destroy(go);
   return 0;
