@@ -378,20 +378,59 @@ esl_sq_Compare(ESL_SQ *sq1, ESL_SQ *sq2)
   if (strcmp(sq1->acc,    sq2->acc)    != 0) return eslFAIL;
   if (strcmp(sq1->desc,   sq2->desc)   != 0) return eslFAIL;
   if (strcmp(sq1->source, sq2->source) != 0) return eslFAIL;
-  if (sq1->ss != NULL && sq2->ss != NULL) {
-    if (strcmp(sq1->ss, sq2->ss) != 0)       return eslFAIL;
-  } else
-    if (sq1->ss != NULL || sq2->ss != NULL)  return eslFAIL;
   if (sq1->n != sq2->n)                      return eslFAIL;
   
-  /* Sequence comparison */
-  if        (sq1->seq != NULL && sq2->seq != NULL) {
-    if (strcmp(sq1->seq, sq2->seq) != 0)     return eslFAIL;
-  } 
-  else if (sq1->dsq != NULL && sq2->dsq != NULL) {
-    if (memcmp(sq1->dsq, sq2->dsq, sizeof(ESL_DSQ) * (sq1->n+2)) != 0) return eslFAIL;
+  /* Optional ss annotation must be present for both or neither, whether digital or text mode */
+  if (sq1->ss && ! sq2->ss) return eslFAIL;
+  if (sq2->ss && ! sq1->ss) return eslFAIL;
+
+  /* Optional extra residue markups must match in presence and in tags, whether digital 1..n or text mode 0..n-1 strings */
+  if (sq1->nxr != sq2->nxr) return eslFAIL;
+  for (x = 0; x < sq1->nxr; x++) {
+    if (! sq1->xr_tag[x] || ! sq2->xr_tag[x])        return eslFAIL;
+    if (strcmp(sq1->xr_tag[x], sq2->xr_tag[x]) != 0) return eslFAIL;
   }
-  else return eslFAIL;
+
+  /* Sequence and per-residue annotation comparison (digital vs text mode) */
+  if (sq1->dsq)  // sq1 is digital? then sq2 must also be
+    {
+      if (! sq2->dsq || sq1->seq || sq2->seq) return eslFAIL;
+      if (sq1->dsq[0] != eslDSQ_SENTINEL || sq1->dsq[sq1->n+1] != eslDSQ_SENTINEL) return eslFAIL;  // validate sentinels at 0,n+1
+      if (sq2->dsq[0] != eslDSQ_SENTINEL || sq2->dsq[sq2->n+1] != eslDSQ_SENTINEL) return eslFAIL;
+      if (memcmp(sq1->dsq, sq2->dsq, sizeof(ESL_DSQ) * (sq1->n+2)) != 0) return eslFAIL;  // compare content for 1..n
+
+      if (sq1->ss) {  // in digital mode, ss[] text is 1..n, with \0 at 0,n+1
+        if (sq1->ss[0] != '\0' || sq1->ss[sq1->n+1] != '\0') return eslFAIL;              // validate "sentinels" on the ss annotation string at 1..n
+        if (sq2->ss[0] != '\0' || sq2->ss[sq2->n+1] != '\0') return eslFAIL;
+        if (strlen(sq1->ss+1) != sq1->n || strlen(sq2->ss+1) != sq2->n) return eslFAIL;   // after validation above, this only fails on \0 internal to the ss string
+        if (strcmp(sq1->ss+1, sq2->ss+1) != 0)                          return eslFAIL;
+      }
+
+      for (x = 0; x < sq1->nxr; x++)  // likewise xr[x][] annotations are 1..n with \0 at 0,n+1
+        {
+          if (sq1->xr[x][0] != '\0' || sq1->xr[x][sq1->n+1] != '\0') return eslFAIL;      // validate "sentinels" on the ss annotation string at 1..n
+          if (sq2->xr[x][0] != '\0' || sq2->xr[x][sq2->n+1] != '\0') return eslFAIL;
+          if (strlen(sq1->xr[x]+1) != sq1->n || strlen(sq2->xr[x]+1) != sq2->n) return eslFAIL;   // after validation above, this only fails on \0 internal to the ss string
+          if (strcmp(sq1->xr[x]+1, sq2->xr[x]+1) != 0)                          return eslFAIL;
+        }
+    }
+  else // text mode
+    {
+      if (! sq2->seq || sq1->dsq || sq2->dsq) return eslFAIL;
+      if (strlen(sq1->seq) != sq1->n || strlen(sq2->seq) != sq2->n) return eslFAIL;
+      if (strcmp(sq1->seq, sq2->seq) != 0)    return eslFAIL;
+      
+      if (sq1->ss) {
+        if (strlen(sq1->ss) != sq1->n || strlen(sq2->ss) != sq2->n) return eslFAIL;
+        if (strcmp(sq1->ss, sq2->ss) != 0)                          return eslFAIL;
+      } 
+
+      for (x = 0; x < sq1->nxr; x++)  // likewise xr[x][] annotations are 1..n with \0 at 0,n+1
+        {
+          if (strlen(sq1->xr[x]) != sq1->n || strlen(sq2->xr[x]) != sq2->n) return eslFAIL;   // after validation above, this only fails on \0 internal to the ss string
+          if (strcmp(sq1->xr[x], sq2->xr[x]) != 0)                        return eslFAIL;
+        }
+    }
 
   /* Coordinate comparison */
   if (sq1->start != sq2->start)              return eslFAIL;
@@ -405,20 +444,6 @@ esl_sq_Compare(ESL_SQ *sq1, ESL_SQ *sq2)
   if (sq1->doff != -1 && sq2->doff != -1 && sq1->doff != sq2->doff) return eslFAIL;
   if (sq1->hoff != -1 && sq2->hoff != -1 && sq1->hoff != sq2->hoff) return eslFAIL;
   if (sq1->eoff != -1 && sq2->eoff != -1 && sq1->eoff != sq2->eoff) return eslFAIL;
-  
-  /* optional extra residue markup comparison */
-  if (sq1->nxr != sq2->nxr) return eslFAIL;
-  for (x = 0; x < sq1->nxr; x++) {
-    if (sq1->xr_tag[x] != NULL && sq2->xr_tag[x] != NULL) {
-      if (strcmp(sq1->xr_tag[x], sq2->xr_tag[x]) != 0)      return eslFAIL;
-    } else
-      if (sq1->xr_tag[x] != NULL || sq2->xr_tag[x] != NULL) return eslFAIL;
-    
-    if (sq1->xr[x] != NULL && sq2->xr[x] != NULL) {
-      if (strcmp(sq1->xr[x], sq2->xr[x]) != 0)      return eslFAIL;
-    } else
-      if (sq1->xr[x] != NULL || sq2->xr[x] != NULL) return eslFAIL;
-  }
   
   /* alphabet comparison */
   if (sq1->abc != NULL && (sq1->abc->type != sq2->abc->type)) return eslFAIL;
@@ -448,21 +473,19 @@ esl_sq_Reuse(ESL_SQ *sq)
   sq->desc[0]   = '\0';
   sq->tax_id    = -1;
   sq->source[0] = '\0';
-  if (sq->seq != NULL) sq->seq[0] = '\0';
-  if (sq->dsq != NULL) sq->dsq[0] = sq->dsq[1] = eslDSQ_SENTINEL;
-  if (sq->ss  != NULL) {
-    if (sq->seq != NULL) sq->ss[0] = '\0';
-    else                 sq->ss[0] = sq->ss[1] = '\0'; /* in digital mode, ss string is 1..n; 0 is a dummy \0 byte*/
-  }
+  if (sq->seq) sq->seq[0] = '\0';
+  if (sq->dsq) sq->dsq[0] = sq->dsq[1] = eslDSQ_SENTINEL;
+  free(sq->ss);
+  sq->ss        = NULL;  // free optional secondary structure, rather than trying to re-use. NULL is our only flag for "no optional annotation present"
 
-  /* optional extra residue markup */
+  /* free optional extra residue markup */
   if (sq->nxr > 0) {
     for (x = 0; x < sq->nxr; x++) {
-      if (sq->xr[x]     != NULL) { free(sq->xr[x]);     sq->xr[x]     = NULL; }
-      if (sq->xr_tag[x] != NULL) { free(sq->xr_tag[x]); sq->xr_tag[x] = NULL; }
+      free(sq->xr[x]);   
+      free(sq->xr_tag[x]);
     }     
-    if (sq->xr     != NULL) { free(sq->xr);     sq->xr     = NULL; }
-    if (sq->xr_tag != NULL) { free(sq->xr_tag); sq->xr_tag = NULL; }
+    free(sq->xr);     sq->xr     = NULL; 
+    free(sq->xr_tag); sq->xr_tag = NULL; 
     sq->nxr = 0;
   }
 
@@ -516,9 +539,9 @@ esl_sq_IsText(const ESL_SQ *sq)
 static void
 sq_free_internals(ESL_SQ *sq)
 {
+  int   x;       
   if (sq)
     {
-      int   x;        /* index for optional extra residue markups */
       free(sq->name);  
       free(sq->acc);   
       free(sq->desc);  
@@ -526,14 +549,15 @@ sq_free_internals(ESL_SQ *sq)
       free(sq->dsq);   
       free(sq->ss);    
       free(sq->source);
-      if (sq->nxr) {  
-	for (x = 0; x < sq->nxr; x++) {
-	  free(sq->xr[x]);
-	  free(sq->xr_tag[x]);
-	}
-      }
-      free(sq->xr);
-      free(sq->xr_tag);
+      if (sq->nxr)
+        {  
+          for (x = 0; x < sq->nxr; x++) {
+            free(sq->xr[x]);
+            free(sq->xr_tag[x]);
+          }
+          free(sq->xr);
+          free(sq->xr_tag);
+        }
     }
   return;
 }
@@ -848,27 +872,21 @@ esl_sq_Digitize(const ESL_ALPHABET *abc, ESL_SQ *sq)
   /* You can't just call Grow() here, because it would grow for old text mode, not new digital */
   if (sq->salloc < sq->n+2) {	/* it's possible (though unlikely) for salloc to be 1 residue too small */
     sq->salloc = sq->n+2;
-    if (sq->ss != NULL) {
-      void *tmp;
-      ESL_RALLOC(sq->ss, tmp, sizeof(char) * sq->salloc);
-    }
-    /* optional extra residue markups follow same convenctions as ss */
+    if (sq->ss) ESL_REALLOC(sq->ss, sizeof(char) * sq->salloc);
     for (x = 0; x < sq->nxr; x++) 
-      if (sq->xr[x] != NULL) {
-	void *tmp;
-	ESL_RALLOC(sq->xr[x], tmp, sizeof(char) * sq->salloc);
-      }
+      ESL_REALLOC(sq->xr[x], sizeof(char) * sq->salloc);
   }
+
   ESL_ALLOC(sq->dsq, (sq->salloc) * sizeof(ESL_DSQ));
 
   /* Now convert. */
   if ((status = esl_dsq_Digitize(abc, sq->seq, sq->dsq)) != eslOK) goto ERROR;
-  if (sq->ss != NULL) {
+  if (sq->ss) {
     memmove(sq->ss+1, sq->ss, sq->n+1);
     sq->ss[0] = '\0';
   }
   for (x = 0; x < sq->nxr; x++) 
-    if (sq->xr[x] != NULL) {
+    {
       memmove(sq->xr[x]+1, sq->xr[x], sq->n+1);
       sq->xr[x][0] = '\0';
     }
@@ -879,7 +897,7 @@ esl_sq_Digitize(const ESL_ALPHABET *abc, ESL_SQ *sq)
   return eslOK;
 
  ERROR:
-  if (sq->dsq != NULL) free(sq->dsq);
+  free(sq->dsq);
   return status;
 }
 
@@ -922,11 +940,10 @@ esl_sq_Textize(ESL_SQ *sq)
   
   /* Convert. */
   if ((status = esl_dsq_Textize(sq->abc, sq->dsq, sq->n, sq->seq)) != eslOK) goto ERROR;
-  if (sq->ss != NULL) 
-    memmove(sq->ss, sq->ss+1, sq->n+1);	/* slide back to 0..n-1; +1 includes terminal \0 */
+  if (sq->ss)
+    memmove(sq->ss, sq->ss+1, sq->n+1);	        // slide back to 0..n-1; +1 includes terminal \0
   for (x = 0; x < sq->nxr; x++) 
-    if (sq->xr[x] != NULL) 
-      memmove(sq->xr[x], sq->xr[x]+1, sq->n+1);	/* slide back to 0..n-1; +1 includes terminal \0 */
+    memmove(sq->xr[x], sq->xr[x]+1, sq->n+1);	// slide back to 0..n-1; +1 includes terminal \0 
   
   free(sq->dsq);
   sq->dsq = NULL;
@@ -934,7 +951,7 @@ esl_sq_Textize(ESL_SQ *sq)
   return eslOK;
 
  ERROR:
-  if (sq->seq != NULL) free(sq->seq);
+  free(sq->seq);
   return status;
 }
 
@@ -1645,14 +1662,15 @@ esl_sq_ReverseComplement(ESL_SQ *sq)
   ESL_SWAP(sq->start, sq->end, int64_t);
 
   /* revcomp invalidates any secondary structure annotation */
-  if (sq->ss != NULL) { free(sq->ss); sq->ss = NULL; }
+  if (sq->ss) { free(sq->ss); sq->ss = NULL; }
   /* revcomp invalidates any extra residue markup */
-  if (sq->nxr > 0) {
-    for (x = 0; x < sq->nxr; x++) 
-      if (sq->xr[x] != NULL) { free(sq->xr_tag[x]); free(sq->xr[x]); sq->xr_tag[x] = NULL; sq->xr[x] = NULL; }  
-    free(sq->xr_tag); sq->xr_tag = NULL;
-    free(sq->xr);     sq->xr     = NULL;
-  }   
+  for (x = 0; x < sq->nxr; x++) 
+    {
+      free(sq->xr_tag[x]);
+      free(sq->xr[x]);
+    }
+  free(sq->xr_tag); sq->xr_tag = NULL;
+  free(sq->xr);     sq->xr     = NULL;
   return status;
 
  ERROR:
@@ -2056,34 +2074,49 @@ esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq)
 int
 esl_sq_Validate(ESL_SQ *sq, char *errmsg)
 {
+  int x;
+
   if (sq->name == NULL) ESL_FAIL(eslFAIL, errmsg, "seq name can't be NULL");
   if (sq->acc  == NULL) ESL_FAIL(eslFAIL, errmsg, "optional accession must be '\0' empty string if missing, not NULL");
   if (sq->desc == NULL) ESL_FAIL(eslFAIL, errmsg, "optional desc line must be '\0' empty string if missing, not NULL");
   if (sq->tax_id < -1)  ESL_FAIL(eslFAIL, errmsg, "optional tax_id must be -1 or an NCBI taxid");
 
-  if (sq->dsq != NULL)
+  for (x = 0; x < sq->nxr; x++)
+    {
+      if (! sq->xr_tag || ! sq->xr_tag[x]) ESL_FAIL(eslFAIL, errmsg, "All <nxr> xr_tag strings must be valid non-NULL");
+      if (! sq->xr     || ! sq->xr[x])     ESL_FAIL(eslFAIL, errmsg, "All <nxr> xr annotation lines must be valid non-NULL");
+    }
+
+  if (sq->dsq)
     { // digital seq
       if (sq->seq                 != NULL)  ESL_FAIL(eslFAIL, errmsg, "seq must be digital or text, not both");
+      if (sq->salloc <  sq->n+2)            ESL_FAIL(eslFAIL, errmsg, "bad dsq/ss/xr[] allocation length");
       if (esl_dsq_GetLen(sq->dsq) != sq->n) ESL_FAIL(eslFAIL, errmsg, "digital seq length doesn't agree with sq->n");
       if (sq->ss ) {
         if (sq->ss[0]             != '\0')  ESL_FAIL(eslFAIL, errmsg, "ss annotation for a digital seq is 1..n with \0 at 0,n+1");
         if (strlen(sq->ss+1)      != sq->n) ESL_FAIL(eslFAIL, errmsg, "ss annotation length (for digital seq) doesn't agree with sq->n");
       }
+      for (x = 0; x < sq->nxr; x++)
+        {
+          if (sq->xr[x][0] != '\0')        ESL_FAIL(eslFAIL, errmsg, "bad [0] sentinel on digital-mode optional xr[%d]", x);
+          if (strlen(sq->xr[x]+1) != sq->n) ESL_FAIL(eslFAIL, errmsg, "bad optional xr[%d] annotation length (digital mode)", x);
+        }
       if (!sq->abc)                         ESL_FAIL(eslFAIL, errmsg, "digital seq needs a non-NULL alphabet");
     }
   else
     { // text seq
       if (sq->dsq                  != NULL)  ESL_FAIL(eslFAIL, errmsg, "seq must be digital or text, not both");
+      if (sq->salloc <  sq->n+1)             ESL_FAIL(eslFAIL, errmsg, "bad dsq/ss/xr[] allocation length");
       if (strlen(sq->seq)          != sq->n) ESL_FAIL(eslFAIL, errmsg, "text seq length doesn't agree with sq->n");
       if (sq->ss && strlen(sq->ss) != sq->n) ESL_FAIL(eslFAIL, errmsg, "ss annotation length (for text seq) doesn't agree with sq->n");
+      for (x = 0; x < sq->nxr; x++)
+        if (strlen(sq->xr[x])      != sq->n) ESL_FAIL(eslFAIL, errmsg, "bad optional xr[%d] annotation length (text mode)", x);
       if (sq->abc)                           ESL_FAIL(eslFAIL, errmsg, "text seq mustn't have a digital alphabet");
     }
 
   // TK TK TK
   //  ... should check source-tracking info 
-  //  ... and memory allocation
   //  ... and disk offset bookkeeping
-  //  ... and optional residue markup
   return eslOK;
 }
 
