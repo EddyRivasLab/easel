@@ -23,6 +23,9 @@
  *****************************************************************/
 
 extern void esl_avx512_dump_512i_hex8(__m512i v);
+extern void esl_avx512_dump_ps(FILE *fp, __m512 v);
+extern __m512 esl_avx512_logf(__m512 x);
+extern __m512 esl_avx512_expf(__m512 x);
 
 
 /*****************************************************************
@@ -159,6 +162,37 @@ static inline __m512
 esl_avx512_leftshiftz_float(__m512 v)
 {
   return ((__m512) _mm512_alignr_epi8( _mm512_maskz_shuffle_i32x4(0x0fff, (__m512i) v, (__m512i) v, 0x39), (__m512i) v, 4));
+}
+
+/****************************************************************** 
+ * 4. Inlined functions: any_gt
+ ******************************************************************/
+
+/* Function:  esl_avx_any_gt_epi16()
+ * Synopsis:  Return >0 if any a[z] > b[z]
+ */
+static inline int 
+esl_avx512_any_gt_epi16(__m512i a, __m512i b)
+{
+  return (_mm512_cmpgt_epi16_mask(a,b) != 0); 
+}
+
+
+/****************************************************************** 
+ * 4. Inlined functions: select
+ ******************************************************************/
+
+
+/* Function:  esl_avx512_select_ps()
+ * Synopsis:  avx equivalent of <vec_sel()>
+ *
+ * Purpose:   Vector select. Returns a vector <r[z] = a[z]> where <mask[z]>
+ *            is all 0's; <r[z] = b[z]> where <mask[z]> is all 1's.
+ */
+static inline __m512
+esl_avx512_select_ps(__m512 a, __m512 b, __mmask16 mask)
+{
+  return _mm512_mask_blend_ps(mask, a, b);
 }
 #endif //eslAVX512_INCLUDED
 #endif //eslENABLE_AVX512
