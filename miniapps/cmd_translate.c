@@ -121,7 +121,11 @@ esl_cmd_translate(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **ar
   else if (status != eslOK)        esl_fatal("Failed to open seq file %s, code %d.", dnafile, status);
   orffp = esl_orfreader_Create(sqfp, gcode);
 
-  if ( esl_opt_IsOn(go, "-c"))             esl_gencode_Set(gcode, esl_opt_GetInteger(go, "-c"));  
+  if ( esl_opt_IsOn(go, "-c")) {
+    status = esl_gencode_Set(gcode, esl_opt_GetInteger(go, "-c"));
+    if      (status == eslENOTFOUND)  esl_fatal("No such NCBI translation table code %d\n",       esl_opt_GetInteger(go, "-c"));
+    else if (status != eslOK)         esl_fatal("Failed to set your chosen genetic code -c %d\n", esl_opt_GetInteger(go, "-c"));
+  }
   if ( esl_opt_GetBoolean(go, "--crick"))  orffp->do_fwd       = FALSE;
   if ( esl_opt_GetBoolean(go, "--watson")) orffp->do_rev       = FALSE;
   if ( esl_opt_GetBoolean(go, "-m"))     { orffp->require_init = TRUE; esl_gencode_SetInitiatorOnlyAUG(gcode); }
