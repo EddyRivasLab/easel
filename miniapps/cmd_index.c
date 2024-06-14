@@ -1,4 +1,4 @@
-/* `easel index` - create SSI index for sequence file
+/* `easel index` - create SSI fast lookup index for sequence or alignment file
  */
 #include <esl_config.h>
 
@@ -46,7 +46,7 @@ static ESL_OPTIONS cmd_options[] = {
 int
 esl_cmd_index(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
-  ESL_GETOPTS    *go                 = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv);
+  ESL_GETOPTS    *go                 = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, /*custom opthelp?:*/NULL);
   char           *seqfile            = esl_opt_GetArg(go, 1);
   char           *ssifile            = NULL;
   int             infmt              = eslSQFILE_UNKNOWN;

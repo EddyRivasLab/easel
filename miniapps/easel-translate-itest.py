@@ -23,7 +23,7 @@ if not os.access('{0}/miniapps/easel'.format(builddir), os.X_OK):
 errmsg = 'FAIL: esl-translate-itest.py integration test failed'
 
 # `easel translate -h` should work.
-# One way it fails is if a formatted help lines is too long, triggering esl_getopts.
+# One way it fails is if a formatted help line is too long, triggering esl_getopts.
 #
 cmd = '{}/miniapps/easel translate -h'.format(builddir)
 r   = subprocess.run(cmd.split(), capture_output=True, encoding='utf-8')

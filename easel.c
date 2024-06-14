@@ -768,6 +768,7 @@ esl_dataheader(FILE *fp, ...)
  * 4. Replacements for C library functions
  *  fgets()   ->  esl_fgets()     fgets() with dynamic allocation
  *  printf()  ->  esl_printf()    printf() wrapped in our exception handling
+ *  fputc()   ->  esl_fputc()     fputc()  wrapped in our exception handling
  *  strdup()  ->  esl_strdup()    strdup() is not ANSI
  *  strcat()  ->  esl_strcat()    strcat() with dynamic allocation
  *  strtok()  ->  esl_strtok()    threadsafe strtok()
@@ -894,6 +895,7 @@ esl_fprintf(FILE *fp, const char *format, ...)
   return eslOK;
 }
 
+  
 
 
 /* Function:  esl_printf()
@@ -936,8 +938,22 @@ esl_printf(const char *format, ...)
 
 
 
-
-
+/* Function:  esl_fputc()
+ * Synopsis:  fputc(), wrapped in Easel exception handling
+ * Incept:    SRE, Fri 07 Jun 2024
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEWRITE> on write failure.
+ *
+ * Xref:      
+ */
+int
+esl_fputc(char c, FILE *fp)
+{
+  if (fputc(c, fp) == EOF) ESL_EXCEPTION_SYS(eslEWRITE, "fputc() write failed");
+  return eslOK;
+}
 
 
 /* Function: esl_strdup()

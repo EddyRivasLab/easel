@@ -1,3 +1,8 @@
+/* `easel msastat`: summary statistics for a multiple sequence alignment file
+ *
+ * Usage:
+ *    easel msastat <msafile>
+ */
 #include <esl_config.h>
 
 #include <stdio.h>
@@ -12,30 +17,36 @@
 #include "esl_msafile.h"
 #include "esl_subcmd.h"
 
-static ESL_OPTIONS cmd_options[] = {
-  /* name             type        default  env  range toggles reqs incomp  help                                       docgroup*/
-  { "-h",          eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "show brief help on version and usage",                 0 },
-  { "-1",          eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "use tabular output, one line per alignment",           0 },
-  { "--dna",       eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "use DNA alphabet (don't autodetect)",                  0 },
-  { "--rna",       eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "use RNA alphabet (don't autodetect)",                  0 },
-  { "--amino",     eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "use protein alphabet (don't autodetect)",              0 },
+#define ALPHOPTS "--amino,--dna,--rna"
 
-  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+static ESL_OPTIONS cmd_options[] = {
+  /* name             type        default  env  range toggles reqs incomp      help                                                 docgroup */
+  { "-h",          eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL,      "show brief help on version and usage",                 0 },
+  { "-1",          eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL,      "use tabular output, one line per alignment",           0 },
+  { "--amino",     eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, ALPHOPTS,  "assert <msafile> is protein (don't autodetect)",       0 },
+  { "--dna",       eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, ALPHOPTS,  "   ... <msafile> is DNA ...",                          0 },
+  { "--rna",       eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, ALPHOPTS,  "   ... <msafile> is RNA ...",                          0 },
+  { "--informat", eslARG_STRING,  FALSE,  NULL, NULL,  NULL,  NULL, NULL,      "assert <msafile> is in format <s> (no autodetection)", 0 },
+   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
-static void alistat_default(const char *msafile, ESL_MSAFILE *afp);
-static void alistat_oneline(const char *msafile, ESL_MSAFILE *afp);
+static void msastat_default(const char *msafile, ESL_MSAFILE *afp);
+static void msastat_oneline(const char *msafile, ESL_MSAFILE *afp);
 
 int
-esl_cmd_alistat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
+esl_cmd_msastat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
-  ESL_GETOPTS    *go      = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv);
+  ESL_GETOPTS    *go      = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, NULL);
   ESL_ALPHABET   *abc     = NULL;
   char           *msafile = esl_opt_GetArg(go, 1);
   ESL_MSAFILE    *afp     = NULL;
   int             fmt     = eslMSAFILE_UNKNOWN;
   int             status;
   
+ if (esl_opt_IsOn(go, "--informat") &&
+     (fmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
+   esl_fatal("%s is not a valid MSA file format for --informat", esl_opt_GetString(go, "--informat"));
+
   if      (esl_opt_GetBoolean(go, "--rna"))   abc = esl_alphabet_Create(eslRNA);
   else if (esl_opt_GetBoolean(go, "--dna"))   abc = esl_alphabet_Create(eslDNA);
   else if (esl_opt_GetBoolean(go, "--amino")) abc = esl_alphabet_Create(eslAMINO); 
@@ -43,8 +54,8 @@ esl_cmd_alistat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
   if (( status = esl_msafile_Open(&abc, msafile, /*env=*/NULL, fmt, /*fmtd=*/NULL, &afp)) != eslOK)
     esl_msafile_OpenFailure(afp, status);
 
-  if (esl_opt_GetBoolean(go, "-1")) alistat_oneline(msafile, afp);
-  else                              alistat_default(msafile, afp);
+  if (esl_opt_GetBoolean(go, "-1")) msastat_oneline(msafile, afp);
+  else                              msastat_default(msafile, afp);
   
   esl_msafile_Close(afp);
   esl_alphabet_Destroy(abc);
@@ -54,7 +65,7 @@ esl_cmd_alistat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
 
 
 static void
-alistat_oneline(const char *msafile, ESL_MSAFILE *afp)
+msastat_oneline(const char *msafile, ESL_MSAFILE *afp)
 {
   ESL_MSA    *msa         = NULL;
   FILE       *fp          = NULL;
@@ -145,7 +156,7 @@ alistat_oneline(const char *msafile, ESL_MSAFILE *afp)
 
 
 static void
-alistat_default(const char *msafile, ESL_MSAFILE *afp)
+msastat_default(const char *msafile, ESL_MSAFILE *afp)
 {
   ESL_MSA    *msa             = NULL;
   int         nali            = 0;

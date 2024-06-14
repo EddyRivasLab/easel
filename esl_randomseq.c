@@ -462,7 +462,7 @@ esl_rsq_CShuffleDP(ESL_RANDOMNESS *r, const char *s, char *shuffled)
  *            the shuffled k-mers.
  *            
  *            For example, shuffling ABCDEFGHIJK as k=3-mers might
- *            result in ABFIJKFGHCDE.
+ *            result in ABIJKFGHCDE.
  *            
  *            Caller provides allocated storage for <shuffled>,
  *            for at least the same length as <s>. 
