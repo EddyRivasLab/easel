@@ -23,6 +23,7 @@ static ESL_OPTIONS cmd_options[] = {
   /* name             type        default  env  range toggles reqs incomp      help                                                 docgroup */
   { "-h",          eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL,      "show brief help on version and usage",                 0 },
   { "-1",          eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL,      "use tabular output, one line per alignment",           0 },
+  { "-q",          eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  "-1", NULL,      "quieter; suppress header for tabular output",          0 },
   { "--amino",     eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, ALPHOPTS,  "assert <msafile> is protein (don't autodetect)",       0 },
   { "--dna",       eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, ALPHOPTS,  "   ... <msafile> is DNA ...",                          0 },
   { "--rna",       eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, ALPHOPTS,  "   ... <msafile> is RNA ...",                          0 },
@@ -31,16 +32,17 @@ static ESL_OPTIONS cmd_options[] = {
 };
 
 static void msastat_default(const char *msafile, ESL_MSAFILE *afp);
-static void msastat_oneline(const char *msafile, ESL_MSAFILE *afp);
+static void msastat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_header);
 
 int
 esl_cmd_msastat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
-  ESL_GETOPTS    *go      = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, NULL);
-  ESL_ALPHABET   *abc     = NULL;
-  char           *msafile = esl_opt_GetArg(go, 1);
-  ESL_MSAFILE    *afp     = NULL;
-  int             fmt     = eslMSAFILE_UNKNOWN;
+  ESL_GETOPTS    *go          = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, NULL);
+  ESL_ALPHABET   *abc         = NULL;
+  char           *msafile     = esl_opt_GetArg(go, 1);
+  ESL_MSAFILE    *afp         = NULL;
+  int             fmt         = eslMSAFILE_UNKNOWN;
+  int             with_header = (esl_opt_GetBoolean(go, "-q") ? FALSE : TRUE);
   int             status;
   
  if (esl_opt_IsOn(go, "--informat") &&
@@ -54,7 +56,7 @@ esl_cmd_msastat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
   if (( status = esl_msafile_Open(&abc, msafile, /*env=*/NULL, fmt, /*fmtd=*/NULL, &afp)) != eslOK)
     esl_msafile_OpenFailure(afp, status);
 
-  if (esl_opt_GetBoolean(go, "-1")) msastat_oneline(msafile, afp);
+  if (esl_opt_GetBoolean(go, "-1")) msastat_oneline(msafile, afp, with_header);
   else                              msastat_default(msafile, afp);
   
   esl_msafile_Close(afp);
@@ -65,7 +67,7 @@ esl_cmd_msastat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
 
 
 static void
-msastat_oneline(const char *msafile, ESL_MSAFILE *afp)
+msastat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_header)
 {
   ESL_MSA    *msa         = NULL;
   FILE       *fp          = NULL;
@@ -87,20 +89,21 @@ msastat_oneline(const char *msafile, ESL_MSAFILE *afp)
   totsize = fileinfo.st_size;
   fclose(fp);
 
-  esl_dataheader(stdout,
-		 -6,  "idx",
-		 -20, "name",
-		 -10, "format",
-		 10,  "nseq",
-		 10,  "alen",
-		 12,  "nres",
-		 6,   "small",
-		 6,   "large",
-		 8,   "avglen",
-		 3,   "%id",
-		 12,  "recsize",
-		 10,  "size/nres",
-		 0);  // 0 is needed to signal arglist termination
+  if (with_header)
+    esl_dataheader(stdout,
+                   -6,  "idx",
+                   -20, "name",
+                   -20, "format",
+                   10,  "nseq",
+                   10,  "alen",
+                   12,  "nres",
+                   6,   "small",
+                   6,   "large",
+                   8,   "avglen",
+                   3,   "%id",
+                   12,  "recsize",
+                   10,  "size/nres",
+                   0);  // 0 is needed to signal arglist termination
 
   while ((status = esl_msafile_Read(afp, &msa)) == eslOK)
     {
@@ -128,9 +131,9 @@ msastat_oneline(const char *msafile, ESL_MSAFILE *afp)
       /* percent identity stats */
       esl_dst_XAverageId(msa->abc, msa->ax, msa->nseq, max_comparisons, &avgid);
 
-      printf("%-6d %-20s %10s %10d %10" PRId64 " %12" PRId64 " %6" PRId64 " %6" PRId64 " %8.1f %3.0f ",
+      printf("%-6d %-20s %20s %10d %10" PRId64 " %12" PRId64 " %6" PRId64 " %6" PRId64 " %8.1f %3.0f ",
 	     nali,
-	     msa->name,
+	     msa->name ? msa->name : msafile,
 	     esl_msafile_DecodeFormat(afp->format),
 	     msa->nseq,
 	     msa->alen,
@@ -182,7 +185,7 @@ msastat_default(const char *msafile, ESL_MSAFILE *afp)
       /* percent identity stats */
       esl_dst_XAverageId(msa->abc, msa->ax, msa->nseq, max_comparisons, &avgid);
 
-      printf("Alignment name:      %s\n",          msa->name);
+      printf("Alignment name:      %s\n",          msa->name ? msa->name : msafile);
       printf("Format:              %s\n",          esl_msafile_DecodeFormat(afp->format));
       printf("Alphabet:            %s\n",          esl_abc_DecodeType(msa->abc->type));
       printf("Number of sequences: %d\n",          msa->nseq);

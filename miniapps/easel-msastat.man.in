@@ -70,6 +70,14 @@ Useful when
 .I msafile
 contains many different MSAs (such as a Pfam database).
 
+.TP 
+.B \-q
+When using the
+.B \-1
+tabular output format, suppress the data column header
+(e.g. be quieter).
+
+
 .TP
 .B \-\-amino
 Assert that the input

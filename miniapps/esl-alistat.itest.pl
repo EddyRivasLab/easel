@@ -116,7 +116,7 @@ for($pass = 0; $pass < 2; $pass++) {
     if($pass == 0) { 
 	$output = `$eslalistat $smallA[$pass] --informat afa --rna $tmppfx.afa 2>&1`;
 	if ($? != 0)                                         { die "FAIL: esl-alistat failed unexpectedly";}
-	if ($output !~ /Format:              aligned FASTA/) { die "FAIL: alignment statistics calculated incorrectly on pass $pass2write"; }
+	if ($output !~ /Format:              aligned_FASTA/) { die "FAIL: alignment statistics calculated incorrectly on pass $pass2write"; }
 	if ($output !~ /Alignment length:    38/)        { die "FAIL: alignment statistics calculated incorrectly on pass $pass2write"; }
 	if ($output !~ /Average length:      26.7/)      { die "FAIL: alignment statistics calculated incorrectly on pass $pass2write"; }
 	if ($output !~ /Average identity:    93\%/)      { die "FAIL: alignments compared incorrectly on pass $pass2write"; }
