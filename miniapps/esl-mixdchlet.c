@@ -110,14 +110,14 @@ main(int argc, char **argv)
 static ESL_OPTIONS fit_options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                   docgroup*/
   { "-h",    eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",         0 },
-  { "-s",    eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
+  { "-s",    eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
 static int
 cmd_fit(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
-  ESL_GETOPTS    *go      = esl_subcmd_CreateDefaultApp(topcmd, sub, fit_options, argc, argv);
+  ESL_GETOPTS    *go      = esl_subcmd_CreateDefaultApp(topcmd, sub, fit_options, argc, argv, /*custom opthelp?:*/NULL);
   ESL_RANDOMNESS *rng     = esl_randomness_Create( esl_opt_GetInteger(go, "-s"));
   int             Q       = strtol(esl_opt_GetArg(go, 1), NULL, 10);   // number of mixture components
   int             K       = strtol(esl_opt_GetArg(go, 2), NULL, 10);   // size of probability/parameter vectors - length of count vectors
@@ -188,7 +188,7 @@ static ESL_OPTIONS score_options[] = {
 static int
 cmd_score(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
-  ESL_GETOPTS    *go     = esl_subcmd_CreateDefaultApp(topcmd, sub, score_options, argc, argv);
+  ESL_GETOPTS    *go     = esl_subcmd_CreateDefaultApp(topcmd, sub, score_options, argc, argv, /*custom opthelp?:*/NULL);
   char           *dfile  = esl_opt_GetArg(go, 1);
   char           *ctfile = esl_opt_GetArg(go, 2);
   ESL_FILEPARSER *efp    = NULL;
@@ -251,7 +251,7 @@ static ESL_OPTIONS gen_options[] = {
 static int
 cmd_gen(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
-  ESL_GETOPTS    *go    = esl_subcmd_CreateDefaultApp(topcmd, sub, gen_options, argc, argv);
+  ESL_GETOPTS    *go    = esl_subcmd_CreateDefaultApp(topcmd, sub, gen_options, argc, argv, /*custom opthelp?:*/NULL);
   char           *dfile = esl_opt_GetArg(go, 1);
   int             N     = esl_opt_GetInteger(go, "-N");
   int             M     = esl_opt_GetInteger(go, "-M");
@@ -312,7 +312,7 @@ static ESL_OPTIONS sample_options[] = {
 static int
 cmd_sample(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
-  ESL_GETOPTS    *go   = esl_subcmd_CreateDefaultApp(topcmd, sub, sample_options, argc, argv);
+  ESL_GETOPTS    *go   = esl_subcmd_CreateDefaultApp(topcmd, sub, sample_options, argc, argv, /*custom opthelp?:*/NULL);
   ESL_RANDOMNESS *rng  = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
   int             Q    = esl_opt_GetInteger(go, "-Q");
   int             K    = esl_opt_GetInteger(go, "-K");

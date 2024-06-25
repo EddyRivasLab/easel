@@ -27,54 +27,14 @@ static ESL_OPTIONS cmd_options[] = {
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
-
-/* The translate miniapp has a customized help page including
- * information on genetic code tables.
- * This is a copy of esl_subcmd_CreateDefaultApp() with its help output customized.
- */
-static ESL_GETOPTS *
-process_cmdline(const char *topcmd, const ESL_SUBCMD *sub, const ESL_OPTIONS *suboptions, int argc, char **argv)
+static int
+show_opthelp(const ESL_GETOPTS *go)
 {
-  ESL_GETOPTS *go        = esl_getopts_Create(suboptions);
-  char        *lastslash = strrchr(topcmd, '/');
-  if (lastslash) topcmd  = lastslash+1;
-
-  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK ||
-      esl_opt_VerifyConfig(go)               != eslOK) 
-    {
-      if ( esl_printf("Failed to parse command line: %s\n", go->errbuf)                                  != eslOK) goto ERROR;
-      if ( esl_printf("Usage:\n  %s %s %s\n", topcmd, sub->subcmd, sub->usage)                           != eslOK) goto ERROR;
-      if ( esl_printf("\nTo see more help on available options, do `%s %s -h`\n\n", topcmd, sub->subcmd) != eslOK) goto ERROR;
-      exit(1);
-    }
-
-  if (esl_opt_GetBoolean(go, "-h") == TRUE) 
-    {
-      if ( esl_printf("# %s %s :: %s\n", topcmd, sub->subcmd, sub->description)                    != eslOK) goto ERROR;
-      if ( esl_printf("# Easel %s (%s)\n", EASEL_VERSION, EASEL_DATE)                              != eslOK) goto ERROR;
-      if ( esl_printf("# %s\n", EASEL_COPYRIGHT)                                                   != eslOK) goto ERROR;
-      if ( esl_printf("# %s\n", EASEL_LICENSE)                                                     != eslOK) goto ERROR;
-      if ( esl_printf("# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n") != eslOK) goto ERROR;
-      if ( esl_printf("\nUsage:\n  %s %s %s\n", topcmd, sub->subcmd, sub->usage)                   != eslOK) goto ERROR;
-      if ( esl_printf("\nwhere options are:\n")                                                    != eslOK) goto ERROR;
-      if ( esl_opt_DisplayHelp(stdout, go, /*docgroup=*/0, /*indent=*/2, /*textwidth=*/80)         != eslOK) goto ERROR;
-      if ( esl_printf("\nAvailable NCBI genetic code tables (for -c <id>):\n")                     != eslOK) goto ERROR;
-      if ( esl_gencode_DumpAltCodeTable(stdout)                                                    != eslOK) goto ERROR;                          
-      exit(0);
-    }
-
-  if (esl_opt_ArgNumber(go) != sub->nargs) 
-    {
-      if ( esl_printf("Incorrect number of command line arguments.\n")                                   != eslOK) goto ERROR;
-      if ( esl_printf("Usage:\n  %s %s %s\n", topcmd, sub->subcmd, sub->usage)                           != eslOK) goto ERROR;
-      if ( esl_printf("\nTo see more help on available options, do `%s %s -h`\n\n", topcmd, sub->subcmd) != eslOK) goto ERROR;
-      exit(1);
-    }
-  return go;
-
- ERROR:
-  esl_getopts_Destroy(go);
-  return NULL;
+  if ( esl_printf("\nwhere options are:\n")                                                    != eslOK) return eslFAIL;
+  if ( esl_opt_DisplayHelp(stdout, go, /*docgroup=*/0, /*indent=*/2, /*textwidth=*/80)         != eslOK) return eslFAIL;
+  if ( esl_printf("\nAvailable NCBI genetic code tables (for -c <id>):\n")                     != eslOK) return eslFAIL;
+  if ( esl_gencode_DumpAltCodeTable(stdout)                                                    != eslOK) return eslFAIL;
+  return eslOK;
 }
 
 
@@ -100,7 +60,7 @@ process_cmdline(const char *topcmd, const ESL_SUBCMD *sub, const ESL_OPTIONS *su
 int
 esl_cmd_translate(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
-  ESL_GETOPTS    *go       = process_cmdline(topcmd, sub, cmd_options, argc, argv);
+  ESL_GETOPTS   *go        = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, &show_opthelp);
   char          *dnafile   = esl_opt_GetArg(go, 1);
   ESL_SQFILE    *sqfp      = NULL;
   ESL_ALPHABET  *nt_abc    = esl_alphabet_Create(eslDNA);

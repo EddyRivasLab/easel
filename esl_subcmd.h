@@ -17,7 +17,8 @@ typedef struct esl_subcmd_s {
   char *description;
 } ESL_SUBCMD;
 
-extern ESL_GETOPTS *esl_subcmd_CreateDefaultApp(const char *topcmd, const ESL_SUBCMD *sub, const ESL_OPTIONS *suboptions, int argc, char **argv);
+extern ESL_GETOPTS *esl_subcmd_CreateDefaultApp(const char *topcmd, const ESL_SUBCMD *sub, const ESL_OPTIONS *suboptions, int argc, char **argv,
+                                                int (*opthelp_f)(const ESL_GETOPTS *go));
 
 
 #endif /*eslSUBCMD_INCLUDED*/

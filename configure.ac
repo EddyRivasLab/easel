@@ -609,7 +609,6 @@ AC_CONFIG_FILES([ \
   miniapps/esl-seqrange.man    \
   miniapps/esl-seqstat.man     \
   miniapps/esl-sfetch.man      \
-  miniapps/esl-shuffle.man     \
   miniapps/esl-ssdraw.man      \
   miniapps/esl-weight.man      \
   miniapps/easel-translate.man \

@@ -1,9 +1,11 @@
 .TH "easel downsample" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
+
 easel downsample \- select random subset of lines or sequences 
 
 .SH SYNOPSIS
+
 .B easel downsample
 [\fIoptions\fR]
 .I M
@@ -15,73 +17,65 @@ easel downsample \- select random subset of lines or sequences
 .PP
 Given an
 .I infile
-that contains
-.I N
-things (lines, sequences...),
+that contains N lines,
 .B easel downsample
 randomly selects a subset of
 .I M
-of those things (M <= N) and outputs them to
-.I stdout.
+lines (M <= N) and outputs them to
+.B stdout.
 
+.PP
+Instead of sampling lines, it can also sample sequences.
+If
+.I infile
+is a sequence file,
+the
+.B \-s
+option
+results in downsampling a set of
+.I M
+sequence records from
+.I infile.
+
+.PP
+.B easel downsample
+uses an efficient reservoir sampling algorithm that requires
+memory proportional to the sample size
+.I M
+independent of the total input size N,
+and requires only a single read pass through
+.IR infile .
+Still, holding a sample of
+.I M
+sequence records in memory
+can become prohibitive for the
+.B \-s
+sequence sampler 
+for large samples of large sequence records.
+An alternative and memory efficient "big" sequence sampler is available
+with the
+.B -S
+option, which only uses 8M bytes,
+but which has some additional restrictions on its use (see option
+documentation below).
+
+.PP
+Otherwise the magnitude of
+.I M
+is essentially unrestricted; it is a 64-bit integer.
+.B easel downsample
+is designed to handle samples of millions or even billions
+of lines or sequences if necessary.
 
 .PP
 If
 .I infile
 is \- (a single dash)
 input is read from
-.I stdin.
-(The
+standard input.
+(Except that the 
 .B \-S
 option can't read from stdin.)
-
-.PP
-The default is to downsample individual lines from a text
-.I infile.
-With the
-.B -s
-or
-.B -S
-option,
-.I infile
-is a sequence file (in any format that Easel accepts), and
-it downsamples sequence records.
-
-.PP
-Uses an efficient reservoir sampling algorithm that only requires
-memory proportional to the sample size
-.I M,
-independent of the total input size
-.I N,
-and usually requires only a single pass through
-.I infile.
-Still, if 
-.I M
-is large, memory usage could be a concern. The default line sampler
-holds
-.I M
-lines in memory, so it uses about
-.I ML
-bytes of memory, for mean line length
-.I L.
-The
-.B -s
-sequence sampler holds
-.I M
-sequence objects in memory, including metadata. The
-.B -S
-"big" sequence sampler is a more memory efficient version
-that only needs
-.I 8M
-bytes, but it has some restrictions on its use, described below.
-
-.PP
-Otherwise the magnitude of
-.I M 
-is essentially unrestricted; it is a 64-bit integer.
-.B easel downsample
-is designed to handle samples of billions
-of sequences if necessary.
 
 
 .SH OPTIONS
@@ -100,21 +94,25 @@ is a sequence file, in any valid Easel sequence format
 The sample of sequences needs to fit in memory, so
 .I M
 should not be outrageously large.
-Because the sequences pass through the Easel sequence
-data parser, there can be some metadata loss. 
+Sequences are read in Easel's "text mode", independent
+of biological sequence alphabet, so they may contain any
+residue symbols (even normally illegal ones) and case will be preserved.
 When
 .I infile
-is a multi-MSA file (e.g. Pfam or Rfam),
-.I N
-includes all alignments, not just the first one.
+is a multi-MSA file (e.g. Pfam or Rfam), the
+N sequences
+includes those from all alignments, not just from the first one.
 The output is in FASTA format.
 
 .TP
 .B \-S
 "Big" sequence sampling.
+With
+.B \-S,
 .I M
-can be reasonably outrageous (a billion sequences
+can be nigh-outrageous (a billion sequences
 will require about 8G RAM).
+However,
 .I infile
 needs to be an actual file (not a pipe or stream), because this option
 keeps only disk offsets to define the sample, then uses each offset to
@@ -134,23 +132,45 @@ is in the same format that
 .I infile
 was in.
 
-
-
-.SH EXPERT OPTIONS
+.TP
+.BI \-\-informat " fmt"
+When using
+.I \-s
+or
+.I \-S
+for sampling sequences from a sequence file,
+assert that
+.I infile
+is in sequence file format
+.I fmt,
+bypassing autodetection.
+Valid unaligned sequence file format codes for
+.I fmt
+are
+.B fasta|ddbj|emblgenbank|uniprot
+(case insensitive).
+Multiple sequence alignment files are also accepted
+and read one (unaligned) sequence at a time; MSA formats
+are 
+.B stockholm|pfam|a2m|afa|psiblast|clustal|clustallike|phylip|phylips|selex.
+See
+.BR "man easel"
+for more detail on formats and autodetection.
 
 .TP
 .BI \-\-seed " <n>"
 Set the random number seed to
 .I <n>,
 an integer >= 0. The default is 0, which means to use
-a randomly selected seed. A seed > 0 will result
-in identical samples from different runs of the same
-.B easel downsample
-command.
-
+a randomly selected seed. 
 
 
 .SH SEE ALSO
+
+.B man easel
+for more information about 
+Easel miniapps, their shared behaviors, and 
+some standardized options.
 
 .nf
 @EASEL_URL@
