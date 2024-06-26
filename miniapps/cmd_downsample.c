@@ -17,30 +17,39 @@ static ESL_OPTIONS cmd_options[] = {
   { "-h",          eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "show brief help on version and usage",                   0 },
   { "-s",          eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "sequence sampling: <infile> is file or stream of seqs",  0 },
   { "-S",          eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "big sequence sample: <infile> is (seekable) seq file",   0 },
+  { "--informat",  eslARG_STRING,   FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "specify that input file is in format <s>",               0 },
   { "--seed",      eslARG_INT,        "0",  NULL, NULL,  NULL,  NULL, NULL,  "set random number generator seed",                       0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
-static void downsample_lines   (ESL_RAND64 *rng, int64_t M, char *infile);
-static void downsample_seqs    (ESL_RAND64 *rng, int64_t M, char *infile);
-static void downsample_seqs_big(ESL_RAND64 *rng, int64_t M, char *infile);
+static void downsample_lines   (ESL_RAND64 *rng, int64_t M, const char *infile);
+static void downsample_seqs    (ESL_RAND64 *rng, int64_t M, const char *infile, int infmt);
+static void downsample_seqs_big(ESL_RAND64 *rng, int64_t M, const char *infile, int infmt);
 
 int
 esl_cmd_downsample(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
-  ESL_GETOPTS    *go     = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv);
-  ESL_RAND64     *rng    = esl_rand64_Create(esl_opt_GetInteger(go, "--seed"));               // 64-bit RNG, so we can sample from very large data
-  char           *Marg   = esl_opt_GetArg(go, 1);                                             // ptr to the string rep of M
-  char           *infile = esl_opt_GetArg(go, 2);                                             // the original set of N records
-  int64_t         M;                                                                          // size of the smaller result sample of M records
+  ESL_GETOPTS    *go     = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, /*custom opthelp?:*/NULL);
+  ESL_RAND64     *rng    = esl_rand64_Create(esl_opt_GetInteger(go, "--seed"));   // 64-bit RNG, so we can sample from very large data
+  char           *Marg   = esl_opt_GetArg(go, 1);                                 // ptr to the string rep of M
+  char           *infile = esl_opt_GetArg(go, 2);                                 // the original set of N records
+  int             infmt  = eslSQFILE_UNKNOWN;                                     // format code, for -s|-S seq files
+  int64_t         M;                                                              // size of the smaller result sample of M records
   int             nc;
   int             status;
 
   status = esl_mem_strtoi64(Marg, strlen(Marg), 10, &nc, &M);
   if (status != eslOK || nc != strlen(Marg)) esl_fatal("First argument is an integer: number of data elements to take from <infile>");
 
-  if      (esl_opt_GetBoolean(go, "-s")) downsample_seqs    (rng, M, infile);
-  else if (esl_opt_GetBoolean(go, "-S")) downsample_seqs_big(rng, M, infile);
+  if (esl_opt_GetString(go, "--informat") != NULL) {
+    if (! esl_opt_GetBoolean(go, "-s") && ! esl_opt_GetBoolean(go, "-S"))
+      esl_fatal("--informat option requires that you're downsampling a sequence file (with -s or -S)");
+    infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    if (infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat"); 
+  }
+
+  if      (esl_opt_GetBoolean(go, "-s")) downsample_seqs    (rng, M, infile, infmt);
+  else if (esl_opt_GetBoolean(go, "-S")) downsample_seqs_big(rng, M, infile, infmt);
   else                                   downsample_lines   (rng, M, infile);
 
   esl_rand64_Destroy(rng);
@@ -60,7 +69,7 @@ esl_cmd_downsample(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **a
  * Adapted from `esl_selectn` miniapp.
  */
 static void
-downsample_lines(ESL_RAND64 *rng, int64_t M, char *infile)
+downsample_lines(ESL_RAND64 *rng, int64_t M, const char *infile)
 {
   ESL_BUFFER  *bf   = NULL;
   char       **larr = NULL;     // sampled line ptr array, [0..M-1]
@@ -113,14 +122,17 @@ downsample_lines(ESL_RAND64 *rng, int64_t M, char *infile)
  * objects, unparsed sequence record metadata are lost. The order of
  * the sequences in <infile> is not preserved in the sample.
  *
+ * <infmt> follows usual conventions. If <infmt> is
+ * eslSEQFILE_UNKNOWN, autodetect format. We don't need alphabet
+ * options because we read the file in text-mode.
+ *
  * If <M> is large and $O(MS)$ memory is of concern, or to preserve
  * metadata or sequence order, see <sample_seqs_big()>.
  */
 static void
-downsample_seqs(ESL_RAND64 *rng, int64_t M, char *infile)
+downsample_seqs(ESL_RAND64 *rng, int64_t M, const char *infile, int infmt)
 {
   ESL_SQFILE *sqfp  = NULL;
-  int         infmt = eslSQFILE_UNKNOWN;
   ESL_SQ     *sq    = esl_sq_Create();
   ESL_SQ    **sqarr = NULL;               // the sample: ptrs to <M> sequences
   ESL_SQ     *tmpsq;                      // for swapping a new sequence into the sample
@@ -199,12 +211,15 @@ qsort_increasing_offsets(const void *xp1, const void *xp2)
  * Other advantages: it exactly regurgitates the sequence record, with
  * all its metadata intact; and it preserves the order of the
  * sequences in <infile>.
+ *
+ * <infmt> follows usual conventions. If <infmt> is
+ * eslSEQFILE_UNKNOWN, autodetect format. We don't need alphabet
+ * options because we read the file in text-mode.
  */
 static void
-downsample_seqs_big(ESL_RAND64 *rng, int64_t M, char *infile)
+downsample_seqs_big(ESL_RAND64 *rng, int64_t M, const char *infile, int infmt)
 {
   ESL_SQFILE *sqfp     = NULL;
-  int         infmt    = eslSQFILE_UNKNOWN;
   ESL_SQ     *sq       = esl_sq_Create();
   off_t      *offlist  = malloc(sizeof(off_t) * M);  // sample of sequence record offsets
   int64_t     N        = 0;

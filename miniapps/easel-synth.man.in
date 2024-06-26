@@ -1,0 +1,81 @@
+.TH "easel synth" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+
+.SH NAME
+
+easel synth \- generate synthetic random sequences
+
+.SH SYNNOPSIS
+
+.B easel synth
+[\fIoptions\fR]
+.I alphatype
+.I <N>
+.I <L>
+
+.SH DESCRIPTION
+
+Generate
+.I <N>
+random sequences of length
+.I <L>
+in biosequence alphabet
+.I alphatype,
+and write these sequences to standard output in FASTA format.
+
+.PP
+.I alphatype
+is one of
+.B amino|dna|rna
+(case insensitive).
+.I <N>
+and
+.I <L>
+are >= 1.
+
+
+
+.SH OPTIONS
+
+.TP
+.B \-h
+Print brief help; includes version number and summary of
+all options.
+
+.TP
+.BI \-o " <f>"
+Direct output to file
+.I <f>
+instead of stdout.
+
+.TP
+.BI \-\-seed " <n>"
+Set the random number seed to
+.I <n>,
+an integer >= 0. 
+
+
+
+.SH SEE ALSO
+
+.B man easel
+for more information about how some standard
+Easel miniapp options work, like
+.B \-\-seed.
+
+.nf
+@EASEL_URL@
+.fi
+
+.SH COPYRIGHT
+
+.nf 
+@EASEL_COPYRIGHT@
+@EASEL_LICENSE@
+.fi 
+
+.SH AUTHOR
+
+.nf
+http://eddylab.org
+.fi
+

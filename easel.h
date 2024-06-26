@@ -446,6 +446,7 @@ extern int  esl_dataheader(FILE *fp, ...);
 extern int  esl_fgets(char **buf, int *n, FILE *fp);
 extern int  esl_fprintf(FILE *fp, const char *format, ...);
 extern int  esl_printf(const char *format, ...);
+extern int  esl_fputc(char c, FILE *fp);
 extern int  esl_strdup(const char *s, int64_t n, char **ret_dup);
 extern int  esl_strcat(char **dest, int64_t ldest, const char *src, int64_t lsrc);
 extern int  esl_strtok    (char **s, char *delim, char **ret_tok);

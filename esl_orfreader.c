@@ -364,7 +364,6 @@ finish_orf(ESL_ORFREADER *orffp, int f)
   int64_t  ia   = orffp->ia[f];
   int64_t  ib   = orffp->ib[f];
   int64_t  n    = (ib - ia + 1) / 3;    // for fwd ORF, this is already true. For rev ORF, rightmost AUG init may have set ib, even as we continued to append aa's to growing sq[1..n]
-  ESL_DSQ *dsq  = orffp->sq[f]->dsq;    // copy for clarity
   int64_t  pos;
   ESL_DSQ  x;
                                           // Is this an ORF we'll report?
@@ -385,15 +384,15 @@ finish_orf(ESL_ORFREADER *orffp, int f)
       // reverse rev strand ORF, which we appended backwards
       if (f >= 3) {
         for (pos = 1; pos <= n/2; pos++) {
-          x            = dsq[n-pos+1];
-          dsq[n-pos+1] = dsq[pos];
-          dsq[pos]     = x;
+          x                          = orffp->sq[f]->dsq[n-pos+1];
+          orffp->sq[f]->dsq[n-pos+1] = orffp->sq[f]->dsq[pos];
+          orffp->sq[f]->dsq[pos]     = x;
         }
       }
 
       // If we're using initiation codon(s), initiation is always on methionine (M) regardless of the codon
       if (orffp->require_init)
-        dsq[1] = esl_abc_DigitizeSymbol(orffp->gcode->aa_abc, 'M');
+        orffp->sq[f]->dsq[1] = esl_abc_DigitizeSymbol(orffp->gcode->aa_abc, 'M');
 
       esl_sq_FormatName(orffp->sq[f], "orf%" PRId64, orffp->norfs);
       esl_sq_FormatDesc(orffp->sq[f], "source=%s coords=%" PRId64 "..%" PRId64 " length=%" PRId64 " frame=%d desc=%s", orffp->dnasq->name, orffp->sq[f]->start, orffp->sq[f]->end, orffp->sq[f]->n, f+1, orffp->dnasq->desc);

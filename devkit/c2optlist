@@ -30,7 +30,7 @@ while (<>)
     if ($in_optionblock) 
     {
 	if    (/^\s*{\s*"(-\S)",\s*([^,]+),/)   { $option = $1; $arg    = $2;  } # short option
-	elsif (/^\s*{\s*"(--\S+)",\s*([^,]+),/) { $option = $1; $arg    = $2;  } # long option
+	elsif (/^\s*{\s*"(--\S+?)",\s*([^,]+),/) { $option = $1; $arg    = $2;  } # long option
 	elsif (/^\s*$/)                   { next; }                            # blank line
 	elsif (/^\s*\/\*/)                { next; }                            # comment line
 	elsif (/^#if/)                    { next; }                            # allow conditional compilation of options
