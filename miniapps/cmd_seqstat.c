@@ -39,6 +39,7 @@ static ESL_OPTIONS cmd_options[] = {
 
   /* Tuning column formatting of tabular outputs -A|-C */
   { "-f",         eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL,        NULL, "format widths exactly (but costs extra pass over file)",  4 },
+  { "-q",         eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL,        NULL, "quiet: suppress column headers in tabular formats",       4 },
   { "--namew",    eslARG_INT,      "30", NULL, NULL, NULL, NULL,        "-f", "set seqname column width for tabular outputs -A|-C",      4 },
   { "--colw",     eslARG_INT,      NULL, NULL, NULL, NULL, NULL,        "-f", " .. length/composition column width",                     4 },
 
@@ -94,6 +95,7 @@ esl_cmd_seqstat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
   int             do_comptbl = esl_opt_GetBoolean(go, "-C");     //                         ...  tbl of residue composition on each seq
   int             do_names   = esl_opt_GetBoolean(go, "-N");     //                         ...  list of names of each seq 
   int             do_allx    = esl_opt_GetBoolean(go, "-x"); 
+  int             be_quiet   = esl_opt_GetBoolean(go, "-q");
   int64_t         nseq       = 0;
   int64_t         nres       = 0;
   int64_t         small      = 0;
@@ -132,8 +134,8 @@ esl_cmd_seqstat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
 
   /* Composition outputs need an allocation */
   if (do_comp || do_comptbl) {
-      if ((monoc = malloc((abc->Kp) * sizeof(int64_t))) == NULL) esl_fatal("allocation failed");
-      esl_vec_LSet(monoc, abc->Kp, 0);
+    if ((monoc = malloc((abc->Kp) * sizeof(int64_t))) == NULL) esl_fatal("allocation failed");
+    esl_vec_LSet(monoc, abc->Kp, 0);
   }
 
   /* Set display column widths for -A|-C tabular outputs */
@@ -151,35 +153,38 @@ esl_cmd_seqstat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
           lenw = compw = (abc->type == eslAMINO ? 6 : 9);   // default depends on alphabet type
       }
     }
-  else if ( esl_opt_GetBoolean(go, "-f")) esl_fatal("Column width formatting with -f requires a tabular output option (-A|-C)");
-
+  else {
+    if ( esl_opt_GetBoolean(go, "-f")) esl_fatal("Column width formatting with -f requires a tabular output option (-A|-C)");
+    if ( esl_opt_GetBoolean(go, "-q")) esl_fatal("Column header suppression with -q requires a tabular output option (-A|-C)");
+  }
 
   /* Headers for tabular per-sequence output styles (-A|-C) */
-  if (do_tbl)
-    esl_dataheader(stdout, -namew, "seqname", lenw, "length", -40, "description", 0);
-  else if (do_comptbl)
-    {
-      namew = ESL_MAX(strlen("seqname"), namew);  // obviously we don't need the strlen() but this self-documents why we're doing this...
-      lenw  = ESL_MAX(strlen("len"),     lenw);   // column labels themselves dictate minima on column widths
+  if (! be_quiet) {
+    if (do_tbl)
+      esl_dataheader(stdout, -namew, "seqname", lenw, "length", -40, "description", 0);
+    else if (do_comptbl && ! be_quiet)
+      {
+        namew = ESL_MAX(strlen("seqname"), namew);  // obviously we don't need the strlen() but this self-documents why we're doing this...
+        lenw  = ESL_MAX(strlen("len"),     lenw);   // column labels themselves dictate minima on column widths
 
-      esl_printf("#%-*s %*s", namew-1, " seqname", lenw, "len");
-      for (x = 0; x < abc->K; x++) esl_printf(" %*c", lenw, (char) abc->sym[x]);
-      if (do_allx) {
-        for (x = abc->K+1; x <= abc->Kp-3; x++)
-          esl_printf(" %*c", lenw, (char) abc->sym[x]);
+        esl_printf("#%-*s %*s", namew-1, " seqname", lenw, "len");
+        for (x = 0; x < abc->K; x++) esl_printf(" %*c", lenw, (char) abc->sym[x]);
+        if (do_allx) {
+          for (x = abc->K+1; x <= abc->Kp-3; x++)
+            esl_printf(" %*c", lenw, (char) abc->sym[x]);
+          esl_fputc('\n', stdout);
+        } else
+          esl_printf(" %*c\n", lenw, 'X');
+
+        esl_fputc('#', stdout);
+        for (i = 0; i < namew-1; i++) esl_fputc('-', stdout);
+        esl_fputc(' ', stdout); for (i = 0; i < lenw; i++) esl_fputc('-', stdout);
+        for (x = 0; x < abc->K; x++) { esl_fputc(' ', stdout); for (i = 0; i < compw; i++) esl_fputc('-', stdout); }
+        if (do_allx) { for (x = abc->K+1; x <= abc->Kp-3; x++)  { esl_fputc(' ', stdout); for (i = 0; i < compw; i++) esl_fputc('-', stdout); } }
+        else         { esl_fputc(' ', stdout); for (i = 0; i < compw; i++) esl_fputc('-', stdout); }
         esl_fputc('\n', stdout);
-      } else
-        esl_printf(" %*c\n", lenw, 'X');
-
-      esl_fputc('#', stdout);
-      for (i = 0; i < namew-1; i++) esl_fputc('-', stdout);
-      esl_fputc(' ', stdout); for (i = 0; i < lenw; i++) esl_fputc('-', stdout);
-      for (x = 0; x < abc->K; x++) { esl_fputc(' ', stdout); for (i = 0; i < compw; i++) esl_fputc('-', stdout); }
-      if (do_allx) { for (x = abc->K+1; x <= abc->Kp-3; x++)  { esl_fputc(' ', stdout); for (i = 0; i < compw; i++) esl_fputc('-', stdout); } }
-      else         { esl_fputc(' ', stdout); for (i = 0; i < compw; i++) esl_fputc('-', stdout); }
-      esl_fputc('\n', stdout);
-    }
-
+      }
+  }
 
   /* Main loop over input sequences.
    * Read in 4K nonoverlapping (C=0) windows because the file might be a genome with huge chromosomes.

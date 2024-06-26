@@ -56,6 +56,12 @@ file) and it also requires
 .I seqfile
 to actually be a file, not a nonrewindable stream like
 a stdin pipe.
+The tabular outputs normally include two leading lines as column headers,
+marked as comment lines with a customary initial `#` character;
+these column headers can be suppressed with the
+.B \-q
+(quiet)
+option.
 
 
 .PP
@@ -111,6 +117,12 @@ must be rewindable (i.e. an actual file).
 .B \-h 
 Print brief help; includes version info and summary of
 all options.
+
+.TP
+.B \-q 
+Quiet(er); suppress column headers for the tabular outputs (\fB\-A|\-C\fR)
+and just output the data. Requires one of the tabular
+output options to be set.
 
 .TP
 .B \-x 

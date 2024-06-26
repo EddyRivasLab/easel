@@ -2458,8 +2458,7 @@ main(int argc, char **argv)
   else {
     status = esl_sqfile_GuessAlphabet(sqfp, &alphatype);
     if      (status == eslENOALPHABET)  esl_fatal("Couldn't guess alphabet");
-    else if (status == eslEFORMAT)      esl_fatal("Parse failed\n  %s",
-						  esl_sqfile_GetErrorBuf(sqfp));     
+    else if (status == eslEFORMAT)      esl_fatal("Parse failed\n  %s", esl_sqfile_GetErrorBuf(sqfp));     
     else if (status == eslENODATA)      esl_fatal("Sequence file empty?");
     else if (status != eslOK)           esl_fatal("Unexpected error guessing alphabet");
   }
