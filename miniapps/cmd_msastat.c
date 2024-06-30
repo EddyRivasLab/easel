@@ -37,7 +37,7 @@ static void msastat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_head
 int
 esl_cmd_msastat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
-  ESL_GETOPTS    *go          = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, NULL);
+  ESL_GETOPTS    *go          = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, /*custom opthelp_f=*/NULL);
   ESL_ALPHABET   *abc         = NULL;
   char           *msafile     = esl_opt_GetArg(go, 1);
   ESL_MSAFILE    *afp         = NULL;

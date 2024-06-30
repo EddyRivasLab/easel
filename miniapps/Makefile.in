@@ -70,6 +70,7 @@ SUBCMDOBJS = \
 	cmd_downsample.o \
 	cmd_filter.o     \
 	cmd_index.o      \
+	cmd_kmer.o       \
 	cmd_msashuf.o    \
 	cmd_msastat.o    \
 	cmd_seqstat.o    \

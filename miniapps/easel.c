@@ -17,6 +17,7 @@
 extern int esl_cmd_downsample(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_filter    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_index     (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
+extern int esl_cmd_kmer      (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_msashuf   (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_msastat   (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_shuffle   (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
@@ -34,6 +35,7 @@ ESL_SUBCMD subcommands[] = {
   { esl_cmd_downsample, "downsample",    2, "[-options] <m> <infile>",        "downsample <m> things from larger <infile> of n things"   },
   { esl_cmd_filter,     "filter",        2, "[-options] <maxid> <msafile>",   "remove seqs >= <maxid> fractional identity from MSA"      },
   { esl_cmd_index,      "index",         1, "[-options] <seqfile>",           "create SSI fast lookup index for sequences in seqfile"    },
+  { esl_cmd_kmer,       "kmer",          2, "[-options] <K> <seqfile>",       "collect kmer statistics for a sequence file"              },
   { esl_cmd_msashuf,    "msashuf",       1, "[-options] <msafile>",           "shuffle a multiple sequence alignment by columns"         },
   { esl_cmd_msastat,    "msastat",       1, "[-options] <msafile>",           "summary statistics for a multiple seq alignment file"     },
   { esl_cmd_seqstat,    "seqstat",       1, "[-options] <seqfile>",           "summary statistics for a sequence file"                   },
