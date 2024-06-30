@@ -82,6 +82,21 @@ esl_avx_hmax_epi16(__m256i a)
   return _mm256_extract_epi16(a, 0);
 }
 
+/* Function:  esl_avx_hmax_epi16()
+ * Synopsis:  Return max of 16 int16_t elements in epi16 vector.
+ * 
+ * Note:      benchmark on wumpus, 0.6s (200M) => 3.0 ns/call    
+ */
+static inline void
+esl_avx_hmax_ps(__m256 a, float *ret_max)
+{
+  a = _mm256_max_ps(a, _mm256_permute2f128_ps(a, a, 0x01));
+  a = _mm256_max_ps(a, _mm256_shuffle_ps     (a, a,    0x4e));
+  a = _mm256_max_ps(a, _mm256_shuffle_ps     (a, a,    0xb1));
+  int *retint_ptr = (int *) ret_max; // Hack because AVX doesn't have an extract for floats
+  *retint_ptr = _mm256_extract_epi32((__m256i) a, 0);
+}
+
 /* Function:  esl_avx_hsum_ps()
  * Synopsis:  Takes the horizontal sum of elements in a vector.
  *
