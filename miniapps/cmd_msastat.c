@@ -27,22 +27,24 @@ static ESL_OPTIONS cmd_options[] = {
   { "--amino",     eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, ALPHOPTS,  "assert <msafile> is protein (don't autodetect)",       0 },
   { "--dna",       eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, ALPHOPTS,  "   ... <msafile> is DNA ...",                          0 },
   { "--rna",       eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, ALPHOPTS,  "   ... <msafile> is RNA ...",                          0 },
-  { "--informat", eslARG_STRING,  FALSE,  NULL, NULL,  NULL,  NULL, NULL,      "assert <msafile> is in format <s> (no autodetection)", 0 },
-   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+  { "--informat",  eslARG_STRING, FALSE,  NULL, NULL,  NULL,  NULL, NULL,      "assert <msafile> is in format <s> (no autodetection)", 0 },
+  { "--recsize",   eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  "-1", NULL,      "include MSA record size (bytes) in tabular output",    0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
 static void msastat_default(const char *msafile, ESL_MSAFILE *afp);
-static void msastat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_header);
+static void msastat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_header, int with_recsize);
 
 int
 esl_cmd_msastat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
-  ESL_GETOPTS    *go          = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, /*custom opthelp_f=*/NULL);
-  ESL_ALPHABET   *abc         = NULL;
-  char           *msafile     = esl_opt_GetArg(go, 1);
-  ESL_MSAFILE    *afp         = NULL;
-  int             fmt         = eslMSAFILE_UNKNOWN;
-  int             with_header = (esl_opt_GetBoolean(go, "-q") ? FALSE : TRUE);
+  ESL_GETOPTS    *go           = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, /*custom opthelp_f=*/NULL);
+  ESL_ALPHABET   *abc          = NULL;
+  char           *msafile      = esl_opt_GetArg(go, 1);
+  ESL_MSAFILE    *afp          = NULL;
+  int             fmt          = eslMSAFILE_UNKNOWN;
+  int             with_header  = (esl_opt_GetBoolean(go, "-q") ? FALSE : TRUE);
+  int             with_recsize =  esl_opt_GetBoolean(go, "--recsize");
   int             status;
   
  if (esl_opt_IsOn(go, "--informat") &&
@@ -56,7 +58,11 @@ esl_cmd_msastat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
   if (( status = esl_msafile_Open(&abc, msafile, /*env=*/NULL, fmt, /*fmtd=*/NULL, &afp)) != eslOK)
     esl_msafile_OpenFailure(afp, status);
 
-  if (esl_opt_GetBoolean(go, "-1")) msastat_oneline(msafile, afp, with_header);
+  if (with_recsize &&
+      (afp->bf->mode_is != eslBUFFER_FILE && afp->bf->mode_is != eslBUFFER_ALLFILE && afp->bf->mode_is != eslBUFFER_MMAP))
+    esl_fatal("--recsize requires that <msafile> is an actual file, not a stdin or gunzip stream"); 
+
+  if (esl_opt_GetBoolean(go, "-1")) msastat_oneline(msafile, afp, with_header, with_recsize);
   else                              msastat_default(msafile, afp);
   
   esl_msafile_Close(afp);
@@ -67,7 +73,7 @@ esl_cmd_msastat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
 
 
 static void
-msastat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_header)
+msastat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_header, int with_recsize)
 {
   ESL_MSA    *msa         = NULL;
   FILE       *fp          = NULL;
@@ -83,39 +89,40 @@ msastat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_header)
   int         i;
   int         status;
 
-  /* Get the total file size, in bytes */
-  if (( fp = fopen(msafile, "r")) == NULL)  esl_fatal("Failed to open %s as a file\n", msafile);
-  fstat(fileno(fp), &fileinfo);
-  totsize = fileinfo.st_size;
-  fclose(fp);
+  if (with_recsize)
+    {
+      if (( fp = fopen(msafile, "r")) == NULL)  esl_fatal("Failed to open %s as a file\n", msafile);
+      fstat(fileno(fp), &fileinfo);
+      totsize = fileinfo.st_size;
+      fclose(fp);
 
-  if (with_header)
-    esl_dataheader(stdout,
-                   -6,  "idx",
-                   -20, "name",
-                   -20, "format",
-                   10,  "nseq",
-                   10,  "alen",
-                   12,  "nres",
-                   6,   "small",
-                   6,   "large",
-                   8,   "avglen",
-                   3,   "%id",
-                   12,  "recsize",
-                   10,  "size/nres",
-                   0);  // 0 is needed to signal arglist termination
+      if (with_header)
+        esl_dataheader(stdout, -6,  "idx", -20, "name", -20, "accession", -20, "format", 10,  "nseq",  10,  "alen",
+                       12,  "nres", 6,   "small",  6,   "large", 8,   "avglen", 3,   "%id",
+                       12,  "recsize", 10,  "size/nres", 0);  // 0 is needed to signal arglist termination
+    }
+  else
+    {
+      if (with_header)
+        esl_dataheader(stdout, -6,  "idx", -20, "name", -20, "accession", -20, "format", 10,  "nseq",  10,  "alen",
+                       12,  "nres", 6,   "small",  6,   "large", 8,   "avglen", 3,   "%id", 0);
+    }
+
 
   while ((status = esl_msafile_Read(afp, &msa)) == eslOK)
     {
       nali++;
 
       /* disk record size stats -- for *previous* msa, delayed off-by-one output */
-      if (last_offset != -1)   
-	{
-	  recsize = msa->offset - last_offset;
-	  ratio   = (float) recsize / (float) nres;  // <nres> is from the _previous_ MSA, previous loop iteration
-	  printf("%12" PRId64 " %10.2f\n", recsize, ratio);
-	}
+      if (last_offset != -1) {
+        if (with_recsize)
+          {
+            recsize = msa->offset - last_offset;
+            ratio   = (float) recsize / (float) nres;  // <nres> is from the _previous_ MSA, previous loop iteration
+            esl_printf("%12" PRId64 " %10.2f\n", recsize, ratio);
+          }
+        else esl_printf("\n");
+      }
 
       /* raw sequence length stats */
       nres = 0;
@@ -131,17 +138,18 @@ msastat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_header)
       /* percent identity stats */
       esl_dst_XAverageId(msa->abc, msa->ax, msa->nseq, max_comparisons, &avgid);
 
-      printf("%-6d %-20s %20s %10d %10" PRId64 " %12" PRId64 " %6" PRId64 " %6" PRId64 " %8.1f %3.0f ",
-	     nali,
-	     msa->name ? msa->name : msafile,
-	     esl_msafile_DecodeFormat(afp->format),
-	     msa->nseq,
-	     msa->alen,
-	     nres,
-	     smallest,
-	     largest,
-	     (double) nres / (double) msa->nseq,
-	     100. * avgid);
+      esl_printf("%-6d %-20s %-20s %-20s %10d %10" PRId64 " %12" PRId64 " %6" PRId64 " %6" PRId64 " %8.1f %3.0f ",
+                 nali,
+                 msa->name ? msa->name : msafile,
+                 msa->acc  ? msa->acc  : "-",
+                 esl_msafile_DecodeFormat(afp->format),
+                 msa->nseq,
+                 msa->alen,
+                 nres,
+                 smallest,
+                 largest,
+                 (double) nres / (double) msa->nseq,
+                 100. * avgid);
 
       last_offset = msa->offset;
       esl_msa_Destroy(msa);
@@ -149,12 +157,16 @@ msastat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_header)
   if (nali == 0 || status != eslEOF) esl_msafile_ReadFailure(afp, status); 
 
   // and for the very last msa in the file... 
-  if (last_offset != -1)   
-    {
-      recsize = totsize - last_offset;
-      ratio   = (float) recsize / (float) nres;
-      printf("%12" PRId64 " %10.2f\n", recsize, ratio);
-    }
+  if (last_offset != -1) {
+    if (with_recsize)
+      {
+        recsize = totsize - last_offset;
+        ratio   = (float) recsize / (float) nres;
+        esl_printf("%12" PRId64 " %10.2f\n", recsize, ratio);
+      }
+    else esl_printf("\n");
+  }
+      
 }
 
 
@@ -186,6 +198,7 @@ msastat_default(const char *msafile, ESL_MSAFILE *afp)
       esl_dst_XAverageId(msa->abc, msa->ax, msa->nseq, max_comparisons, &avgid);
 
       printf("Alignment name:      %s\n",          msa->name ? msa->name : msafile);
+      printf("Accession:           %s\n",          msa->acc  ? msa->acc  : "-");
       printf("Format:              %s\n",          esl_msafile_DecodeFormat(afp->format));
       printf("Alphabet:            %s\n",          esl_abc_DecodeType(msa->abc->type));
       printf("Number of sequences: %d\n",          msa->nseq);

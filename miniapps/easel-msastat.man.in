@@ -19,7 +19,7 @@ summarizes the contents of the multiple sequence alignment(s) in
 
 .PP
 The default report shows, for each MSA in the file, the alignment
-name, file format, biological
+name, accession (or '-' if none), file format, biological
 alphabet, number of sequences, 
 alignment length (number of
 aligned columns), total number of residues, 
@@ -31,7 +31,10 @@ sequences.
 With the
 .B -1
 option, a more compact tabular report is produced with one line per
-MSA with the same information, and also the actual size of the MSA
+MSA with the same information. With the
+.B \-\-recsize
+option, two additional columns are added to the tabular report
+showing the actual size of the MSA
 record on disk (in bytes) and the bytes/residues ratio.  (I'm tracking
 storage requirements because MSA file formats are so voluminous.)
 
@@ -110,6 +113,15 @@ is case-insensitive (e.g.
 or
 .B A2M
 both work).
+
+.TP
+.B \-\-recsize
+Append two additional columns to the tabular output from the
+.B -1
+option, showing the total MSA record size (in bytes)
+and the bytes/residues ratio. The
+.I msafile
+must be an actual file, not a stdin or gunzip stream.
 
 .TP 
 .B \-\-rna

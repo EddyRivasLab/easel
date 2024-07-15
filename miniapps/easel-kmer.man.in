@@ -117,7 +117,7 @@ bypassing autodetection.
 Valid unaligned sequence file format codes for
 .I fmt
 are
-.B fasta|ddbj|emblgenbank|uniprot
+.B fasta|ddbj|embl|genbank|uniprot
 (case insensitive).
 Multiple sequence alignment files are also accepted
 and read one (unaligned) sequence at a time; MSA formats

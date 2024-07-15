@@ -14,17 +14,21 @@
 /* Each subcommand has an implementation in a separate `cmd_*.c`
  * file, using an interface dictated by `esl_subcmd`.
  */
+extern int esl_cmd_afetch    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
+extern int esl_cmd_afetchn   (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
+extern int esl_cmd_aindex    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
 extern int esl_cmd_downsample(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_filter    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
-extern int esl_cmd_index     (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_kmer      (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_msashuf   (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_msastat   (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_shuffle   (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_seqstat   (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
+extern int esl_cmd_sfetch    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
+extern int esl_cmd_sfetchn   (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
+extern int esl_cmd_sindex    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_synth     (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_translate (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
-
 
 
 /* The ESL_SUBCMD array associates subcommand names with their
@@ -32,13 +36,18 @@ extern int esl_cmd_translate (const char *topcmd, const ESL_SUBCMD *sub, int arg
  */
 ESL_SUBCMD subcommands[] = {
   /* function            subcmd_name  nargs        arg_description               help_line */
+  { esl_cmd_afetch,     "afetch",        2, "[-options] <msafile> <key>",     "fetch MSA from multi-MSA file (such as Pfam, Rfam)"       },
+  { esl_cmd_afetchn,    "afetchn",       2, "[-options] <msafile> <keyfile>", "fetch a list of MSAs from multi-MSA file",                },
+  { esl_cmd_aindex,     "aindex",        1, "[-options] <msafile>",           "index multi-MSA file for fast afetch|afetchn retrieval",  },
   { esl_cmd_downsample, "downsample",    2, "[-options] <m> <infile>",        "downsample <m> things from larger <infile> of n things"   },
   { esl_cmd_filter,     "filter",        2, "[-options] <maxid> <msafile>",   "remove seqs >= <maxid> fractional identity from MSA"      },
-  { esl_cmd_index,      "index",         1, "[-options] <seqfile>",           "create SSI fast lookup index for sequences in seqfile"    },
   { esl_cmd_kmer,       "kmer",          2, "[-options] <K> <seqfile>",       "collect kmer statistics for a sequence file"              },
   { esl_cmd_msashuf,    "msashuf",       1, "[-options] <msafile>",           "shuffle a multiple sequence alignment by columns"         },
   { esl_cmd_msastat,    "msastat",       1, "[-options] <msafile>",           "summary statistics for a multiple seq alignment file"     },
   { esl_cmd_seqstat,    "seqstat",       1, "[-options] <seqfile>",           "summary statistics for a sequence file"                   },
+  { esl_cmd_sfetch,     "sfetch",        2, "[-options] <seqfile> <key>",     "fetch seq by name|accession from seqfile"                 },
+  { esl_cmd_sfetchn,    "sfetchn",       2, "[-options] <seqfile> <keyfile>", "fetch a list of sequences from seqfile",                  },
+  { esl_cmd_sindex,     "sindex",        1, "[-options] <seqfile>",           "index seqfile for fast sfetch|sfetchn retrieval",         },
   { esl_cmd_shuffle,    "shuffle",       1, "[-options] <seqfile>",           "shuffling/randomizing sequences"                          },
   { esl_cmd_synth,      "synth",         3, "[-options] <alphatype> <N> <L>", "generate synthetic random sequences"                      },
   { esl_cmd_translate,  "translate",     1, "[-options] <seqfile>",           "six-frame translation of nucleic acid seq to ORFs"        },
@@ -105,7 +114,7 @@ main(int argc, char **argv)
 
   for (idx = 0; idx < ncmds; idx++)
     if (strcmp(go->argv[go->optind], subcommands[idx].subcmd) == 0) break;
-  if (idx == ncmds) { status = top_usage(argv[0]); goto DONE; }
+  if (idx == ncmds) esl_fatal("No such easel subcommand `%s`.\nDo `easel -h` for brief help.", go->argv[go->optind]);
 
   status = subcommands[idx].func(argv[0], &subcommands[idx], argc-go->optind, argv+go->optind);
   

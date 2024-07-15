@@ -1261,6 +1261,11 @@ esl_sq_SetSource(ESL_SQ *sq, const char *source)
  *            A copy of <name> is made, so if caller had <name> allocated, 
  *            it is still responsible for freeing it.
  *
+ *            The function is writing <sq->name> so don't use the
+ *            existing <sq->name> as an argument; i.e. don't do
+ *            something like <esl_sq_FormatName(sq, "%s-modified",
+ *            sq->name)>.  If you try, behavior is undefined.
+ *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation error.

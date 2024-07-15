@@ -1,4 +1,4 @@
-/* `easel index` - create SSI fast lookup index for sequence or alignment file
+/* `easel sindex` - index seqfile for fast sfetch|sfetchn retrieval
  */
 #include <esl_config.h>
 
@@ -17,40 +17,40 @@
 
 static ESL_OPTIONS cmd_options[] = {
   /* name             type          default  env  range toggles reqs incomp  help                                       docgroup*/
-  { "-h",          eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "show brief help on version and usage",                         0 },
-  { "-a",          eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "index accessions too, if present",                             0 },
-  { "-u",          eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "parse UniProt db|acc|id names; index id too (and acc, w/ -a)", 0 },
-  { "--informat",  eslARG_STRING,   FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "specify that input file is in format <s>",                     0 },
+  { "-h",          eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "show brief help on version and usage",                 0 },
+  { "-u",          eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "parse UniProt db|acc|id names; index id and acc too",  0 },
+  { "--informat",  eslARG_STRING,   FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "specify that input file is in format <s>",             0 },
+  { "--noacc",     eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "don't index any accessions, only seq names",           0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
 
-/* esl_cmd_index():  implements `easel index`
+/* esl_cmd_sindex():  implements `easel sindex`
  *
  * <topcmd> is argv[0] of the main program; `easel`, `/path/to/easel`.
  *
  * <sub> is the <ESL_SUBCMD> corresponding to this subcommand, passed
  * from the `easel` program:
- *    sub->func        = esl_cmd_index
- *    sub->subcmd      = "index"
+ *    sub->func        = esl_cmd_sindex
+ *    sub->subcmd      = "sindex"
  *    sub->nargs       = 1
  *    sub->usage       = usage string defined in miniapps/easel.c header
  *    sub->description = help string defined in miniapps/easel.c header
  *
- * <argc> is the number of subcommand arguments, including "index" but
+ * <argc> is the number of subcommand arguments, including "sindex" but
  * not including "easel" or any top command options.
  *
  * <argv> is the list of subcommand arguments, starting with argv[0] =
- * "index".
+ * "sindex".
  */
 int
-esl_cmd_index(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
+esl_cmd_sindex(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
   ESL_GETOPTS    *go                 = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, /*custom opthelp?:*/NULL);
   char           *seqfile            = esl_opt_GetArg(go, 1);
   char           *ssifile            = NULL;
   int             infmt              = eslSQFILE_UNKNOWN;
-  int             do_accessions      = esl_opt_GetBoolean(go, "-a");
+  int             do_accessions      = esl_opt_GetBoolean(go, "--noacc") ? FALSE : TRUE;
   int             do_uniprot         = esl_opt_GetBoolean(go, "-u");
   ESL_SQFILE     *sqfp               = NULL;
   ESL_NEWSSI     *ssifp              = NULL;
@@ -121,6 +121,7 @@ esl_cmd_index(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
               id = esl_regexp_SubmatchDup(rem, 2);
               if (esl_newssi_AddAlias(ssifp, id, sq->name) != eslOK)
                 esl_fatal("Failed to add parsed id %s to SSI index secondary keys", id);
+              free(id);
             }
         }
       esl_sq_Reuse(sq);
@@ -149,7 +150,7 @@ esl_cmd_index(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   esl_newssi_Close(ssifp);
   esl_sqfile_Close(sqfp);
   esl_getopts_Destroy(go);
-  exit(0);
+  return 0;  // esl_cmd_* subcommands return to main easel app for final cleanup/exit
 }
 
 

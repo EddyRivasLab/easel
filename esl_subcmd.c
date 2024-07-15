@@ -73,9 +73,9 @@ esl_subcmd_CreateDefaultApp(const char *topcmd, const ESL_SUBCMD *sub, const ESL
   if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK ||
       esl_opt_VerifyConfig(go)               != eslOK) 
     {
-      if ( esl_printf("Failed to parse command line: %s\n", go->errbuf)                                  != eslOK) goto ERROR;
-      if ( esl_printf("Usage:\n  %s %s %s\n", topcmd, sub->subcmd, sub->usage)                           != eslOK) goto ERROR;
-      if ( esl_printf("\nTo see more help on available options, do `%s %s -h`\n\n", topcmd, sub->subcmd) != eslOK) goto ERROR;
+      if ( esl_fprintf(stderr, "Failed to parse command line: %s\n", go->errbuf)                                  != eslOK) goto ERROR;
+      if ( esl_fprintf(stderr, "Usage:\n  %s %s %s\n", topcmd, sub->subcmd, sub->usage)                           != eslOK) goto ERROR;
+      if ( esl_fprintf(stderr, "\nTo see more help on available options, do `%s %s -h`\n\n", topcmd, sub->subcmd) != eslOK) goto ERROR;
       exit(1);
     }
   if (esl_opt_GetBoolean(go, "-h") == TRUE) 
@@ -92,9 +92,9 @@ esl_subcmd_CreateDefaultApp(const char *topcmd, const ESL_SUBCMD *sub, const ESL
     }
   if (esl_opt_ArgNumber(go) != sub->nargs) 
     {
-      if ( esl_printf("Incorrect number of command line arguments.")                                     != eslOK) goto ERROR;
-      if ( esl_printf("Usage:\n  %s %s %s\n", topcmd, sub->subcmd, sub->usage)                           != eslOK) goto ERROR;
-      if ( esl_printf("\nTo see more help on available options, do `%s %s -h`\n\n", topcmd, sub->subcmd) != eslOK) goto ERROR;
+      if ( esl_fprintf(stderr, "Incorrect number of command line arguments.\n")                                   != eslOK) goto ERROR;
+      if ( esl_fprintf(stderr, "Usage:\n  %s %s %s\n", topcmd, sub->subcmd, sub->usage)                           != eslOK) goto ERROR;
+      if ( esl_fprintf(stderr, "\nTo see more help on available options, do `%s %s -h`\n\n", topcmd, sub->subcmd) != eslOK) goto ERROR;
       exit(1);
     }
   return go;
