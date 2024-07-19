@@ -55,6 +55,9 @@ esl_cmd_sfetch(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   int64_t       start, end;
   int           status;
   
+  if (esl_opt_GetBoolean(go, "-O") && strcmp(key, ".") == 0)
+    esl_fatal("-O is incompatible with using special case of <key> = .");
+
   /* Open the sequence file */
   if (esl_opt_GetString(go, "--informat") != NULL) {
     infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"));

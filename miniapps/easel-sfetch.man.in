@@ -58,6 +58,11 @@ subsequence from a sequence file and you can't be bothered
 to retype the name or accession of the sequence:
 you can do, e.g.:
 .B easel sfetch -c 32:141 foo.seq .
+(This is incompatible with using
+.BR -O ,
+which needs to be able to create an outfile called
+.IR key .)
+
 
 .PP
 Sequence names (and optional accessions) are assumed to be unique.
@@ -216,6 +221,11 @@ Output retrieved alignment to a file named
 Must be a complete sequence fetch; incompatible with
 .B \-c
 subseq fetching.
+Also, the
+.I key
+needs to be a valid filename; it can't be the "." special
+case.
+
 
 .TP
 .B \-r

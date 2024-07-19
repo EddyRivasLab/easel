@@ -18,6 +18,7 @@
 static ESL_OPTIONS cmd_options[] = {
   /* name             type          default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",          eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "show brief help on version and usage",                 0 },
+  { "-f",          eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "force; overwrite .ssi file if it exists",              0 },
   { "-u",          eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "parse UniProt db|acc|id names; index id and acc too",  0 },
   { "--informat",  eslARG_STRING,   FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "specify that input file is in format <s>",             0 },
   { "--noacc",     eslARG_NONE,     FALSE,  NULL, NULL,  NULL,  NULL, NULL,  "don't index any accessions, only seq names",           0 },
@@ -49,6 +50,7 @@ esl_cmd_sindex(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   ESL_GETOPTS    *go                 = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, /*custom opthelp?:*/NULL);
   char           *seqfile            = esl_opt_GetArg(go, 1);
   char           *ssifile            = NULL;
+  int             allow_overwrite    = esl_opt_GetBoolean(go, "-f");
   int             infmt              = eslSQFILE_UNKNOWN;
   int             do_accessions      = esl_opt_GetBoolean(go, "--noacc") ? FALSE : TRUE;
   int             do_uniprot         = esl_opt_GetBoolean(go, "-u");
@@ -76,9 +78,9 @@ esl_cmd_sindex(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 
   /* Open output SSI index file */
   esl_sprintf(&ssifile, "%s.ssi", sqfp->filename);
-  status = esl_newssi_Open(ssifile, /* allow_overwrite:*/ TRUE, &ssifp); 
+  status = esl_newssi_Open(ssifile, allow_overwrite, &ssifp); 
   if      (status == eslENOTFOUND)   esl_fatal("failed to open SSI index %s", ssifile);
-  else if (status == eslEOVERWRITE)  esl_fatal("SSI index %s already exists; delete or rename it", ssifile); /* won't happen, see TRUE above... */
+  else if (status == eslEOVERWRITE)  esl_fatal("SSI index %s already exists; delete or rename it", ssifile); 
   else if (status != eslOK)          esl_fatal("failed to create a new SSI index");
 
   if (esl_newssi_AddFile(ssifp, sqfp->filename, sqfp->format, &fh) != eslOK)

@@ -139,7 +139,7 @@ esl_cmd_afetchn(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
    */
   if (! afp->ssi)
     {
-      nkeys    = esl_keyhash_GetNumber(kh);   // SSI mode knows immediately if an MSA isn't found...
+      nkeys    = esl_keyhash_GetNumber(kh);     // SSI mode knows immediately if an MSA isn't found...
       is_found = malloc(sizeof(int) * nkeys);   // ... but unindexed search doesn't.
       esl_vec_ISet(is_found, nkeys, 0);         //     For good error reporting, we need to keep track.
 
@@ -150,7 +150,7 @@ esl_cmd_afetchn(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
 	    esl_fatal("Every alignment in file must have a name to be retrievable. Failed to find name of alignment #%d\n", nali);
 
 	  if ( (esl_keyhash_Lookup(kh, msa->name, -1, &keyidx) == eslOK) ||
-	       (msa->acc != NULL && esl_keyhash_Lookup(kh, msa->acc, -1, NULL) == eslOK))
+	       (msa->acc != NULL && esl_keyhash_Lookup(kh, msa->acc, -1, &keyidx) == eslOK)) // a little tricky. <keyidx> will be set by name or accession.
             {
               esl_msafile_Write(ofp, msa, outfmt);
               is_found[keyidx] = TRUE;

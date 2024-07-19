@@ -39,6 +39,11 @@ Each sequence in
 .I seqfile
 must have a unique name, and optionally a unique accession.
 By default, both names and accessions are indexed.
+The SSI index distinguishes between primary and secondary keys:
+there must be at least one primary key for each sequence,
+and there can be any number of secondary keys. The sequence name
+is used as the primary key, and the sequence accession
+is optionally a secondary key. 
 Indexing of accessions can be turned off with
 .BR \-\-noacc ,
 which might be handy if for some reason accessions aren't unique or if
@@ -57,18 +62,22 @@ uses disk byte offsets to move to the start or end of an MSA record.)
 .SH OPTIONS
 
 .TP
+.B \-f
+Force: allow overwriting a previous SSI file. The default is to not
+clobber an existing file.
+
+.TP
 .B \-h
 Print brief help; includes version number and summary of
 all options.
 
 .TP
 .B \-u
-Parse UniProt names of the form "<db>|<acc>|<id>". Index <id>
-as an additional valid name for the sequence, and <acc> as the
-sequence accession.
+Parse UniProt names of the form "<db>|<acc>|<id>". Index both <id>
+and <acc> as secondary keys for the sequence.
 For example, given a sequence name of "sp|Q7V2C5|CSS4B_PROMP",
-parse that into name "CSS4B_PROMP" and accession "Q7V2C5".
-With the 
+parse that into secondary keys "CSS4B_PROMP" and "Q7V2C5".
+When combined with the
 .B \-\-noacc
 option, only <id> is indexed, not <acc>.
 
