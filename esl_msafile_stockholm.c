@@ -666,11 +666,13 @@ stockholm_parse_gc(ESL_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, 
   char      *gc,    *tag;
   esl_pos_t  gclen,  taglen;
   int        tagidx;
+  int        i;
   int        status;
 
   if (esl_memtok(&p, &n, " \t", &gc,   &gclen)    != eslOK) ESL_EXCEPTION(eslEINCONCEIVABLE, "EOL can't happen here.");
   if (esl_memtok(&p, &n, " \t", &tag,  &taglen)   != eslOK) ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GC line missing <tag>, annotation");
   while (n && strchr(" \t", p[n-1])) n--; /* skip backwards from eol, to delimit aligned text without going through it */
+  for (i = 0; i < n; i++) if (! isascii(p[i])) ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GC annotation must be ASCII text; seeing at least one (UTF-8?) wide char");
 
   if (! esl_memstrcmp(gc, gclen, "#=GC")) ESL_FAIL(eslEFORMAT, afp->errmsg, "faux #=GC line?");
   if (! n)                                ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GC line missing annotation?");
@@ -755,12 +757,14 @@ stockholm_parse_gr(ESL_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, 
   esl_pos_t  grlen, namelen,  taglen;
   int        seqidx, tagidx;
   int        z;
+  int        i;
   int        status;
 
   if (esl_memtok(&p, &n, " \t", &gr,   &grlen)    != eslOK) ESL_EXCEPTION(eslEINCONCEIVABLE, "EOL can't happen here.");
   if (esl_memtok(&p, &n, " \t", &name, &namelen)  != eslOK) ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GR line missing <seqname>, <tag>, annotation");
   if (esl_memtok(&p, &n, " \t", &tag,  &taglen)   != eslOK) ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GR line missing <tag>, annotation");
   while (n && strchr(" \t", p[n-1])) n--; /* skip backwards from eol, to delimit aligned text without going through it */
+  for (i = 0; i < n; i++) if (! isascii(p[i])) ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GR annotation must be ASCII text; seeing at least one (UTF-8?) wide char");
 
   if (! esl_memstrcmp(gr, grlen, "#=GR")) ESL_FAIL(eslEFORMAT, afp->errmsg, "faux #=GR line?");
   if (! n)                                ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GR line missing annotation?");
