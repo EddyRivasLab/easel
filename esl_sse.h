@@ -22,7 +22,7 @@
 #include "easel.h"
 
 #include <stdio.h>
-#include <x86intrin.h>	
+#include "x86intrin.h"
 
 
 /*****************************************************************

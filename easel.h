@@ -125,6 +125,11 @@
 #define eslENOALPHABET    26	/* couldn't guess seq alphabet  */
 #define eslEWRITE         27   	/* write failed (fprintf, etc)  */
 #define eslEINACCURATE    28    /* return val may be inaccurate */
+#define eslEUNSUPPORTEDISA 29   /* function requires an unsupported
+				   instruction set.  Used in stubs
+				   for functions that require a SIMD
+				   ISA that the compiler doesn't 
+				   support. */
 /*::cexcerpt::statuscodes::end::*/
 
 

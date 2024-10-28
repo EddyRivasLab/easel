@@ -285,6 +285,7 @@ cpu_has_sse(void)
                         (1 << 26);   //      SSE2
 
   cpu_run_id( 1, 0, abcd );
+  printf("%0xd\n", abcd[3]);
   if ( (abcd[3] & sse2_mask)  != sse2_mask)  // edx check
     return 0;
   return 1;

@@ -715,6 +715,7 @@ sevenorfs_create(ESL_RANDOMNESS *rng, struct sevenorfs_s **ret_svs)
   svs->minlen        = esl_rnd_Roll(rng, 21);   // 0..20
 
   *ret_svs = svs;
+  free(dnaseq);
   return;
 }
    
