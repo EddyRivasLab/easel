@@ -658,10 +658,10 @@ esl_dsq_Revcomp(const ESL_ALPHABET *abc, ESL_DSQ *dsq, int64_t n)
 int
 esl_dsq_Write(FILE *fp, ESL_ALPHABET *abc, ESL_DSQ *dsq, char *name, char *desc)
 {
-  char buf[80];
-  int  L = esl_dsq_GetLen(dsq);
-  int  i;
-  int  status;
+  char     buf[80];
+  int64_t  L = esl_dsq_GetLen(dsq);
+  int64_t  i;
+  int      status;
 
   if (fprintf(fp, "> %s%s%s\n",
               name ? name : "sequence",
@@ -672,6 +672,75 @@ esl_dsq_Write(FILE *fp, ESL_ALPHABET *abc, ESL_DSQ *dsq, char *name, char *desc)
     {
       if ((status = esl_dsq_TextizeN(abc, dsq+i, 80, buf)) != eslOK) return status;
       if (fprintf(fp, "%.80s\n", buf) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "dsq fasta write failed");
+    }
+  return eslOK;
+}
+
+
+/* Function:  esl_dsq_mercount()
+ * Synopsis:  Accumulate w-mer counts from a sequence.
+ * Incept:    SRE, Tue 27 Aug 2024
+ *
+ * Purpose:   Increment the <wmerct> w-mer counts for each w-mer of
+ *            width <W> in digital sequence <dsq> of length <L>,
+ *            encoded in alphabet <abc>.
+ *            
+ *            Caller provides <wmerct> as an initialized array of size
+ *            K^W for alphabet size K and kmer width W, which contains
+ *            the kmer counts observed so far; or initialized to all
+ *            zeros if this is the first sequence to count. Thus
+ *            caller can iterate over a set of sequences with calls to
+ *            <esl_dsq_mercount()> on the same <wmerct>.
+ *
+ *            w-mers are encoded as a base-K integer for canonical
+ *            alphabet size K, with residues in the digital encoding
+ *            given by <abc>. For example, for DNA, AAAA = 0000b4 = 0
+ *            and TTTT = 3333b4 = 255.
+ *
+ *            Only w-mers involving canonical residues are counted.
+ *            w-mers containing degeneracies are skipped. (We could
+ *            imagine counting degeneracies as fractional counts -
+ *            e.g.  R in DNA could be 0.5 A + 0.5 G - but we don't.)
+ *
+ *            Because of edge effect, up to L-W+1 w-mers are counted
+ *            for a linear sequence of length L (fewer, if there are
+ *            noncanonical residues we skipped over).
+ *
+ *            We don't call them k-mers because Easel's standard
+ *            notation uses K as canonical alphabet size, so we use W
+ *            instead for oligomer width.
+ *
+ *            These counts might then get used as input to
+ *            <esl_rsq_markov_Build()>, for parameterizing a Markov
+ *            model for synthetic seq generation.
+ *
+ * Args:      abc         - digital alphabet for <dsq>
+ *            dsq         - digital sequence dsq[1..L]
+ *            L           - length of <dsq>
+ *            W           - w-mer width (>= 1; theoretically unlimited other than memory req for K^W)
+ *            wmerct      - caller-provided array of size K^W to accumulate w-mer counts in
+ *
+ * Returns:   <eslOK> on success, and the counts in <wmerct> have been bumped.
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+int
+esl_dsq_mercount(const ESL_ALPHABET *abc, const ESL_DSQ *dsq, int64_t L, int W, double *wmerct)
+{
+  int     nwmers   = (int64_t) pow((double) abc->K, (double) W);  // that's safe, actually. double exactly represents ints up to 2^53
+  int     wmercode = 0;
+  int     ncanon   = 0;
+  int64_t pos;
+ 
+  for (pos = 1; pos <= L; pos++)
+    {
+      if (esl_abc_XIsCanonical(abc, dsq[pos]))
+        {
+          ncanon++;
+          wmercode = (wmercode * abc->K) % nwmers + dsq[pos];
+          if (ncanon >= W) wmerct[wmercode] += 1.0;
+        }
+      else { ncanon = wmercode = 0; }
     }
   return eslOK;
 }

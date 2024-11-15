@@ -56,5 +56,10 @@ extern int esl_rsq_XShuffleWindows(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L,
 extern int esl_rsq_XMarkov0  (ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *markoved);
 extern int esl_rsq_XMarkov1  (ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *markoved);
 
+/* 8. Markov models of arbitrary order (digital mode) */
+extern int  esl_rsq_markov_Build(const ESL_ALPHABET *abc, const double *wmerct, int W, double ***ret_pmarkov, double **ret_pwmer);
+extern int  esl_rsq_markov_Generate(ESL_RANDOMNESS *rng, const ESL_ALPHABET *abc, int W, double **pmarkov, double *pwmer, int64_t L, ESL_DSQ *dsq);
+extern void esl_rsq_markov_Destroy(double **pmarkov, double *pwmer);
+
 #endif /*eslRANDOMSEQ_INCLUDED*/
 

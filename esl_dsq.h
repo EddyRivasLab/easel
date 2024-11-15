@@ -35,6 +35,8 @@ extern int     esl_dsq_Degen2X  (const ESL_ALPHABET *abc, ESL_DSQ *dsq);
 extern int     esl_dsq_Revcomp  (const ESL_ALPHABET *abc, ESL_DSQ *dsq, int64_t n);
 extern int     esl_dsq_Write(FILE *fp, ESL_ALPHABET *abc, ESL_DSQ *dsq, char *name, char *desc);
 
+extern int     esl_dsq_mercount(const ESL_ALPHABET *abc, const ESL_DSQ *dsq, int64_t L, int W, double *wmerct);
+
 extern int     esl_dsq_CAppend(        const ESL_DSQ *inmap, char **dest, int64_t *ldest, const char *src, int64_t lsrc);
 extern int     esl_dsq_CAppend_noalloc(const ESL_DSQ *inmap, char  *dest, int64_t *ldest, const char *src, int64_t lsrc);
 extern int     esl_dsq_CDealignAnnotation(char *s, const char *aseq, const char *gapchars, int64_t *opt_rlen);

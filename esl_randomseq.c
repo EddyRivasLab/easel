@@ -1,17 +1,18 @@
 /* Generating, shuffling, and randomizing sequences.
  * 
  * Contents:
- *   1. Generating simple random character strings.
- *   2. Generating iid sequences.
- *   3. Shuffling sequences. 
- *   4. Randomizing sequences.
- *   5. Generating iid sequences (digital mode).
- *   6. Shuffling sequences (digital mode).
- *   7. Randomizing sequences (digital mode).
- *   8. Statistics drivers.
- *   9. Unit tests.
- *  10. Test driver.
- *  11. Example.
+ *   1. Generating simple random character strings
+ *   2. Generating iid sequences
+ *   3. Shuffling sequences 
+ *   4. Randomizing sequences
+ *   5. Generating iid sequences (digital mode)
+ *   6. Shuffling sequences (digital mode)
+ *   7. Randomizing sequences (digital mode)
+ *   8. Markov models of arbitrary order (digital mode)
+ *   9. Statistics drivers
+ *  10. Unit tests
+ *  11. Test driver
+ *  12. Example
  */
 #include <esl_config.h>
 
@@ -27,7 +28,7 @@
 #include "esl_dsq.h"
 #include "esl_random.h"
 #include "esl_randomseq.h"
-
+#include "esl_vectorops.h"
 
 /*****************************************************************
  * 1. Generating simple random character strings.
@@ -147,7 +148,7 @@ esl_rsq_Sample(ESL_RANDOMNESS *rng, int allowed_chars, int L, char **ret_s)
 
 
 /*****************************************************************
- *# 1. Generating iid sequences.
+ * 2. Generating iid sequences.
  *****************************************************************/ 
 
 /* Function: esl_rsq_IID()
@@ -199,7 +200,7 @@ esl_rsq_fIID(ESL_RANDOMNESS *r, const char *alphabet, const float *p, int K, int
 
 
 /*****************************************************************
- *# 2. Shuffling sequences.
+ * 3. Shuffling sequences.
  *****************************************************************/
 
 /* Function:  esl_rsq_CShuffle()
@@ -593,7 +594,7 @@ esl_rsq_CShuffleWindows(ESL_RANDOMNESS *r, const char *s, int w, char *shuffled)
 
 
 /*****************************************************************
- *# 3. Randomizing sequences
+ * 4. Randomizing sequences
  *****************************************************************/
 
 /* Function:  esl_rsq_CMarkov0()
@@ -744,7 +745,7 @@ esl_rsq_CMarkov1(ESL_RANDOMNESS *r, const char *s, char *markoved)
 
 
 /*****************************************************************
- *# 4. Generating iid sequences (digital mode).
+ * 5. Generating iid sequences (digital mode).
  *****************************************************************/
 
 /* Function: esl_rsq_xIID()
@@ -886,7 +887,7 @@ esl_rsq_SampleDirty(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, double **byp_p, int 
 
 
 /*****************************************************************
- *# 5. Shuffling sequences (digital mode)
+ * 6. Shuffling sequences (digital mode)
  *****************************************************************/
 
 /* Function:  esl_rsq_XShuffle()
@@ -1180,7 +1181,7 @@ esl_rsq_XShuffleWindows(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int w, ESL
 
 
 /*****************************************************************
- *# 6. Randomizing sequences (digital mode)
+ * 7. Randomizing sequences (digital mode)
  *****************************************************************/
 
 /* Function:  esl_rsq_XMarkov0()
@@ -1343,11 +1344,201 @@ esl_rsq_XMarkov1(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *m
   if (p0 != NULL) free(p0);
   return status;
 }
-
 /*------------------ end, digital randomizing -------------------*/
 
+
+
 /*****************************************************************
- * 7. Statistics driver.
+ * 8. Markov models of arbitrary order (digital mode)
+ *****************************************************************/
+
+/* See also: esl_dsq_mercount(), for accumulating w-mer counts over one
+ * or more sequences, as input to esl_rsq_markov_Build().
+ *
+ * Organization is more modularized than just randomizing one
+ * sequence, separating counting, parameterizing, and generating.  We
+ * might want to collect counts over more than one sequence, and we
+ * might want to provide Markov model probabilities from a source
+ * other than observed counts/frequencies.
+ */
+
+
+/* Function:  esl_rsq_markov_Build()
+ * Synopsis:  Convert counts to probabilities to parameterize a Markov model
+ * Incept:    SRE, Tue 27 Aug 2024
+ *
+ * Purpose:   Given w-mer counts <wmerct> for w-mer's of width <W> in
+ *            digital alphabet <abc>, normalize to two sets of
+ *            probabilities (frequencies) needed for a (W-1)'th order
+ *            Markov model: pmarkov[y][x] are the conditional
+ *            probabilities P(x | y) for K residues x given previous
+ *            K^(W-1) possible context (W-1)mers y, and pwmer are the
+ *            joint probabilities of the K^W w-mers.
+ *
+ *            W >= 1. W=1 is a special case of an i.i.d. model (0th
+ *            order Markov). In this case context y is always treated
+ *            as a constant 0: P(x|y) = P(x).
+ *
+ *            These probabilities are allocated here, and returned
+ *            through <ret_pmarkov> and <ret_pwmer>. Caller is
+ *            responsible for free'ing them with
+ *            <esl_rsq_markov_Destroy()>.
+ *
+ *            If any contexts are unobserved - i.e. if counts(x | y)
+ *            are 0 for all x - then p(x | y) are set to uniform 1/K
+ *            for that y. This is one way of avoiding a zero-prob-edge
+ *            bug noted for Markov1(), where a sequence like AAAAAT
+ *            has observed transitions into T but none out of it. If
+ *            you think you'll set all P(x|T) to 0 because there's no
+ *            data, generation can fault; you really don't want
+ *            unnormalized conditional probabilities. Markov1() treats
+ *            the input seq as circular to avoid being able to get
+ *            into a w-mer it can't get out of, but that approach
+ *            risks creating statistics (and allowing w-mers) that
+ *            aren't in the original linear sequence. Setting
+ *            probability vectors for unobserved contexts to uniform
+ *            1/K also creates false statistics, but may not be as
+ *            user-surprising. There doesn't seem to be a satisfying
+ *            approach. Be aware that Markov1() vs. the _markov_*()
+ *            family of higher-order Markov routines are handling the
+ *            case differently (for now?).
+ *
+ * Args:      abc          - digital alphabet
+ *            wmerct       - counts of each w-mer; wmerct[0..(K^W)-1]
+ *            W            - width of w-mers the Markov model is based on; i.e. (W-1)'th order Markov model
+ *            ret_pmarkov  - RETURN (allocated here): pmarkov[y][x] are P(x | y) conditional probs
+ *            ret_pwmer    - RETURN (allocated here): joint w-mer probs for K^W w-mers
+ *
+ * Returns:   <eslOK> on success.
+ *            <*ret_pmarkov>, <*ret_pwmer> are allocated and contain the probabilities.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <*ret_pmarkov>, <*ret_pwmer> are set to NULL.
+ */
+int
+esl_rsq_markov_Build(const ESL_ALPHABET *abc, const double *wmerct, int W, double ***ret_pmarkov, double **ret_pwmer)
+{
+  double **pmarkov = NULL;
+  double  *pw      = NULL;
+  int      nwmers  = (int) pow((double) abc->K, (double) W);
+  int      ysize   = nwmers / abc->K;                         // = 1 for iid case of W=1; y can only be 0.
+  int      y;
+  int      status;
+
+  /* 2D array allocation (compact: and in same order as <wmerct> itself */
+  ESL_ALLOC(pmarkov,    sizeof(double *) * ysize);
+  ESL_ALLOC(pmarkov[0], sizeof(double)   * nwmers);
+  for (y = 1; y < ysize; y++) pmarkov[y] = pmarkov[0] + abc->K * y;
+  ESL_ALLOC(pw,         sizeof(double)   * nwmers);
+
+  esl_vec_DCopy(wmerct, nwmers, pmarkov[0]);
+  esl_vec_DCopy(wmerct, nwmers, pw);
+  esl_vec_DNorm(pw, nwmers);
+  for (y = 0; y < ysize; y++)   // for iid case of W=1, ysize=1, and y can only be 0
+    esl_vec_DNorm(pmarkov[y], abc->K);
+
+  *ret_pmarkov = pmarkov;
+  *ret_pwmer   = pw;
+  return eslOK;
+
+ ERROR:
+  *ret_pmarkov = NULL;
+  *ret_pwmer   = NULL;
+  return status;
+}
+
+/* Function:  esl_rsq_markov_Generate()
+ * Synopsis:  Generate a sequence from (W-1)'th-order Markov model
+ * Incept:    SRE, Tue 27 Aug 2024
+ *
+ * Purpose:   Given conditional probabilities <pmarkov> and wmer joint
+ *            probabilities <pwmer>, for a Markov model of order <W>-1
+ *            (i.e., parameterized for w-mers of length <W>) for
+ *            sequences in digital alphabet <abc>, use random number
+ *            generator <rng> to generate a sequence <dsq> of length
+ *            <L>.
+ *
+ *            Caller allocates space for the result <dsq>, for at
+ *            least L+2 ESL_DSQ residues including flanking sentinels.
+ *
+ *            <pmarkov[y][x]> is the conditional probability P(x | y)
+ *            for sampling residue x given previous (W-1)-mer y, where
+ *            y is a base-K integer encoding of that previous sequence
+ *            context.
+ *
+ *            <pwmer> is needed for initializing the sampled chain.
+ *
+ *            <pmarkov> and <pwmer> would typically be constructed by
+ *            a previous call to <esl_rsq_markov_build()>.
+ *
+ * Args:      rng     - random number generator
+ *            abc     - digital alphabet
+ *            W       - width of w-mers that pmarkov, pwmer are based on: the Markov chain is order (W-1).
+ *            pmarkov - pmarkov[y][x] is P(x | y) for residue x, given previous context (W-1)mer y
+ *            pwmer   - P(x_1..x_W) for w-mers
+ *            L       - length of dsq to sample
+ *            dsq     - RESULT: sampled Markov sequence. Caller allocates this for at least L+2 ESL_DSQ.
+ *
+ * Returns:   <eslOK> on success; <dsq> now contains the sampled digital sequence, with sentinels set at 0 and L+1.
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+int
+esl_rsq_markov_Generate(ESL_RANDOMNESS *rng, const ESL_ALPHABET *abc, int W, double **pmarkov, double *pwmer, int64_t L, ESL_DSQ *dsq)
+{
+  int     nwmers = (int) pow((double) abc->K, (double) W);    // pwmer has wmer probs pw[0..nwmers-1]
+  int     ysize  = nwmers / abc->K;                           // pmarkov has conditional probs pmarkov[0..ysize-1][0..K-1]  for P(x | y) where y is the previous W-1 mer
+  int     first_wmer;                                         // initial w-mer sampled; base-K encoded, 0..nwmers-1
+  int     y;                                                  // previous context W-1 mer, base-K encoded, 0..ysize-1
+  int     x;                                                  // sampled canonical residue, 0..K-1
+  int     z;                                                  // tmp var for unpacking an encoded w-mer
+  int64_t pos;                                                // counter for positions in dsq
+
+  /* First w-mer is an initialization condition, sampled from <pwmer> joint probs */
+  first_wmer = esl_rnd_DChoose(rng, pwmer, nwmers);
+
+  /* Unpack first_kmer into W individual residues from left to right (high to low order base-K digits) */
+  y          = first_wmer;
+  z          = ysize;
+  dsq[0]     = eslDSQ_SENTINEL;
+  for (pos = 1; pos <= W; pos++)
+    {
+      dsq[pos] =  y / z;
+      y        =  y % z;
+      z       /=  abc->K;
+    }
+  
+  /* Last W-1 residues of the initial w-mer are our initial context;
+   * iterate over the remaining residues, sampling from P(x|y) and updating context y.
+   */
+  y = first_wmer % ysize;
+  for (pos = W+1; pos <= L; pos++)
+    {
+      x = esl_rnd_DChoose(rng, pmarkov[y], abc->K);
+      dsq[pos] = x;
+      y        = (W == 1 ? 0 : (y * abc->K) % ysize + x);   // don't do the modulo + x if iid and no context; just leave y at 0
+    }
+  dsq[L+1] = eslDSQ_SENTINEL;
+  return eslOK;
+}
+
+/* Function:  esl_rsq_markov_Destroy()
+ * Synopsis:  Free probability matrix and vector for a Markov model.
+ * Incept:    SRE, Tue 27 Aug 2024
+ */
+void
+esl_rsq_markov_Destroy(double **pmarkov, double *pwmer)
+{
+  if (pmarkov) free(pmarkov[0]);
+  free(pmarkov);
+  free(pwmer);
+}
+/*----------- end, arbitrary-size Markov models -----------------*/
+
+
+
+/*****************************************************************
+ * 9. Statistics driver
  *****************************************************************/ 
 
 /* This driver tests (and confirms) the intuition that using
@@ -1445,7 +1636,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 8. Unit tests.
+ * 10. Unit tests
  *****************************************************************/ 
 #ifdef eslRANDOMSEQ_TESTDRIVE
 #include "esl_dirichlet.h"
@@ -2014,7 +2205,7 @@ utest_markov1_bug(ESL_RANDOMNESS *r)
 /*------------------ end, unit tests ----------------------------*/
 
 /*****************************************************************
- * 9. Test driver.
+ * 11. Test driver.
  *****************************************************************/ 
 #ifdef eslRANDOMSEQ_TESTDRIVE
 /* gcc -g -Wall -o randomseq_utest -L. -I. -DeslRANDOMSEQ_TESTDRIVE esl_randomseq.c -leasel -lm
@@ -2066,7 +2257,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 10. Example.
+ * 12. Example.
  *****************************************************************/ 
 #ifdef eslRANDOMSEQ_EXAMPLE
 /*::cexcerpt::randomseq_example::begin::*/
