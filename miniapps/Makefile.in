@@ -62,7 +62,6 @@ PROGS = esl-afetch\
 	esl-seqrange\
 	esl-seqstat\
 	esl-sfetch\
-	esl-shuffle\
 	esl-ssdraw\
 	esl-weight
 
