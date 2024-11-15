@@ -141,7 +141,8 @@ esl_cmd_kmer(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
         }
 
       for (i = 0; i < W; i++) esl_fputc(abc->sym[kmer[i]], stdout);
-      esl_printf("    %10d %10.4g %10.4f\n", kmerct[code], kmerfq, lodsc);
+      for ( ;     i < 6; i++) esl_fputc(' ', stdout);                  // sly way to enforce a min field width of 6 on the kmer, matching dataheader
+      esl_printf(" %10d %10.4g %10.4f\n", kmerct[code], kmerfq, lodsc);
     }
 
   free(kmer);
