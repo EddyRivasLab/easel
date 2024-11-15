@@ -57,7 +57,7 @@ esl_cmd_kmer(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 
   if (! esl_str_IsInteger(warg)) esl_fatal("K argument for kmer length must be an integer");
   W = strtol(warg, NULL, 10);
-  if (W <= 1) esl_fatal("K argument for kmer length must be > 0");
+  if (W <= 0) esl_fatal("K argument for kmer length must be > 0");
 
   if (esl_opt_IsOn(go, "--informat")) {
     if ((infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslSQFILE_UNKNOWN)
