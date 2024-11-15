@@ -17,7 +17,7 @@
 static ESL_OPTIONS cmd_options[] = {
   /* name          type           default env   range togs  reqs  incomp   help                                           docgroup */
   { "-h",          eslARG_NONE,   FALSE,  NULL, NULL, NULL, NULL, NULL,   "help; show brief info on version and usage",        0 },
-  { "-f",          eslARG_NONE,   FALSE,  NULL, NULL, NULL, NULL, NULL,   "force; allow -o|-O to overwrite existing outfile",  0 },
+  { "-f",          eslARG_NONE,   FALSE,  NULL, NULL, NULL, NULL, NULL,   "force; allow -o to overwrite existing outfile",     0 },
   { "-o",          eslARG_OUTFILE,FALSE,  NULL, NULL, NULL, NULL, NULL,   "output sequences to file <f> instead of stdout",    0 },
   { "-r",          eslARG_NONE,   FALSE,  NULL, NULL, NULL, NULL, NULL,   "reverse complement the fetched (sub)sequences",     0 },
   { "-C",          eslARG_NONE,   FALSE,  NULL, NULL, NULL, NULL, NULL,   "<keyfile> contains subseq <start>/<end> coords too",0 },
