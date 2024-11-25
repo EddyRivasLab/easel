@@ -515,7 +515,7 @@ int esl_workqueue_ReaderUpdate(ESL_WORK_QUEUE *queue, void *in, void **out)
 
       if (queue->pendingWorkers != 0)
 	{
-	  if (pthread_cond_broadcast (&queue->workerQueueCond) != 0) ESL_EXCEPTION(eslESYS, "broadcast failed");
+	  if (pthread_cond_signal (&queue->workerQueueCond) != 0) ESL_EXCEPTION(eslESYS, "pthread_cond_signal failed");
 	}
     }
 
