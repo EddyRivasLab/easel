@@ -12,7 +12,7 @@ esl\-alipid \- calculate pairwise percent identities for all sequence pairs in a
 .SH DESCRIPTION
 
 .PP
-.B esl\-alistat 
+.B esl\-alipid
 calculates the pairwise percent identity of each sequence pair in
 in the MSA(s) in 
 .I msafile.
