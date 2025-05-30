@@ -7,6 +7,7 @@
 #   <srcdir>:   path to Easel src dir.
 #   <tmppfx>:   prefix we're allowed to use to create tmp files in current working dir.
 #
+import glob
 import os
 import re
 import subprocess
@@ -19,46 +20,49 @@ progs_used = ( 'miniapps/easel',
 (builddir, srcdir, tmppfx) = esl_itest.getargs(sys.argv)
 esl_itest.check_progs(builddir, progs_used)
 
-esl_itest.write_testmsa_1('{}.sto'.format(tmppfx), '{}-test'.format(tmppfx))  # seq 5 in this test file is named <tmppfx>-test
+easel        = f'{builddir}/miniapps/easel'
+esl_reformat = f'{builddir}/miniapps/esl-reformat'   # TK TK : replace with easel reformat when we can
+
+esl_itest.write_testmsa_1(f'{tmppfx}.sto', f'{tmppfx}-test')  # seq 5 in <tmppfx>.sto test file is named <tmppfx>-test
+
+
 
 # `-h` help 
-r = esl_itest.run('{}/miniapps/easel aindex -h'.format(builddir))
+r = esl_itest.run(f'{easel} aindex -h')
 
 # Basic: index a Stockholm file (creates <tmppfx>.sto.ssi)
-r = esl_itest.run('{}/miniapps/easel aindex {}.sto'.format(builddir,tmppfx))
+r = esl_itest.run(f'{easel} aindex {tmppfx}.sto')
 if re.search(r'^Indexed 5 alignments \(5 names and 5 accessions\)\.', r.stdout, flags=re.MULTILINE) == None: esl_itest_fail()
 
 # We don't overwrite .ssi files by default.
-r = esl_itest.run('{}/miniapps/easel aindex {}.sto'.format(builddir,tmppfx), expect_success=False)
+r = esl_itest.run(f'{easel} aindex {tmppfx}.sto', expect_success=False)
 
 # -f does allow overwriting
-r = esl_itest.run('{}/miniapps/easel aindex -f {}.sto'.format(builddir,tmppfx))
+r = esl_itest.run(f'{easel} aindex -f {tmppfx}.sto')
 
 # --informat
-r = esl_itest.run('{}/miniapps/easel aindex -f --informat stockholm {}.sto'.format(builddir,tmppfx))
+r = esl_itest.run(f'{easel} aindex -f --informat stockholm {tmppfx}.sto')
 
 # Only Stockholm format works, it's the only multi-MSA format
-r = esl_itest.run('{0}/miniapps/easel afetch -o {1}.sto2 {1}.sto Delta'.format(builddir, tmppfx))
-r = esl_itest.run('{0}/miniapps/esl-reformat -o {1}.afa afa {1}.sto2'.format(builddir, tmppfx))    # TK TK replace esl-reformat with easel reformat when we can
-r = esl_itest.run('{}/miniapps/easel aindex {}.afa'.format(builddir,tmppfx), expect_success=False)
+r = esl_itest.run(f'{easel} afetch -o {tmppfx}.sto2 {tmppfx}.sto Delta')
+r = esl_itest.run(f'{esl_reformat} -o {tmppfx}.afa afa {tmppfx}.sto2')
+r = esl_itest.run(f'{easel} aindex {tmppfx}.afa', expect_success=False)
 
 # --noacc
-r = esl_itest.run('{}/miniapps/easel aindex -f --noacc {}.sto'.format(builddir,tmppfx))
+r = esl_itest.run(f'{easel} aindex -f --noacc {tmppfx}.sto')
 if re.search(r'^Indexed 5 alignments \(5 names\)\.', r.stdout, flags=re.MULTILINE) == None: esl_itest_fail()
 
 # Duplicate names aren't allowed.
 # We can test this easily by changing seqname5. We don't have facility to test for dup accessions; TK TK
-esl_itest.write_testmsa_1('Delta'.format(tmppfx), '{}.sto'.format(tmppfx))  # now both seq 4 and seq 5 in .sto file are Delta
-r = esl_itest.run('{}/miniapps/easel aindex {}.sto'.format(builddir,tmppfx), expect_success=False)
+esl_itest.write_testmsa_1(f'{tmppfx}.sto', 'Delta')  # now both seq 4 and seq 5 in .sto file are named Delta
+r = esl_itest.run(f'{easel} aindex {tmppfx}.sto', expect_success=False)
 
 # aindex works in text mode and isn't fussed about weird characters or case
-esl_itest.write_testmsa_2('{}.sto'.format(tmppfx))                  
-r = esl_itest.run('{}/miniapps/easel aindex -f {}.sto'.format(builddir,tmppfx))
-
-
-os.remove('{}.sto'.format(tmppfx))
-os.remove('{}.sto.ssi'.format(tmppfx))
-os.remove('{}.sto2'.format(tmppfx))
-os.remove('{}.afa'.format(tmppfx))
+esl_itest.write_testmsa_2(f'{tmppfx}.sto')
+r = esl_itest.run(f'{easel} aindex -f {tmppfx}.sto')
 
 print('ok')
+
+for tmpfile in glob.glob(f'{tmppfx}.*'): os.remove(tmpfile)
+
+
