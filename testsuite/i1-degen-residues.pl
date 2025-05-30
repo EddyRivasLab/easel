@@ -12,13 +12,13 @@ $top_srcdir   = shift;
 $tmppfx       = shift;
 
 # Make sure that any files/executables we need to access are present.
-if (! -x "$top_builddir/miniapps/esl-reformat") { die "FAIL: esl-reformat not found in $top_builddir/miniapps\n"; }
-if (! -x "$top_builddir/miniapps/esl-shuffle")  { die "FAIL: esl-shuffle not found in $top_builddir/miniapps\n"; }
-if (! -x "$top_builddir/miniapps/esl-sfetch")   { die "FAIL: esl-sfetch not found in $top_builddir/miniapps\n"; }
-if (! -x "$top_builddir/miniapps/esl-seqstat")  { die "FAIL: esl-seqstat not found in $top_builddir/miniapps\n"; }
+if (! -x "$top_builddir/miniapps/easel")        { die "FAIL: easel miniapp not found in $top_builddir/miniapps\n"; }
+if (! -x "$top_builddir/miniapps/esl-reformat") { die "FAIL: esl-reformat not found in $top_builddir/miniapps\n";  }
+if (! -x "$top_builddir/miniapps/esl-sfetch")   { die "FAIL: esl-sfetch not found in $top_builddir/miniapps\n";    }
+if (! -x "$top_builddir/miniapps/esl-seqstat")  { die "FAIL: esl-seqstat not found in $top_builddir/miniapps\n";   }
 
 $reformat = "$top_builddir/miniapps/esl-reformat";
-$shuffle  = "$top_builddir/miniapps/esl-shuffle";
+$shuffle  = "$top_builddir/miniapps/easel shuffle";   # miniapps in transition. `esl-shuffle` now replaced with `easel shuffle`
 $sfetch   = "$top_builddir/miniapps/esl-sfetch";
 $seqstat  = "$top_builddir/miniapps/esl-seqstat";
 
@@ -62,7 +62,7 @@ $output = `$seqstat       $tmppfx.aa  2>&1`;   if ($? != 0)  {  print "FAIL: seq
 $output = `$seqstat       $tmppfx.bad 2>&1`;   if ($? == 0)  {  print "FAIL: seqstat should have failed on .bad test\n";   exit 1; }
 
 # esl-shuffle tests
-system("$shuffle $tmppfx.dna           > $tmppfx.out 2>&1");   if ($? != 0)  {  print "FAIL: shuffle failed on .dna test\n";         exit 1; }
+system("$shuffle --dna $tmppfx.dna     > $tmppfx.out 2>&1");   if ($? != 0)  {  print "FAIL: shuffle failed on .dna test\n";         exit 1; }
 system("$seqstat --dna -c $tmppfx.out  > $tmppfx.out2 2>&1");  if ($? != 0)  {  print "FAIL: seqstat -c failed on shuffled .dna\n";  exit 1; }
 system("$seqstat --dna -c $tmppfx.dna  > $tmppfx.out3 2>&1");  if ($? != 0)  {  print "FAIL: seqstat -c failed on .dna test\n";      exit 1; }
 system("diff $tmppfx.out2 $tmppfx.out3 > /dev/null 2>&1");     if ($? != 0)  {  print "FAIL: shuffle changed .dna composition\n";    exit 1; }
