@@ -120,6 +120,7 @@ esl_sq_CreateFrom(const char *name, const char *seq, const char *desc, const cha
   sq->xr_tag = NULL;
   sq->xr     = NULL;
 
+  sq->abc    = NULL;   // text mode. See esl_sq_CreateDigitalFrom() for digital version.
   return sq;
 
  ERROR:
