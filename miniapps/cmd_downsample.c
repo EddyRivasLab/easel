@@ -21,6 +21,8 @@ static ESL_OPTIONS cmd_options[] = {
   { "--seed",      eslARG_INT,        "0",  NULL, NULL,  NULL,  NULL, NULL,  "set random number generator seed",                       0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
+/* --informat requires -s|-S; enforced in code below, not getopts */
+
 
 static void downsample_lines   (ESL_RAND64 *rng, int64_t M, const char *infile);
 static void downsample_seqs    (ESL_RAND64 *rng, int64_t M, const char *infile, int infmt);
