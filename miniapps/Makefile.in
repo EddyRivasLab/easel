@@ -74,6 +74,7 @@ SUBCMDOBJS = \
 	cmd_kmer.o       \
 	cmd_msashuf.o    \
 	cmd_msastat.o    \
+	cmd_reformat.o   \
 	cmd_seqstat.o    \
 	cmd_sfetch.o     \
 	cmd_sfetchn.o    \

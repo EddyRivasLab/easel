@@ -138,14 +138,16 @@ extern int   esl_sqio_Parse       (char *buffer, int size, ESL_SQ *s, int format
 extern int   esl_sqio_Write       (FILE *fp, ESL_SQ *s, int format, int update);
 extern int   esl_sqio_Echo        (ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp);
 
-const char  *esl_sqfile_GetErrorBuf(const ESL_SQFILE *sqfp);
+extern const char *esl_sqfile_GetErrorBuf(const ESL_SQFILE *sqfp);
 extern int   esl_sqfile_IsRewindable(const ESL_SQFILE *sqfp);
 extern int   esl_sqio_IsAlignment(int fmt);
 extern int   esl_sqio_EncodeFormat(char *fmtstring);
 extern char *esl_sqio_DecodeFormat(int fmt);
 extern int   esl_sqfile_Position(ESL_SQFILE *sqfp, off_t offset);
-extern int   esl_sqio_Ignore(ESL_SQFILE *sqfp, const char *ignoredchars);
-extern int   esl_sqio_AcceptAs(ESL_SQFILE *sqfp, char *xchars, char readas);
+
+extern int   esl_sqio_Ignore  (ESL_SQFILE *sqfp, const char *ignored);
+extern int   esl_sqio_Accept  (ESL_SQFILE *sqfp, const char *accepted);
+extern int   esl_sqio_AcceptAs(ESL_SQFILE *sqfp, const char *accepted, char readas);
 
 extern int   esl_sqfile_OpenSSI         (ESL_SQFILE *sqfp, const char *ssifile_hint);
 extern int   esl_sqfile_PositionByKey   (ESL_SQFILE *sqfp, const char *key);

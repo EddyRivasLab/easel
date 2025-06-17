@@ -794,7 +794,7 @@ esl_sqfile_Position(ESL_SQFILE *sqfp, off_t offset)
  * Synopsis:  Sets the input map to ignore one or more input characters.
  *
  * Purpose:   Set the input map of the open <sqfp> to allow
- *            the characters in the string <ignoredchars> to appear
+ *            the characters in the string <ignored> to appear
  *            in input sequences. These characters will be ignored.
  *
  *            For example, an application might want to ignore '*'
@@ -804,11 +804,55 @@ esl_sqfile_Position(ESL_SQFILE *sqfp, off_t offset)
  * Returns:   <eslOK> on success.
  */
 int
-esl_sqio_Ignore(ESL_SQFILE *sqfp, const char *ignoredchars)
+esl_sqio_Ignore(ESL_SQFILE *sqfp, const char *ignored)
 {
   int i;
-  for (i = 0; ignoredchars[i] != '\0'; i++)
-    sqfp->inmap[(int) ignoredchars[i]] = eslDSQ_IGNORED;
+  for (i = 0; ignored[i] != '\0'; i++)
+    sqfp->inmap[(int) ignored[i]] = eslDSQ_IGNORED;
+  return eslOK;
+}
+
+/* Function:  esl_sqio_Accept()
+ * Synopsis:  Add more characters to a text-mode sqfile's inmap.
+ * Incept:    SRE, Sun 01 Jun 2025 [B6 920 SAN-BOS]
+ *
+ * Purpose:   Add each character in the <accepted> string to the input
+ *            map for <sqfp>. By default, text mode input from
+ *            unaligned seqfile formats allows a-zA-Z and * as input
+ *            sequence residue characters.
+ *
+ *            This should be called immediately after opening the
+ *            <sqfp>, before the first call to esl_sqio_Read().
+ *
+ *            This only works for a text mode <sqfp>. You can't
+ *            extend a digital alphabet that's already defined (not
+ *            without making a new custom alphabet). You can, however,
+ *            have a digital alphabet accept additional input chars
+ *            and map them to the digital alphabet's "unknown residue"
+ *            code: see <esl_sqio_AcceptAs()>.
+ *
+ * Args:      sqfp     - recently opened seqfile, in text mode
+ *            accepted - string of chars to add to the inmap
+ *
+ * Returns:   <eslOK> on success
+ *
+ * Throws:    <eslEINVAL> if called on a digital-mode <sqfp>. You can't
+ *            extend a digital alphabet that's already defined (not
+ *            without making a new custom alphabet).
+ *
+ * Xref:      [2025/0531-easel-reformat]
+ */
+int
+esl_sqio_Accept(ESL_SQFILE *sqfp, const char *accepted)
+{
+  int i;
+  
+  if (sqfp->do_digital)
+    ESL_EXCEPTION(eslEINVAL, "bad esl_sqio_Accept(): a digital alphabet can't accept additional chars");
+
+  for (i = 0; accepted[i] != '\0'; i++)
+    sqfp->inmap[(int) accepted[i]] = accepted[i];
+
   return eslOK;
 }
 
@@ -816,7 +860,7 @@ esl_sqio_Ignore(ESL_SQFILE *sqfp, const char *ignoredchars)
  * Synopsis:  Map a list of additional characters.
  *
  * Purpose:   Set the input map of the open <sqfp> to allow the 
- *            characters in the string <xchars> to appear in 
+ *            characters in the string <accepted> to appear in 
  *            input sequences. These characters will all be 
  *            mapped to the character <readas> (or, for digital
  *            sequence input, to the digitized representation 
@@ -830,23 +874,18 @@ esl_sqio_Ignore(ESL_SQFILE *sqfp, const char *ignoredchars)
  * Returns:   <eslOK> on success.
  */
 int
-esl_sqio_AcceptAs(ESL_SQFILE *sqfp, char *xchars, char readas)
+esl_sqio_AcceptAs(ESL_SQFILE *sqfp, const char *accepted, char readas)
 {
   int i;
   
-  if (sqfp->do_digital)
-    {
-      for (i = 0; xchars[i] != '\0'; i++)
-	sqfp->inmap[(int) xchars[i]] = esl_abc_DigitizeSymbol(sqfp->abc, readas);
-    }
-
-  if (! sqfp->do_digital)
-    {
-      for (i = 0; xchars[i] != '\0'; i++)
-	sqfp->inmap[(int) xchars[i]] = readas;
-    }
+  if (sqfp->do_digital) {
+    for (i = 0; accepted[i] != '\0'; i++)
+      sqfp->inmap[(int) accepted[i]] = esl_abc_DigitizeSymbol(sqfp->abc, readas);
+  } else {
+    for (i = 0; accepted[i] != '\0'; i++)
+      sqfp->inmap[(int) accepted[i]] = readas;
+  }
   return eslOK;
-
 }
 /*--------------- end, miscellaneous routines -------------------*/
 

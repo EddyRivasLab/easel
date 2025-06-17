@@ -2529,9 +2529,9 @@ esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps, int consider_rf)
 /* Function:  esl_msa_MinimGapsText()
  * Synopsis:  Remove columns containing all gap symbols, from text mode msa
  *
- * Purpose:   Same as esl\_msa\_MinimGaps(), but specialized for a text mode
+ * Purpose:   Same as <esl_msa_MinimGaps()>, but specialized for a text mode
  *            alignment where we don't know the alphabet. The issue is what 
- *            to do about RNA secondary structure annotation (SS, SS\_cons)
+ *            to do about RNA secondary structure annotation (SS, SS_cons)
  *            when we remove columns, which can remove one side of a bp and
  *            invalidate the annotation string. For digital alignments,
  *            <esl_msa_MinimGaps()> knows the alphabet and will fix base pairs

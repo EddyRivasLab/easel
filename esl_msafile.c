@@ -690,8 +690,8 @@ esl_msafile_IsMultiRecord(int fmt)
   case eslMSAFILE_AFA:         return FALSE;
   case eslMSAFILE_CLUSTAL:     return FALSE;
   case eslMSAFILE_CLUSTALLIKE: return FALSE;
-  case eslMSAFILE_PHYLIP:      return TRUE; /* because seqboot. undocumented in phylip,  phylip format can come out multi-msa */
-  case eslMSAFILE_PHYLIPS:     return TRUE; /* ditto */
+  case eslMSAFILE_PHYLIP:      return TRUE;   // because seqboot. undocumented in phylip,  phylip format can come out multi-msa
+  case eslMSAFILE_PHYLIPS:     return TRUE;   // ditto
   default:                     return FALSE;
   }
   return FALSE;			/* keep compilers happy */

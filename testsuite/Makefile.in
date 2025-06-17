@@ -62,6 +62,7 @@ clean:
 	-rm -f esltmp??????
 	-rm -f *.o *~ 
 	-rm -f ${PROGS} 
+	-rm -rf __pycache__
 ifndef V
 	@echo '     ' CLEAN testsuite
 endif
