@@ -1,17 +1,17 @@
 
 # Eddy lab code conventions
 
-This document is aimed at indoctrinating new developers into the
+This document is for indoctrinating new developers into the
 conventions used by Eddy lab code, including HMMER, Infernal, and
-Easel. The conventions' intent is to make it easier for our code to be
-maintained efficiently by one busy professor for a long time.
+Easel. These conventions make it easier for one busy professor to
+maintain our code for a long time.
 
-Not all of our code follows our own current conventions. Older code
-often predates newer conventions.  We apply our code conventions like
-building ordinances. New construction must comply with current
-ordinances.  Older construction does not have to immediately conform
-to the current rules, but when significant renovation happens, old
-work needs to be brought up to current standards.
+Not all of our code follows our own current conventions, because older
+code often predates newer conventions. Our conventions apply like
+building ordinances: new construction must comply with current
+ordinances.  Older construction may not immediately conform, but when
+a significant renovation happens, old work needs to be brought up to
+current standards.
 
 
 ------------------------------------
@@ -400,9 +400,156 @@ To generate a warning on bad code that is assigning -1 to a `char`
 (for example), build and compile with `configure CC=gcc CFLAGS="-g
 -Wall -funsigned-char"`.
 
+--------------------------------------------------------------
 
-  
-  
+## error handling
+
+### quick reference table
+
+| Type of error       | Caller gets       | `goto ERROR:`<br/> cleanup block? | how to handle |
+|---------------------|-------------------|---------------|---------------------------------------|
+| Normal (user) error | errcode only      | no            | `return errcode`                      |
+|                     |                   | with cleanup  | `{status = errcode; goto ERROR;}`     |
+|                     | errcode + message | no            | `ESL_FAIL(errcode, errbuf, "...")`    |
+|                     |                   | with cleanup  | `ESL_XFAIL(errcode, errbuf, "...")`   |
+| Abnormal exception  | errcode + message | no            | `ESL_EXCEPTION(errcode, "...")`       |
+|                     |                   | with cleanup  | `ESL_XEXCEPTION(errcode,"...")`       |
+| Program exit        | n/a               | no            | `esl_fatal("...")`                    |
+
+### in depth
+
+#### esl_fatal(): errors in main program
+
+`esl_fatal()` is the most straightforward error handler. It simply
+prints a message to `stderr` and exits the program with nonzero status. 
+
+We only use `esl_fatal()` when we're in the `main()` of a program (or
+a static function that only one program calls). **Otherwise, a
+function must never terminate a program directly.** It must always
+return control to the caller - or at least have a way to do so, in the
+case of our exception handlers. The reason is that the function might
+be called in some big complicated program (a GUI, for example) that
+might want to do some sort of recovery or state-saving before it exits
+after an error.  The caller (ultimately, the program) must always have
+control of deciding what to do about an error.
+
+#### error status codes: errors in functions
+
+Errors in _functions_ (as opposed to the main program) are of two types:
+"normal" errors, or exceptions. A normal error is expected, something
+that could happen in normal use, like a user making a mistake in an
+input. An exception is unexpected, something that shouldn't happen,
+something that's our fault in the code, or something awry in system
+resources (including allocation and write failures).
+
+For a normal error, we _always_ return control to the caller, so the
+caller can do something appropriate to issue an informative error
+message to the user. The simplest convention is to just return an
+integer status code.
+
+Easel functions generally return an integer status code where `eslOK`
+means success.  Error status codes are listed in `easel.h`. Common
+ones include `eslEMEM` (memory allocation failure), `eslEOF`
+(end-of-file), and `eslEFORMAT` (bad input format).
+
+The documentation in the header before each function must document
+which status codes can be normally returned, including `eslOK` and any
+normal errors. If the function can return a normal error code, the
+caller *must check for this code*, or at least check for `status !=
+eslOK`.
+
+A few interfaces follow a different pattern. `_Create()` functions
+return an allocated pointer to a new object. `_Destroy()` functions
+return `void`. `_Get*()` functions directly return some value they've
+accessed in an object.
+
+#### error messages: ESL_FAIL() 
+
+Sometimes, we want to propagate more information about the error back
+to the caller, more than just an integer `status` code. For example, a
+parser wants to have a way to report to the user exactly where and why
+it failed. This is what the `ESL_FAIL()` macro is for. The caller
+passes an allocated buffer for the message as one of the function
+arguments, of size `eslERRBUFSIZE`; this is often allocated statically
+as e.g. `char errbuf[eslERRBUFSIZE]`. The function can
+then call `ESL_FAIL(<code>, <errbuf>, <message>)`. The message can be
+formatted using standard `printf()` semantics,
+e.g. `ESL_FAIL(eslEFORMAT, errbuf, "failed at line %d", linenum)`.
+
+#### exceptions: ESL_EXCEPTION()
+
+For an abnormal exception, we _usually_ want to exit our program
+immediately with a nonzero exit status and an informative error
+message (just the same as with `esl_fatal()`) because most of our
+programs are command-line applications and that's all they're going to
+do with an abnormal error anyway. However, depending on the program
+we're writing, we _may_ need to return control to the caller, if we're
+in a program that needs to do some more complex cleanup before it
+dies.
+
+Easel uses an exception handler to allow the program to control which
+way it wants to behave when an exception
+occurs. `ESL_EXCEPTION(<errcode>, <message>)` calls the handler. The
+default exception handler is fatal: it calls
+`esl_fatal(<message>)`. Optionally, the program can provide its own
+exception handler, registering it with `esl_exception_SetHandler()`.
+A nonfatal exception handler can behave more like `ESL_FAIL()`, for
+example, returning a nonzero error code to the caller.
+
+The documentation in the header before each function should document
+which status codes can be thrown on exceptions. Any external function
+that calls Easel functions must consider the possibility that a
+nonfatal exception handler is being used. Thus any external function
+must minimally check for return of the successful `eslOK` status code,
+and it may check for specific error codes if it wants to handle different
+kinds of exceptions differently. A `main()` (or static functions that
+are only called by one program) does not need to check for exceptions
+or exception status codes, if the program uses the default exception
+handler (or a fatal custom one). Indeed, in this case, if the called
+Easel function has no normal return codes other than `eslOK`, a
+program or static function can call it without checking the return
+status, even if exceptions can occur in it.
+
+
+#### "ERROR:" cleanup blocks
+
+Easel functions clean up any memory allocation they've done before
+returning, even in the case of errors and exceptions. (A program could
+conceivably try to recover from an error and continue, so we don't
+want memory leaks.) A design pattern in Easel is the use of a `ERROR:`
+block at the end of a function, where all allocations are free'd, all
+returned pointers are set to a documented state for what happens to
+them upon an error, and a nonzero Easel error code is returned.
+
+`ESL_XFAIL()` and `ESL_XEXCEPTION()` are versions of `ESL_FAIL()` and
+`ESL_EXCEPTION()` that finish by setting `status = <errcode>` and
+calling `goto ERROR:`. (I know the adage "goto is considered harmful"
+but this is one of the few good reasons to use a `goto` in C.)
+
+To use these macros, you need to have a `status` variable declared in
+scope, and the `ERROR:` goto target.
+
+Example:
+
+```
+int
+my_func(char **ret_s)
+{
+    char *s = NULL;    // all allocated ptrs initialized to NULL
+    int   status;      // status variable declared in scope to use ESL_XFAIL(), ESL_XEXCEPTION()
+
+    if (( status = esl_sprintf(&s, "test") != eslOK) goto ERROR;    // propagate exceptions up, don't throw a second one
+    if ( strlen(s) < 4 ) ESL_XEXCEPTION(eslEINVAL, "that string ought to be length 4, I just made it");  // w/ nonfatal handler, sets status = eslEINVAL, then calls goto ERROR
+
+    *ret_s = s;
+    return eslOK;
+    
+  ERROR:
+    free(s);
+    *ret_s = s;
+    return status;
+}
+```
 
 
 ---------------------------------------------------
@@ -427,15 +574,17 @@ errors with cleanup.
 
 For example: 
 
-	    char *foo = NULL;
-		int   status;
-		...
-		ESL_ALLOC(foo, sizeof(char) * 128);
-		...
-		return eslOK;
+```
+char *foo = NULL;
+int   status;
+...
+ESL_ALLOC(foo, sizeof(char) * 128);
+...
+return eslOK;
 
-	    ERROR:
-			return status;
+ERROR:
+	return status;
+```
 
 Similarly, there is an `ESL_REALLOC(ptr, newsize)` macro for
 reallocating a pointer `ptr` to a new size in bytes `newsize`.
@@ -450,8 +599,8 @@ We want to avoid having `NULL` as a successful result of an
 allocation, because it confuses static analysis tools when they see
 dereferences of possibly `NULL` pointers.
 
-The `size` argument is >= 0. It can be either signed or unsigned, but
-beware of mixed constructs like `(sizeof(foo) * n)`. `sizeof()`
+The `size` argument is thus >0. It can be either signed or unsigned,
+but beware of mixed constructs like `(sizeof(foo) * n)`. `sizeof()`
 returns unsigned; (unsigned * signed) first converts the signed
 operand to unsigned; if the signed operand is negative, the conversion
 adds `UINT_MAX+1` modulo `UINT_MAX+1`, and a small negative signed
@@ -474,40 +623,6 @@ typically use a signed cast, `(ptrdiff_t) sizeof(foo) * n`.
 
 
 ---------------------------------------------------
-
-## return codes, errors, and exceptions
-
-Visible functions should generally return an integer status
-code. `eslOK` means success. Error codes are listed in
-`easel.h`. Common ones include `eslEMEM` (memory allocation failure),
-`eslEOF` (end-of-file), and `eslEFORMAT` (bad input format).
-
-A few interfaces follow a different pattern. `_Create()` functions
-return an allocated pointer to a new object. `_Destroy()` functions
-return `void`. `_Get*()` functions directly return some value they've
-accessed in an object.
-
-We distinguish **normal errors** from **exceptions**. Anything that
-could happen because of something the user does (including any input)
-is a normal error. Anything that could happen because of a failure in
-our code or unexpected system behavior (including allocation failures)
-is an exception.
-
-Only a top-level application program is allowed to exit directly to
-the shell. Following POSIX requirements, it returns status 0 (`eslOK`)
-on success, nonzero (an Easel error code) on failure. On a normal
-error from a command-line application, an informative user-directed
-error message is printed on `stderr`, typically by calling `esl_fatal()`.
-
-In any function other than the top-level application program,
-normal errors are reported by returning an error code, either by a
-simple `return status`, or by using one of two Easel macros,
-`ESL_FAIL()` or `ESL_XFAIL()`. 
-
-Exceptions are thrown by calling the Easel exception handler,
-generally through the Easel macros `ESL_EXCEPTION()` or
-`ESL_XEXCEPTION()`. 
-
 
 
 
