@@ -3152,7 +3152,7 @@ esl_msa_Validate(const ESL_MSA *msa, char *errmsg)
 {
   int idx;
 
-  if (msa->nseq == 0) ESL_FAIL(eslFAIL, errmsg, "no alignment data found");
+  if (msa->nseq < 0) ESL_FAIL(eslFAIL, errmsg, "invalid nseq");  // can be == 0! Pfam full coughs up rare examples.
 
   for (idx = 0; idx < msa->nseq; idx++)
     {

@@ -70,8 +70,10 @@ esl_cmd_aindex(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   esl_printf("Working...    "); 
   fflush(stdout);
   
-  while ((status = esl_msafile_Read(afp, &msa)) == eslOK)
+  while ((status = esl_msafile_Read(afp, &msa)) != eslEOF)
     {
+      if (status != eslOK && status != eslENODATA) esl_msafile_ReadFailure(afp, status);  // NODATA is ok. It's a rare empty MSA with nseqs=0.
+
       nali++;
 
       if (! msa->name)
@@ -85,7 +87,7 @@ esl_cmd_aindex(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
       
       esl_msa_Destroy(msa);
     }
-  if (status != eslEOF) esl_msafile_ReadFailure(afp, status);
+
   
   if (esl_newssi_Write(ns) != eslOK) 
     esl_fatal("\nFailed to write keys to ssi file %s:\n  %s", ssifile, ns->errbuf);

@@ -224,7 +224,7 @@ esl_msafile_stockholm_GuessAlphabet(ESL_MSAFILE *afp, int *ret_type)
  *            alignment record, or is at EOF.
  *
  *            <eslEOF> if no (more) alignment data are found in
- *            <afp>, and <afp> is returned at EOF. 
+ *            <afp>, and <afp> is returned at EOF; <*ret_msa> is NULL.
  *
  *            <eslEFORMAT> on a parse error. <*ret_msa> is set to
  *            <NULL>. <afp> contains information sufficient for
@@ -237,6 +237,12 @@ esl_msafile_stockholm_GuessAlphabet(ESL_MSAFILE *afp, int *ret_type)
  *            and <afp> is poised at the start of the following line,
  *            so (in principle) the caller could try to resume
  *            parsing.
+ *
+ *            <eslENODATA> if the Stockholm record has no alignment
+ *            data in it. Pfam full alignments occasionally cough up
+ *            an example of this. <*ret_msa> contains a valid ESL_MSA
+ *            with metadata, but with msa->nseq = 0. <afp->errmsg>
+ *            is an empty string.
  *
  * Throws:    <eslEMEM> on allocation error.
  *            <eslESYS> if a system call fails, such as fread().
@@ -309,8 +315,11 @@ esl_msafile_stockholm_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
     }
   if      (status == eslEOF) ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing // terminator after MSA");
   else if (status != eslOK)  goto ERROR;
-  if (pd->nblock == 0)       ESL_XFAIL(eslEFORMAT, afp->errmsg, "no alignment data followed Stockholm header");
 
+  // It is possible to have pd->nblock == 0 here, as a pathological
+  // case: no alignment data in the Stockholm-formatted record. Pfam
+  // full alignments occasionally cough up rare examples of
+  // this. We'll return eslENODATA, with a blank afp->errmsg and msa->nseq = 0.
   msa->alen = pd->alen;
 
   /* Stockholm file can set weights. If eslMSA_HASWGTS flag is up, at least one was set: then all must be. */
@@ -323,7 +332,7 @@ esl_msafile_stockholm_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 
   stockholm_parsedata_Destroy(pd, msa);
   *ret_msa  = msa;
-  return eslOK;
+  return (msa->nseq > 0 ? eslOK : eslENODATA);   // see note above. Return an eslENODATA error if the MSA was empty.
 
  ERROR:
   if (pd)  stockholm_parsedata_Destroy(pd, msa);
@@ -1464,7 +1473,7 @@ utest_write_badformat4(FILE *ofp, int *ret_linenumber, char *errmsg)
 }
 
 static void
-utest_write_badformat5(FILE *ofp, int *ret_linenumber, char *errmsg)
+utest_write_badformat5(FILE *ofp, int *ret_linenumber, int *ret_errcode, char *errmsg)
 {
   fputs("# STOCKHOLM 1.0\n", ofp);
   fputs("\n", ofp);
@@ -1472,7 +1481,8 @@ utest_write_badformat5(FILE *ofp, int *ret_linenumber, char *errmsg)
   fputs("//\n", ofp);
 
   *ret_linenumber = 4;
-  strcpy(errmsg, "no alignment data followed Stockholm header");
+  *ret_errcode    = eslENODATA;
+  strcpy(errmsg, "");  // eslENODATA error will be returned with a valid ESL_MSA
 }
 
 static void
@@ -2348,7 +2358,7 @@ utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expec
 }
 
 static void
-utest_bad_format(char *filename, int testnumber, int expected_linenumber, char *expected_errmsg)
+utest_bad_format(char *filename, int testnumber, int expected_linenumber, int expected_errcode, char *expected_errmsg)
 {
   ESL_ALPHABET *abc = esl_alphabet_Create(eslAMINO);
   ESL_MSAFILE *afp = NULL;
@@ -2357,7 +2367,7 @@ utest_bad_format(char *filename, int testnumber, int expected_linenumber, char *
   int           status;
   
   if ( (status = esl_msafile_Open(&abc, filename, NULL, fmt, NULL, &afp)) != eslOK)  esl_fatal("stockholm bad format test %d failed: unexpected open failure", testnumber);
-  if ( (status = esl_msafile_stockholm_Read(afp, &msa)) != eslEFORMAT)               esl_fatal("stockholm bad format test %d failed: unexpected error code",   testnumber);
+  if ( (status = esl_msafile_stockholm_Read(afp, &msa)) != expected_errcode)         esl_fatal("stockholm bad format test %d failed: unexpected error code",   testnumber);  // almost all are EFORMAT; one is ENODATA
   if (strstr(afp->errmsg, expected_errmsg) == NULL)                                  esl_fatal("stockholm bad format test %d failed: unexpected errmsg",       testnumber);
   if (afp->linenumber != expected_linenumber)                                        esl_fatal("stockholm bad format test %d failed: unexpected linenumber",   testnumber);
   esl_msafile_Close(afp);
@@ -2428,16 +2438,16 @@ utest_bad_open(ESL_ALPHABET **byp_abc, int fmt, int expected_status, char *buf)
 }
 
 static void
-utest_bad_read(ESL_ALPHABET **byp_abc, int fmt, char *expected_errmsg, int expected_line, char *buf)
+utest_bad_read(ESL_ALPHABET **byp_abc, int fmt, char *expected_errmsg, int expected_status, int expected_line, char *buf)
 {
   char          msg[] = "bad format test failed";
   ESL_MSAFILE *afp   = NULL;
   ESL_MSA      *msa   = NULL;
 
-  if (esl_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, NULL, &afp) != eslOK)      esl_fatal(msg);
-  if (esl_msafile_stockholm_Read(afp, &msa)                           != eslEFORMAT) esl_fatal(msg);
-  if (strstr(afp->errmsg, expected_errmsg)                            == NULL)       esl_fatal(msg);
-  if (afp->linenumber != expected_line)                                              esl_fatal(msg);
+  if (esl_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, NULL, &afp) != eslOK)           esl_fatal(msg);
+  if (esl_msafile_stockholm_Read(afp, &msa)                           != expected_status) esl_fatal(msg);
+  if (strstr(afp->errmsg, expected_errmsg)                            == NULL)            esl_fatal(msg);
+  if (afp->linenumber != expected_line)                                                   esl_fatal(msg);
 
   esl_msa_Destroy(msa);
   esl_msafile_Close(afp);
@@ -2487,12 +2497,13 @@ main(int argc, char **argv)
   int             expected_nseq;
   int             expected_alen;
   int             expected_linenumber;
+  int             expected_errcode;
   char            expected_errmsg[eslERRBUFSIZE];
 
   utest_bad_open(NULL, eslMSAFILE_UNKNOWN, eslENOFORMAT, ""); 
 
-  utest_bad_read(NULL, eslMSAFILE_UNKNOWN, "missing // terminator", 1,  "# STOCKHOLM 1.0\n");     
-  utest_bad_read(NULL, eslMSAFILE_UNKNOWN, "no alignment data",     2,  "# STOCKHOLM 1.0\n//\n");
+  utest_bad_read(NULL, eslMSAFILE_UNKNOWN, "missing // terminator",  eslEFORMAT, 1,  "# STOCKHOLM 1.0\n");     
+  utest_bad_read(NULL, eslMSAFILE_UNKNOWN, "",                       eslENODATA, 2,  "# STOCKHOLM 1.0\n//\n");
   
   utest_good_format(NULL, eslMSAFILE_UNKNOWN, 2, 10, "\n# STOCKHOLM 1.0\n\nseq1 ACDEFGHIKL\nseq2 ACDEFGHIKL\n\n//\n\n");
 
@@ -2517,76 +2528,77 @@ main(int argc, char **argv)
       strcpy(tmpfile, "esltmpXXXXXX"); 
       if (esl_tmpfile_named(tmpfile, &ofp) != eslOK) esl_fatal(msg);
     
+      expected_errcode = eslEFORMAT;  // these are all EFORMAT errors except test 5
       switch (testnumber) {
-      case  1:  utest_write_badformat1 (ofp, &expected_linenumber, expected_errmsg); break;
-      case  2:  utest_write_badformat2 (ofp, &expected_linenumber, expected_errmsg); break;
-      case  3:  utest_write_badformat3 (ofp, &expected_linenumber, expected_errmsg); break;
-      case  4:  utest_write_badformat4 (ofp, &expected_linenumber, expected_errmsg); break;
-      case  5:  utest_write_badformat5 (ofp, &expected_linenumber, expected_errmsg); break;
-      case  6:  utest_write_badformat6 (ofp, &expected_linenumber, expected_errmsg); break;
-      case  7:  utest_write_badformat7 (ofp, &expected_linenumber, expected_errmsg); break;
-      case  8:  utest_write_badformat8 (ofp, &expected_linenumber, expected_errmsg); break;
-      case  9:  utest_write_badformat9 (ofp, &expected_linenumber, expected_errmsg); break;
-      case 10:  utest_write_badformat10(ofp, &expected_linenumber, expected_errmsg); break;
-      case 11:  utest_write_badformat11(ofp, &expected_linenumber, expected_errmsg); break;
-      case 12:  utest_write_badformat12(ofp, &expected_linenumber, expected_errmsg); break;
-      case 13:  utest_write_badformat13(ofp, &expected_linenumber, expected_errmsg); break;
-      case 14:  utest_write_badformat14(ofp, &expected_linenumber, expected_errmsg); break;
-      case 15:  utest_write_badformat15(ofp, &expected_linenumber, expected_errmsg); break;
-      case 16:  utest_write_badformat16(ofp, &expected_linenumber, expected_errmsg); break;
-      case 17:  utest_write_badformat17(ofp, &expected_linenumber, expected_errmsg); break;
-      case 18:  utest_write_badformat18(ofp, &expected_linenumber, expected_errmsg); break;
-      case 19:  utest_write_badformat19(ofp, &expected_linenumber, expected_errmsg); break;
-      case 20:  utest_write_badformat20(ofp, &expected_linenumber, expected_errmsg); break;
-      case 21:  utest_write_badformat21(ofp, &expected_linenumber, expected_errmsg); break;
-      case 22:  utest_write_badformat22(ofp, &expected_linenumber, expected_errmsg); break;
-      case 23:  utest_write_badformat23(ofp, &expected_linenumber, expected_errmsg); break;
-      case 24:  utest_write_badformat24(ofp, &expected_linenumber, expected_errmsg); break;
-      case 25:  utest_write_badformat25(ofp, &expected_linenumber, expected_errmsg); break;
-      case 26:  utest_write_badformat26(ofp, &expected_linenumber, expected_errmsg); break;
-      case 27:  utest_write_badformat27(ofp, &expected_linenumber, expected_errmsg); break;
-      case 28:  utest_write_badformat28(ofp, &expected_linenumber, expected_errmsg); break;
-      case 29:  utest_write_badformat29(ofp, &expected_linenumber, expected_errmsg); break;
-      case 30:  utest_write_badformat30(ofp, &expected_linenumber, expected_errmsg); break;
-      case 31:  utest_write_badformat31(ofp, &expected_linenumber, expected_errmsg); break;
-      case 32:  utest_write_badformat32(ofp, &expected_linenumber, expected_errmsg); break;
-      case 33:  utest_write_badformat33(ofp, &expected_linenumber, expected_errmsg); break;
-      case 34:  utest_write_badformat34(ofp, &expected_linenumber, expected_errmsg); break;
-      case 35:  utest_write_badformat35(ofp, &expected_linenumber, expected_errmsg); break;
-      case 36:  utest_write_badformat36(ofp, &expected_linenumber, expected_errmsg); break;
-      case 37:  utest_write_badformat37(ofp, &expected_linenumber, expected_errmsg); break;
-      case 38:  utest_write_badformat38(ofp, &expected_linenumber, expected_errmsg); break;
-      case 39:  utest_write_badformat39(ofp, &expected_linenumber, expected_errmsg); break;
-      case 40:  utest_write_badformat40(ofp, &expected_linenumber, expected_errmsg); break;
-      case 41:  utest_write_badformat41(ofp, &expected_linenumber, expected_errmsg); break;
-      case 42:  utest_write_badformat42(ofp, &expected_linenumber, expected_errmsg); break;
-      case 43:  utest_write_badformat43(ofp, &expected_linenumber, expected_errmsg); break;
-      case 44:  utest_write_badformat44(ofp, &expected_linenumber, expected_errmsg); break;
-      case 45:  utest_write_badformat45(ofp, &expected_linenumber, expected_errmsg); break;
-      case 46:  utest_write_badformat46(ofp, &expected_linenumber, expected_errmsg); break;
-      case 47:  utest_write_badformat47(ofp, &expected_linenumber, expected_errmsg); break;
-      case 48:  utest_write_badformat48(ofp, &expected_linenumber, expected_errmsg); break;
-      case 49:  utest_write_badformat49(ofp, &expected_linenumber, expected_errmsg); break;
-      case 50:  utest_write_badformat50(ofp, &expected_linenumber, expected_errmsg); break;
-      case 51:  utest_write_badformat51(ofp, &expected_linenumber, expected_errmsg); break;
-      case 52:  utest_write_badformat52(ofp, &expected_linenumber, expected_errmsg); break;
-      case 53:  utest_write_badformat53(ofp, &expected_linenumber, expected_errmsg); break;
-      case 54:  utest_write_badformat54(ofp, &expected_linenumber, expected_errmsg); break;
-      case 55:  utest_write_badformat55(ofp, &expected_linenumber, expected_errmsg); break;
-      case 56:  utest_write_badformat56(ofp, &expected_linenumber, expected_errmsg); break;
-      case 57:  utest_write_badformat57(ofp, &expected_linenumber, expected_errmsg); break;
-      case 58:  utest_write_badformat58(ofp, &expected_linenumber, expected_errmsg); break;
-      case 59:  utest_write_badformat59(ofp, &expected_linenumber, expected_errmsg); break;
-      case 60:  utest_write_badformat60(ofp, &expected_linenumber, expected_errmsg); break;
-      case 61:  utest_write_badformat61(ofp, &expected_linenumber, expected_errmsg); break;
-      case 62:  utest_write_badformat62(ofp, &expected_linenumber, expected_errmsg); break;
-      case 63:  utest_write_badformat63(ofp, &expected_linenumber, expected_errmsg); break;
-      case 64:  utest_write_badformat64(ofp, &expected_linenumber, expected_errmsg); break;
-      case 65:  utest_write_badformat65(ofp, &expected_linenumber, expected_errmsg); break;
+      case  1:  utest_write_badformat1 (ofp, &expected_linenumber,                    expected_errmsg); break;
+      case  2:  utest_write_badformat2 (ofp, &expected_linenumber,                    expected_errmsg); break;
+      case  3:  utest_write_badformat3 (ofp, &expected_linenumber,                    expected_errmsg); break;
+      case  4:  utest_write_badformat4 (ofp, &expected_linenumber,                    expected_errmsg); break;
+      case  5:  utest_write_badformat5 (ofp, &expected_linenumber, &expected_errcode, expected_errmsg); break;  // eslENODATA
+      case  6:  utest_write_badformat6 (ofp, &expected_linenumber,                    expected_errmsg); break;
+      case  7:  utest_write_badformat7 (ofp, &expected_linenumber,                    expected_errmsg); break;
+      case  8:  utest_write_badformat8 (ofp, &expected_linenumber,                    expected_errmsg); break;
+      case  9:  utest_write_badformat9 (ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 10:  utest_write_badformat10(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 11:  utest_write_badformat11(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 12:  utest_write_badformat12(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 13:  utest_write_badformat13(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 14:  utest_write_badformat14(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 15:  utest_write_badformat15(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 16:  utest_write_badformat16(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 17:  utest_write_badformat17(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 18:  utest_write_badformat18(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 19:  utest_write_badformat19(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 20:  utest_write_badformat20(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 21:  utest_write_badformat21(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 22:  utest_write_badformat22(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 23:  utest_write_badformat23(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 24:  utest_write_badformat24(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 25:  utest_write_badformat25(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 26:  utest_write_badformat26(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 27:  utest_write_badformat27(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 28:  utest_write_badformat28(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 29:  utest_write_badformat29(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 30:  utest_write_badformat30(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 31:  utest_write_badformat31(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 32:  utest_write_badformat32(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 33:  utest_write_badformat33(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 34:  utest_write_badformat34(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 35:  utest_write_badformat35(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 36:  utest_write_badformat36(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 37:  utest_write_badformat37(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 38:  utest_write_badformat38(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 39:  utest_write_badformat39(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 40:  utest_write_badformat40(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 41:  utest_write_badformat41(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 42:  utest_write_badformat42(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 43:  utest_write_badformat43(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 44:  utest_write_badformat44(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 45:  utest_write_badformat45(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 46:  utest_write_badformat46(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 47:  utest_write_badformat47(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 48:  utest_write_badformat48(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 49:  utest_write_badformat49(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 50:  utest_write_badformat50(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 51:  utest_write_badformat51(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 52:  utest_write_badformat52(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 53:  utest_write_badformat53(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 54:  utest_write_badformat54(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 55:  utest_write_badformat55(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 56:  utest_write_badformat56(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 57:  utest_write_badformat57(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 58:  utest_write_badformat58(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 59:  utest_write_badformat59(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 60:  utest_write_badformat60(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 61:  utest_write_badformat61(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 62:  utest_write_badformat62(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 63:  utest_write_badformat63(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 64:  utest_write_badformat64(ofp, &expected_linenumber,                    expected_errmsg); break;
+      case 65:  utest_write_badformat65(ofp, &expected_linenumber,                    expected_errmsg); break;
       }
       fclose(ofp);
       
-      utest_bad_format(tmpfile, testnumber, expected_linenumber, expected_errmsg);
+      utest_bad_format(tmpfile, testnumber, expected_linenumber, expected_errcode, expected_errmsg);
       remove(tmpfile);
     }
 

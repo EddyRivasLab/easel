@@ -984,13 +984,18 @@ esl_msafile_PositionByKey(ESL_MSAFILE *afp, const char *key)
  *            <eslEFORMAT> on a parse error, and <afp->errmsg> is set
  *            to a user-directed error message; <*ret_msa> is <NULL>.
  *
- *            If no alignment is found at all, returns <eslEOF>,
- *            and <afp->errmsg> is blank; <*ret_msa> is <NULL>.
+ *            <eslEOF> if no (more) MSA records are found.
+ *            <afp->errmsg> is blank; <*ret_msa> is <NULL>.
  *
- *            On normal error, <afp> and the return status code may be
- *            passed to <esl_msafile_ReadFailure()> to print diagnostics
- *            to <stderr> (including input source information and line
- *            number) and exit.
+ *            <eslENODATA> in the rare case of an MSA record that only
+ *            contains header metadata but no alignment. This can only
+ *            occur in Stockholm files. <*ret_msa> contains a valid
+ *            ESL_MSA with header metadata, but with msa->nseq = 0.
+
+ *            On any normal error, <afp> and the return status code
+ *            may be passed to <esl_msafile_ReadFailure()> to print
+ *            diagnostics to <stderr> (including input source
+ *            information and line number) and exit.
  *
  * Throws:    <eslEMEM> - an allocation failed.
  *            <eslESYS> - a system call such as fread() failed
@@ -1000,31 +1005,38 @@ int
 esl_msafile_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 {
   ESL_MSA  *msa    = NULL;
-  int       status = eslOK;
   esl_pos_t offset = esl_buffer_GetOffset(afp->bf);
+  int       status;
 
   switch (afp->format) {
-  case eslMSAFILE_A2M:          if ((status = esl_msafile_a2m_Read      (afp, &msa)) != eslOK) goto ERROR; break;
-  case eslMSAFILE_AFA:          if ((status = esl_msafile_afa_Read      (afp, &msa)) != eslOK) goto ERROR; break;
-  case eslMSAFILE_CLUSTAL:      if ((status = esl_msafile_clustal_Read  (afp, &msa)) != eslOK) goto ERROR; break;
-  case eslMSAFILE_CLUSTALLIKE:  if ((status = esl_msafile_clustal_Read  (afp, &msa)) != eslOK) goto ERROR; break;
-  case eslMSAFILE_PFAM:         if ((status = esl_msafile_stockholm_Read(afp, &msa)) != eslOK) goto ERROR; break;
-  case eslMSAFILE_PHYLIP:       if ((status = esl_msafile_phylip_Read   (afp, &msa)) != eslOK) goto ERROR; break;
-  case eslMSAFILE_PHYLIPS:      if ((status = esl_msafile_phylip_Read   (afp, &msa)) != eslOK) goto ERROR; break;
-  case eslMSAFILE_PSIBLAST:     if ((status = esl_msafile_psiblast_Read (afp, &msa)) != eslOK) goto ERROR; break;
-  case eslMSAFILE_SELEX:        if ((status = esl_msafile_selex_Read    (afp, &msa)) != eslOK) goto ERROR; break;
-  case eslMSAFILE_STOCKHOLM:    if ((status = esl_msafile_stockholm_Read(afp, &msa)) != eslOK) goto ERROR; break;
-  default:                      ESL_EXCEPTION(eslEINCONCEIVABLE, "no such msa file format");
+  case eslMSAFILE_A2M:          status = esl_msafile_a2m_Read      (afp, &msa); break;
+  case eslMSAFILE_AFA:          status = esl_msafile_afa_Read      (afp, &msa); break;
+  case eslMSAFILE_CLUSTAL:      status = esl_msafile_clustal_Read  (afp, &msa); break;
+  case eslMSAFILE_CLUSTALLIKE:  status = esl_msafile_clustal_Read  (afp, &msa); break;
+  case eslMSAFILE_PFAM:         status = esl_msafile_stockholm_Read(afp, &msa); break;
+  case eslMSAFILE_PHYLIP:       status = esl_msafile_phylip_Read   (afp, &msa); break;
+  case eslMSAFILE_PHYLIPS:      status = esl_msafile_phylip_Read   (afp, &msa); break;
+  case eslMSAFILE_PSIBLAST:     status = esl_msafile_psiblast_Read (afp, &msa); break;
+  case eslMSAFILE_SELEX:        status = esl_msafile_selex_Read    (afp, &msa); break;
+  case eslMSAFILE_STOCKHOLM:    status = esl_msafile_stockholm_Read(afp, &msa); break;
+  default:                      status = eslEINCONCEIVABLE;
   }
-  
-  msa->offset = offset;
-  *ret_msa    = msa;
-  return eslOK;
 
- ERROR:
-  if (msa) esl_msa_Destroy(msa);
-  *ret_msa = NULL;
-  return status;
+  // OK:      we have an MSA, with alignment data
+  // ENODATA: we have a valid MSA structure with metadata but no alignment data.
+  //          This is a rare edge case that occurs in some Pfam full alignments.
+  if (status == eslOK || status == eslENODATA)
+    {
+      msa->offset = offset;
+      *ret_msa    = msa;
+      return status;
+    }
+  else  // EFORMAT, etc: anything else is an error with a NULL *ret_msa.
+    {
+      esl_msa_Destroy(msa);
+      *ret_msa = NULL;
+      return status;
+    }
 }
 
 /* Function:  esl_msafile_ReadFailure()
@@ -1050,6 +1062,7 @@ esl_msafile_ReadFailure(ESL_MSAFILE *afp, int status)
   switch (status) {
   case eslEFORMAT:  fprintf(stderr, "Alignment input parse error:\n   %s\n", afp->errmsg);       break;
   case eslEOF:      fprintf(stderr, "Alignment input appears empty?\n");                         break;
+  case eslENODATA:  fprintf(stderr, "No aligned sequences found in MSA\n");                      break;
   default:          fprintf(stderr, "Alignment input read error; unexpected code %d\n", status); break;
   }
   

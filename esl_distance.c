@@ -957,6 +957,9 @@ esl_dst_CAverageMatch(char **as, int N, int max_comparisons, double *opt_avgpm)
  *            Each fractional pairwise identity (range $[0..$ pid $..1]$
  *            is calculated using <esl_dst_XPairId()>.
  *
+ *            In the case of N=0 or 1 sequences, avgid = 1.0 by
+ *            convention.
+ *
  * Returns:   <eslOK> on success, and <*ret_id> contains the average
  *            fractional identity.
  *

@@ -109,8 +109,9 @@ msastat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_header, int with
     }
 
 
-  while ((status = esl_msafile_Read(afp, &msa)) == eslOK)
+  while ((status = esl_msafile_Read(afp, &msa)) != eslEOF)
     {
+      if (status != eslOK && status != eslENODATA) esl_msafile_ReadFailure(afp, status);  // NODATA is ok: rare case of msa->nseq = 0
       nali++;
 
       /* disk record size stats -- for *previous* msa, delayed off-by-one output */
@@ -126,13 +127,13 @@ msastat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_header, int with
 
       /* raw sequence length stats */
       nres = 0;
-      smallest = largest = -1;
+      smallest = largest = 0;
       for (i = 0; i < msa->nseq; i++)
 	{
 	  rlen  = esl_dsq_GetRawLen(msa->abc, msa->ax[i]); 
 	  nres += rlen;  // <nres> output is deferred to next time around the loop
-	  if (smallest == -1 || rlen < smallest) smallest = rlen;
-	  if (largest  == -1 || rlen > largest)  largest  = rlen;
+	  if (smallest == 0 || rlen < smallest) smallest = rlen;
+	  if (rlen > largest)                   largest  = rlen;
 	}
 
       /* percent identity stats */
@@ -148,13 +149,13 @@ msastat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_header, int with
                  nres,
                  smallest,
                  largest,
-                 (double) nres / (double) msa->nseq,
+                 msa->nseq > 0 ? (double) nres / (double) msa->nseq : 0.,
                  100. * avgid);
 
       last_offset = msa->offset;
       esl_msa_Destroy(msa);
     }
-  if (nali == 0 || status != eslEOF) esl_msafile_ReadFailure(afp, status); 
+  if (nali == 0) esl_msafile_ReadFailure(afp, status); 
 
   // and for the very last msa in the file... 
   if (last_offset != -1) {
@@ -181,17 +182,20 @@ msastat_default(const char *msafile, ESL_MSAFILE *afp)
   int         i;
   int         status;
 
-  while ((status = esl_msafile_Read(afp, &msa)) == eslOK)
+  while ((status = esl_msafile_Read(afp, &msa)) != eslEOF)
     {
+      if (status != eslOK && status != eslENODATA)
+        esl_msafile_ReadFailure(afp, status);  // NODATA is ok: rare case of msa->nseq = 0
+
       /* raw seq length stats */
       nres = 0;
-      smallest = largest = -1;
+      smallest = largest = 0;
       for (i = 0; i < msa->nseq; i++)
 	{
 	  rlen  = esl_dsq_GetRawLen(msa->abc, msa->ax[i]); 
 	  nres += rlen; 
-	  if (smallest == -1 || rlen < smallest) smallest = rlen;
-	  if (largest  == -1 || rlen > largest)  largest  = rlen;
+	  if (smallest == 0 || rlen < smallest) smallest = rlen;
+	  if (rlen > largest)                   largest  = rlen;
 	}
 
       /* percent identity stats */
@@ -206,13 +210,12 @@ msastat_default(const char *msafile, ESL_MSAFILE *afp)
       printf("Total # residues:    %" PRId64 "\n", nres);
       printf("Smallest:            %" PRId64 "\n", smallest);
       printf("Largest:             %" PRId64 "\n", largest);
-      printf("Average length:      %.1f\n",        (double) nres / (double) msa->nseq);
+      printf("Average length:      %.1f\n",        msa->nseq > 0 ? (double) nres / (double) msa->nseq : 0.);
       printf("Average identity:    %.0f%%\n",      100.*avgid);
       printf("//\n");
 
       esl_msa_Destroy(msa);
       nali++;
     }
-  if (nali == 0 || status != eslEOF) esl_msafile_ReadFailure(afp, status); 
-
+  if (nali == 0) esl_msafile_ReadFailure(afp, status); 
 }

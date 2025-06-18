@@ -106,7 +106,7 @@ esl_cmd_afetch(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
     { /* without an index, we have to brute-force search the file */
       while ((status = esl_msafile_Read(afp, &msa)) != eslEOF)
 	{
-	  if (status != eslOK) esl_msafile_ReadFailure(afp, status);
+	  if (status != eslOK && status != eslENODATA) esl_msafile_ReadFailure(afp, status);   // NODATA is ok; rare case of msa->nseq = 0
 	  if (! msa->name)
 	    esl_fatal("Every alignment in file must have a name to be retrievable.\nFailed to find name of alignment #%d\n", nali);
 
