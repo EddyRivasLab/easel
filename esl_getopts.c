@@ -294,7 +294,7 @@ esl_getopts_Destroy(ESL_GETOPTS *g)
 
   if (g != NULL)
     {
-      if (g->val   != NULL) 
+      if (g->val && g->valloc)
 	{
 	  /* A few of our vals may have been allocated.
 	   */
@@ -302,9 +302,9 @@ esl_getopts_Destroy(ESL_GETOPTS *g)
 	    if (g->valloc[i] > 0)
 	      free(g->val[i]);
 	  free(g->val);
+          free(g->valloc);
 	}
       if (g->setby      != NULL) free(g->setby);
-      if (g->valloc     != NULL) free(g->valloc);
       if (g->spoof      != NULL) free(g->spoof);
       if (g->spoof_argv != NULL) free(g->spoof_argv);
       free(g);
@@ -372,15 +372,19 @@ esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g)
 char *
 esl_getopts_CreateOptsLine(ESL_GETOPTS *g)
 { 
-  char *ret_string = (char *) malloc(256);   // will grow/realloc as needed
-  char quotemark[2];
+  char *ret_string = NULL;
+  int   ret_length = 256;
+  int   used       = 1; 
+  char  quotemark[2];
+  int   i, optsize;
+  int   status;
+
   quotemark[0] = 34;  //brutal hack to get a quotation mark into a string without the escape character
   quotemark[1] = '\0';
-  if (ret_string == NULL) return(NULL);
-  int ret_length =256;
-  int used = 1; 
+
+  ESL_ALLOC(ret_string, ret_length);
   ret_string[0] = '\0';  // Set this to a null string in case we don't find any commandiline arguments to return 
-  int i, optsize;
+
   for (i=0; i < g->nopts; i++){
     if (g->setby[i] != eslARG_SETBY_DEFAULT && !((g->opt[i].type == eslARG_NONE) && (g->val[i] == 0))){
       // We need to handle this option because it has a non-default value and isn't false
@@ -394,11 +398,8 @@ esl_getopts_CreateOptsLine(ESL_GETOPTS *g)
         }
       }
       while(used + optsize > ret_length){
-        ret_string = realloc(ret_string, ret_length *2);
+        ESL_REALLOC(ret_string, ret_length *2);
         ret_length *=2; 
-        if(ret_string == 0){
-          return(NULL); 
-        }
       }
       //Now that we know we have space, add the options string for this option and its value to the  commandline
       strcat(ret_string, " ");
@@ -417,6 +418,10 @@ esl_getopts_CreateOptsLine(ESL_GETOPTS *g)
     }
   }
   return(ret_string);
+
+ ERROR:
+  free(ret_string);
+  return NULL;
 }
 
 /*****************************************************************

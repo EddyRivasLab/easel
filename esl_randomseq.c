@@ -1426,7 +1426,8 @@ esl_rsq_markov_Build(const ESL_ALPHABET *abc, const double *wmerct, int W, doubl
   int      status;
 
   /* 2D array allocation (compact: and in same order as <wmerct> itself */
-  ESL_ALLOC(pmarkov,    sizeof(double *) * ysize);
+  ESL_ALLOC(pmarkov, sizeof(double *) * ysize);
+  pmarkov[0] = NULL;
   ESL_ALLOC(pmarkov[0], sizeof(double)   * nwmers);
   for (y = 1; y < ysize; y++) pmarkov[y] = pmarkov[0] + abc->K * y;
   ESL_ALLOC(pw,         sizeof(double)   * nwmers);
@@ -1442,6 +1443,8 @@ esl_rsq_markov_Build(const ESL_ALPHABET *abc, const double *wmerct, int W, doubl
   return eslOK;
 
  ERROR:
+  if (pmarkov) { free(pmarkov[0]); free(pmarkov); }
+  free(pw);
   *ret_pmarkov = NULL;
   *ret_pwmer   = NULL;
   return status;

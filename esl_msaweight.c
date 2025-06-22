@@ -1006,7 +1006,7 @@ esl_msaweight_IDFilter_adv(const ESL_MSAWEIGHT_CFG *cfg, const ESL_MSA *msa, dou
 
   /* Allocations that we always need*/
   ESL_ALLOC(sortwgt,   sizeof(double) * msa->nseq);
-  ESL_ALLOC(ranked_at, sizeof(double) * msa->nseq);
+  ESL_ALLOC(ranked_at, sizeof(int)    * msa->nseq);
   ESL_ALLOC(list,      sizeof(int)    * msa->nseq);
   ESL_ALLOC(useme,     sizeof(int)    * msa->nseq);
   esl_vec_ISet(useme, msa->nseq, 0); /* initialize array */

@@ -175,7 +175,6 @@ static ESL_ALPHABET *
 create_rna(void)
 {
   ESL_ALPHABET *a = NULL;
-  int           status;
 
   /* Create the fundamental alphabet
    */
@@ -204,7 +203,7 @@ create_rna(void)
   esl_alphabet_SetDegeneracy(a, 'V', "ACG");
   esl_alphabet_SetDegeneracy(a, 'D', "AGU");  
 
-  if ( (status = set_complementarity(a)) != eslOK) goto ERROR;
+  if ( set_complementarity(a) != eslOK) goto ERROR;
 
   return a;
 
@@ -221,7 +220,6 @@ static ESL_ALPHABET *
 create_dna(void)
 {
   ESL_ALPHABET *a = NULL;
-  int           status;
 
   /* Create the fundamental alphabet.
    */
@@ -250,7 +248,7 @@ create_dna(void)
   esl_alphabet_SetDegeneracy(a, 'V', "ACG");
   esl_alphabet_SetDegeneracy(a, 'D', "AGT");  
 
-  if ( (status = set_complementarity(a)) != eslOK) goto ERROR;
+  if ( set_complementarity(a) != eslOK) goto ERROR;
   return a;
 
  ERROR:
@@ -410,7 +408,7 @@ esl_alphabet_SetEquiv(ESL_ALPHABET *a, char sym, char c)
   ESL_DSQ  x;
 
   /* Contract checks */
-  if ((sp = strchr(a->sym, sym)) != NULL)
+  if (strchr(a->sym, sym) != NULL)
     ESL_EXCEPTION(eslEINVAL, "symbol %c is already in internal alphabet, can't equivalence it", sym);
   if ((sp = strchr(a->sym, c)) == NULL) 
     ESL_EXCEPTION(eslEINVAL, "char %c not in the alphabet, can't map to it", c);
@@ -684,7 +682,7 @@ esl_abc_GuessAlphabet(const int64_t *ct, int *ret_type)
   int      x1, x2, x3, xn, xt, xu;	  /* x's are how many different residues are represented */
   int      i, x;
 
-  x1 = x2 = x3 = xn = xt = xu = 0;
+  x1 = x2 = x3 = 0;
   n1 = n2 = n3 = n = 0;
   for (i = 0; i < 26;                i++) n  += ct[i];
   for (i = 0; aaonly[i]   != '\0'; i++) { x = ct[aaonly[i]   - 'A']; if (x > 0) { n1 += x; x1++; } }

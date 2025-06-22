@@ -67,7 +67,7 @@ esl_fileparser_Open(const char *filename, const char *envvar, ESL_FILEPARSER **r
   else if ((efp->fp = fopen(filename, "r")) != NULL) { 
     if ((status  = esl_strdup(filename, -1, &(efp->filename))) != eslOK) goto ERROR;
   }
-  else if ((status = esl_FileEnvOpen(filename, envvar, &(efp->fp), &(efp->filename))) != eslOK) 
+  else if (esl_FileEnvOpen(filename, envvar, &(efp->fp), &(efp->filename)) != eslOK) 
     { status = eslENOTFOUND; goto ERROR; }    
     
   *ret_efp = efp;

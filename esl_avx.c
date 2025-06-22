@@ -280,7 +280,7 @@ main(int argc, char **argv)
   int             i,z;
 
   /* A bunch of vectors full of random numbers. Takes ~10-20s to generate the data */
-  v = malloc(sizeof(__m256i) * N);
+  if ((v = malloc(sizeof(__m256i) * N)) == NULL) esl_fatal("allocation failed");
   for (i = 0; i < N; i++)
     {
       for (z = 0; z < 8; z++) u.x[z] = esl_random_uint32(rng);

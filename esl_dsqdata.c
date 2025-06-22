@@ -338,15 +338,23 @@ esl_dsqdata_Open(ESL_ALPHABET **byp_abc, char *basename, int nconsumers, ESL_DSQ
     }
   else if (status != eslESYS)
     {   /* on most exceptions, we free <dd>, return it NULL, don't change *byp_abc */
+      if (*byp_abc == NULL && dd->abc_r) esl_alphabet_Destroy(dd->abc_r);
       esl_dsqdata_Close(dd);
       *ret_dd = NULL;
-      if (*byp_abc == NULL && dd->abc_r) esl_alphabet_Destroy(dd->abc_r);
       return status;
     }
   else
-    { /* on eslESYS exceptions - pthread initializations failing - we can't assume we can _Close() correctly. */
-      *ret_dd = NULL;
+    { /* on eslESYS exceptions - pthread initializations failing - we can't assume we can _Close() correctly,
+       * and we have to do the cleanup verbosely
+       */
+      free(dd->basename);
+      if (dd->stubfp) fclose(dd->stubfp);
+      if (dd->ifp)    fclose(dd->ifp);
+      if (dd->sfp)    fclose(dd->sfp);
+      if (dd->mfp)    fclose(dd->mfp);
       if (*byp_abc == NULL && dd->abc_r) esl_alphabet_Destroy(dd->abc_r);
+      free(dd);
+      *ret_dd = NULL;
       return status;
     }
 }
@@ -621,7 +629,7 @@ esl_dsqdata_Write(ESL_SQFILE *sqfp, char *basename, char *errbuf)
       esl_sq_Reuse(sq);
     }
   if      (status == eslEFORMAT) ESL_XFAIL(eslEFORMAT, errbuf, sqfp->get_error(sqfp));
-  else if (status != eslEOF)     return status;
+  else if (status != eslEOF)     goto ERROR;
 
   if ((status = esl_sqfile_Position(sqfp, 0)) != eslOK) return status;
 
@@ -635,11 +643,11 @@ esl_dsqdata_Write(ESL_SQFILE *sqfp, char *basename, char *errbuf)
 
   na = strlen(basename) + 6;  // '.dsq?' + '\0'
   ESL_ALLOC(outfile, na);
-  if ( snprintf(outfile, na, "%s.dsqi", basename) < 0) ESL_EXCEPTION(eslESYS,       "sprintf failed");
+  if ( snprintf(outfile, na, "%s.dsqi", basename) < 0) ESL_XEXCEPTION(eslESYS,      "sprintf failed");
   if (( ifp    = fopen(outfile, "wb")) == NULL)        ESL_XFAIL(eslEWRITE, errbuf, "failed to open dsqdata index file %s for writing", outfile);
-  if ( snprintf(outfile, na, "%s.dsqm", basename) < 0) ESL_EXCEPTION(eslESYS,       "sprintf failed");
+  if ( snprintf(outfile, na, "%s.dsqm", basename) < 0) ESL_XEXCEPTION(eslESYS,      "sprintf failed");
   if (( mfp    = fopen(outfile, "wb")) == NULL)        ESL_XFAIL(eslEWRITE, errbuf, "failed to open dsqdata metadata file %s for writing", outfile);
-  if ( snprintf(outfile, na, "%s.dsqs", basename) < 0) ESL_EXCEPTION(eslESYS,       "sprintf failed"); 
+  if ( snprintf(outfile, na, "%s.dsqs", basename) < 0) ESL_XEXCEPTION(eslESYS,      "sprintf failed"); 
   if (( sfp    = fopen(outfile, "wb")) == NULL)        ESL_XFAIL(eslEWRITE, errbuf, "failed to open dsqdata sequence file %s for writing", outfile);
   if (( stubfp = fopen(basename, "w")) == NULL)        ESL_XFAIL(eslEWRITE, errbuf, "failed to open dsqdata stub file %s for writing", basename);
 
@@ -706,6 +714,8 @@ esl_dsqdata_Write(ESL_SQFILE *sqfp, char *basename, char *errbuf)
 
       esl_sq_Reuse(sq);
     }
+  if      (status == eslEFORMAT) ESL_XFAIL(eslEFORMAT, errbuf, sqfp->get_error(sqfp));
+  else if (status != eslEOF)     goto ERROR;
 
   /* Stub file */
   fprintf(stubfp, "Easel dsqdata v1 x%" PRIu32 "\n", uniquetag);
@@ -726,9 +736,9 @@ esl_dsqdata_Write(ESL_SQFILE *sqfp, char *basename, char *errbuf)
   return eslOK;
 
  ERROR:
-  if (sq)      esl_sq_Destroy(sq);
-  if (rng)     esl_randomness_Destroy(rng);
-  if (outfile) free(outfile);
+  esl_sq_Destroy(sq);
+  esl_randomness_Destroy(rng);
+  free(outfile);
   if (stubfp)  fclose(stubfp);
   if (ifp)     fclose(ifp);
   if (mfp)     fclose(mfp);
@@ -1049,7 +1059,7 @@ dsqdata_loader_thread(void *p)
    * sort to get the other threads to clean up and terminate.
    */
   if (idx) free(idx);    
-  esl_fatal("  ... dsqdata loader thread failed: unrecoverable");
+  esl_fatal("  ... dsqdata loader thread failed: unrecoverable error %d", status);
 }
 
 
@@ -1126,7 +1136,7 @@ dsqdata_unpacker_thread(void *p)
    * to tell other threads to clean up and terminate, we violate Easel standards
    * and turn nonfatal exceptions into fatal ones.
    */
-  esl_fatal("  ... dsqdata unpacker thread failed: unrecoverable"); 
+  esl_fatal("  ... dsqdata unpacker thread failed: unrecoverable error code %d", status); 
 }
 
 

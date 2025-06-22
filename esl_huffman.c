@@ -307,6 +307,7 @@ esl_huffman_Decode(const ESL_HUFFMAN *hc, const uint32_t *X, int nb, char **ret_
   return eslOK;
 
  ERROR:
+  free(T);
   *ret_T  = NULL;
   *ret_n  = 0;
   return status;

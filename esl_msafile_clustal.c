@@ -102,7 +102,7 @@ esl_msafile_clustal_GuessAlphabet(ESL_MSAFILE *afp, int *ret_type)
   for (x = 0; x < 26; x++) ct[x] = 0;
 
   anchor = esl_buffer_GetOffset(afp->bf);
-  if ((status = esl_buffer_SetAnchor(afp->bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
+  if ( esl_buffer_SetAnchor(afp->bf, anchor) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
 
   /* Ignore the first nonblank line, which says "CLUSTAL W (1.83) multiple sequence alignment" or some such */
   while ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) == eslOK  && esl_memspn(p, n, " \t") == n) ;
@@ -111,7 +111,7 @@ esl_msafile_clustal_GuessAlphabet(ESL_MSAFILE *afp, int *ret_type)
   
   while ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) == eslOK)
     {
-      if ((status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK) continue; /* ignore blank lines */
+      if ( esl_memtok(&p, &n, " \t", &tok, &toklen) != eslOK) continue; /* ignore blank lines */
       /* p now points to the rest of the sequence line, after a name */
       
       /* count characters into ct[] array */
@@ -362,6 +362,7 @@ esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa, int fmt)
   /* Make a CLUSTAL-like consensus line */
   if (  msa->abc && (status = make_digital_consensus_line(msa, &consline)) != eslOK) goto ERROR;
   if (! msa->abc && (status = make_text_consensus_line   (msa, &consline)) != eslOK) goto ERROR;
+  ESL_DASSERT1(( consline ));  // heads-up to static analyzers
 
   /* The magic header */
   if      (fmt == eslMSAFILE_CLUSTAL)     { if (fprintf(fp, "CLUSTAL 2.1 multiple sequence alignment\n")               < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "clustal msa write failed");  }
@@ -386,8 +387,8 @@ esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa, int fmt)
   return eslOK;
 
  ERROR:
-  if (buf)      free(buf);
-  if (consline) free(consline);
+  free(buf);
+  free(consline);
   return status;
 }
 /*---------------- end, Clustal API -----------------------------*/

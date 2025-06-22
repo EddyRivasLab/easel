@@ -100,11 +100,11 @@ esl_msafile_psiblast_GuessAlphabet(ESL_MSAFILE *afp, int *ret_type)
   for (x = 0; x < 26; x++) ct[x] = 0;
 
   anchor = esl_buffer_GetOffset(afp->bf);
-  if ((status = esl_buffer_SetAnchor(afp->bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
+  if ( esl_buffer_SetAnchor(afp->bf, anchor) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
 
   while ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) == eslOK)
     {
-      if ((status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK) continue; /* blank lines */
+      if (esl_memtok(&p, &n, " \t", &tok, &toklen) != eslOK) continue; /* blank lines */
       /* p now points to the rest of the sequence line, after a name */
       
       /* count characters into ct[] array */
@@ -232,6 +232,7 @@ esl_msafile_psiblast_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
       
       /* Process the consensus #=RF line. */
       if (idx == 0) {
+        ESL_DASSERT1((alen + seq_len >= 0));  // hint for overzealous static analyzers 
 	ESL_REALLOC(msa->rf, sizeof(char) * (alen + seq_len + 1));
 	for (pos = 0; pos < seq_len; pos++) msa->rf[alen+pos] = '-'; /* anything neutral other than . or x will do. */
 	msa->rf[alen+pos] = '\0';

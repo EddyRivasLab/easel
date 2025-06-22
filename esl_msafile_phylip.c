@@ -157,7 +157,7 @@ esl_msafile_phylip_GuessAlphabet(ESL_MSAFILE *afp, int *ret_type)
   for (x = 0; x < 26; x++) ct[x] = 0;
 
   anchor = esl_buffer_GetOffset(afp->bf);
-  if ((status = esl_buffer_SetAnchor(afp->bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
+  if ( esl_buffer_SetAnchor(afp->bf, anchor) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
 
   /* Find the first nonblank line, which says " <nseq> <alen>" and may also have options. we ignore this header */
   while ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) == eslOK  && esl_memspn(p, n, " \t") == n) ;
@@ -860,7 +860,7 @@ phylip_check_sequential_unknown(ESL_BUFFER *bf, int *ret_namewidth)
   esl_buffer_SetOffset(bf, anchor); /* rewind */
 
   /* pass 2: first, parse the <nseq> <alen> line */
-  if ((status = phylip_parse_header(bf, &nseq, &alen, &p, &n)) != eslOK) { status = eslFAIL; goto ERROR; }
+  if ( phylip_parse_header(bf, &nseq, &alen, &p, &n) != eslOK) { status = eslFAIL; goto ERROR; }
   if (nlines % nseq != 0) { status = eslFAIL; goto ERROR; } 
   nblocks = nlines / nseq;
 

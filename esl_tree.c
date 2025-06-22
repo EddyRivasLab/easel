@@ -52,13 +52,14 @@ esl_tree_Create(int ntaxa)
   /* Contract verification  */
   ESL_DASSERT1((ntaxa >= 2));
 
-  /* 1st allocation round  */
+  /* 1st allocation round  */      // Can't use ESL_ALLOC, because the cleanup block's call to esl_tree_Destroy() needs the internals to be initialized
   ESL_ALLOC(T, sizeof(ESL_TREE));
   T->parent = NULL;
   T->left   = NULL;
   T->right  = NULL;
   T->ld     = NULL;
   T->rd     = NULL;
+  T->nalloc = 0;
   
   /* Optional info starts NULL
    */
@@ -871,7 +872,7 @@ esl_tree_WriteNewick(FILE *fp, ESL_TREE *T)
 
   /* Main iteration. Pop off stacks 'til they're empty.
    */
-  while ((status = esl_stack_CPop(cs, &c)) == eslOK)
+  while (esl_stack_CPop(cs, &c) == eslOK)
     {
       if (c == ',') {  /* comma doesn't have a v stacked with it */
 	if (fputc(',', fp) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "newick tree write failed");
@@ -1246,7 +1247,7 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
 
   /* Iteration.
    */
-  while ((status = esl_stack_CPop(cs, &c)) == eslOK)
+  while (esl_stack_CPop(cs, &c) == eslOK)
     {
  
       if (newick_skip_whitespace(fp, buf, &pos, &nc) != eslOK) 
@@ -1297,10 +1298,10 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
 	  else /* a taxon attaches to v */
 	    {
 	      if (buf[pos] == '\'') { /* a quoted label, for a new taxon attached to v*/
-		if ((status = newick_parse_quoted_label(fp, buf, &pos, &nc,   &label)) != eslOK)  
+		if (newick_parse_quoted_label(fp, buf, &pos, &nc,   &label) != eslOK)  
 		  ESL_XFAIL(eslEFORMAT, errbuf, "failed to parse a quoted taxon label");
 	      } else {               /* an unquoted label, for a new taxon attached to v */
-		if ((status = newick_parse_unquoted_label(fp, buf, &pos, &nc, &label)) != eslOK)  
+		if (newick_parse_unquoted_label(fp, buf, &pos, &nc, &label) != eslOK)  
 		  ESL_XFAIL(eslEFORMAT, errbuf, "failed to parse an unquoted taxon label");
 	      }
 
@@ -1309,7 +1310,7 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
 
 	      d = 0.;
 	      if (buf[pos] == ':') {
-		if ((status = newick_parse_branchlength(fp, buf, &pos, &nc, &d)) != eslOK)   
+		if (newick_parse_branchlength(fp, buf, &pos, &nc, &d) != eslOK)   
 		  ESL_XFAIL(eslEFORMAT, errbuf, "failed to parse a branch length");
 	      }
 	      
@@ -1334,10 +1335,10 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
 	    ESL_XFAIL(eslEFORMAT, errbuf, "file ended prematurely.");
 
 	  if (buf[pos] == '\'') { 
-	    if ((status = newick_parse_quoted_label(fp, buf, &pos, &nc, &label)) != eslOK)    
+	    if (newick_parse_quoted_label(fp, buf, &pos, &nc, &label) != eslOK)    
 	      ESL_XFAIL(eslEFORMAT, errbuf, "failed to parse a quoted node label");
 	  } else {               /* an unquoted label, for a new taxon attached to v */
-	    if ((status = newick_parse_unquoted_label(fp, buf, &pos, &nc, &label)) != eslOK) 
+	    if (newick_parse_unquoted_label(fp, buf, &pos, &nc, &label) != eslOK) 
 	      ESL_XFAIL(eslEFORMAT, errbuf, "failed to parse an unquoted node label");
 	  }
 	  
@@ -1346,7 +1347,7 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
 
 	  d = 0.;
 	  if (buf[pos] == ':') {
-	    if ((status = newick_parse_branchlength(fp, buf, &pos, &nc, &d)) != eslOK)  
+	    if (newick_parse_branchlength(fp, buf, &pos, &nc, &d) != eslOK)  
 	      ESL_XFAIL(eslEFORMAT, errbuf, "failed to parse a branch length");
 	  }
 

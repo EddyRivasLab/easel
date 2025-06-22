@@ -458,7 +458,7 @@ esl_varint_google_decode(uint64_t code, int k, int *opt_v, int *opt_n)
   uint64_t cmask = 1ull << (k-1);
   uint64_t vmask = cmask-1;
   int      v     = 0;
-  uint64_t grp;                     // current k-bit code group 
+  uint64_t grp   = 0;               // current k-bit code group 
   int      g;                       // which group (least significant group first)
   int      status;
 

@@ -340,7 +340,7 @@ i_select(const void *base, size_t n, size_t size, int k,
 
           /* iterate through label_o until find v or find that v is adjacent to a vertex with a lower label that is still in graph*/
           j=0;
-          while (!found_self && !adj)
+          while (1)  // three ways it breaks out below: found_self=TRUE, w_there=FALSE, adj=TRUE
             {
               w=label_o[j]; // w is a vertex with a lower label than v's label
 
@@ -378,7 +378,7 @@ i_select(const void *base, size_t n, size_t size, int k,
             }
 
           /* if v is not adjacent to any vertex with a lower label, v should be added to iset */
-          if (found_self)
+          if (found_self && !adj)
             {
               to_add[lta] = v;
               lta++;

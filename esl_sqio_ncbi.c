@@ -536,6 +536,7 @@ sqncbi_Open(ESL_SQNCBI_DATA *ncbi, char *filename)
   ESL_ALLOC(ncbi->hdr_buf, sizeof(unsigned char) * INIT_HDR_BUFFER_SIZE);
 
   /* skip the first sentinel byte in the .psq file */
+  ESL_DASSERT1((ncbi->fppsq));  // heads-up for static analyzers. We know this is open.
   fgetc(ncbi->fppsq);
 
   if (name != NULL) free(name);
@@ -990,7 +991,7 @@ sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
     if (sq->L == -1) ESL_EXCEPTION(eslESYNTAX, "Can't read reverse complement until you've read forward strand");
 
     /* update the sequence index */
-    if ((status = sqncbi_Position(sqfp, sq->idx)) != eslOK)
+    if (sqncbi_Position(sqfp, sq->idx) != eslOK)
       ESL_FAIL(eslEINVAL, ncbi->errbuf, "Unexpected error positioning database to sequence %" PRId64, sq->idx);
 
     if (sq->end == 1)
@@ -1508,7 +1509,7 @@ pos_sequence(ESL_SQNCBI_DATA *ncbi, int inx)
   uint32_t   start;
   uint32_t   end;
 
-  ESL_SQNCBI_VOLUME *volume;
+  ESL_SQNCBI_VOLUME *volume = NULL;
 
   if (inx < 0 || inx > ncbi->num_seq) return eslEINVAL;
 
@@ -1548,6 +1549,7 @@ pos_sequence(ESL_SQNCBI_DATA *ncbi, int inx)
      * index tables contain one index more that the number of sequences and this
      * last index is used to point to the end of the last header and sequences.
      */
+    ESL_DASSERT1((volume));  // heads-up to static analyzers
     if (ncbi->volumes > 0) {
       cnt = volume->end_seq - inx + 2;     // cppcheck thinks end_seq can be uninitialized here. I think it's wrong.
       start = start - volume->start_seq;   //  .. and ditto for start_seq.
@@ -2977,7 +2979,7 @@ parse_id_pat(ESL_SQNCBI_DATA *ncbi)
 
   /* look for a doc type */
   if (parse_accept(ncbi, "\xa3\x80", 2) == eslOK) {
-    if ((status = parse_string(ncbi, NULL, NULL)) != eslOK)   return eslEFORMAT;
+    if (parse_string(ncbi, NULL, NULL) != eslOK)              return eslEFORMAT;
   }
 
   /* verify we are at the end of the structure */

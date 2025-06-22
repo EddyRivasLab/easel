@@ -1617,8 +1617,8 @@ esl_vec_FLogValidate(const float *vec, int64_t n, float tol, char *errbuf)
   return eslOK;
 
  ERROR:
-  if (expvec != NULL) free(expvec);
-  return eslOK;
+  free(expvec);
+  return status;
 }
 int
 esl_vec_DLog2Validate(const double *vec, int64_t n, double tol, char *errbuf)
@@ -1657,8 +1657,8 @@ esl_vec_FLog2Validate(const float *vec, int64_t n, float tol, char *errbuf)
   return eslOK;
 
  ERROR:
-  if (expvec != NULL) free(expvec);
-  return eslOK;
+  free(expvec);
+  return status;
 }
 
 

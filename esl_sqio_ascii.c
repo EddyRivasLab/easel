@@ -1211,7 +1211,7 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
        sq->ss[sq->n+1] = '\0';
      }
     }
-    if (W < 0 && (status = esl_sq_ReverseComplement(sq)) != eslOK)
+    if (W < 0 && esl_sq_ReverseComplement(sq) != eslOK)
       ESL_XFAIL(eslEINVAL, ascii->errbuf, "Can't reverse complement that sequence window");
 
     /* Copy annotation */
@@ -2394,7 +2394,6 @@ skipbuf(ESL_SQFILE *sqfp, int64_t nskip)
 static int
 skip_whitespace(ESL_SQFILE *sqfp)
 {
-  int status;
   int c;
   ESL_DSQ x;
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
@@ -2404,8 +2403,7 @@ skip_whitespace(ESL_SQFILE *sqfp)
 
   /* if at end of buffer, reload it */
   if (ascii->bpos == ascii->nc)
-    if ((status = loadbuf(sqfp)) == eslEOF)
-      return eslEOF;
+    if (loadbuf(sqfp) == eslEOF) return eslEOF;
 
   c = (int) ascii->buf[ascii->bpos];
   x  = sqfp->inmap[c];
@@ -2416,8 +2414,7 @@ skip_whitespace(ESL_SQFILE *sqfp)
 
     /* if at end of buffer, reload it */
     if (ascii->bpos == ascii->nc)
-      if ((status = loadbuf(sqfp)) == eslEOF)
-        return eslEOF;
+      if ( loadbuf(sqfp) == eslEOF) return eslEOF;
 
     c = (int) ascii->buf[ascii->bpos];
     x  = sqfp->inmap[c];
@@ -2623,7 +2620,7 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
   if (strncmp(ascii->buf, "ID   ", 5) != 0) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Line %" PRId64 ": failed to find ID line", ascii->linenumber);
   
   s = ascii->buf+5;
-  if ((status = esl_strtok(&s, " ;", &tok)) != eslOK)
+  if ( esl_strtok(&s, " ;", &tok) != eslOK)
     ESL_FAIL(eslEFORMAT, ascii->errbuf, "Line %" PRId64 ": failed to parse name on ID line", ascii->linenumber);
   if ((status = esl_sq_SetName(sq, tok)) != eslOK) return status;
   sq->roff = ascii->boff;/* record the offset of the ID line */
@@ -2631,7 +2628,7 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
   /* Look for SQ line; parsing optional info as we go.
    */
   do {
-    if ((status = loadbuf(sqfp)) != eslOK) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Line %" PRId64 ": failed to find SQ line", ascii->linenumber);
+    if ( loadbuf(sqfp) != eslOK) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Line %" PRId64 ": failed to find SQ line", ascii->linenumber);
 
     /* "The format of the AC line is:
      *    AC   AC_number_1;[ AC_number_2;]...[ AC_number_N;]
@@ -2651,7 +2648,7 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
     if (strncmp(ascii->buf, "AC   ", 5) == 0 && sq->acc[0] == '\0')
     {
       s = ascii->buf+5;
-      if ((status = esl_strtok(&s, ";", &tok)) != eslOK)
+      if ( esl_strtok(&s, ";", &tok) != eslOK)
         ESL_FAIL(eslEFORMAT, ascii->errbuf, "Line %" PRId64 ": failed to parse accession on AC line", ascii->linenumber);
       if ((status = esl_sq_SetAccession(sq, tok)) != eslOK) return status;
     }
@@ -2746,7 +2743,7 @@ skip_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
   
   /* Look for SQ line; parsing optional info as we go. */
   do {
-    if ((status = loadbuf(sqfp)) != eslOK) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Line %" PRId64 ": failed to find SQ line", ascii->linenumber);
+    if ( loadbuf(sqfp) != eslOK) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Line %" PRId64 ": failed to find SQ line", ascii->linenumber);
   } while (strncmp(ascii->buf, "SQ   ", 5) != 0);
 
   if (loadbuf(sqfp) != eslOK) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Failed to find any sequence");
@@ -2854,20 +2851,20 @@ header_genbank(ESL_SQFILE *sqfp, ESL_SQ *sq)
   } 
   
   s = ascii->buf+12;
-  if ((status = esl_strtok(&s, " ", &tok)) != eslOK)
+  if ( esl_strtok(&s, " ", &tok) != eslOK)
     ESL_FAIL(eslEFORMAT, ascii->errbuf, "Line %" PRId64 ": failed to parse name on LOCUS line", ascii->linenumber);
   if ((status = esl_sq_SetName(sq, tok)) != eslOK) return status;
   sq->roff = ascii->boff;/* record the disk offset to the LOCUS line */
   
   /* Look for ORIGIN line, parsing optional info as we go. */
   do {
-    if ((status = loadbuf(sqfp)) != eslOK) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Failed to find ORIGIN line");
+    if ( loadbuf(sqfp) != eslOK) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Failed to find ORIGIN line");
 
     /* Optional VERSION line is parsed as "accession". */
     if (strncmp(ascii->buf, "VERSION   ", 10) == 0)
     {
       s = ascii->buf+12;
-      if ((status = esl_strtok(&s, " \t\n", &tok)) != eslOK)
+      if ( esl_strtok(&s, " \t\n", &tok) != eslOK)
         ESL_FAIL(eslEFORMAT, ascii->errbuf, "Line %" PRId64 ": failed to parse VERSION line", ascii->linenumber);
       if ((status = esl_sq_SetAccession(sq, tok)) != eslOK) return status;
     }
@@ -2925,7 +2922,7 @@ skip_genbank(ESL_SQFILE *sqfp, ESL_SQ *sq)
   
   /* Look for ORIGIN line, parsing optional info as we go. */
   do {
-    if ((status = loadbuf(sqfp)) != eslOK) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Failed to find ORIGIN line");
+    if ( loadbuf(sqfp) != eslOK) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Failed to find ORIGIN line");
   } while (strncmp(ascii->buf, "ORIGIN", 6) != 0);
 
   if (loadbuf(sqfp) != eslOK) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Failed to find any sequence");
@@ -3340,11 +3337,11 @@ esl_sqascii_Parse(char *buf, int size, ESL_SQ *sq, int format)
   }
 
   /* Main case: read next seq from sqfp's stream */
-  if ((status = ascii->parse_header(&sqfp, sq)) != eslOK) return status; /* EOF, EFORMAT */
+  if ((status = ascii->parse_header(&sqfp, sq)) != eslOK) goto ERROR; /* EOF, EFORMAT */
 
   do {
-    if ((status = seebuf(&sqfp, -1, &n, &epos)) == eslEFORMAT) return status;
-    if (esl_sq_GrowTo(sq, sq->n + n) != eslOK) return eslEMEM;
+    if ((status = seebuf(&sqfp, -1, &n, &epos)) != eslOK) goto ERROR;
+    if ((status = esl_sq_GrowTo(sq, sq->n + n)) != eslOK) goto ERROR;
     addbuf(&sqfp, sq, n);
     ascii->L   += n;
     sq->eoff   = ascii->boff + epos - 1;
@@ -3353,15 +3350,15 @@ esl_sqascii_Parse(char *buf, int size, ESL_SQ *sq, int format)
     
   if      (status == eslEOF)
     {
-      if (! ascii->eof_is_ok) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Unexpected EOF; file truncated?"); 
-      if ((status = ascii->parse_end(&sqfp, sq)) != eslOK) return status;
+      if (! ascii->eof_is_ok) ESL_XFAIL(eslEFORMAT, ascii->errbuf, "Unexpected EOF; file truncated?"); 
+      if ((status = ascii->parse_end(&sqfp, sq)) != eslOK) goto ERROR;
     }
   else if (status == eslEOD)
     {
       ascii->bpos = epos;
-      if ((status = ascii->parse_end(&sqfp, sq)) != eslOK) return status;
+      if ((status = ascii->parse_end(&sqfp, sq)) != eslOK) goto ERROR;
     }
-  else if (status != eslOK) return status;
+  else if (status != eslOK) goto ERROR;
 
   if (sq->dsq != NULL) sq->dsq[sq->n+1] = eslDSQ_SENTINEL;
   else                 sq->seq[sq->n] = '\0';
@@ -3374,6 +3371,10 @@ esl_sqascii_Parse(char *buf, int size, ESL_SQ *sq, int format)
   if (ascii->balloc > 0) free(ascii->buf);
 
   return eslOK;
+
+ ERROR:
+  if (ascii->balloc > 0) free(ascii->buf);
+  return status;
 }
 /*-------------------- end of daemon ----------------------------*/
 

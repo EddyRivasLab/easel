@@ -504,7 +504,7 @@ esl_json_parser_Create(void)
   int status;
 
   ESL_ALLOC(parser, sizeof(ESL_JSON_PARSER));
-  if (( parser->pda = esl_stack_ICreate()) == NULL) { status = eslEMEM; goto ERROR; }
+  if (( parser->pda = esl_stack_ICreate()) == NULL) goto ERROR; 
 
   parser->pos     = 0;
   parser->linenum = 1;
@@ -1026,10 +1026,10 @@ esl_json_SampleDirty(ESL_RANDOMNESS *rng, char **ret_s, int *ret_n)
 	}
     }
 
-  /* make sure we can write up to 4 more bytes, inclusive of \0 */
+  /* make sure we can write up to 4 more bytes, inclusive of \0. */
   if (n+4 > nalloc) {
-    ESL_REALLOC(s, sizeof(char) * (n+4)); // make sure we can write to n..n+4 : up to 5 bytes.
     nalloc = n+4;
+    ESL_REALLOC(s, sizeof(char) * nalloc); // make sure we can write to n..n+4 : up to 5 bytes.
   }
 
   /* add random whitespace */

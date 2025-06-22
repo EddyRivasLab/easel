@@ -408,7 +408,6 @@ ESL_MSA *
 esl_msa_Clone(const ESL_MSA *msa)
 {
   ESL_MSA *nw = NULL;
-  int      status;
 
   if (msa->flags & eslMSA_DIGITAL) 
     {
@@ -417,7 +416,7 @@ esl_msa_Clone(const ESL_MSA *msa)
   else
     if ((nw = esl_msa_Create(msa->nseq, msa->alen)) == NULL)  return NULL;  
 
-  if ((status = esl_msa_Copy(msa, nw) )               != eslOK) goto ERROR;
+  if (esl_msa_Copy(msa, nw) != eslOK) goto ERROR;
   return nw;
 
  ERROR:
@@ -1637,6 +1636,8 @@ esl_msa_AddGS(ESL_MSA *msa, char *tag, esl_pos_t taglen, int sqidx, char *value,
   int   i;
   int   status;
 
+  ESL_DASSERT1((sqidx < msa->sqalloc));  // heads-up to static analyzers
+
   if (taglen == -1) taglen = strlen(tag);
   if (vlen   == -1) vlen   = strlen(value);
 
@@ -1901,6 +1902,8 @@ msa_set_seq_ss(ESL_MSA *msa, int seqidx, const char *ss)
   int status;
   int i;
 
+  ESL_DASSERT1((seqidx < msa->sqalloc));   // heads-up to static analyzers 
+
   if (msa->ss == NULL) 
     {
       ESL_ALLOC(msa->ss, sizeof(char *) * msa->sqalloc);
@@ -1928,6 +1931,8 @@ msa_set_seq_sa(ESL_MSA *msa, int seqidx, const char *sa)
   int status;
   int i;
 
+  ESL_DASSERT1((seqidx < msa->sqalloc));  // heads-up to static analyzers
+
   if (msa->sa == NULL) 
     {
       ESL_ALLOC(msa->sa, sizeof(char *) * msa->sqalloc);
@@ -1954,6 +1959,8 @@ msa_set_seq_pp(ESL_MSA *msa, int seqidx, const char *pp)
 {
   int status;
   int i;
+
+  ESL_DASSERT1((seqidx < msa->sqalloc));  // heads-up to static analyzers
 
   if (msa->pp == NULL) 
     {
@@ -2412,7 +2419,7 @@ esl_msa_ColumnSubset(ESL_MSA *msa, char *errbuf, const int *useme)
    */
   for (opos = 0, npos = 0; opos <= msa->alen; opos++)
     {
-      if (opos < msa->alen && useme[opos] == FALSE) continue;
+      if (opos < msa->alen && useme[opos] == FALSE) continue;   // clang static analysis thinks useme[opos] can be uninitialized here, but if so, that's a caller getting it wrong
 
       if (npos != opos)	/* small optimization */
 	{
@@ -3340,6 +3347,9 @@ esl_msa_Sample(ESL_RANDOMNESS *rng, const ESL_ALPHABET *abc, int max_nseq, int m
   int      i,pos;
   int      status;
 
+  ESL_DASSERT1(( nseq >= 1 && nseq <= max_nseq )); // calming hints for zealous static analyzers
+  ESL_DASSERT1(( alen >= 1 && alen <= max_alen ));
+
   if ((msa = esl_msa_CreateDigital(abc, nseq, alen)) == NULL) { status = eslEMEM; goto ERROR; }
 
   /* Randomized digital sequence alignment */
@@ -3601,7 +3611,7 @@ utest_SequenceSubset(ESL_MSA *m1)
   int      n2;
 
   /* Make every other sequence (1,3..) get excluded from the subset */
-  useme = malloc(m1->nseq * sizeof(int));
+  if ((useme = malloc(m1->nseq * sizeof(int))) == NULL) esl_fatal(msg);
   for (i = 0, n2 = 0; i < m1->nseq; i++)
     if (i%2 == 0) { useme[i] = TRUE; n2++; }
     else          useme[i] = FALSE;

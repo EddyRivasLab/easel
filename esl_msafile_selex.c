@@ -155,11 +155,11 @@ esl_msafile_selex_GuessAlphabet(ESL_MSAFILE *afp, int *ret_type)
   for (x = 0; x < 26; x++) ct[x] = 0;
 
   anchor = esl_buffer_GetOffset(afp->bf);
-  if ((status = esl_buffer_SetAnchor(afp->bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
+  if ( esl_buffer_SetAnchor(afp->bf, anchor) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
 
   while ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) == eslOK)
     {
-      if ((status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK) continue; /* blank lines */
+      if ( esl_memtok(&p, &n, " \t", &tok, &toklen) != eslOK) continue; /* blank lines */
       if (*tok == '#') continue; /* comments and annotation */
       /* p now points to the rest of the sequence line, after a name */
       

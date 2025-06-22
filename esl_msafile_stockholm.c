@@ -167,11 +167,11 @@ esl_msafile_stockholm_GuessAlphabet(ESL_MSAFILE *afp, int *ret_type)
   for (x = 0; x < 26; x++) ct[x] = 0;
 
   anchor = esl_buffer_GetOffset(afp->bf);
-  if ((status = esl_buffer_SetAnchor(afp->bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
+  if ( esl_buffer_SetAnchor(afp->bf, anchor) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
 
   while ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) == eslOK)
     {
-      if ((status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK || *tok == '#') continue; /* blank lines, annotation, comments */
+      if ( esl_memtok(&p, &n, " \t", &tok, &toklen) != eslOK || *tok == '#') continue; /* blank lines, annotation, comments */
       /* p now points to the rest of the sequence line */
       
       /* count characters into ct[] array */
@@ -536,29 +536,29 @@ stockholm_parse_gf(ESL_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, 
   esl_pos_t gflen, taglen, toklen;
   int       status;
 
-  if ( (status = esl_memtok(&p, &n, " \t", &gf,  &gflen))  != eslOK) ESL_EXCEPTION(eslEINCONCEIVABLE, "EOL can't happen here.");
-  if ( (status = esl_memtok(&p, &n, " \t", &tag, &taglen)) != eslOK) ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GF line is missing <tag>, annotation");
-  if (! esl_memstrcmp(gf, gflen, "#=GF"))                            ESL_FAIL(eslEFORMAT, afp->errmsg, "faux #=GF line?");
+  if ( esl_memtok(&p, &n, " \t", &gf,  &gflen)  != eslOK) ESL_EXCEPTION(eslEINCONCEIVABLE, "EOL can't happen here.");
+  if ( esl_memtok(&p, &n, " \t", &tag, &taglen) != eslOK) ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GF line is missing <tag>, annotation");
+  if (! esl_memstrcmp(gf, gflen, "#=GF"))                 ESL_FAIL(eslEFORMAT, afp->errmsg, "faux #=GF line?");
 
   if      (esl_memstrcmp(tag, taglen, "ID")) 
     {
-      if ((status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK) ESL_FAIL(eslEFORMAT, afp->errmsg, "No name found on #=GF ID line");
-      if (n)                                                            ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GF ID line should have only one name (no whitespace allowed)");
-      if ( (status = esl_msa_SetName (msa, tok, toklen))      != eslOK) return status; /* [eslEMEM] */
+      if ( esl_memtok(&p, &n, " \t", &tok, &toklen)      != eslOK) ESL_FAIL(eslEFORMAT, afp->errmsg, "No name found on #=GF ID line");
+      if (n)                                                       ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GF ID line should have only one name (no whitespace allowed)");
+      if ( (status = esl_msa_SetName (msa, tok, toklen)) != eslOK) return status; /* [eslEMEM] */
     }
   else if (esl_memstrcmp(tag, taglen, "AC")) 
     {
-      if ((status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK) ESL_FAIL(eslEFORMAT, afp->errmsg, "No accession found on #=GF AC line");
-      if (n)                                                            ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GF AC line should have only one accession (no whitespace allowed)");
-      if ((status = esl_msa_SetAccession(msa, tok, toklen))   != eslOK) return status; /* [eslEMEM] */
+      if ( esl_memtok(&p, &n, " \t", &tok, &toklen)         != eslOK) ESL_FAIL(eslEFORMAT, afp->errmsg, "No accession found on #=GF AC line");
+      if (n)                                                          ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GF AC line should have only one accession (no whitespace allowed)");
+      if ((status = esl_msa_SetAccession(msa, tok, toklen)) != eslOK) return status; /* [eslEMEM] */
     }
   else if (esl_memstrcmp(tag, taglen, "DE")) 
     {
-      if ((status = esl_msa_SetDesc     (msa, p, n))          != eslOK) return status; /* [eslEMEM] */
+      if ((status = esl_msa_SetDesc     (msa, p, n)) != eslOK) return status; /* [eslEMEM] */
     }
   else if (esl_memstrcmp(tag, taglen, "AU")) 
     {
-      if ((status = esl_msa_SetAuthor   (msa, p, n))          != eslOK) return status; /* [eslEMEM] */
+      if ((status = esl_msa_SetAuthor   (msa, p, n)) != eslOK) return status; /* [eslEMEM] */
     }
   else if (esl_memstrcmp(tag, taglen, "GA"))
     {

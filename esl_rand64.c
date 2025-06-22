@@ -368,7 +368,7 @@ esl_rand64_Deal(ESL_RAND64 *rng, int64_t m, int64_t n, int64_t *deal)
   double  mreal       = (double) m;
   double  nreal       = (double) n;
   double  minv        = 1.0 / (double) m;
-  double  mmin1inv    = 1.0 / (double) (m-1);
+  double  mmin1inv;
   double  Vprime      = exp(minv * log(esl_rand64_double(rng)));
   double  qu1real     = nreal - mreal + 1.0;
   int64_t t, limit;       

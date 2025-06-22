@@ -128,7 +128,7 @@ esl_msafile_a2m_GuessAlphabet(ESL_MSAFILE *afp, int *ret_type)
   for (x = 0; x < 26; x++) ct[x] = 0;
 
   anchor = esl_buffer_GetOffset(afp->bf);
-  if ((status = esl_buffer_SetAnchor(afp->bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
+  if ( esl_buffer_SetAnchor(afp->bf, anchor) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
 
   while ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) == eslOK)
     {
@@ -216,9 +216,10 @@ int
 esl_msafile_a2m_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 {
   ESL_MSA  *msa        = NULL;
-  char    **csflag     = NULL;	/* csflag[i][pos] is TRUE if aseq[i][pos] was uppercase consensus   */
-  int      *nins       = NULL;	/* # of inserted residues before each consensus col [0..ncons-1]    */
-  int      *this_nins  = NULL;	/* # of inserted residues before each consensus residue in this seq */
+  char    **csflag     = NULL;	// csflag[i][pos] is TRUE if aseq[i][pos] was uppercase consensus
+  int       csalloc    = 0;     // current 1st level allocation of csflag[0..csalloc-1]
+  int      *nins       = NULL;	// # of inserted residues before each consensus col [0..ncons-1]
+  int      *this_nins  = NULL;	// # of inserted residues before each consensus residue in this seq
   int       nseq       = 0;
   int       ncons      = 0;
   int       idx;
@@ -236,8 +237,8 @@ esl_msafile_a2m_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 
   if (afp->abc   &&  (msa = esl_msa_CreateDigital(afp->abc, 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
   if (! afp->abc &&  (msa = esl_msa_Create(                 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
-  ESL_ALLOC(csflag, sizeof(char *) * msa->sqalloc);
-  for (idx = 0; idx < msa->sqalloc; idx++) csflag[idx] = NULL; 
+  ESL_ALLOC(csflag, sizeof(char *) * msa->sqalloc);  csalloc = msa->sqalloc;
+  for (idx = 0; idx < csalloc; idx++) csflag[idx] = NULL; 
 
   /* skip leading blank lines in file */
   while ( (status = esl_msafile_GetLine(afp, &p, &n)) == eslOK  && esl_memspn(afp->line, afp->n, " \t") == afp->n) ;
@@ -250,12 +251,12 @@ esl_msafile_a2m_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   do {	/* for each record starting in '>': */
     p++; n--; 			/* advance past > */
     
-    if ( (status = esl_memtok(&p, &n, " \t", &tok, &toklen))   != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "no name found for A2M record");
+    if ( esl_memtok(&p, &n, " \t", &tok, &toklen) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "no name found for A2M record");
     if (nseq >= msa->sqalloc) {
-      int old_sqalloc = msa->sqalloc;
       if ( (status = esl_msa_Expand(msa)) != eslOK) goto ERROR;
-      ESL_REALLOC(csflag, sizeof(char *) * msa->sqalloc);
-      for (idx = old_sqalloc; idx < msa->sqalloc; idx++) csflag[idx] = NULL;
+      ESL_REALLOC(csflag, sizeof(char *) * msa->sqalloc); 
+      for (idx = csalloc; idx < msa->sqalloc; idx++) csflag[idx] = NULL;
+      csalloc = msa->sqalloc;
     }
 
     if (     (status = esl_msa_SetSeqName       (msa, nseq, tok, toklen)) != eslOK) goto ERROR;
@@ -351,8 +352,8 @@ esl_msafile_a2m_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   if (nins)      free(nins);
   if (this_nins) free(this_nins);
   if (csflag) {
-    for (idx = 0; idx < msa->nseq; idx++) 
-      if (csflag[idx]) free(csflag[idx]);
+    for (idx = 0; idx < csalloc; idx++) 
+      free(csflag[idx]);
     free(csflag);
   }
   if (msa) esl_msa_Destroy(msa);

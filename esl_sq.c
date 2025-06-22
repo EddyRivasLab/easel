@@ -93,15 +93,14 @@ esl_sq_CreateFrom(const char *name, const char *seq, const char *desc, const cha
 {
   ESL_SQ  *sq = NULL;
   int64_t  n  = strlen(seq);
-  int      status;
 
   if ((sq     = sq_create_from(name, desc, acc)) == NULL)  goto ERROR;
-  if ((status = esl_strdup(seq, n, &(sq->seq)))  != eslOK) goto ERROR;
+  if ( esl_strdup(seq, n, &(sq->seq))            != eslOK) goto ERROR;
 
   if (ss != NULL) 
     {
-      if (strlen(ss) != n) ESL_XEXCEPTION(eslEINVAL, "ss, seq lengths mismatch");
-      if ((status = esl_strdup(ss, n, &(sq->ss))) != eslOK) goto ERROR;
+      if (strlen(ss) != n) esl_fatal("ss, seq lengths mismatch"); // can only happen on a coding problem, fatal is ok
+      if (esl_strdup(ss, n, &(sq->ss)) != eslOK) goto ERROR;
     } 
   else sq->ss = NULL;
 
@@ -804,7 +803,7 @@ esl_sq_CreateDigitalFrom(const ESL_ALPHABET *abc, const char *name, const ESL_DS
 
   if((sq = sq_create_from(name, desc, acc)) == NULL) goto ERROR;
   sq->n = (n == -1) ? esl_dsq_GetLen(dsq) : n;
-  if ((status = esl_dsq_Clone(dsq, sq->n, &(sq->dsq))) != eslOK) goto ERROR;
+  if ( esl_dsq_Clone(dsq, sq->n, &(sq->dsq)) != eslOK) goto ERROR;
 
   if (ss != NULL)
     {
@@ -2267,8 +2266,6 @@ int
 esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
 {
   char   *gapchars = "-_.~";	/* hardcoded for now */
-  char   *acc      = NULL;
-  char   *desc     = NULL;
   char   *ss       = NULL;
   char  **xr_tag   = NULL;     /* extra residue markup tags                */
   char  **xr       = NULL;     /* extra residue markup                     */
@@ -2279,58 +2276,29 @@ esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
   if ( (msa->flags & eslMSA_DIGITAL) && sq->dsq == NULL) ESL_XEXCEPTION(eslEINVAL, "msa is digital, sq is not");
   if (!(msa->flags & eslMSA_DIGITAL) && sq->seq == NULL) ESL_XEXCEPTION(eslEINVAL, "msa is text, sq is not");
 
-  /* watch out for completely missing optional msa annotations;
-   * msa->sqacc[which] could segfault if msa->sqacc itself is NULL
-   */
-  if (msa->sqacc  != NULL) acc  = msa->sqacc[which]; 
-  if (msa->sqdesc != NULL) desc = msa->sqdesc[which];
-  if (msa->ss     != NULL) ss   = msa->ss[which]; 
-
-  /* a markup for unparsed #=GR lines is converted to a sequence extra residue markup */
-  if (msa->ngr) 
-    {
-      ESL_ALLOC(xr_tag, sizeof(char *) * msa->ngr); for (x = 0; x < msa->ngr; x++) xr_tag[x] = NULL;
-      ESL_ALLOC(xr,     sizeof(char *) * msa->ngr); for (x = 0; x < msa->ngr; x++) xr[x]     = NULL;
-    }
-
-  sq->nxr = 0;
-  for (x = 0; x < msa->ngr; x ++) {
-    if (msa->gr[x][which] != NULL) {
-      xr[sq->nxr] = msa->gr[x][which];
-      if (msa->gr_tag[x] != NULL) xr_tag[sq->nxr] = msa->gr_tag[x]; else { status = eslEINVAL; goto ERROR;  }
-      sq->nxr ++;
-    } 
-  }
-  if (sq->nxr > 0) {
-    ESL_ALLOC(sq->xr_tag, sizeof(char *) * sq->nxr); for (x = 0; x < sq->nxr; x ++) sq->xr_tag[x] = NULL;
-    ESL_ALLOC(sq->xr,     sizeof(char *) * sq->nxr); for (x = 0; x < sq->nxr; x ++) sq->xr[x]     = NULL;
-  }
-
   if ((status = esl_sq_SetName     (sq, msa->sqname[which])) != eslOK) goto ERROR;
-  if ((status = esl_sq_SetAccession(sq, acc))                != eslOK) goto ERROR;
-  if ((status = esl_sq_SetDesc     (sq, desc))               != eslOK) goto ERROR;
   if ((status = esl_sq_SetSource   (sq, msa->name))          != eslOK) goto ERROR;
-  if ((status = esl_sq_GrowTo      (sq, msa->alen))          != eslOK) goto ERROR; /* can't be more than alen residues */
- 
+  if ((status = esl_sq_GrowTo      (sq, msa->alen))          != eslOK) goto ERROR; /* can't be more than alen residues */ 
+  if (msa->sqacc)  { if ((status = esl_sq_SetAccession(sq, msa->sqacc[which]))  != eslOK) goto ERROR; }
+  if (msa->sqdesc) { if ((status = esl_sq_SetDesc     (sq, msa->sqdesc[which])) != eslOK) goto ERROR; }
+
+  /* Sequence data and optional secondary structure annotation
+   */
+  if (msa->ss) ss = msa->ss[which]; 
   if (! (msa->flags & eslMSA_DIGITAL)) /* text mode to text mode */
     {
       strcpy(sq->seq, msa->aseq[which]);
-      if (ss != NULL) { 
-	if (sq->ss == NULL) esl_strdup(ss, -1, &(sq->ss));
-	else                strcpy(sq->ss, ss);
+      if (ss) { 
+	if (!sq->ss) esl_strdup(ss, -1, &(sq->ss));
+	else         strcpy(sq->ss, ss);
 	esl_strdealign(sq->ss, sq->seq, gapchars, NULL);
-      }
-      for (x = 0; x < sq->nxr; x++) {
-	esl_strdup(xr[x],     -1, &(sq->xr[x]));              
-	esl_strdup(xr_tag[x], -1, &(sq->xr_tag[x]));
-	esl_strdealign(sq->xr[x], sq->seq, gapchars, NULL);
       }
       esl_strdealign(sq->seq, sq->seq, gapchars, &(sq->n)); /* sq->n gets set as side effect */
      }
   else
     {
       esl_dsq_Copy(msa->ax[which], msa->alen, sq->dsq);
-      if (ss != NULL) { 
+      if (ss) { 
 	if (sq->ss == NULL) { /* even in digital mode, msa->ss is [0.alen-1] */
 	  ESL_ALLOC(sq->ss, sizeof(char) * (strlen(ss)+2));
 	  sq->ss[0] = '\0'; 
@@ -2339,6 +2307,40 @@ esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
 	else  { strcpy(sq->ss+1, ss); sq->ss[0] = '\0'; }
 	esl_dsq_DealignAnnotation(sq->abc, sq->ss+1, sq->dsq, NULL);
       }
+      esl_dsq_Dealign(sq->abc, sq->dsq, &(sq->n)); /* sq->n gets set as side effect */
+  }
+
+  /* Any markup for unparsed #=GR lines is converted to a sequence extra residue markups
+   */
+  if (msa->ngr) {
+    ESL_ALLOC(xr_tag, sizeof(char *) * msa->ngr); for (x = 0; x < msa->ngr; x++) xr_tag[x] = NULL;
+    ESL_ALLOC(xr,     sizeof(char *) * msa->ngr); for (x = 0; x < msa->ngr; x++) xr[x]     = NULL;
+  }
+
+  sq->nxr = 0;
+  for (x = 0; x < msa->ngr; x ++) {
+    if (msa->gr[x][which] != NULL) {
+      xr[sq->nxr] = msa->gr[x][which];
+      if (msa->gr_tag[x] != NULL) xr_tag[sq->nxr] = msa->gr_tag[x]; else { status = eslEINVAL; goto ERROR;  }
+      sq->nxr++;
+    } 
+  }
+
+  if (sq->nxr > 0) {
+    ESL_ALLOC(sq->xr_tag, sizeof(char *) * sq->nxr); for (x = 0; x < sq->nxr; x++) sq->xr_tag[x] = NULL;
+    ESL_ALLOC(sq->xr,     sizeof(char *) * sq->nxr); for (x = 0; x < sq->nxr; x++) sq->xr[x]     = NULL;
+  }
+
+  if (! (msa->flags & eslMSA_DIGITAL)) /* text mode to text mode */
+    {
+      for (x = 0; x < sq->nxr; x++) {
+	esl_strdup(xr[x],     -1, &(sq->xr[x]));              
+	esl_strdup(xr_tag[x], -1, &(sq->xr_tag[x]));
+	esl_strdealign(sq->xr[x], sq->seq, gapchars, NULL);
+      }
+    }
+  else
+    {
       for (x = 0; x < sq->nxr; x ++) { /* even in digital mode, msa->gr are [0.alen-1] */
 	ESL_ALLOC(sq->xr[x], sizeof(char) * (strlen(xr[x])+2));
 	sq->xr[x][0] = '\0'; 
@@ -2346,7 +2348,6 @@ esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
 	esl_dsq_DealignAnnotation(sq->abc, sq->xr[x]+1, sq->dsq, NULL);	
 	esl_strdup(xr_tag[x], -1, &(sq->xr_tag[x]));
       }
-      esl_dsq_Dealign(sq->abc, sq->dsq, &(sq->n)); /* sq->n gets set as side effect */
   }
   
   /* This is a complete sequence; set bookkeeping accordingly */
@@ -2486,7 +2487,7 @@ esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq)
       esl_dsq_Dealign(sq->abc, sq->dsq, &(sq->n));
     }
 
-  if ((status = esl_sq_SetSource(sq, msa->name)) != eslOK) goto ERROR;
+  if ( esl_sq_SetSource(sq, msa->name) != eslOK) goto ERROR;
 
   sq->start = 1;
   sq->end   = sq->n;
@@ -2698,17 +2699,16 @@ sq_create(int do_digital)
 static ESL_SQ_BLOCK *
 sq_createblock(int count, int do_digital)
 {
-  int i = 0;
-
   ESL_SQ_BLOCK *block = NULL;
-  int status = eslOK;
+  int           i     = 0;
+  int           status;
 
   ESL_ALLOC(block, sizeof(ESL_SQ_BLOCK));
-
-  block->count = 0;
+  block->count        = 0;
   block->first_seqidx = -1;
-  block->list  = NULL;
-  block->complete = TRUE;
+  block->list         = NULL;
+  block->complete     = TRUE;
+  block->listSize     = 0;
 
   ESL_ALLOC(block->list, sizeof(ESL_SQ) * count);
   block->listSize = count;
@@ -2717,7 +2717,6 @@ sq_createblock(int count, int do_digital)
     {
       if (sq_init(block->list + i, do_digital) != eslOK) goto ERROR;
     }
-
   return block;
 
  ERROR:
