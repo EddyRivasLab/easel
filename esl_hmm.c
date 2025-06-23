@@ -373,7 +373,7 @@ esl_hmm_Forward(const ESL_DSQ *dsq, int L, const ESL_HMM *hmm, ESL_HMX *fwd, flo
   for (k = 0; k < M; k++) {
     fwd->dp[1][k] /= max;
   }
-  fwd->sc[1] = log(max);
+  fwd->sc[1] = (max > 0. ? log(max) : -eslINFINITY);
 
   for (i = 2; i <= L; i++)
     {
@@ -391,14 +391,14 @@ esl_hmm_Forward(const ESL_DSQ *dsq, int L, const ESL_HMM *hmm, ESL_HMX *fwd, flo
       
       for (k = 0; k < M; k++)
 	fwd->dp[i][k] /= max;
-      fwd->sc[i] = log(max);
+      fwd->sc[i] = (max > 0. ? log(max) : -eslINFINITY);
     }
 	  
   
   fwd->sc[L+1] = 0.0;
   for (m = 0; m < M; m++) 
     fwd->sc[L+1] += fwd->dp[L][m] * hmm->t[m][M];
-  fwd->sc[L+1] = log(fwd->sc[L+1]);
+  fwd->sc[L+1] = (fwd->sc[L+1] > 0. ? log(fwd->sc[L+1]) : -eslINFINITY);
 
   logsc = 0.0;
   for (i = 1; i <= L+1; i++)
@@ -433,9 +433,12 @@ esl_hmm_Backward(const ESL_DSQ *dsq, int L, const ESL_HMM *hmm, ESL_HMX *bck, fl
       bck->dp[L][k] = hmm->t[k][M];
       max = ESL_MAX(bck->dp[L][k], max);
     }
-  for (k = 0; k < M; k++)
-    bck->dp[L][k] /= max;
-  bck->sc[L] = log(max);
+  if (max > 0.) {
+    for (k = 0; k < M; k++)
+      bck->dp[L][k] /= max;
+    bck->sc[L] = log(max);
+  } else
+    bck->sc[L] = -eslINFINITY;
 
   for (i = L-1; i >= 1; i--)
     {
@@ -449,15 +452,18 @@ esl_hmm_Backward(const ESL_DSQ *dsq, int L, const ESL_HMM *hmm, ESL_HMX *bck, fl
 	  max = ESL_MAX(bck->dp[i][k], max);
 	}
 
-      for (k = 0; k < M; k++)
-	bck->dp[i][k] /= max;
-      bck->sc[i] = log(max);
+      if (max > 0.) {
+        for (k = 0; k < M; k++)
+          bck->dp[i][k] /= max;
+        bck->sc[i] = log(max);
+      } else
+        bck->sc[i] = -eslINFINITY;
     }
 
   bck->sc[0] = 0.0;
   for (m = 0; m < M; m++)
     bck->sc[0] += bck->dp[1][m] * hmm->eo[dsq[1]][m] * hmm->pi[m];
-  bck->sc[0] = log(bck->sc[0]);
+  bck->sc[0] = (bck->sc[0] > 0. ? log(bck->sc[0]) : -eslINFINITY);
 
   logsc = 0.0;
   for (i = 0; i <= L; i++) 

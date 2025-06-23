@@ -1728,25 +1728,25 @@ main(int argc, char **argv)
        */
       if (ascfile != NULL)
 	{
-	  outfp = fopen(ascfile, "w");
+	  if ((outfp = fopen(ascfile, "w")) == NULL) esl_fatal("fopen failed");
 	  esl_histogram_Write(outfp, h1);
 	  fclose(outfp);
 	}
       if (plotfile != NULL)
 	{
-	  outfp = fopen(plotfile, "w");
+	  if ((outfp = fopen(plotfile, "w")) == NULL) esl_fatal("fopen failed");
 	  esl_histogram_Plot(outfp,  h1);
 	  fclose(outfp);
 	}
       if (survfile != NULL)  
 	{
-	  outfp = fopen(survfile, "w");
+	  if ((outfp = fopen(survfile, "w")) == NULL) esl_fatal("fopen failed");
 	  esl_histogram_PlotSurvival(outfp,  h1);
 	  fclose(outfp);
 	}
       if (qqfile != NULL)
 	{
-	  outfp = fopen(qqfile, "w");
+	  if ((outfp = fopen(qqfile, "w")) == NULL) esl_fatal("fopen failed");
 	  if (fstrategy == FIT_TAIL)
 	    esl_histogram_PlotQQ(outfp, h1, &esl_exp_generic_invcdf, ep);
 	  else

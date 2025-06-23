@@ -543,7 +543,7 @@ int esl_red_black_doublekey_linked_list_test(ESL_RED_BLACK_DOUBLEKEY **head, ESL
   int count2=0;
   ESL_RED_BLACK_DOUBLEKEY *head_ptr = *head;
   ESL_RED_BLACK_DOUBLEKEY *tail_ptr = *tail;
-  ESL_RED_BLACK_DOUBLEKEY *prev;
+  ESL_RED_BLACK_DOUBLEKEY *prev     = NULL;
   //start at the small end of the chain
   while(tail_ptr != NULL){
     count1++;
@@ -652,8 +652,10 @@ main(int argc, char **argv)
 {
 
   ESL_RED_BLACK_DOUBLEKEY *tree, *new_tree, *node, **head, **tail;
-  int i; 
   ESL_RED_BLACK_DOUBLEKEY *head_ptr, *tail_ptr;
+  double *contents = NULL;
+  int i; 
+
 
   head_ptr = NULL;
   tail_ptr = NULL;
@@ -666,7 +668,7 @@ main(int argc, char **argv)
     for(i=0; i < TEST_ITERATIONS; i++){
       node = esl_red_black_doublekey_Create(); // get a new node
       new_tree = NULL;
-      double *contents = malloc(sizeof(double)); 
+      if ((contents = malloc(sizeof(double))) == NULL) esl_fatal("malloc failed"); 
       while(new_tree == NULL){ // handle the case where we generate the
         // same random number twice
         my_key = ((double)rand()/(double)RAND_MAX) * 1000;
@@ -710,7 +712,7 @@ main(int argc, char **argv)
     for(i=0; i < TEST_ITERATIONS; i++){
       // generate "random" floating-point number between 0 and 100000
       node = esl_red_black_doublekey_Create(); // get a new node
-      double *contents = malloc(sizeof(double));
+      if ((contents = malloc(sizeof(double))) == NULL) esl_fatal("malloc failed");
       new_tree = NULL;
       while(new_tree == NULL){ // handle the case where we generate the
 	// same random number twice

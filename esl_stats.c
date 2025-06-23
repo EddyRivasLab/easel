@@ -978,10 +978,14 @@ utest_LogGamma(ESL_RANDOMNESS *r, int N, int be_verbose)
 {
   char          *msg = "esl_stats_LogGamma() unit test failed";
   ESL_STOPWATCH *w   = esl_stopwatch_Create();
-  double        *x   = malloc(sizeof(double) * N);
-  double        *lg  = malloc(sizeof(double) * N);
-  double        *lg2 = malloc(sizeof(double) * N);
+  double        *x   = NULL;
+  double        *lg  = NULL;
+  double        *lg2 = NULL;
   int            i;
+
+  if ((x   = malloc(sizeof(double) * N)) == NULL) esl_fatal(msg);
+  if ((lg  = malloc(sizeof(double) * N)) == NULL) esl_fatal(msg);
+  if ((lg2 = malloc(sizeof(double) * N)) == NULL) esl_fatal(msg);
 
   for (i = 0; i < N; i++) 
     x[i] = esl_random(r) * 100.;
@@ -1251,12 +1255,16 @@ int main(void)
   double xstep        = 1.0;
   double setsigma     = 1.0;		/* sigma on all points */
   int    n            = 100;
-  double *x           = malloc(sizeof(double) * n);
-  double *y           = malloc(sizeof(double) * n);
-  double *sigma       = malloc(sizeof(double) * n);
+  double *x           = NULL;
+  double *y           = NULL;
+  double *sigma       = NULL;
   int    i;
   double  ae, be, siga, sigb, cov_ab, cc, Q;
   
+  if ((x     = malloc(sizeof(double) * n)) == NULL) esl_fatal("malloc failed");
+  if ((y     = malloc(sizeof(double) * n)) == NULL) esl_fatal("malloc failed");
+  if ((sigma = malloc(sizeof(double) * n)) == NULL) esl_fatal("malloc failed");
+
   /* Simulate some linear data, with Gaussian noise added to y_i */
   for (i = 0; i < n; i++) {
     sigma[i] = setsigma;

@@ -173,6 +173,7 @@ extern int     esl_sq_FormatName     (ESL_SQ *sq, const char *name,   ...) ESL_A
 extern int     esl_sq_FormatAccession(ESL_SQ *sq, const char *acc,    ...) ESL_ATTRIBUTE_FORMAT(printf, 2, 3);
 extern int     esl_sq_FormatDesc     (ESL_SQ *sq, const char *desc,   ...) ESL_ATTRIBUTE_FORMAT(printf, 2, 3);
 extern int     esl_sq_FormatSource   (ESL_SQ *sq, const char *source, ...) ESL_ATTRIBUTE_FORMAT(printf, 2, 3);
+extern int     esl_sq_AppendToName   (ESL_SQ *sq, const char *sfx,    ...) ESL_ATTRIBUTE_FORMAT(printf, 2, 3);
 extern int     esl_sq_AppendDesc     (ESL_SQ *sq, const char *desc);
 extern int     esl_sq_SetCoordComplete(ESL_SQ *sq, int64_t L);
 extern int     esl_sq_CAddResidue (ESL_SQ *sq, char c);

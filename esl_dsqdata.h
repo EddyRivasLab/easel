@@ -135,8 +135,8 @@ typedef struct esl_dsqdata_s {
 
 /* Reading the control bits on a packet v
  */
-#define eslDSQDATA_EOD   (1 << 31)
-#define eslDSQDATA_5BIT  (1 << 30)
+#define eslDSQDATA_EOD   (1U << 31)
+#define eslDSQDATA_5BIT  (1U << 30)
 #define ESL_DSQDATA_EOD(v)   ((v) & eslDSQDATA_EOD)
 #define ESL_DSQDATA_5BIT(v)  ((v) & eslDSQDATA_5BIT)
   

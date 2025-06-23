@@ -731,7 +731,7 @@ main(int argc, char **argv)
   min = 99999;
   max = -99999;
 
-  x = malloc(sizeof(double) * n);
+  if ((x = malloc(sizeof(double) * n)) == NULL) esl_fatal("malloc failed");
   for (i = 0; i < n; i++)
     {
       x[i] = esl_mixgev_Sample(r, mg);
@@ -743,7 +743,7 @@ main(int argc, char **argv)
 
   /* Dump the raw data samples to an R file.
    */
-  fp = fopen("data.out", "w");
+  if ((fp = fopen("data.out", "w")) == NULL) esl_fatal("fopen failed");
   fprintf(fp, "     val\n");
   for (i = 0; i < n; i++)
     fprintf(fp, "%d   %f\n", i+1, x[i]);

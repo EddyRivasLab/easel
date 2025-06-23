@@ -438,7 +438,8 @@ esl_exp_FitCompleteBinned(ESL_HISTOGRAM *g, double *ret_mu, double *ret_lambda)
       sb += g->obs[i] * (bi-mu);
     }
   *ret_mu     = mu;
-  *ret_lambda = 1/delta * (log(sb) - log(sa));
+  if (sb == 0.0 || sa == 0.0) *ret_lambda = 0.0;
+  else                        *ret_lambda = 1/delta * (log(sb) - log(sa));
   return eslOK;
 }
 
@@ -483,7 +484,7 @@ main(int argc, char **argv)
   lambda  = 0.693;
   N       = 95;
 
-  x = malloc(sizeof(double) *N);
+  if ((x = malloc(sizeof(double) *N)) == NULL) esl_fatal("malloc failed");
   for (trial = 0; trial < ntrials; trial++)
     {
       for (i = 0; i < N; i++)

@@ -1743,21 +1743,22 @@ benchmark_mmap(char *filename, int bufsize, int64_t *ret_magic)
 static void
 synthesize_testseqs(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, int maxL, int N, ESL_SQ ***ret_sqarr)
 {
-  ESL_SQ **sqarr  = malloc(sizeof(ESL_SQ *) * N);
+  ESL_SQ **sqarr  = NULL;
   ESL_KEYHASH *kh = esl_keyhash_Create();
-  float   *fq     = malloc(sizeof(float)   * abc->Kp);
+  float   *fq     = NULL;
   char    *buf    = NULL;
   int      maxn   = eslSQ_NAMECHUNK*2;
   int      maxa   = eslSQ_ACCCHUNK*2;
   int      maxd   = eslSQ_DESCCHUNK*2;
+  int      n      = ESL_MAX( maxn, ESL_MAX(maxa, maxd));
   char     ascii[128];
   float    af[128];
   int      i, pos;
-  int      n;
   int      x;
 
-  n = ESL_MAX( maxn, ESL_MAX(maxa, maxd));
-  buf = malloc(sizeof(char) * (n+1));
+  if ((sqarr = malloc(sizeof(ESL_SQ *) * N))       == NULL) esl_fatal("malloc failed");
+  if ((fq    = malloc(sizeof(float)    * abc->Kp)) == NULL) esl_fatal("malloc failed");
+  if ((buf   = malloc(sizeof(char)     * (n+1)))   == NULL) esl_fatal("malloc failed");
 
   /* Set a residue frequency vector that's going to sample degenerate residues too */
   esl_vec_FSet(fq, abc->Kp, 0.0);

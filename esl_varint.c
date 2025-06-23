@@ -340,9 +340,9 @@ esl_varint_delta_decode(uint64_t code, int *opt_v, int *opt_n)
 
   if (code == 0) { status = eslEOD; goto ERROR; }
 
-  for (b = 0; b < 64; b++)
+  for (b = 0; b < 32; b++)
     if (code & (1ull << (63-b))) break;  // stop on first 1.  b = # of leading 0 bits
-  a = (code >> (63 - 2*b)) - 1;          // After b leading 0's, b+1 bits encode a+1
+  a = (code >> (63 - 2*b)) - 1;          // cppcheck-suppress [shiftNegative]  // after b leading 0's, b+1 bits encode a+1
   n = 2*b + a + 1;
 
   if (n > 64) { status = eslECORRUPT; goto ERROR; }

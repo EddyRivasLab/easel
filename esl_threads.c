@@ -432,7 +432,7 @@ main(void)
   int           i;
   char        **work = NULL;
 
-  work = malloc(sizeof(char *) * ncpu);
+  if ((work = malloc(sizeof(char *) * ncpu)) == NULL) esl_fatal("malloc failed");
   for (i = 0; i < ncpu; i++) 
     esl_sprintf(&(work[i]), "work packet %d", i);
 

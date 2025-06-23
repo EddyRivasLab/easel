@@ -135,10 +135,13 @@ static void
 utest_floatsort(ESL_RANDOMNESS *rng, int N, int K)
 {
   char   msg[]     = "esl_quicksort: float sort test failed";
-  float *x         = malloc(sizeof(float) * N);
-  int   *sorted_at = malloc(sizeof(int)   * N);
+  float *x         = NULL;
+  int   *sorted_at = NULL;
   int    i,r;
 
+  if ((x         = malloc(sizeof(float) * N)) == NULL) esl_fatal(msg);
+  if ((sorted_at = malloc(sizeof(int)   * N)) == NULL) esl_fatal(msg);
+  
   for (i = 0; i < N; i++)
     x[i] = esl_random(rng) * K;
   esl_quicksort(x, N, sort_floats_ascending, sorted_at);
@@ -215,10 +218,13 @@ main(int argc, char **argv)
   ESL_RANDOMNESS *rng = esl_randomness_Create(0);
   int    N            = 100;
   float  K            = 10.0;        
-  float *x            = malloc(sizeof(float) * N);
-  int   *sorted_at    = malloc(sizeof(int)   * N);
+  float *x            = NULL;
+  int   *sorted_at    = NULL;
   int    i,r;
   
+  if ((x         = malloc(sizeof(float) * N)) == NULL) esl_fatal(msg);
+  if ((sorted_at = malloc(sizeof(int)   * N)) == NULL) esl_fatal(msg);
+
   for (i = 0; i < N; i++)
     x[i] = esl_random(rng) * K;
   

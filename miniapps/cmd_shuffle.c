@@ -113,7 +113,7 @@ esl_cmd_shuffle(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
           else if (esl_opt_IsOn      (go, "-k"))  esl_rsq_CShuffleKmers  (rng, sq->seq, esl_opt_GetInteger(go, "-k"), sq->seq);  // shuffle nonoverlapping kmers
           else                                    esl_rsq_CShuffle       (rng, sq->seq, sq->seq);                                // default: monoresidue shuffling 
           
-          esl_sq_FormatName(sq, "%s-shuffled", sq->name);
+          esl_sq_AppendToName(sq, "-shuffled");
           esl_sqio_Write(ofp, sq, outfmt, FALSE);
           
           esl_sq_Reuse(sq);
@@ -148,7 +148,7 @@ esl_cmd_shuffle(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
           else if (esl_opt_IsOn      (go, "-M"))  higher_markov          (rng, abc, sq->dsq, sq->n, esl_opt_GetInteger(go, "-M"), sq->dsq);
           else                                    esl_rsq_XShuffle       (rng,      sq->dsq, sq->n,         sq->dsq);                        // default: monoresidue shuffling 
           
-          esl_sq_FormatName(sq, "%s-shuffled", sq->name);
+          esl_sq_AppendToName(sq, "-shuffled");
           esl_sqio_Write(ofp, sq, outfmt, FALSE);
           
           esl_sq_Reuse(sq);

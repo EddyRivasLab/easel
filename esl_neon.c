@@ -93,7 +93,7 @@ esl_neon_logf(esl_neon_128f_t x)
   esl_neon_128f_t one, e, tmp, z, y, inf_vector, neginf_vector;
   esl_neon_128i_t nan_mask, emm0, ux, mask;
   esl_neon_128i_t poszero_mask, inf_mask; /* Special IEEE754 inputs */
-  uint32_t        negzero = (1 << 31);
+  uint32_t        negzero = (1u << 31);
   esl_neon_128f_t zero_vector;
 
   zero_vector.f32x4 = vdupq_n_f32(0.0f); 

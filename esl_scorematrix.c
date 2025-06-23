@@ -1810,7 +1810,7 @@ main(int argc, char **argv)
   ESL_ALPHABET    *abc     = esl_alphabet_Create(eslAMINO);             /* protein matrices 20x20 */
   ESL_DMATRIX     *Q       = esl_dmatrix_Create(abc->K, abc->K);	/* WAG rate matrix */
   ESL_DMATRIX     *P0      = esl_dmatrix_Create(abc->K, abc->K);	/* p_ij joint probabilities calculated from WAG */
-  double          *wagpi   = malloc(sizeof(double) * abc->K);  
+  double          *wagpi   = NULL;
   ESL_SCOREMATRIX *S0      = esl_scorematrix_Create(abc);	        /* score matrix calculated from WAG p_ij's */
   double           lambda0 = esl_opt_GetReal(go, "-l");
   double           t       = esl_opt_GetReal(go, "-t");
@@ -1823,6 +1823,8 @@ main(int argc, char **argv)
   double           lambda;
   double           D;
   int              status;
+
+  if ((wagpi = malloc(sizeof(double) * abc->K)) == NULL) esl_fatal("malloc failed");
   
   /* Calculate an integer score matrix from a probabilistic rate matrix (WAG) */
   esl_scorematrix_SetWAG(S0, lambda0/scale, t);

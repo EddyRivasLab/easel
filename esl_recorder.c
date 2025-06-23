@@ -989,7 +989,9 @@ main(int argc, char **argv)
   char            tmpfile[13];
   int             N           = esl_opt_GetInteger(go, "-N");
   int             nfiles      = esl_opt_GetInteger(go, "-F");
-  int            *is_data     = malloc(sizeof(int) * N);
+  int            *is_data     = NULL;
+
+  if ((is_data = malloc(sizeof(int) * N)) == NULL) esl_fatal("malloc failed");
 
   esl_exception_SetHandler(&esl_nonfatal_handler);
 

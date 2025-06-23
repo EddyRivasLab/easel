@@ -1147,10 +1147,10 @@ utest_write_good1(FILE *ofp, int *ret_format, int *ret_alphatype, int *ret_nseq,
   fputs("AAACCGAGGC CGGGACACTC AT\n", ofp);
   fputs("AAACCATTGC CGGTACGCTT AA\n", ofp);
 
-  *ret_format   = eslMSAFILE_PHYLIP;
+  *ret_format    = eslMSAFILE_PHYLIP;
   *ret_alphatype = eslDNA;
-  *ret_nseq     = 5;
-  *ret_alen     = 42;
+  *ret_nseq      = 5;
+  *ret_alen      = 42;
 }
 
 static void
@@ -1600,21 +1600,20 @@ utest_ambigfile(char *filename, int testnumber)
 static void
 utest_seqboot(void)
 {
-  char  msg[] = "seqboot unit test failed";
+  char  msg[]                = "seqboot unit test failed";
   char  tmpfile[32];
-  FILE *ofp;
-  int   expected_fmt;
-  int   expected_alphatype;
-  int   expected_nseq;
-  int   expected_alen;
-  int   expected_nali;
+  FILE *ofp                  = NULL;
+  int   expected_fmt         = eslMSAFILE_UNKNOWN;  // initialize these to silence overzealous static analyzers
+  int   expected_alphatype   = eslUNKNOWN;
+  int   expected_nseq        = -1;
+  int   expected_alen        = -1;
+  int   expected_nali        = 3;                   // we'll concatenate good1 MSA three times in this utest
   int   i;
   ESL_ALPHABET *abc = NULL;
   ESL_MSAFILE  *afp = NULL;
   ESL_MSA      *msa = NULL;
 
   /* Write a tmp testfile with good1 concatenated 3 times. */
-  expected_nali = 3;
   strcpy(tmpfile, "esltmpXXXXXX");
   if (esl_tmpfile_named(tmpfile, &ofp) != eslOK) esl_fatal(msg);
   for (i = 0; i < expected_nali; i++)

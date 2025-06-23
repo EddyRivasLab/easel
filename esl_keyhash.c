@@ -764,7 +764,8 @@ utest_stringkeys(void)
   keys[42][0] = keys[42][1] = 'X';
 
   /* Store the first 1200. */
-  nk = 0;
+  nk  = 0;
+  h42 = -1;
   for (i = 0; i < nstore; i++)
     {
       status = esl_keyhash_Store(kh, keys[i], -1, &h);
@@ -814,7 +815,8 @@ utest_memkeys(void)
     keys[0][i] = 'a' + esl_rnd_Roll(rng, 26);   // chumminess with easel's 1D layout of a 2D array
   keys[42][0] = keys[42][1] = 'X';
 
-  nk = 0;
+  nk  = 0;
+  h42 = -1;
   for (i = 0; i < nstore; i++)
     {
       status = esl_keyhash_Store(kh, keys[i], keylen, &h);

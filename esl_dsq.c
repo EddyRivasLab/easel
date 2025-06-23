@@ -1240,12 +1240,14 @@ utest_Write(ESL_RANDOMNESS *rng)
   char testname[]    = "foo";
   char testdesc[]    = "test description";
   ESL_ALPHABET *abc  = esl_alphabet_Create(eslDNA);
-  double       *p    = malloc(sizeof(double) * abc->K);
+  double       *p    = NULL;
   int64_t       L    = 100 + esl_rnd_Roll(rng, 101);    // L = 100..200
   ESL_DSQ      *dsq  = esl_dsq_Create(L);
   FILE         *fp   = NULL;
   ESL_SQFILE   *sqfp = NULL;
   ESL_SQ       *sq   = esl_sq_CreateDigital(abc);
+
+  if ((p = malloc(sizeof(double) * abc->K))   == NULL)  esl_fatal(msg);
 
   if (esl_rnd_Dirichlet(rng, NULL, abc->K, p) != eslOK) esl_fatal(msg);  // alpha=NULL gives uniform sample over prob vectors p
   if (esl_rsq_xIID(rng, p, abc->K, L, dsq)    != eslOK) esl_fatal(msg);
@@ -1475,11 +1477,14 @@ main(int argc, char **argv)
 {
   ESL_RANDOMNESS *rng = esl_randomness_Create(0);
   ESL_ALPHABET   *abc = esl_alphabet_Create(eslAMINO);
-  double           *p = malloc(sizeof(double) * abc->K);
+  double           *p = NULL;
   int64_t           L = 400;
-  char           *seq = malloc(sizeof(char)    * (L+1));
+  char           *seq = NULL;
   ESL_DSQ        *dsq = NULL;
   
+  if ((p   = malloc(sizeof(double) * abc->K)) == NULL) esl_fatal("malloc failed");
+  if ((seq = malloc(sizeof(char)    * (L+1))) == NULL) esl_fatal("malloc failed");
+
   esl_rnd_Dirichlet(rng, NULL, abc->K, p);        // alpha=NULL gives a uniform distribution on p
   esl_rsq_IID(rng, abc->sym, p, abc->K, L, seq);
 

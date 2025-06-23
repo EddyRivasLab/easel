@@ -2054,10 +2054,13 @@ benchmark_one_read(char *filename, esl_pos_t filesize, esl_pos_t *counts)
 static void
 benchmark_one_fread(char *filename, esl_pos_t filesize, esl_pos_t *counts)
 {
-  FILE     *fp    = fopen(filename, "rb");
-  char     *buf   = malloc(filesize);
+  FILE     *fp    = NULL;
+  char     *buf   = NULL;
   size_t    n;
   esl_pos_t pos;
+
+  if ((fp  = fopen(filename, "rb")) == NULL) esl_fatal("fopen failed");
+  if ((buf = malloc(filesize))      == NULL) esl_fatal("malloc failed");
 
   if ((n = fread(buf, 1, filesize, fp)) != filesize) esl_fatal("bad fread()");
   fclose(fp);
@@ -2071,10 +2074,13 @@ benchmark_one_fread(char *filename, esl_pos_t filesize, esl_pos_t *counts)
 static void
 benchmark_fgets(char *filename, esl_pos_t *counts)
 {
-  FILE *fp  = fopen(filename, "rb");
-  char *buf = malloc(4096);
+  FILE *fp  = NULL;
+  char *buf = NULL;
   char *p;
 
+  if ((fp  = fopen(filename, "rb")) == NULL) esl_fatal("fopen failed");
+  if ((buf = malloc(4096))          == NULL) esl_fatal("malloc failed");
+  
   while (fgets(buf, 4096, fp) != NULL)
     {
       for (p = buf; *p != '\0'; p++) 
@@ -2088,10 +2094,13 @@ benchmark_fgets(char *filename, esl_pos_t *counts)
 static void
 benchmark_strtok(char *filename, esl_pos_t *counts)
 {
-  FILE *fp  = fopen(filename, "rb");
-  char *buf = malloc(8192);
+  FILE *fp  = NULL;
+  char *buf = NULL;
   char *tok = NULL;
   char *p, *p2;
+
+  if ((fp  = fopen(filename, "rb")) == NULL) esl_fatal("fopen failed");
+  if ((buf = malloc(8192))          == NULL) esl_fatal("malloc failed");
 
   while (fgets(buf, 8192, fp) != NULL)
     {
@@ -2113,10 +2122,12 @@ benchmark_strtok(char *filename, esl_pos_t *counts)
 static void
 benchmark_esl_fgets(char *filename, esl_pos_t *counts)
 {
-  FILE *fp  = fopen(filename, "rb");
+  FILE *fp  = NULL;
   char *buf = NULL;
   int   n   = 0;
   char *p;
+
+  if ((fp = fopen(filename, "rb")) == NULL) esl_fatal("fopen failed");
 
   while (esl_fgets(&buf, &n, fp) == eslOK)
     {

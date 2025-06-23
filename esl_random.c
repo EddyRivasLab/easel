@@ -1261,15 +1261,16 @@ utest_Deal(ESL_RANDOMNESS *rng)
   int    m             = 100;
   int    n             = 1000;
   int    nsamp         = 10000;
-  int   *deal          = malloc(sizeof(int) * m);
-  int   *ct            = malloc(sizeof(int) * n);
+  int   *deal          = NULL;
+  int   *ct            = NULL;
   double expected_mean = ((double) m / (double) n) * (double) nsamp;
   double expected_sd   = sqrt(expected_mean);
   int    max_allowed   = (int) round( expected_mean + 6. * expected_sd);
   int    min_allowed   = (int) round( expected_mean - 6. * expected_sd);
   int    i;
 
-  if (deal == NULL || ct == NULL) esl_fatal(msg);
+  if ((deal = malloc(sizeof(int) * m)) == NULL) esl_fatal(msg);
+  if ((ct   = malloc(sizeof(int) * n)) == NULL) esl_fatal(msg);
   esl_vec_ISet(ct, n, 0);
 
   while (nsamp--)

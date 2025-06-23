@@ -827,10 +827,10 @@ utest_pointer(void)
   int        i;
   void      *p;
 
-  if ((s = esl_stack_PCreate())                        == NULL)   esl_fatal(msg);
+  if ((s = esl_stack_PCreate())        == NULL)  esl_fatal(msg);
   for (i = 0; i < n1; i++) {
-    p = malloc(sizeof(int) * 64);
-    if (esl_stack_PPush(s, p) != eslOK)  esl_fatal(msg);
+    if ((p = malloc(sizeof(int) * 64)) == NULL)  esl_fatal(msg);
+    if (esl_stack_PPush(s, p)          != eslOK) esl_fatal(msg);
   }
   while (esl_stack_PPop(s, &p) != eslEOD) { free(p); n2++; }
   if (n1 != n2) esl_fatal(msg);
@@ -838,8 +838,8 @@ utest_pointer(void)
 
   /* same again, with ObjectCount instead of EOD for popping */
   for (i = 0; i < n1; i++) {
-    p = malloc(sizeof(int) * 64);
-    if (esl_stack_PPush(s, p) != eslOK) esl_fatal(msg);
+    if ((p = malloc(sizeof(int) * 64)) == NULL)  esl_fatal(msg);
+    if (esl_stack_PPush(s, p)          != eslOK) esl_fatal(msg);
   }
   n2 = 0;
   while (esl_stack_ObjectCount(s)) {
@@ -874,9 +874,11 @@ utest_shuffle(ESL_RANDOMNESS *r)
   char           *msg  = "stack shuffle unit test failed";
   ESL_STACK      *s    = esl_stack_ICreate();
   int             n    = ESL_STACK_INITALLOC*2+1;      /* exercises reallocation */
-  int            *seen = malloc(sizeof(int) * n);
+  int            *seen = NULL;
   int             i;
   int             val;
+
+  if ((seen = malloc(sizeof(int) * n)) == NULL) esl_fatal(msg);
 
   for (i = 0; i < n; i++) esl_stack_IPush(s, i);
   esl_stack_Shuffle(r, s);
@@ -999,10 +1001,10 @@ utest_interthread_comm(void)
   int    i;
   int    value;
 
-  ndone = malloc(sizeof(int) * njobs);
+  if ((ndone = malloc(sizeof(int) * njobs)) == NULL) esl_fatal(msg);
   for (i = 0; i < njobs; i++) ndone[i] = 0;
 
-  tt = malloc(sizeof(struct threadtest_s));
+  if ((tt = malloc(sizeof(struct threadtest_s))) == NULL) esl_fatal(msg);
   tt->input   = esl_stack_ICreate();
   tt->working = esl_stack_ICreate();
   tt->output  = esl_stack_ICreate();

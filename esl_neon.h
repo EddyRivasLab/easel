@@ -157,11 +157,26 @@ esl_neon_hmax_u8(esl_neon_128i_t a)
 #ifdef eslHAVE_NEON_AARCH64
   return vmaxvq_u8(a.u8x16);
 #else
-  a.u8x16 = vmaxq_u8(a.u8x16, vreinterpretq_u8_u32(vextq_u32(a.u32x4, a.u32x4, 2)));
-  a.u8x16 = vmaxq_u8(a.u8x16, vreinterpretq_u8_u32(vextq_u32(a.u32x4, a.u32x4, 1)));
-  a.u8x16 = vmaxq_u8(a.u8x16, vreinterpretq_u8_u16(vrev64q_u16(a.u16x8)));
-  a.u8x16 = vmaxq_u8(a.u8x16, vrev64q_u8(a.u8x16));
-  return vgetq_lane_u8(a.u8x16, 15);
+  // extract shifted version using u32x4
+  uint32x4_t tmp32  = vextq_u32(a.u32x4, a.u32x4, 2);
+  uint8x16_t tmp_u8 = vreinterpretq_u8_u32(tmp32);
+  uint8x16_t r      = vmaxq_u8(a.u8x16, tmp_u8);
+
+  // another shift + max
+  tmp32  = vextq_u32(a.u32x4, a.u32x4, 1);
+  tmp_u8 = vreinterpretq_u8_u32(tmp32);
+  r      = vmaxq_u8(r, tmp_u8);
+
+  // reverse 64-bit lanes of u16x8
+  uint16x8_t tmp16 = vrev64q_u16(a.u16x8);
+  tmp_u8           = vreinterpretq_u8_u16(tmp16);
+  r                = vmaxq_u8(r, tmp_u8);
+
+  // reverse bytes within 64-bit lanes of u8x16
+  tmp_u8 = vrev64q_u8(a.u8x16);
+  r      = vmaxq_u8(r, tmp_u8);
+
+  return vgetq_lane_u8(r, 15);
 #endif
 }
 
@@ -174,11 +189,26 @@ esl_neon_hmax_s8(esl_neon_128i_t a)
 #ifdef eslHAVE_NEON_AARCH64
   return vmaxvq_s8(a.s8x16);
 #else
-  a.s8x16 = vmaxq_s8(a.s8x16, vreinterpretq_s8_s32(vextq_s32(a.s32x4, a.s32x4, 2)));
-  a.s8x16 = vmaxq_s8(a.s8x16, vreinterpretq_s8_s32(vextq_s32(a.s32x4, a.s32x4, 1)));
-  a.s8x16 = vmaxq_s8(a.s8x16, vreinterpretq_s8_s16(vrev64q_s16(a.s16x8)));
-  a.s8x16 = vmaxq_s8(a.s8x16, vrev64q_s8(a.s8x16));
-  return vgetq_lane_s8(a.s8x16, 15);
+  // shift and reinterpret from s32x4 to s8x16
+  int32x4_t tmp32  = vextq_s32(a.s32x4, a.s32x4, 2);
+  int8x16_t tmp_s8 = vreinterpretq_s8_s32(tmp32);
+  int8x16_t r      = vmaxq_s8(a.s8x16, tmp_s8);
+
+  // another shift and reinterpret
+  tmp32  = vextq_s32(a.s32x4, a.s32x4, 1);
+  tmp_s8 = vreinterpretq_s8_s32(tmp32);
+  r      = vmaxq_s8(r, tmp_s8);
+
+  // reverse 64-bit lanes of s16x8, reinterpret
+  int16x8_t tmp16 = vrev64q_s16(a.s16x8);
+  tmp_s8          = vreinterpretq_s8_s16(tmp16);
+  r               = vmaxq_s8(r, tmp_s8);
+
+  // reverse bytes within 64-bit lanes of s8x16
+  tmp_s8 = vrev64q_s8(a.s8x16);
+  r      = vmaxq_s8(r, tmp_s8);
+
+  return vgetq_lane_s8(r, 15);
 #endif
 }
 
@@ -191,10 +221,20 @@ esl_neon_hmax_s16(esl_neon_128i_t a)
 #ifdef eslHAVE_NEON_AARCH64
   return vmaxvq_s16(a.s16x8);
 #else
-  a.s16x8 = vmaxq_s16(a.s16x8, vrev64q_s16(a.s16x8));
-  a.s16x8 = vmaxq_s16(a.s16x8, vreinterpretq_s16_s32(vrev64q_s32(a.s32x4)));
-  a.s16x8 = vmaxq_s16(a.s16x8, vreinterpretq_s16_s32(vextq_s32(a.s32x4, a.s32x4, 2)));
-  return vgetq_lane_s16(a.s16x8, 7);
+  // reverse bytes within 64-bit segments
+  int16x8_t r = vmaxq_s16(a.s16x8, vrev64q_s16(a.s16x8));
+
+  // reverse 64-bit segments using s32x4 and reinterpret
+  int32x4_t tmp32 = vrev64q_s32(a.s32x4);
+  int16x8_t tmp16 = vreinterpretq_s16_s32(tmp32);
+  r               = vmaxq_s16(r, tmp16);
+
+  // extract high 64 bits, reinterpret, and compare
+  tmp32 = vextq_s32(a.s32x4, a.s32x4, 2);
+  tmp16 = vreinterpretq_s16_s32(tmp32);
+  r     = vmaxq_s16(r, tmp16);
+
+  return vgetq_lane_s16(r, 7);
 #endif
 }
 

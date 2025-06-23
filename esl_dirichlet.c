@@ -240,6 +240,9 @@ utest_uniformity(ESL_RANDOMNESS *rng)
 
   esl_vec_DSet(alpha, K, 1.0);  // uniform density P(p | alpha)
 
+  prv_logp  = -eslINFINITY;
+  prv_logpc = -eslINFINITY;
+
   for (i = 0; i < 20; i++)
     {
       esl_dirichlet_DSample(rng, alpha, 4, p);
@@ -249,11 +252,11 @@ utest_uniformity(ESL_RANDOMNESS *rng)
 	c[ esl_rnd_DChoose(rng, p, K) ] += 1.;
 
       logp = esl_dirichlet_logpdf(p, alpha, 4);
-      if (! isfinite(logp))                                    esl_fatal(msg);  // PDF is a density; can't test for <= 1.0
+      if (! isfinite(logp))                                        esl_fatal(msg);  // PDF is a density; can't test for <= 1.0
       if (i > 0 && esl_DCompare_old(logp, prv_logp, tol) != eslOK) esl_fatal(msg);
 
       logpc = esl_dirichlet_logpdf_c(c, alpha, K);
-      if (! isfinite(logpc))                                     esl_fatal(msg);      
+      if (! isfinite(logpc))                                         esl_fatal(msg);      
       if (i > 0 && esl_DCompare_old(logpc, prv_logpc, tol) != eslOK) esl_fatal(msg);
 
       prv_logp  = logp;
@@ -327,14 +330,19 @@ main(int argc, char **argv)
   ESL_GETOPTS    *go    = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   ESL_RANDOMNESS *rng   = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
   int             K     = 4;
-  double        *alpha1 = malloc(sizeof(double) * K);
-  double        *alpha2 = malloc(sizeof(double) * K);
-  double        *p      = malloc(sizeof(double) * K);
-  double        *c      = malloc(sizeof(double) * K);
+  double        *alpha1 = NULL;
+  double        *alpha2 = NULL;
+  double        *p      = NULL;
+  double        *c      = NULL;
   int            sumc   = 1000;
   int            N      = 1000;
   double         logp1, logp2;
   int            j,a;
+
+  if ((alpha1 =  malloc(sizeof(double) * K)) == NULL) esl_fatal("malloc failed");
+  if ((alpha2 =  malloc(sizeof(double) * K)) == NULL) esl_fatal("malloc failed");
+  if ((p      =  malloc(sizeof(double) * K)) == NULL) esl_fatal("malloc failed");
+  if ((c      =  malloc(sizeof(double) * K)) == NULL) esl_fatal("malloc failed");
 
   esl_vec_DSet(alpha1, K, 1.0);   // alpha1 is a flat prior
   esl_vec_DSet(alpha2, K, 10.0);  // alpha2 is a peaked prior, with modes p_i = 1/K

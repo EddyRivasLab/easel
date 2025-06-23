@@ -935,9 +935,11 @@ main(int argc, char **argv)
   double  alpha     = 0.1;	   /* and alpha = 0.1  */
   double  min       =  9999.;
   double  max       = -9999.;
-  double *x         = malloc(sizeof(double) * n);
+  double *x         = NULL;
   ESL_RANDOMNESS *r = esl_randomness_Create(0);;
 
+  if ((x = malloc(sizeof(double) * n)) == NULL) esl_fatal("malloc failed");
+  
   for (i = 0; i < n; i++)	/* generate the 10,000 samples */
     { 
       x[i] = esl_gev_Sample(r, mu, lambda, alpha);

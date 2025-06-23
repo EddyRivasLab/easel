@@ -1071,7 +1071,7 @@ main(int argc, char **argv)
   do_location  = FALSE;
 
   r = esl_randomness_Create(0);
-  x = malloc(sizeof(double) * totalN[nexps-1]);
+  if ((x = malloc(sizeof(double) * totalN[nexps-1])) == NULL) esl_fatal("malloc failed");
   
   /* Fitting to simulated complete datasets
    */
@@ -1368,9 +1368,11 @@ main(int argc, char **argv)
   double  lambda    = 0.4;         /* and lambda = 0.4 */
   double  min       =  9999.;
   double  max       = -9999.;
-  double *x         = malloc(sizeof(double) * n);
+  double *x         = NULL;
   double  z, est_mu, est_lambda;
   int     i;
+
+  if ((x = malloc(sizeof(double) * n)) == NULL) esl_fatal("malloc failed");
 
   for (i = 0; i < n; i++)	/* generate the 10,000 samples */
     { 

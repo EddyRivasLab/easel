@@ -2141,8 +2141,7 @@ main(void)
     esl_fatal("esl_getopts_CreateOptsLine test failed at position %d", mismatch);
 #endif
   char *spoofline;
-  spoofline = (char *) malloc(strlen(cmdline)+ 8);
-  if(spoofline == NULL) esl_fatal(errmsg);
+  if ((spoofline = (char *) malloc(strlen(cmdline)+ 8)) == NULL) esl_fatal(errmsg);
   strcpy(spoofline, "getopts");
   strcat(spoofline, cmdline);
 

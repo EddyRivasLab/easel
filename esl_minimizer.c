@@ -823,12 +823,17 @@ utest_simplefunc(ESL_RANDOMNESS *rng)
 {
   char    msg[] = "esl_minimizer simplefunc test failed";
   int     n     = 1 + esl_rnd_Roll(rng, 10);   // 1..10
-  double *prm   = malloc(sizeof(double) * 2 * n);
-  double *a     = prm;
-  double *b     = prm+n;
-  double *x     = malloc(sizeof(double) * n);
+  double *prm   = NULL;
+  double *a     = NULL;
+  double *b     = NULL;
+  double *x     = NULL;
   double  fx;
   int     i;
+
+  if ((prm = malloc(sizeof(double) * 2 * n)) == NULL) esl_fatal(msg);
+  if ((x   = malloc(sizeof(double) * n))     == NULL) esl_fatal(msg);
+  a = prm;
+  b = prm+n;
 
   /* choose fixed params and an initial x[] randomly */
   for (i = 0; i < n; i++)

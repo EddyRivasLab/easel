@@ -731,8 +731,8 @@ main(void)
   int            *objs   = NULL;
   int            *obj;
 
-  objs   = malloc(sizeof(int) * ncpu * 2);
-  worker = malloc(sizeof(WORK_INFO) * ncpu);
+  if ((objs   = malloc(sizeof(int) * ncpu * 2))   == NULL) esl_fatal("malloc failed");
+  if ((worker = malloc(sizeof(WORK_INFO) * ncpu)) == NULL) esl_fatal("malloc failed");
 
   thr = esl_threads_Create(&worker_thread);
 

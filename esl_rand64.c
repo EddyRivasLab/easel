@@ -689,15 +689,16 @@ utest_Deal(ESL_RAND64 *rng)
   int64_t  m             = 100;
   int64_t  n             = 1000;
   int64_t  nsamp         = 10000;
-  int64_t *deal          = malloc(sizeof(int64_t) * m);
-  int64_t *ct            = malloc(sizeof(int64_t) * n);
+  int64_t *deal          = NULL;
+  int64_t *ct            = NULL;
   double   expected_mean = ((double) m / (double) n) * (double) nsamp;
   double   expected_sd   = sqrt(expected_mean);
   int64_t  max_allowed   = (int64_t) round( expected_mean + 6. * expected_sd);
   int64_t  min_allowed   = (int64_t) round( expected_mean - 6. * expected_sd);
   int64_t  i;
 
-  if (deal == NULL || ct == NULL) esl_fatal(msg);
+  if ((deal = malloc(sizeof(int64_t) * m)) == NULL) esl_fatal(msg);
+  if ((ct   = malloc(sizeof(int64_t) * n)) == NULL) esl_fatal(msg);
   esl_vec_LSet(ct, n, 0);
 
   while (nsamp--)

@@ -317,8 +317,8 @@ main(int argc, char **argv)
   int    C;
   int    v;
 
-  workspace  = malloc(sizeof(int) * n * 2);
-  assignment = malloc(sizeof(int) * n);
+  if ((workspace  = malloc(sizeof(int) * n * 2)) == NULL) esl_fatal("malloc failed");
+  if ((assignment = malloc(sizeof(int) * n))     == NULL) esl_fatal("malloc failed");
 
   esl_cluster_SingleLinkage(vertex, n, sizeof(double),
 			    my_linkage_definition, &threshold,

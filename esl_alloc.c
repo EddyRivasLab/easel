@@ -59,7 +59,7 @@ alloc_aligned_fallback(size_t size, size_t alignment)
   printf("offset                 = %d\n",  r);
 #endif
 
-  return (void *) p;
+  return (void *) p;  // cppcheck-suppress memleak
 }
 
 

@@ -1321,12 +1321,13 @@ esl_vec_DLogSum(const double *vec, int64_t n)
   int64_t i;
   
   max = esl_vec_DMax(vec, n);
-  if (max == eslINFINITY) return eslINFINITY; /* avoid inf-inf below! */
+  if (max == eslINFINITY)  return eslINFINITY; /* avoid inf-inf below! */
+  if (max == -eslINFINITY) return -eslINFINITY;
   sum = 0.0;
   for (i = 0; i < n; i++)
     if (vec[i] > max - 500.)      // DBL_EPSILON ~ 2.2e-16; DBL_MIN ~ 2.2e-308; log() = -36, -708
       sum += exp(vec[i] - max);
-  sum = log(sum) + max;
+  sum = (sum > 0 ? log(sum) + max : -eslINFINITY);
   return sum;
 }
 float
@@ -1336,12 +1337,13 @@ esl_vec_FLogSum(const float *vec, int64_t n)
   int64_t i;
   
   max = esl_vec_FMax(vec, n);
-  if (max == eslINFINITY) return eslINFINITY; 
+  if (max == eslINFINITY)  return eslINFINITY; 
+  if (max == -eslINFINITY) return -eslINFINITY;
   sum = 0.0;
   for (i = 0; i < n; i++)
     if (vec[i] > max - 50.)      // FLT_EPSILON ~ 1.19e-7; FLT_MIN ~ 1.17e-38; log() ~ -16, -87
       sum += expf(vec[i] - max);
-  sum = logf(sum) + max;
+  sum = (sum > 0 ? logf(sum) + max : -eslINFINITY);
   return sum;
 }
 double
@@ -1351,12 +1353,13 @@ esl_vec_DLog2Sum(const double *vec, int64_t n)
   int64_t i;
   
   max = esl_vec_DMax(vec, n);
-  if (max == eslINFINITY) return eslINFINITY; /* avoid inf-inf below! */
+  if (max == eslINFINITY)  return eslINFINITY; /* avoid inf-inf below! */
+  if (max == -eslINFINITY) return -eslINFINITY;
   sum = 0.0;
   for (i = 0; i < n; i++)
     if (vec[i] > max - 500.)      // DBL_EPSILON ~ 2.2e-16; DBL_MIN ~ 2.2e-308; log2() = -52, -1022
       sum += exp2(vec[i] - max);
-  sum = log2(sum) + max;
+  sum = (sum > 0 ? log2(sum) + max : -eslINFINITY);
   return sum;
 }
 float
@@ -1366,12 +1369,13 @@ esl_vec_FLog2Sum(const float *vec, int64_t n)
   int64_t i;
   
   max = esl_vec_FMax(vec, n);
-  if (max == eslINFINITY) return eslINFINITY; 
+  if (max == eslINFINITY)  return eslINFINITY;
+  if (max == -eslINFINITY) return -eslINFINITY;
   sum = 0.0;
   for (i = 0; i < n; i++)
     if (vec[i] > max - 50.)      // FLT_EPSILON ~ 1.19e-7; FLT_MIN ~ 1.17e-38; log() ~ -23, -126
       sum += exp2f(vec[i] - max);
-  sum = log2f(sum) + max;
+  sum = (sum > 0 ? log2f(sum) + max : -eslINFINITY);
   return sum;
 }
 
@@ -1681,9 +1685,12 @@ utest_ivectors(ESL_RANDOMNESS *rng)
 {
   char msg[] = "esl_vectorops ivectors test failed";
   int  n     = 20;
-  int *v1    = malloc(sizeof(int) * n);
-  int *v2    = malloc(sizeof(int) * n);
+  int *v1    = NULL;
+  int *v2    = NULL;
   int  i;
+
+  if ((v1    = malloc(sizeof(int) * n)) == NULL) esl_fatal(msg);
+  if ((v2    = malloc(sizeof(int) * n)) == NULL) esl_fatal(msg);
 
   for (i = 0; i < n; i++) esl_vec_ISet(v1+i, n-i, i);   // violent way to set vector to 0..n-1
   for (i = 0; i < n; i++) v2[i] = i;                    // ... and more obvious way
@@ -1724,9 +1731,12 @@ utest_lvectors(ESL_RANDOMNESS *rng)
 {
   char     msg[] = "esl_vectorops lvectors test failed";
   int      n     = 20;
-  int64_t *v1    = malloc(sizeof(int64_t) * n);
-  int64_t *v2    = malloc(sizeof(int64_t) * n);
+  int64_t *v1    = NULL;
+  int64_t *v2    = NULL;
   int      i;
+
+  if ((v1    = malloc(sizeof(int64_t) * n)) == NULL) esl_fatal(msg);
+  if ((v2    = malloc(sizeof(int64_t) * n)) == NULL) esl_fatal(msg);
 
   for (i = 0; i < n; i++) esl_vec_LSet(v1+i, n-i, (int64_t) i);  
   for (i = 0; i < n; i++) v2[i] = (int64_t) i;                   
@@ -1768,9 +1778,12 @@ utest_fvectors(ESL_RANDOMNESS *rng)
 {
   char   msg[] = "esl_vectorops fvectors test failed";
   int    n     = 20;
-  float *v1    = malloc(sizeof(float) * n);
-  float *v2    = malloc(sizeof(float) * n);
+  float *v1    = NULL;
+  float *v2    = NULL;
   int    i;
+
+  if ((v1    = malloc(sizeof(float) * n)) == NULL) esl_fatal(msg);
+  if ((v2    = malloc(sizeof(float) * n)) == NULL) esl_fatal(msg);  
 
   for (i = 0; i < n; i++) esl_vec_FSet(v1+i, n-i, (float) i);   
   for (i = 0; i < n; i++) v2[i] = (float) i;                    
@@ -1813,9 +1826,12 @@ utest_dvectors(ESL_RANDOMNESS *rng)
 {
   char   msg[] = "esl_vectorops dvectors test failed";
   int    n     = 20;
-  double *v1   = malloc(sizeof(double) * n);
-  double *v2   = malloc(sizeof(double) * n);
+  double *v1   = NULL;
+  double *v2   = NULL;
   int    i;
+
+  if ((v1   = malloc(sizeof(double) * n)) == NULL) esl_fatal(msg);
+  if ((v2   = malloc(sizeof(double) * n)) == NULL) esl_fatal(msg);
 
   for (i = 0; i < n; i++) esl_vec_DSet(v1+i, n-i, (float) i);   
   for (i = 0; i < n; i++) v2[i] = (float) i;                    
@@ -2057,7 +2073,7 @@ int main(void)
   char    labels[] = "ACGT";
   int     n = 4;
 
-  p = malloc(sizeof(double) * n);
+  if ((p = malloc(sizeof(double) * n)) == NULL) esl_fatal("malloc failed");
   esl_vec_DSet(p, n, 1.0);
   esl_vec_DNorm(p, n);
   esl_vec_DDump(stdout, p, n, labels);

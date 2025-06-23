@@ -1258,13 +1258,11 @@ esl_sq_SetSource(ESL_SQ *sq, const char *source)
  *            needed.
  *            For example, <esl_sq_FormatName(sq, "random%d", i)>.
  * 
- *            A copy of <name> is made, so if caller had <name> allocated, 
- *            it is still responsible for freeing it.
- *
  *            The function is writing <sq->name> so don't use the
  *            existing <sq->name> as an argument; i.e. don't do
  *            something like <esl_sq_FormatName(sq, "%s-modified",
  *            sq->name)>.  If you try, behavior is undefined.
+ *            You can (probably) use <esl_sq_AppendToName()> instead.
  *
  * Returns:   <eslOK> on success.
  *
@@ -1275,9 +1273,8 @@ esl_sq_FormatName(ESL_SQ *sq, const char *name, ...)
 {
   va_list argp;
   va_list argp2;
-  int   n;
-  void *tmp;
-  int   status;
+  int     n;
+  int     status;
 
   if (name == NULL) { sq->name[0] = '\0'; return eslOK; }
 
@@ -1285,7 +1282,7 @@ esl_sq_FormatName(ESL_SQ *sq, const char *name, ...)
   va_copy(argp2, argp);
   if ((n = vsnprintf(sq->name, sq->nalloc, name, argp)) >= sq->nalloc)
     {
-      ESL_RALLOC(sq->name, tmp, sizeof(char) * (n+1)); 
+      ESL_REALLOC(sq->name, sizeof(char) * (n+1)); 
       sq->nalloc = n+1;
       vsnprintf(sq->name, sq->nalloc, name, argp2);
     }
@@ -1306,9 +1303,6 @@ esl_sq_FormatName(ESL_SQ *sq, const char *name, ...)
  *            reallocating as needed. 
  *            For example, <esl_sq_FormatAccession(sq, "ACC%06d", i)>.
  * 
- *            A copy of <acc> is made, so if caller had <acc> allocated, 
- *            it is still responsible for freeing it.
- *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation error.
@@ -1425,6 +1419,60 @@ esl_sq_FormatSource(ESL_SQ *sq, const char *source, ...)
  ERROR:
   return status;
 }
+
+
+/* Function:  esl_sq_AppendToName()
+ * Synopsis:  Append a suffix to a sequence name.
+ * Incept:    SRE, Mon 23 Jun 2025 [Stony Fork Inn, Wellsboro]
+ *
+ * Purpose:   Append suffix <sfx> to the name of this sequence.
+ *            <sfx> can use standard printf formatting.
+ *
+ *            Example use cases are `<esl_sq_AppendToName(sq,
+ *            "-shuffled")` or `esl_sq_AppendToName(sq, "-%d",
+ *            seqnum)`.
+ *
+ *            If <sfx> is NULL, do nothing (leave the name as it is)
+ *            and return <eslOK>.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ *            <eslEFORMAT> if something's wrong with the formatting of <sfx>.
+ */
+int
+esl_sq_AppendToName(ESL_SQ *sq, const char *sfx, ...)
+{
+  int     len1    = strlen(sq->name);
+  int     len2    = 0;
+  va_list argp, argp2;
+  int     status;
+
+  if (sfx == NULL) return eslOK;
+
+  va_start(argp, sfx);
+  va_copy(argp2, argp);
+  if ((len2 = vsnprintf(NULL, 0, sfx, argp)) < 0)
+    ESL_XEXCEPTION(eslEFORMAT, "bad sfx format");
+
+  if (len1+len2+1 > sq->nalloc) {
+    ESL_REALLOC(sq->name, sizeof(char) * (len1+len2+1));
+    sq->nalloc = len1+len2+1;
+  }
+
+  if (vsnprintf(sq->name+len1, sq->nalloc-len1, sfx, argp2) < 0)
+    ESL_XEXCEPTION(eslEFORMAT, "bad sfx format");
+
+  va_end(argp);
+  va_end(argp2);
+  return eslOK;
+ 
+ ERROR:
+  va_end(argp);
+  va_end(argp2);
+  return status;
+}
+
 
 
 /* Function:  esl_sq_AppendDesc()
@@ -2917,9 +2965,11 @@ utest_Set(ESL_RANDOMNESS *r)
   int     maxa    = eslSQ_ACCCHUNK*2;
   int     maxd    = eslSQ_DESCCHUNK*2;
   int     n       = ESL_MAX( maxn, ESL_MAX(maxa, maxd));
-  char   *buf     = malloc(sizeof(char) * (n+1));
+  char   *buf     = NULL;
   int64_t L;
   int     i;
+
+  if ((buf = malloc(sizeof(char) * (n+1))) == NULL) esl_fatal(msg);
 
   for (i = 0; i < ntrials; i++)
     {
@@ -2960,16 +3010,19 @@ utest_Format(ESL_RANDOMNESS *r)
   int     maxa    = eslSQ_ACCCHUNK*2;
   int     maxd    = eslSQ_DESCCHUNK*2;
   int     n       = ESL_MAX( maxn, ESL_MAX(maxa, maxd));
-  char   *buf     = malloc(sizeof(char) * (n+1));
+  char   *buf     = NULL;
   int64_t L;
   int     i;
+
+  if ((buf = malloc(sizeof(char) * (n+1))) == NULL) esl_fatal(msg);
 
   for (i = 0; i < ntrials; i++)
     {
       L = esl_rnd_Roll(r, maxn) + 1;
       memset(buf, 'x', L);
       buf[L] = '\0';
-      if (esl_sq_FormatName(sq, "%s%d", buf, i) != eslOK) esl_fatal(msg);
+      if (esl_sq_FormatName  (sq, "%s%d", buf, i) != eslOK) esl_fatal(msg);
+      if (esl_sq_AppendToName(sq, "%s%d", buf, i) != eslOK) esl_fatal(msg);  // result is to make sq->name a tandem repeat, like "xxx1xxx1"
     }
   for (i = 0; i < ntrials; i++)
     {
@@ -3261,15 +3314,19 @@ main(int argc, char **argv)
   ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   ESL_RANDOMNESS *r       = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
 
+  fprintf(stderr, "## %s\n", argv[0]);
+  fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(r));
+
   utest_Create();
   utest_Set(r);
   utest_Format(r);
   utest_CountResidues();
-
   utest_CreateDigital();
-
   utest_ExtraResMarkups();
   utest_SerializeDeserialize();
+
+  fprintf(stderr, "#  status = ok\n");
+
   esl_randomness_Destroy(r);
   esl_getopts_Destroy(go);
   return 0;

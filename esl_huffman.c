@@ -609,7 +609,7 @@ dump_uint32(FILE *fp, uint32_t v, int L)
   uint32_t mask;
   int      i;
   
-  for (mask = 1 << (L-1), i = L; i >= 1; i--, mask = mask >> 1)
+  for (mask = 1U << (L-1), i = L; i >= 1; i--, mask = mask >> 1)
     putc( ((v & mask) ? '1' : '0'), fp);
 }
 
@@ -952,12 +952,15 @@ main(int argc, char **argv)
   char        *tok;
   esl_pos_t    toklen;
   int          kalloc = 16;
-  char       **label  = malloc(sizeof(char *) * kalloc);
-  float       *fq     = malloc(sizeof(float)  * kalloc);
+  char       **label  = NULL;
+  float       *fq     = NULL;
   int          K      = 0;
   float        meanL  = 0.;
   int          i;
   int          status;
+
+  ESL_ALLOC(label, sizeof(char *) * kalloc);
+  ESL_ALLOC(fq,    sizeof(float)  * kalloc);
 
   status = esl_buffer_Open(argv[1], NULL, &bf);
   if      (status == eslENOTFOUND) esl_fatal("open failed: %s",   bf->errmsg);
@@ -972,8 +975,8 @@ main(int argc, char **argv)
 
       if (++K == kalloc) {
 	kalloc *= 2; 
-	label = realloc(label, sizeof(char *) * kalloc);
-	fq    = realloc(fq,    sizeof(float)  * kalloc); 
+	ESL_REALLOC(label, sizeof(char *) * kalloc);
+	ESL_REALLOC(fq,    sizeof(float)  * kalloc); 
       }
     }
   esl_vec_FNorm(fq, K);
@@ -997,6 +1000,9 @@ main(int argc, char **argv)
   esl_huffman_Destroy(hc);
   esl_buffer_Close(bf);
   return 0;
+
+ ERROR:
+  esl_fatal("malloc failed");
 }
 #endif /*eslHUFFMAN_EXAMPLE2*/
 
@@ -1020,28 +1026,35 @@ static char *
 read_text(FILE *fp, int *opt_n)
 {
   int   maxlinelen = 4096;
-  char *text       = malloc(sizeof(char) * maxlinelen);
+  char *text       = NULL;
   int   n          = 0;
   char *p;
+  int   status;
+
+  ESL_ALLOC(text, sizeof(char) * maxlinelen);
 
   while (fgets(text+n, maxlinelen-1, fp) != NULL)
     {
       for (p = text+n; *p != '\0'; p++) 
 	if (*p == '\n') *p = ' ';
       n   += strlen(text+n);
-      text = realloc(text, sizeof(char) * (n+maxlinelen));
+      ESL_REALLOC(text, sizeof(char) * (n+maxlinelen));
     }
 
   if (opt_n) *opt_n = n;
   return text;
+
+ ERROR:
+  free(text);
+  return NULL;
 }
 
 int
 main(int argc, char **argv)
 {
-  FILE     *fp = fopen(argv[1], "r");
+  FILE     *fp = NULL;
   int       n;
-  char     *T  = read_text(fp, &n);
+  char     *T  = NULL;
   uint32_t *X  = NULL;
   float     fq[128];
   int       c,i;
@@ -1049,6 +1062,9 @@ main(int argc, char **argv)
   ESL_HUFFMAN *hc   = NULL;
   char        *newT = NULL;
   int          nT;
+
+  if ((fp = fopen(argv[1], "r")) == NULL) esl_fatal("fopen failed");
+  if ((T  = read_text(fp, &n))   == NULL) esl_fatal("read_text failed");
 
   /* You provide a frequency table for your digital alphabet 0..K-1.
    * It's fine for there to be 0-frequency characters, even many of them;

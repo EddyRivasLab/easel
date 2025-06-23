@@ -220,8 +220,13 @@ esl_vmx_expf(vector float x)
 void
 esl_vmx_dump_vecfloat(FILE *fp, vector float v)
 {
-  float *p = (float *)&v;
-  printf("[%13.8g, %13.8g, %13.8g, %13.8g]", p[0], p[1], p[2], p[3]);
+  union {
+    vector float v;
+    float        f[4];
+  } u;
+
+  u.v = v;
+  printf("[%13.8g, %13.8g, %13.8g, %13.8g]", u.f[0], u.f[1], u.f[2], u.f[3]);
 }
 
 
