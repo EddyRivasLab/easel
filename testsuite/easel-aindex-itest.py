@@ -14,17 +14,14 @@ import subprocess
 import sys
 import esl_itest
 
-progs_used = ( 'miniapps/easel',
-               'miniapps/esl-reformat')
+progs_used = [ 'miniapps/easel' ]
 
 (builddir, srcdir, tmppfx) = esl_itest.getargs(sys.argv)
 esl_itest.check_progs(builddir, progs_used)
 
-easel        = f'{builddir}/miniapps/easel'
-esl_reformat = f'{builddir}/miniapps/esl-reformat'   # TK TK : replace with easel reformat when we can
+easel      = f'{builddir}/miniapps/easel'
 
 esl_itest.write_testmsa_1(f'{tmppfx}.sto', f'{tmppfx}-test')  # seq 5 in <tmppfx>.sto test file is named <tmppfx>-test
-
 
 
 # `-h` help 
@@ -45,7 +42,7 @@ r = esl_itest.run(f'{easel} aindex -f --informat stockholm {tmppfx}.sto')
 
 # Only Stockholm format works, it's the only multi-MSA format
 r = esl_itest.run(f'{easel} afetch -o {tmppfx}.sto2 {tmppfx}.sto Delta')
-r = esl_itest.run(f'{esl_reformat} -o {tmppfx}.afa afa {tmppfx}.sto2')
+r = esl_itest.run(f'{easel} reformat -o {tmppfx}.afa afa {tmppfx}.sto2')
 r = esl_itest.run(f'{easel} aindex {tmppfx}.afa', expect_success=False)
 
 # --noacc

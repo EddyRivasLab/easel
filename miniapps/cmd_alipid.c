@@ -1,4 +1,4 @@
-/* Calculates pairwise %id for all aligned sequence pairs in MSA
+/* `easel alipid`: calculate pairwise %id for all aligned seq pairs in MSA
  */
 #include <esl_config.h>
 
@@ -10,10 +10,11 @@
 #include "esl_getopts.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
+#include "esl_subcmd.h"
 
-static ESL_OPTIONS options[] = {
-  /* name                type   default   env  range  togs  reqs incomp    help                                                   docgroup */
-  { "-h",          eslARG_NONE,        FALSE, NULL,  NULL, NULL, NULL,  NULL,  "help; show brief info on version and usage", 1 },
+static ESL_OPTIONS cmd_options[] = {
+  /* name                type   default   env  range  togs  reqs incomp    help                                              docgroup */
+  { "-h",          eslARG_NONE,        FALSE, NULL,  NULL, NULL, NULL,  NULL,  "help; show brief info on version and usage", 0 },
   { "--informat",  eslARG_STRING,      NULL,  NULL, NULL,  NULL,  NULL, NULL, "specify the input MSA file is in format <s>", 0 }, 
   { "--outformat", eslARG_STRING, "Clustal",  NULL, NULL,  NULL,  NULL, NULL, "write the output MSA in format <s>",          0 }, 
   { "--noheader",  eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "no header",                                   0 }, 
@@ -23,14 +24,12 @@ static ESL_OPTIONS options[] = {
  { 0,0,0,0,0,0,0,0,0,0 },
 };
 
-static char banner[] = "calculate pairwise %id for each seq pair in an MSA";
-static char usage[]  = "[options] <msafile>";
 
 int
-main(int argc, char **argv)
+esl_cmd_alipid(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
-  ESL_GETOPTS  *go      = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
-  char         *msafile = esl_opt_GetArg(go, 1);
+  ESL_GETOPTS  *go      = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, /*custom opthelp_f=*/NULL);
+   char         *msafile = esl_opt_GetArg(go, 1);
   ESL_ALPHABET *abc     = NULL;
   int           infmt   = eslMSAFILE_UNKNOWN;
   ESL_MSAFILE  *afp     = NULL;

@@ -13,8 +13,7 @@ import subprocess
 import sys
 import esl_itest
 
-progs_used = ( 'miniapps/easel',
-               'miniapps/esl-reformat' )
+progs_used = [ 'miniapps/easel' ]
 
 (builddir, srcdir, tmppfx) = esl_itest.getargs(sys.argv)
 esl_itest.check_progs(builddir, progs_used)
@@ -47,7 +46,7 @@ pattern = r'^1\s+{}-test\s+XX0005\s+Stockholm\s+1\s+20'.format(tmppfx)
 if ( m := re.search(pattern, r.stdout, flags=re.MULTILINE)) == None: esl_itest.fail()
 
 # Only Stockholm format works.   Creates {}.afa file
-r = esl_itest.run('{0}/miniapps/esl-reformat -o {1}.afa afa {1}.sto3'.format(builddir, tmppfx))    # replace esl-reformat with easel reformat when we can
+r = esl_itest.run('{0}/miniapps/easel reformat -o {1}.afa afa {1}.sto3'.format(builddir, tmppfx))   
 r = esl_itest.run('{0}/miniapps/easel afetch {1}.afa Delta'.format(builddir, tmppfx), expect_success=False)  # retrieval from .afa  is expected to fail
 
 # Now the same tests again but with indexed retrieval.   Creates {}.sto.ssi index file.  Need -f to allow overwrite in any -o|-O now.

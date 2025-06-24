@@ -1,10 +1,10 @@
-.TH "esl\-seqrange" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel seqrange" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
-esl\-seqrange \- determine a range of sequences for one of many parallel processes
+easel seqrange \- determine range of seqs for chunk of a parallel job
 
 .SH SYNOPSIS
-.B esl\-sfetch
+.B easel seqrange
 [\fIoptions\fR]
 .I seqfile
 .I procidx
@@ -13,7 +13,7 @@ esl\-seqrange \- determine a range of sequences for one of many parallel process
 .SH DESCRIPTION
 
 .PP
-.B esl\-seqrange
+.B easel seqrange
 reads an SSI-indexed 
 .I seqfile
 and determines the range of sequence indices in that file that process
@@ -33,7 +33,7 @@ must be indexed first using
 This creates an SSI index file
 .IR seqfile .ssi.
 An SSI file is required in order for
-.B esl\-seqrange
+.B easel seqrange
 to work.
 
 .PP
@@ -79,6 +79,11 @@ is case-insensitive (\fBfasta\fR or \fBFASTA\fR both work).
 
 
 .SH SEE ALSO
+
+.B man easel
+for more information about 
+Easel miniapps, their shared behaviors, and 
+some standardized options.
 
 .nf
 @EASEL_URL@

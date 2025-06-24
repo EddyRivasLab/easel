@@ -1,4 +1,4 @@
-/* Map two multiple sequence alignments to each other.
+/* `easel alimap`: map two multiple sequence alignments to each other
  *
  * EPN, Tue Sep 23 13:39:03 2008
  */
@@ -25,12 +25,9 @@
 #include "esl_dmatrix.h"
 #include "esl_vectorops.h"
 #include "esl_stack.h"
+#include "esl_subcmd.h"
 #include "esl_tree.h"
 #include "esl_wuss.h"
-
-static char banner[] = "map two alignments to each other";
-static char usage[]  = "[options] <msafile1> <msafile2>\n\
-<msafile1> and <msafile2> must be in Stockholm format.";
 
 #define NCHOICES 3
 #define DIAG 0
@@ -42,7 +39,7 @@ static int  map_sub_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL
 static int  map_rfpos_to_apos(ESL_MSA *msa, int **ret_rf2a_map, int **ret_a2rf_map, int *ret_rflen);
 static int  map2masks(const ESL_GETOPTS *go, char *errbuf, int alen1, int alen2, int *a2rf_map1, int *a2rf_map2, int *rf2a_map1, int *rf2a_map2, int rflen1, int rflen2, int *msa1_to_msa2_map);
 
-static ESL_OPTIONS options[] = {
+static ESL_OPTIONS cmd_options[] = {
   /* name          type        default  env   range      togs reqs  incomp                      help                                                       docgroup */
   { "-h",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "help; show brief info on version and usage",                     1 },
   { "-q",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "be quiet, don't print mapping of each column",                   1 },
@@ -58,59 +55,23 @@ static ESL_OPTIONS options[] = {
 };
 
 int
-main(int argc, char **argv)
+esl_cmd_alimap(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
-  ESL_GETOPTS  *go      = NULL;	/* application configuration       */
-  ESL_ALPHABET *abc     = NULL;	/* biological alphabet             */
-  char         *alifile1= NULL;	/* alignment 1 file name           */
-  char         *alifile2= NULL;	/* alignment 2 file name           */
-  int           fmt;		/* format code for alifiles        */
-  ESL_MSAFILE  *afp1    = NULL;	/* open alignment file 1           */
-  ESL_MSAFILE  *afp2    = NULL;	/* open alignment file 2           */
-  ESL_MSA      *msa1    = NULL;	/* multiple sequence alignment 1   */
-  ESL_MSA      *msa2    = NULL;	/* multiple sequence alignment 2   */
-  int           status;		/* easel return code               */
+  ESL_GETOPTS  *go         = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, /*custom opthelp_f=*/NULL);
+  char         *alifile1   = esl_opt_GetArg(go, 1);
+  char         *alifile2   = esl_opt_GetArg(go, 2);
+  ESL_ALPHABET *abc        = NULL;
+  int           fmt        = eslMSAFILE_STOCKHOLM;   // both MSA files must be in Stockholm format
+  ESL_MSAFILE  *afp1       = NULL;
+  ESL_MSAFILE  *afp2       = NULL;
+  ESL_MSA      *msa1       = NULL;
+  ESL_MSA      *msa2       = NULL;
+  int           status;		
   char          errbuf[eslERRBUFSIZE*4];
 
   int  *msa1_to_msa2_map;       /* map from <msafile1> to <msafile2> */
   char *sub_msa1_to_msa2_mask;  /* with --sub the map from <msafile1> to <msafile2> in mask form */
   FILE *subfp = NULL;
-
-  /***********************************************
-   * Parse command line
-   ***********************************************/
-
-  go = esl_getopts_Create(options);
-  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK ||
-      esl_opt_VerifyConfig(go)               != eslOK)
-    {
-      printf("Failed to parse command line: %s\n", go->errbuf);
-      esl_usage(stdout, argv[0], usage);
-      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
-      exit(1);
-    }
-
-  if (esl_opt_GetBoolean(go, "-h") )
-    {
-      esl_banner(stdout, argv[0], banner);
-      esl_usage (stdout, argv[0], usage);
-      puts("\nwhere basic options are:");
-      esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
-      exit(0);
-    }
-
-  if (esl_opt_ArgNumber(go) != 2) 
-    {
-      printf("Incorrect number of command line arguments.\n");
-      esl_usage(stdout, argv[0], usage);
-      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
-      exit(1);
-    }
-
-  alifile1 = esl_opt_GetArg(go, 1);
-  alifile2 = esl_opt_GetArg(go, 2);
-
-  fmt             = eslMSAFILE_STOCKHOLM;
 
   /***********************************************
    * Open the MSA files

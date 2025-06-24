@@ -587,31 +587,38 @@ AC_CONFIG_FILES([ \
  documentation/Makefile \
  ])
 
-# Substitutions in Easel man pages:
+# Substitutions in Easel miniapp man pages:
 # EASEL_VERSION, EASEL_DATE, EASEL_COPYRIGHT, EASEL_LICENSE, EASEL_URL
 AC_CONFIG_FILES([ \
-  miniapps/esl-afetch.man      \
-  miniapps/esl-alimanip.man    \
-  miniapps/esl-alimap.man      \
-  miniapps/esl-alimask.man     \
-  miniapps/esl-alimerge.man    \
-  miniapps/esl-alipid.man      \
-  miniapps/esl-alirev.man      \
-  miniapps/esl-alistat.man     \
-  miniapps/esl-compalign.man   \
-  miniapps/esl-compstruct.man  \
-  miniapps/esl-construct.man   \
-  miniapps/esl-histplot.man    \
-  miniapps/esl-mask.man        \
-  miniapps/esl-mixdchlet.man   \
-  miniapps/esl-reformat.man    \
-  miniapps/esl-selectn.man     \
-  miniapps/esl-seqrange.man    \
-  miniapps/esl-seqstat.man     \
-  miniapps/esl-sfetch.man      \
-  miniapps/esl-ssdraw.man      \
-  miniapps/esl-weight.man      \
-  miniapps/easel-translate.man \
+  miniapps/easel.man             \
+  miniapps/easel-afetch.man      \
+  miniapps/easel-afetchn.man     \
+  miniapps/easel-aindex.man      \
+  miniapps/easel-alimanip.man    \
+  miniapps/easel-alimap.man      \
+  miniapps/easel-alipid.man      \
+  miniapps/easel-alirev.man      \
+  miniapps/easel-compalign.man   \
+  miniapps/easel-compstruct.man  \
+  miniapps/easel-construct.man   \
+  miniapps/easel-downsample.man  \
+  miniapps/easel-filter.man      \
+  miniapps/easel-histplot.man    \
+  miniapps/easel-kmer.man        \
+  miniapps/easel-mask.man        \
+  miniapps/easel-msashuf.man     \
+  miniapps/easel-msastat.man     \
+  miniapps/easel-reformat.man    \
+  miniapps/easel-seqrange.man    \
+  miniapps/easel-seqstat.man     \
+  miniapps/easel-sfetch.man      \
+  miniapps/easel-sfetchn.man     \
+  miniapps/easel-shuffle.man     \
+  miniapps/easel-sindex.man      \
+  miniapps/easel-ssdraw.man      \
+  miniapps/easel-synth.man       \
+  miniapps/easel-translate.man   \
+  miniapps/easel-weight.man      \
  ])
 
 AC_CONFIG_HEADERS([decoy_config.h])   # This keeps gnu 'autoheader' from overwriting our esl_config.h.in

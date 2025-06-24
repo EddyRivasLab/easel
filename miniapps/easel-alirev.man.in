@@ -1,11 +1,11 @@
-.TH "esl\-alirev" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel alirev" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
-esl\-alirev \- reverse complement a multiple alignment 
+easel alirev \- reverse complement multiple sequence alignment(s)
 
 
 .SH SYNOPSIS
-.B esl\-alirev
+.B easel alirev
 [\fIoptions\fR]
 .I msafile
 
@@ -13,7 +13,7 @@ esl\-alirev \- reverse complement a multiple alignment
 .SH DESCRIPTION
 
 .PP
-.B esl\-alirev
+.B easel alirev
 reads the multiple alignment in
 .I msafile
 and outputs its reverse complement to stdout.
@@ -133,6 +133,11 @@ contains RNA sequences.
 
 
 .SH SEE ALSO
+
+.B man easel
+for more information about 
+Easel miniapps, their shared behaviors, and 
+some standardized options.
 
 .nf
 @EASEL_URL@

@@ -1,10 +1,10 @@
-.TH "esl\-alipid" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel alipid" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
-esl\-alipid \- calculate pairwise percent identities for all sequence pairs in an MSA
+easel alipid \- calculate pairwise %id for all aligned seq pairs in MSA
 
 .SH SYNOPSIS
-.B esl\-alipid
+.B easel alipid
 [\fIoptions\fR]
 .I msafile
 
@@ -12,7 +12,7 @@ esl\-alipid \- calculate pairwise percent identities for all sequence pairs in a
 .SH DESCRIPTION
 
 .PP
-.B esl\-alipid
+.B easel alipid
 calculates the pairwise percent identity of each sequence pair in
 in the MSA(s) in 
 .I msafile.
@@ -118,6 +118,11 @@ contains RNA sequences.
 
 
 .SH SEE ALSO
+
+.B man easel
+for more information about 
+Easel miniapps, their shared behaviors, and 
+some standardized options.
 
 .nf
 @EASEL_URL@

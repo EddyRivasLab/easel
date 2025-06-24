@@ -1,4 +1,4 @@
-/* Manipulate a multiple sequence alignment in various ways.
+/* `easel alimanip`: manipulate a multiple sequence alignment in various ways
  */
 #include <esl_config.h>
 
@@ -24,12 +24,10 @@
 #include "esl_sq.h"
 #include "esl_sqio.h"
 #include "esl_stack.h"
+#include "esl_subcmd.h"
 #include "esl_tree.h"
 #include "esl_vectorops.h"
 #include "esl_wuss.h"
-
-static char banner[] = "manipulate a multiple sequence alignment";
-static char usage[]  = "[options] <msafile>";
 
 #define CLUSTOPTS             "--cn-id,--cs-id,--cx-id,--cn-ins,--cs-ins,--cx-ins" /* Exclusive choice for clustering */
 #define CHOOSESEQOPTS         "--seq-k,--seq-r,--seq-ins,--reorder" /* Exclusive choice for choosing which seqs to keep/remove */
@@ -76,7 +74,7 @@ static int   map_rfpos_to_apos(ESL_MSA *msa, ESL_ALPHABET *abc, char *errbuf, in
 static int   convert_post_to_pp(ESL_MSA *msa, char *errbuf, int nali);
 static int   compare_ints(const void *el1, const void *el2);
 
-static ESL_OPTIONS options[] = {
+static ESL_OPTIONS cmd_options[] = {
   /* name          type        default  env   range      togs reqs  incomp                      help                                                         docgroup */
   { "-h",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "help; show brief info on version and usage",                       1 },
   { "-o",          eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "output the alignment to file <f>, not stdout",                     1 },
@@ -135,7 +133,7 @@ static ESL_OPTIONS options[] = {
 };
 
 int
-main(int argc, char **argv)
+esl_cmd_alimanip(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
   ESL_GETOPTS  *go      = NULL;	/* application configuration       */
   ESL_ALPHABET *abc     = NULL;	/* biological alphabet             */
@@ -205,57 +203,49 @@ main(int argc, char **argv)
   int             nseq_read = 0;        /* number of sequences read from current alignment */
   int             nseq_regurged = 0;     /* number of sequences regurgitated from current alignment */
 
+  char          *lastslash = NULL;
 
   /***********************************************
    * Parse command line
    ***********************************************/
 
-  go = esl_getopts_Create(options);
+  lastslash = strrchr(topcmd, '/');
+  if (lastslash) topcmd = lastslash+1;
+
+  go = esl_getopts_Create(cmd_options);
   if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK ||
       esl_opt_VerifyConfig(go)               != eslOK)
     {
-      printf("Failed to parse command line: %s\n", go->errbuf);
-      esl_usage(stdout, argv[0], usage);
-      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
+      esl_fprintf(stderr, "Failed to parse command line: %s\n", go->errbuf);
+      esl_fprintf(stderr, "Usage:\n  %s %s %s\n", topcmd, sub->subcmd, sub->usage);
+      esl_fprintf(stderr, "\nTo see more help on available options, do `%s %s -h`\n\n", topcmd, sub->subcmd);
       exit(1);
     }
 
-  if (esl_opt_GetBoolean(go, "--devhelp") )
+  if ( esl_opt_GetBoolean(go, "--devhelp") || esl_opt_GetBoolean(go, "-h") )
     {
-      esl_banner(stdout, argv[0], banner);
-      esl_usage (stdout, argv[0], usage);
-      puts("\nwhere basic options are:");
+      esl_printf("%s %s :: %s\n", topcmd, sub->subcmd, sub->description);
+      esl_printf("\nUsage:\n  %s %s %s\n", topcmd, sub->subcmd, sub->usage);
+      esl_printf("\nwhere basic options are:\n");
       esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
-      puts("\noptions for removing/reordering/trimming sequences:");
+      esl_printf("\noptions for removing/reordering/trimming sequences:\n");
       esl_opt_DisplayHelp(stdout, go, 2, 2, 80); 
-      puts("\noptions for adding/removing alignment annotation:");
+      esl_printf("\noptions for adding/removing alignment annotation:\n");
       esl_opt_DisplayHelp(stdout, go, 3, 2, 80); 
-      puts("\noptions for specifying bio alphabet:");
+      esl_printf("\noptions for specifying bio alphabet:\n");
       esl_opt_DisplayHelp(stdout, go, 4, 2, 80);
-      puts("\nundocumented, experimental developer options:");
-      esl_opt_DisplayHelp(stdout, go, 101, 2, 80);
-      exit(0);
-    }
-  if (esl_opt_GetBoolean(go, "-h") )
-    {
-      esl_banner(stdout, argv[0], banner);
-      esl_usage (stdout, argv[0], usage);
-      puts("\nwhere basic options are:");
-      esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
-      puts("\noptions for removing/reordering/trimming sequences:");
-      esl_opt_DisplayHelp(stdout, go, 2, 2, 80); 
-      puts("\noptions for adding/removing alignment annotation:");
-      esl_opt_DisplayHelp(stdout, go, 3, 2, 80); 
-      puts("\noptions for specifying bio alphabet:");
-      esl_opt_DisplayHelp(stdout, go, 4, 2, 80);
+      if ( esl_opt_GetBoolean(go, "--devhelp")) {
+        esl_printf("\nundocumented, experimental developer options:\n");
+        esl_opt_DisplayHelp(stdout, go, 101, 2, 80);
+      }
       exit(0);
     }
 
-  if (esl_opt_ArgNumber(go) != 1) 
+  if (esl_opt_ArgNumber(go) != sub->nargs) 
     {
-      printf("Incorrect number of command line arguments.\n");
-      esl_usage(stdout, argv[0], usage);
-      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
+      esl_fprintf(stderr, "Incorrect number of command line arguments.\n");
+      esl_fprintf(stderr, "Usage:\n  %s %s %s\n", topcmd, sub->subcmd, sub->usage);
+      esl_fprintf(stderr, "\nTo see more help on available options, do `%s %s -h`\n\n", topcmd, sub->subcmd);
       exit(1);
     }
 

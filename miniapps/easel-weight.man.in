@@ -1,17 +1,17 @@
-.TH "esl\-weight" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel weight" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
-esl\-weight \- calculate sequence weights in MSA(s)
+easel weight \- assign sequence weights to an MSA
 
 .SH SYNOPSIS
-.B esl\-weight
+.B easel weight
 [\fIoptions\fR]
 .I msafile
 
 .SH DESCRIPTION
 
 .PP
-.B esl\-weight
+.B easel weight
 calculates individual sequence weights for each alignment in 
 .I msafile 
 and outputs a new 
@@ -86,6 +86,11 @@ Assert that the
 contains RNA sequences. 
 
 .SH SEE ALSO
+
+.B man easel
+for more information about 
+Easel miniapps, their shared behaviors, and 
+some standardized options.
 
 .nf
 @EASEL_URL@

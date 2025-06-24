@@ -1,11 +1,11 @@
-.TH "esl\-compstruct" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel compstruct" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
-esl\-compstruct \- calculate accuracy of RNA secondary structure predictions
+easel compstruct \- compare trusted vs. test RNA secondary structures
 
 
 .SH SYNOPSIS
-.B esl\-compstruct
+.B easel compstruct
 [\fIoptions\fR]
 .I trusted_file
 .I test_file
@@ -15,7 +15,7 @@ esl\-compstruct \- calculate accuracy of RNA secondary structure predictions
 .SH DESCRIPTION
 
 .PP
-.B esl\-compstruct 
+.B easel compstruct 
 evaluates the accuracy of RNA secondary structure predictions
 on a per-base-pair basis.
 The 
@@ -25,7 +25,7 @@ secondary structure annotation. The
 .I test_file
 contains the same sequences, in the same order, with
 predicted RNA secondary structure annotation.
-.B esl\-compstruct 
+.B easel compstruct 
 reads the structures and compares them,
 and calculates both the sensitivity (the number
 of true base pairs that are correctly predicted)
@@ -112,6 +112,11 @@ scripts, for example, to suppress version/date information.)
 
 
 .SH SEE ALSO
+
+.B man easel
+for more information about 
+Easel miniapps, their shared behaviors, and 
+some standardized options.
 
 .nf
 @EASEL_URL@

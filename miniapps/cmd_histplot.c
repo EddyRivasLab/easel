@@ -1,4 +1,4 @@
-/* esl-histplot  - collate data into a histogram and output xmgrace datafile.
+/* `easel histplot`: collate a histogram as an xmgrace datafile
  *                  
  * SRE, Tue Feb 21 14:18:05 2006                  
  */
@@ -20,12 +20,10 @@
 #include "esl_gumbel.h"
 #include "esl_normal.h"
 #include "esl_stats.h"
+#include "esl_subcmd.h"
 
-static char banner[] = "collate a data histogram, output xmgrace datafile";
 
-static char usage[] = "[-options] <datafile>";
-
-static ESL_OPTIONS options[] = {
+static ESL_OPTIONS cmd_options[] = {
   /* name           type         default env rng  togs  reqs inc    help                                          docgrp */
   {"-h",          eslARG_NONE,   FALSE,NULL,NULL, NULL,NULL,NULL,"show help and usage",                               1 },
   {"-o",          eslARG_OUTFILE, NULL,NULL,NULL, NULL,NULL,NULL,"output file for plot (default is stdout)",          1 },
@@ -56,78 +54,48 @@ static ESL_OPTIONS options[] = {
 };
 
 
-int
-main(int argc, char **argv)
+static int
+show_opthelp(const ESL_GETOPTS *go)
 {
-  ESL_HISTOGRAM  *h;		/* full histogram w/ collated values          */
-  ESL_GETOPTS    *go;		/* application configuration                  */
-  char           *datafile;	/* input data; "-" means stdin                */
-  FILE           *ifp;		/* input stream                               */
-  double          x;		/* value of field, after conversion to double */
+  esl_printf("\nwhere general options are:\n");
+  esl_opt_DisplayHelp(stdout, go, 1, 2, 80); // 1= group; 2 = indentation; 80=textwidth
 
-  int             which_field;	/* which field to use as data, 1..nf (default 1)*/
-  char           *outfile;	/* output xmgrace xy data file                  */
-  FILE           *ofp;		/* output data stream                           */
-  double          hmin;		/* initial histogram lower bound                */
-  double          hmax;		/* initial histogram upper bound                */
-  double          hbinsize;	/* histogram's bin size                         */
+  esl_printf("\noptions that control how to read the input file:\n");
+  esl_opt_DisplayHelp(stdout, go, 2, 2, 80); 
 
-  double *xv;
-  int     n;
-  double  params[3];		/* mu, lambda, alpha */
-  double  lambda;
-  double  mu;
-  double  alpha;
-  double  tailp;
+  esl_printf("\noptions that control how to display the output XY file:\n");
+  esl_opt_DisplayHelp(stdout, go, 3, 2, 80); 
 
-  /*****************************************************************
-   * Parse the command line
-   *****************************************************************/
+  esl_printf("\noptional ML fitting or plotting of distributions for comparison:\n");
+  esl_opt_DisplayHelp(stdout, go, 4, 2, 80); 
 
-  go = esl_getopts_Create(options);
-  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK ||
-      esl_opt_VerifyConfig(go)               != eslOK)
-    {
-      printf("Failed to parse command line: %s\n", go->errbuf);
-      esl_usage(stdout, argv[0], usage);
-      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
-      exit(1);
-    }
-    
-  if (esl_opt_GetBoolean(go, "-h")) {
-    esl_banner(stdout, argv[0], banner);
-    esl_usage (stdout, argv[0], usage);
-    puts("\nGeneral options are:");
-    esl_opt_DisplayHelp(stdout, go, 1, 2, 80); /* 1= group; 2 = indentation; 80=textwidth*/
-    puts("\nOptions that control how to read the input file:");
-    esl_opt_DisplayHelp(stdout, go, 2, 2, 80); /* 2= group; 2 = indentation; 80=textwidth*/
-    puts("\nOptions that control how to display the output XY file:");
-    esl_opt_DisplayHelp(stdout, go, 3, 2, 80); /* 3= group; 2 = indentation; 80=textwidth*/
-    puts("\nOptional ML fitting or plotting of distributions for comparison:");
-    esl_opt_DisplayHelp(stdout, go, 4, 2, 80); /* 4= group; 2 = indentation; 80=textwidth*/
-    return eslOK;
-  }
-  which_field = esl_opt_GetInteger(go, "-f");
-  outfile     = esl_opt_GetString (go, "-o");
-  tailp       = esl_opt_GetReal   (go, "-t");
-  hbinsize    = esl_opt_GetReal   (go, "-w");
-  hmin        = esl_opt_GetReal   (go, "--min");
-  hmax        = esl_opt_GetReal   (go, "--max");
-  lambda      = esl_opt_GetReal   (go, "--lambda");
-  mu          = esl_opt_GetReal   (go, "--mu");
-  alpha       = esl_opt_GetReal   (go, "--alpha");
+  return eslOK;
+}
 
-  ESL_DASSERT1(( which_field >= 1 ));
 
-  if (esl_opt_ArgNumber(go) != 1) 
-    {
-      printf("Incorrect number of command line arguments.\n");
-      esl_usage(stdout, argv[0], usage);
-      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
-      exit(1);
-    }
+int
+esl_cmd_histplot(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
+{
+  ESL_GETOPTS  *go    = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, &show_opthelp);
+  char   *datafile    = esl_opt_GetArg(go, 1);               // input data; "-" means stdin
+  int     which_field = esl_opt_GetInteger(go, "-f");	     // which field to use as data, 1..nf (default 1)
+  char   *outfile     = esl_opt_GetString (go, "-o");	     // output xmgrace xy data file
+  double  tailp       = esl_opt_GetReal   (go, "-t");        // tail mass probability to fit to
+  double  hbinsize    = esl_opt_GetReal   (go, "-w");  	     // histogram's bin size 
+  double  hmin        = esl_opt_GetReal   (go, "--min");     // initial histogram lower bound 
+  double  hmax        = esl_opt_GetReal   (go, "--max");     // initial histogram upper bound
+  double  lambda      = esl_opt_GetReal   (go, "--lambda");
+  double  mu          = esl_opt_GetReal   (go, "--mu");
+  double  alpha       = esl_opt_GetReal   (go, "--alpha");
 
-  datafile = esl_opt_GetArg(go, 1);
+  ESL_HISTOGRAM  *h    = NULL;  // full histogram w/ collated values 
+  FILE           *ifp  = NULL;  // input stream
+  double          x;		// value of field, after conversion to double
+  FILE           *ofp  = NULL;	// output data stream 
+  double         *xv   = NULL;
+  int             n;
+  double          params[3];	// mu, lambda, alpha
+
 
   /*****************************************************************
    * Open the input and output datafiles, and init the histogram.

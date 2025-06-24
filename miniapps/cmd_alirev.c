@@ -1,15 +1,17 @@
-
+/* `easel alirev`: reverse complement multiple sequence alignment(s)
+ */
 
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_getopts.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
+#include "esl_subcmd.h"
 #include "esl_vectorops.h"
 
 #include <stdio.h>
 
-static ESL_OPTIONS options[] = {
+static ESL_OPTIONS cmd_options[] = {
   /* name             type          default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",        0 },
   { "--informat",  eslARG_STRING,      NULL,  NULL, NULL,  NULL,  NULL, NULL, "specify the input MSA file is in format <s>", 0 }, 
@@ -18,13 +20,12 @@ static ESL_OPTIONS options[] = {
   { "--rna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use RNA alphabet",                            0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
-static char usage[]  = "[-options] <msafile>";
-static char banner[] = "reverse complement multiple sequence alignment(s)";
+
 
 int
-main(int argc, char **argv)
+esl_cmd_alirev(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
-  ESL_GETOPTS  *go      = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
+  ESL_GETOPTS  *go      = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, /*custom opthelp_f=*/NULL);
   char         *msafile = esl_opt_GetArg(go, 1);
   int           infmt   = eslMSAFILE_UNKNOWN;
   int           outfmt  = eslMSAFILE_UNKNOWN;

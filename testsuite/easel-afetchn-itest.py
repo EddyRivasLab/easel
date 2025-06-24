@@ -14,8 +14,7 @@ import subprocess
 import sys
 import esl_itest
 
-progs_used = ( 'miniapps/easel',
-               'miniapps/esl-reformat' )
+progs_used = [ 'miniapps/easel' ]
 
 (builddir, srcdir, tmppfx) = esl_itest.getargs(sys.argv)
 esl_itest.check_progs(builddir, progs_used)

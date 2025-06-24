@@ -1,10 +1,11 @@
-.TH "esl\-histplot" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel histplot" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
-esl\-histplot \- collate data histogram, output xmgrace datafile
+easel histplot \- collate a histogram as an xmgrace datafile
+
 
 .SH SYNOPSIS
-.B esl\-histplot
+.B easel histplot
 [\fIoptions\fR]
 .I datafile
 
@@ -12,7 +13,7 @@ esl\-histplot \- collate data histogram, output xmgrace datafile
 .SH DESCRIPTION
 
 .PP
-.B esl\-histplot
+.B easel histplot
 summarizes numerical data in the input file
 .I datafile.
 
@@ -63,6 +64,11 @@ instead of stdout.
 
 
 .SH SEE ALSO
+
+.B man easel
+for more information about 
+Easel miniapps, their shared behaviors, and 
+some standardized options.
 
 .nf
 @EASEL_URL@

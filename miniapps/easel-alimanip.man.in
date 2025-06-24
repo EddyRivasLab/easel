@@ -1,17 +1,17 @@
-.TH "esl\-alimanip" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel alimanip" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
-esl\-alimanip \- manipulate a multiple sequence alignment
+easel alimanip \- manipulate a multiple sequence alignment in various ways
 
 .SH SYNOPSIS
 
-.B esl\-alimanip
+.B easel alimanip
 [\fIoptions\fR]
 .I msafile
 
 .SH DESCRIPTION
 
-.B esl\-alimanip
+.B easel alimanip
 can manipulate the multiple sequence alignment(s) in 
 .I msafile
 in various ways. Options exist to remove
@@ -364,6 +364,11 @@ contains RNA sequences.
 
 
 .SH SEE ALSO
+
+.B man easel
+for more information about 
+Easel miniapps, their shared behaviors, and 
+some standardized options.
 
 .nf
 @EASEL_URL@

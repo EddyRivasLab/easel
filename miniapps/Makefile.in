@@ -41,47 +41,37 @@ LDFLAGS        = @LDFLAGS@
 DEFS           = @DEFS@
 LIBS           = -leasel @LIBGSL@ @LIBS@ @PTHREAD_LIBS@ -lm
 
-## list of the miniapps to compile.
+## list of the miniapp commands to compile.
 #
-PROGS = esl-afetch\
-	esl-alimanip\
-	esl-alimap\
-	esl-alimask\
-	esl-alimerge\
-	esl-alipid\
-	esl-alirev\
-	esl-alistat\
-	esl-compalign\
-	esl-compstruct\
-	esl-construct\
-	esl-histplot\
-	esl-mask\
-	esl-mixdchlet\
-	esl-reformat\
-	esl-selectn\
-	esl-seqrange\
-	esl-seqstat\
-	esl-sfetch\
-	esl-ssdraw\
-	esl-weight
-
 SUBCMDOBJS = \
 	cmd_afetch.o     \
 	cmd_afetchn.o    \
 	cmd_aindex.o     \
+	cmd_alimanip.o   \
+	cmd_alimap.o     \
+	cmd_alipid.o     \
+	cmd_alirev.o     \
+	cmd_compalign.o  \
+	cmd_compstruct.o \
+	cmd_construct.o  \
 	cmd_downsample.o \
 	cmd_filter.o     \
+	cmd_histplot.o   \
 	cmd_kmer.o       \
+	cmd_mask.o       \
 	cmd_msashuf.o    \
 	cmd_msastat.o    \
 	cmd_reformat.o   \
+	cmd_seqrange.o   \
 	cmd_seqstat.o    \
 	cmd_sfetch.o     \
 	cmd_sfetchn.o    \
 	cmd_sindex.o     \
 	cmd_shuffle.o    \
+	cmd_ssdraw.o     \
 	cmd_synth.o      \
-	cmd_translate.o
+	cmd_translate.o  \
+	cmd_weight.o
 
 # beautification magic stolen from git 
 #
@@ -106,9 +96,6 @@ check:  ${PROGS} easel
 
 easel:  % : %.c ../libeasel.a ${SUBCMDOBJS}
 	${QUIET_GEN}${CC} ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ $< ${SUBCMDOBJS} ${LIBS}
-
-${PROGS}: % : %.c ../libeasel.a 
-	${QUIET_GEN}${CC} ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ $< ${LIBS}
 
 ${SUBCMDOBJS}: %.o : %.c ../libeasel.a
 	${QUIET_CC}${CC} -I. -I.. -I${srcdir} -I${srcdir}/.. ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} -c $<

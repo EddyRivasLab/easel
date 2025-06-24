@@ -1,4 +1,4 @@
-/* Assigns sequence weights to an MSA.
+/* `easel weight`: assign sequence weights to an MSA
  */
 #include <esl_config.h>
 
@@ -12,10 +12,11 @@
 #include "esl_msafile.h"
 #include "esl_msaweight.h"
 #include "esl_random.h"
+#include "esl_subcmd.h"
 
 #define WGTOPTS "-g,-p,-b,-f"
 
-static ESL_OPTIONS options[] = {
+static ESL_OPTIONS cmd_options[] = {
   /* name           type      default  env    range toggles reqs  incomp               help                                     docgroup*/
   { "-h",         eslARG_NONE,   FALSE, NULL,     NULL,   NULL,NULL,   NULL,          "show brief help on version and usage",        1 },
   { "-g",         eslARG_NONE,"default",NULL,     NULL,WGTOPTS,NULL,   NULL,          "Gerstein/Sonnhammer/Chothia tree weights",    1 },
@@ -31,53 +32,18 @@ static ESL_OPTIONS options[] = {
   { "--rna",      eslARG_NONE,   FALSE, NULL,     NULL,   NULL,NULL,"--amino,--dna",  "<msa file> contains RNA alignments",          1 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
-static char usage[]  = "[-options] <msa file>";
-static char banner[] = "calculate sequence weights for an alignment";
-
-static void
-cmdline_failure(char *argv0, ESL_GETOPTS *go, char *format, ...)
-{
-  va_list argp;
-
-  va_start(argp, format);
-  vfprintf(stderr, format, argp);
-  va_end(argp);
-  esl_usage(stdout, argv0, usage);
-  puts("\n options:");
-  esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
-  /* printf("\nTo see more help on available options, do %s -h\n\n", argv0); */
-  exit(1);
-}
-
-static void
-cmdline_help(char *argv0, ESL_GETOPTS *go) 
-{
-  esl_banner(stdout, argv0, banner);
-  esl_usage (stdout, argv0, usage);
-  puts("\n options:");
-  esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
-  exit(0);
-}
 
 int
-main(int argc, char **argv)
+esl_cmd_weight(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
-  ESL_GETOPTS    *go       = NULL; 
-  char           *msafile  = NULL;
+  ESL_GETOPTS    *go       = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, /*custom opthelp_f=*/NULL);
+  char           *msafile  = esl_opt_GetArg(go, 1);
   int             fmt      = eslMSAFILE_UNKNOWN;
   ESL_ALPHABET   *abc      = NULL;
   ESL_MSAFILE    *afp      = NULL;
   ESL_MSA        *msa      = NULL;
   int             status;
   FILE           *ofp;	   /* output stream       */
-
-  /* Parse command line */
-  go = esl_getopts_Create(options);
-  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) cmdline_failure(argv[0], go, "Failed to parse command line: %s\n", go->errbuf);
-  if (esl_opt_VerifyConfig(go)               != eslOK) cmdline_failure(argv[0], go, "Error in app configuration: %s\n",   go->errbuf);
-  if (esl_opt_GetBoolean(go, "-h") )                   cmdline_help   (argv[0], go);
-  if (esl_opt_ArgNumber(go) != 1)                      cmdline_failure(argv[0], go, "Incorrect number of command line arguments.\n");
-  msafile = esl_opt_GetArg(go, 1);
 
   if (esl_opt_IsOn(go, "--informat")) {
     fmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));

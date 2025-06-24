@@ -1,4 +1,5 @@
-/* Draw secondary structure diagrams given a postscript SS template.
+/* `easel ssdraw`: draw secondary structure diagrams using postscript template
+ *
  * Initial development of this program was for SSU rRNA structures
  * with templates derived from Gutell's CRW (Comparative RNA Website,
  * http://www.rna.ccbb.utexas.edu/). 
@@ -29,6 +30,7 @@
 #include "esl_sq.h"
 #include "esl_sqio.h"
 #include "esl_stack.h"
+#include "esl_subcmd.h"
 #include "esl_tree.h"
 #include "esl_vectorops.h"
 #include "esl_wuss.h"
@@ -520,11 +522,7 @@ static int  is_gu_or_ug_bp(char i, char j);
 static int  compare_two_cmyk_colors(float acol_C, float acol_M, float acol_Y, float acol_K, float bcol_C, float bcol_M, float bcol_Y, float bcol_K);
 static void define_outline_procedure(FILE *fp);
 
-static char banner[] = "draw postscript secondary structure diagrams";
-static char usage[]  = "[options] <msafile> <SS postscript template> <output postscript file name>\n\
-The <msafile> must be in Stockholm format.";
-
-static ESL_OPTIONS options[] = {
+static ESL_OPTIONS cmd_options[] = {
   /* name       type        default env   range togs  reqs         incomp     help                                                   docgroup */
   { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "help; show brief info on version and usage",              1 },
   { "-d",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw default set of alignment summary diagrams",          1 },
@@ -573,15 +571,49 @@ static ESL_OPTIONS options[] = {
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
-int
-main(int argc, char **argv)
+static int
+show_opthelp(const ESL_GETOPTS *go)
 {
-  ESL_GETOPTS    *go      = NULL;	/* application configuration       */
-  ESL_ALPHABET   *abc     = NULL;	/* biological alphabet             */
-  char           *alifile = NULL;	/* alignment file name             */
-  char           *outfile = NULL;	/* output ps file name             */
-  char           *templatefile = NULL;  /* template file, specifying >= 1 SS diagrams 
-		  		         * (each must have a unique consensus length) */
+  esl_printf("\nwhere basic options are:\n");
+  esl_opt_DisplayHelp(stdout, go, /*docgroup=*/1, /*indent=*/2, /*textwidth=*/80);
+
+  esl_printf("\noptions for alignment summary diagrams (incompatible with --indi):\n");
+  esl_opt_DisplayHelp(stdout, go, 2, 2, 80); 
+
+  esl_printf("\noptions for drawing individual sequences (require --indi):\n");
+  esl_opt_DisplayHelp(stdout, go, 3, 2, 80); 
+
+  esl_printf("\noptions for omitting parts of the diagram:\n");
+  esl_opt_DisplayHelp(stdout, go, 8, 2, 80); 
+
+  esl_printf("\noptions for drawing simple two color diagrams of masks:\n");
+  esl_opt_DisplayHelp(stdout, go, 5, 2, 80); 
+
+  esl_printf("\nexpert options for controlling individual seq diagrams (require --indi):\n");
+  esl_opt_DisplayHelp(stdout, go, 9, 2, 80); 
+
+  esl_printf("\nexpert options related to consensus sequence definition:\n");
+  esl_opt_DisplayHelp(stdout, go, 7, 2, 80); 
+
+  esl_printf("\nexpert options controlling style of masked positions:\n");
+  esl_opt_DisplayHelp(stdout, go, 4, 2, 80); 
+
+  esl_printf("\nexpert options related to input files:\n");
+  esl_opt_DisplayHelp(stdout, go, 6, 2, 80); 
+
+  return eslOK;
+}
+
+
+
+int
+esl_cmd_ssdraw(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
+{
+  ESL_GETOPTS    *go           = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, &show_opthelp);
+  char           *alifile      = esl_opt_GetArg(go, 1);
+  char           *templatefile = esl_opt_GetArg(go, 2);  // template file, specifying >= 1 SS diagrams (each must have a unique consensus length) 
+  char           *outfile      = esl_opt_GetArg(go, 3);  // output .ps postscript file
+  ESL_ALPHABET   *abc          = NULL;
   int             fmt;		        /* format code for alifile         */
   ESL_MSAFILE    *afp     = NULL;	/* open alignment file, normal interface              */
   ESL_MSAFILE2   *afp2    = NULL;	/* open alignment file, legacy small-memory interface */
@@ -642,52 +674,11 @@ main(int argc, char **argv)
   int             need_span_ct = FALSE;  /* TRUE if span_ct must be calculated (if do_dint || do_ifreq || do_iavglen || do_span) */
   int             tmp_Mb = 0;          
   int             predicted_Mb = 0;    /* predicted size of the output file, calced if --indi */
-  /***********************************************
-   * Parse command line
-   ***********************************************/
 
-  go = esl_getopts_Create(options);
-  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK ||
-      esl_opt_VerifyConfig(go)               != eslOK)
-    {
-      printf("Failed to parse command line: %s\n", go->errbuf);
-      esl_usage(stdout, argv[0], usage);
-      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
-      exit(1);
-    }
 
-  if (esl_opt_GetBoolean(go, "-h") )
-    {
-      esl_banner(stdout, argv[0], banner);
-      esl_usage (stdout, argv[0], usage);
-      puts("\n where basic options are:");
-      esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
-      puts("\noptions for alignment summary diagrams (incompatible with --indi):");
-      esl_opt_DisplayHelp(stdout, go, 2, 2, 80); 
-      puts("\noptions for drawing individual sequences (require --indi):");
-      esl_opt_DisplayHelp(stdout, go, 3, 2, 80); 
-      puts("\noptions for omitting parts of the diagram:");
-      esl_opt_DisplayHelp(stdout, go, 8, 2, 80); 
-      puts("\noptions for drawing simple two color diagrams of masks:");
-      esl_opt_DisplayHelp(stdout, go, 5, 2, 80); 
-      puts("\nexpert options for controlling individual seq diagrams (require --indi):");
-      esl_opt_DisplayHelp(stdout, go, 9, 2, 80); 
-      puts("\nexpert options related to consensus sequence definition:");
-      esl_opt_DisplayHelp(stdout, go, 7, 2, 80); 
-      puts("\nexpert options controlling style of masked positions:");
-      esl_opt_DisplayHelp(stdout, go, 4, 2, 80); 
-      puts("\nexpert options related to input files:");
-      esl_opt_DisplayHelp(stdout, go, 6, 2, 80); 
-      exit(0);
-    }
-
-  if (esl_opt_ArgNumber(go) != 3) 
-    {
-      printf("Incorrect number of command line arguments.\n");
-      esl_usage(stdout, argv[0], usage);
-      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
-      exit(1);
-    }
+  /*****************************************************************
+   * Preliminaries 
+   *****************************************************************/
 
   /* Check for incompatible options that aren't simple to check with esl_getopts */
   /* --mask-a requires either --mask-x or --mask-u */
@@ -695,16 +686,9 @@ main(int argc, char **argv)
     esl_fatal("--mask-a requires either --mask-u or mask-x");
   }
 
-  alifile      = esl_opt_GetArg(go, 1);
-  templatefile = esl_opt_GetArg(go, 2);
-  outfile      = esl_opt_GetArg(go, 3);
+  if ((status = get_command(go, errbuf, &command)) != eslOK) esl_fatal(errbuf);
+  if ((status = get_date(errbuf, &date))           != eslOK) esl_fatal(errbuf);
 
-  if((status = get_command(go, errbuf, &command)) != eslOK) esl_fatal(errbuf);
-  if((status = get_date(errbuf, &date))           != eslOK) esl_fatal(errbuf);
-
-  /****************/
-  /* Premlinaries */
-  /****************/
   /* allocate and fill predefined one-cell colors, these are hardcoded */
   ESL_ALLOC(hc_onecell, sizeof(float *) * NOC);
   for(z = 0; z < NOC; z++) hc_onecell[z] = NULL;

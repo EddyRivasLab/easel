@@ -1,10 +1,10 @@
-.TH "esl\-mask" 1 "@EASEL_DATE@" "Easel @EASELVERSION@" "Easel Manual"
+.TH "easel mask" 1 "@EASEL_DATE@" "Easel @EASELVERSION@" "Easel Manual"
 
 .SH NAME
-esl\-mask \- mask sequence residues with X's (or other characters)
+easel mask \- mask specified segments of sequences
 
 .SH SYNOPSIS
-.B esl\-mask
+.B easel mask
 [\fIoptions\fR]
 .I seqfile
 .I maskfile
@@ -13,7 +13,7 @@ esl\-mask \- mask sequence residues with X's (or other characters)
 .SH DESCRIPTION
 
 .PP
-.B esl\-mask
+.B easel mask
 reads lines from 
 .I maskfile 
 that give start/end coordinates for
@@ -165,6 +165,11 @@ is case-insensitive (\fBfasta\fR or \fBFASTA\fR both work).
 
 
 .SH SEE ALSO
+
+.B man easel
+for more information about 
+Easel miniapps, their shared behaviors, and 
+some standardized options.
 
 .nf
 @EASEL_URL@

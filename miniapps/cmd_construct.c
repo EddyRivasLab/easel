@@ -1,5 +1,4 @@
-/* Construct consensus secondary structures from individually annotated 
- * secondary structures
+/* `easel construct`: describe or create consensus secondary structure
  *
  * EPN, Mon May 11 06:49:37 2009
  */
@@ -23,18 +22,15 @@
 #include "esl_dmatrix.h"
 #include "esl_vectorops.h"
 #include "esl_stack.h"
+#include "esl_subcmd.h"
 #include "esl_tree.h"
 #include "esl_wuss.h"
 
 #define CONSOPTS  "-x,--ffreq,--fmin,-r,-c,--indi"  /* exclusive options for defining a new consensus structure */
 
-static char banner[] = "describe or create a consensus secondary structure";
-static char usage[]  = "[options] <msafile>\n\
-<msafile> must contain RNA or DNA sequences and be in Stockholm format.";
-
 static int  get_gaps_per_column(ESL_MSA *msa, int **ret_ngaps);
 
-static ESL_OPTIONS options[] = {
+static ESL_OPTIONS cmd_options[] = {
   /* name          type        default  env   range      togs reqs  incomp                      help                                                       docgroup */
   { "-h",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "help; show brief info on version and usage",                     1},
   { "-a",          eslARG_NONE,  FALSE, NULL, NULL,      NULL, NULL, CONSOPTS,                  "print info on all conflicting bps in individual structures",     1},
@@ -59,13 +55,28 @@ static ESL_OPTIONS options[] = {
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
-int
-main(int argc, char **argv)
+static int
+show_opthelp(const ESL_GETOPTS *go)
 {
-  ESL_GETOPTS  *go      = NULL;	/* application configuration       */
-  ESL_ALPHABET *abc     = NULL;	/* biological alphabet             */
-  char         *alifile = NULL;	/* alignment file name             */
-  int           fmt;		/* format code for alifiles        */
+  esl_printf("\nwhere basic options are:\n");
+  esl_opt_DisplayHelp(stdout, go, /*docgroup=*/1, /*indent=*/2, /*textwidth=*/80);
+
+  esl_printf("\noptions for defining a new consensus structure (all of these require -o):\n");
+  esl_opt_DisplayHelp(stdout, go, 2, 2, 80);
+
+  esl_printf("\noptions for listing sequences based on structure:\n");
+  esl_opt_DisplayHelp(stdout, go, 3, 2, 80);
+
+  return eslOK;
+}
+
+int
+esl_cmd_construct(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
+{
+  ESL_GETOPTS  *go      = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, &show_opthelp);
+  char         *alifile = esl_opt_GetArg(go, 1);
+  int           fmt     = eslMSAFILE_STOCKHOLM;
+  ESL_ALPHABET *abc     = NULL;	
   ESL_MSAFILE  *afp     = NULL;	/* open alignment file             */
   ESL_MSA      *msa     = NULL;	/* multiple sequence alignment     */
   int           status;		/* easel return code               */
@@ -131,44 +142,6 @@ main(int argc, char **argv)
   int pknot_flag;
   int k,l;
 
-  /***********************************************
-   * Parse command line
-   ***********************************************/
-
-  go = esl_getopts_Create(options);
-  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK ||
-      esl_opt_VerifyConfig(go)               != eslOK)
-    {
-      printf("Failed to parse command line: %s\n", go->errbuf);
-      esl_usage(stdout, argv[0], usage);
-      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
-      exit(1);
-    }
-
-  if (esl_opt_GetBoolean(go, "-h") )
-    {
-      esl_banner(stdout, argv[0], banner);
-      esl_usage (stdout, argv[0], usage);
-      puts("\nwhere basic options are:");
-      esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
-      puts("\noptions for defining a new consensus structure (all of these require -o):");
-      esl_opt_DisplayHelp(stdout, go, 2, 2, 80);
-      puts("\noptions for listing sequences based on structure:");
-      esl_opt_DisplayHelp(stdout, go, 3, 2, 80);
-      exit(0);
-    }
-
-  if (esl_opt_ArgNumber(go) != 1) 
-    {
-      printf("Incorrect number of command line arguments.\n");
-      esl_usage(stdout, argv[0], usage);
-      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
-      exit(1);
-    }
-
-  alifile  = esl_opt_GetArg(go, 1);
-
-  fmt = eslMSAFILE_STOCKHOLM;
 
   /***********************************************
    * Open the MSA file; determine alphabet; set for digital input

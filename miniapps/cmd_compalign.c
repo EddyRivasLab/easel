@@ -1,5 +1,4 @@
-/* esl-compalign - compare two multiple sequence alignments
- *
+/* `easel compalign`: compare trusted vs. test multiple sequence alignments
  */
 #include <esl_config.h>
 
@@ -15,23 +14,14 @@
 #include "esl_sq.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
+#include "esl_subcmd.h"
 #include "esl_vectorops.h"
 #include "esl_wuss.h"
-
-static char banner[] = "compare two multiple sequence alignments";
-
-static char usage[]  = "\
-[-options] <trusted file> <test file>\n\
-  Both files must be in Stockholm format with #=GC RF markup.\n\
-  Sequences must occur in the same order in the two files.\n\
-  Number of non-gap characters in #=GC RF markup must be identical.\n\
-  Note: accuracy is computed differently than in Squid\'s compalign.\n\
-  See the manual page for details on how accuracy is computed.";
 
 static int get_pp_idx(ESL_ALPHABET *abc, char ppchar);
 static int read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen);
 
-static ESL_OPTIONS options[] = {
+static ESL_OPTIONS cmd_options[] = {
   /* name        type        default  env   range togs  reqs  incomp           help                                                   docgroup */
   { "-h",        eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,            "help; show brief info on version and usage",                     1 },
   { "-c",        eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,            "print per column statistics instead of per sequence stats",      1 },
@@ -44,13 +34,30 @@ static ESL_OPTIONS options[] = {
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
-int
-main(int argc, char **argv)
+static int
+show_opthelp(const ESL_GETOPTS *go)
 {
-  ESL_GETOPTS *go;		/* application configuration       */
+  esl_printf("\n");
+  esl_printf("Both input files must be in Stockholm format with #=GC RF markup.\n");
+  esl_printf("Sequences must occur in the same order in the two files.\n");
+  esl_printf("Number of non-gap characters in #=GC RF markup must be identical.\n");
+  esl_printf("See the manual page for details on how accuracy is computed.\n");
+
+  esl_printf("\noptions are:\n");
+  esl_opt_DisplayHelp(stdout, go, /*docgroup=*/1, /*indent=*/2, /*textwidth=*/80);
+  esl_opt_DisplayHelp(stdout, go, /*docgroup=*/2, /*indent=*/2, /*textwidth=*/80);
+
+  return eslOK;
+}
+
+int
+esl_cmd_compalign(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
+{
+  ESL_GETOPTS *go    = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, &show_opthelp);
+  char        *kfile = esl_opt_GetArg(go, 1);    // known (trusted) MSA
+  char        *tfile = esl_opt_GetArg(go, 2);    // test MSA
+  int          fmt   = eslMSAFILE_STOCKHOLM;
   int          kstatus, tstatus;/* return code from Easel routine  */
-  int          fmt;		/* expected format of kfile, tfile */
-  char        *kfile, *tfile;   /* known, test structure file      */
   ESL_MSAFILE *kfp, *tfp;       /* open kfile, tfile               */
   ESL_MSA     *ka,  *ta; 	/* known, trusted alignment        */
   int64_t      klen, tlen;	/* lengths of dealigned seqs       */
@@ -109,42 +116,6 @@ main(int argc, char **argv)
   // int tot_incor_ptm,tot_incor_pti;                      // SRE: commented out; don't seem to be used; need to silence compiler warning
   char errbuf[eslERRBUFSIZE];
 
-  /***********************************************
-   * Parse command line
-   ***********************************************/
-
-  go = esl_getopts_Create(options);
-  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK ||
-      esl_opt_VerifyConfig(go)               != eslOK)
-    {
-      printf("Failed to parse command line: %s\n", go->errbuf);
-      esl_usage(stdout, argv[0], usage);
-      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
-      exit(1);
-    }
-
-  if (esl_opt_GetBoolean(go, "-h") )
-    {
-      esl_banner(stdout, argv[0], banner);
-      esl_usage (stdout, argv[0], usage);
-      puts("\n where options are:");
-      esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
-      esl_opt_DisplayHelp(stdout, go, 2, 2, 80);
-      exit(EXIT_SUCCESS);
-    }
-
-  if (esl_opt_ArgNumber(go) != 2) 
-    {
-      printf("Incorrect number of command line arguments.\n");
-      esl_usage(stdout, argv[0], usage);
-      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
-      exit(1);
-    }
-
-  kfile = esl_opt_GetArg(go, 1);
-  tfile = esl_opt_GetArg(go, 2);
-  
-  fmt = eslMSAFILE_STOCKHOLM;
 
   /***********************************************
    * Open the two Stockholm files.

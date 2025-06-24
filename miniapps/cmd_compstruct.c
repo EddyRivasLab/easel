@@ -1,4 +1,4 @@
-/* esl-compstruct - calculate accuracy of RNA secondary structure predictions
+/* `easel compstruct`: compare trusted vs. test RNA secondary structures
  */
 #include <esl_config.h>
 
@@ -11,33 +11,40 @@
 #include "esl_sq.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
+#include "esl_subcmd.h"
 #include "esl_wuss.h"
 
-static char banner[] = "calculate accuracy of RNA secondary structure predictions";
 
-static char usage[]  = "\
-[-options] <trusted file> <test file>\n\
-  Both files must be in Stockholm format with secondary structure markup.\n\
-  Sequences must occur in the same order in the two files.\n\
-  The markup must be in WUSS notation.\n\
-\n";
-
-static ESL_OPTIONS options[] = {
+static ESL_OPTIONS cmd_options[] = {
   /* name       type        default env   range togs  reqs  incomp      help                                                   docgroup */
   { "-h",      eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "help; show brief info on version and usage",                     0 },
   { "-m",      eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "use Mathews'relaxed criterion for correctness; allow +/-1 slip", 0 },
   { "-p",      eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "count pseudoknotted base pairs",                                 0 },
-  { "--quiet", eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "suppress verbose header",                                        0 },
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
-int
-main(int argc, char **argv)
+static int
+show_opthelp(const ESL_GETOPTS *go)
 {
-  ESL_GETOPTS  *go;		 /* application configuration       */
+  esl_printf("\n");
+  esl_printf("Both input files must be in Stockholm format with secondary structure markup.\n");
+  esl_printf("Sequences must occur in the same order in the two files.\n");
+  esl_printf("The secondary structure markup must be in dot-bracket (WUSS) notation.\n");
+
+  esl_printf("\noptions are:\n");
+  esl_opt_DisplayHelp(stdout, go, /*docgroup=*/0, /*indent=*/2, /*textwidth=*/80);
+
+  return eslOK;
+}
+
+int
+esl_cmd_compstruct(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
+{
+  ESL_GETOPTS  *go    = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, &show_opthelp);
+  char         *kfile = esl_opt_GetArg(go, 1);
+  char         *tfile = esl_opt_GetArg(go, 2);
+  int           fmt   = eslMSAFILE_STOCKHOLM;
   int           kstatus, tstatus;/* return code from Easel routine  */
-  int           fmt;		 /* expected format of kfile, tfile */
-  char         *kfile, *tfile;   /* known, test structure file      */
   ESL_MSAFILE  *kfp, *tfp;       /* open kfile, tfile               */
   ESL_MSA      *ka,  *ta; 	 /* known, trusted alignment        */
   int64_t       klen, tlen;	 /* lengths of dealigned seqs       */
@@ -47,58 +54,16 @@ main(int argc, char **argv)
 
   int nseq;		/* total number of sequences in the files */
   int nseq_rejected;	/* total number of sequences rejected     */
-
   int kpairs;		/* count of base pairs in trusted structure    */
   int tpairs;		/* count of base pairs in test structure       */
   int kcorrect;		/* # bp in known structure correctly predicted */
   int tcorrect;		/* # bp in test structure that are true        */
-
   int tot_kpairs;	/* total bp in all known structures            */
   int tot_tpairs;	/* total bp in all predicted structures        */
   int tot_kcorrect;	/* total correct bp in all known structures    */
   int tot_tcorrect;	/* total true pairs in all test structures     */
   int tot_positions;	/* total # of bases                            */
-
-  int   status;
-
-  /***********************************************
-   * Parse command line
-   ***********************************************/
-
-  go = esl_getopts_Create(options);
-  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK ||
-      esl_opt_VerifyConfig(go)               != eslOK)
-    {
-      printf("Failed to parse command line: %s\n", go->errbuf);
-      esl_usage(stdout, argv[0], usage);
-      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
-      exit(1);
-    }
-
-  if (esl_opt_GetBoolean(go, "-h") )
-    {
-      esl_banner(stdout, argv[0], banner);
-      esl_usage (stdout, argv[0], usage);
-      puts("\n where options are:");
-      esl_opt_DisplayHelp(stdout, go, 0, 2, 80);
-      exit(EXIT_SUCCESS);
-    }
-
-  if (esl_opt_ArgNumber(go) != 2) 
-    {
-      printf("Incorrect number of command line arguments.\n");
-      esl_usage(stdout, argv[0], usage);
-      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
-      exit(1);
-    }
-
-  kfile = esl_opt_GetArg(go, 1);
-  tfile = esl_opt_GetArg(go, 2);
-  
-  if (! esl_opt_GetBoolean(go, "--quiet")) 
-    esl_banner(stdout, argv[0], banner);
-
-  fmt = eslMSAFILE_STOCKHOLM;
+  int status;
 
   /***********************************************
    * Open the two Stockholm files.
