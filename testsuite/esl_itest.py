@@ -150,7 +150,7 @@ def run_piped(cmd1, cmd2, expect_success=True):
         print('   command was:', cmd2,     file=sys.stderr)
         print('   stderr was: ', r2.stderr,file=sys.stderr, end='')
         sys.exit(1)
-    if not expect_success and r.returncode == 0:
+    if not expect_success and r2.returncode == 0:
         print("FAIL: {} integration test failed\n   piped command at line {}, expected to fail, didn't".format(filename, lineno),file=sys.stderr)
         print('   command was:', cmd2,     file=sys.stderr)
         sys.exit(1)

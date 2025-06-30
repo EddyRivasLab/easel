@@ -40,8 +40,8 @@ static ESL_OPTIONS cmd_options[] = {
   /* Tuning column formatting of tabular outputs -A|-C */
   { "-f",         eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL,        NULL, "format widths exactly (but costs extra pass over file)",  4 },
   { "-q",         eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL,        NULL, "quiet: suppress column headers in tabular formats",       4 },
-  { "--namew",    eslARG_INT,      "30", NULL, NULL, NULL, NULL,        "-f", "set seqname column width for tabular outputs -A|-C",      4 },
-  { "--colw",     eslARG_INT,      NULL, NULL, NULL, NULL, NULL,        "-f", " .. length/composition column width",                     4 },
+  { "--namew",    eslARG_INT,      "30", NULL,"n>0", NULL, NULL,        "-f", "set seqname column width for tabular outputs -A|-C",      4 },
+  { "--colw",     eslARG_INT,      NULL, NULL,"n>0", NULL, NULL,        "-f", " .. length/composition column width",                     4 },
 
   /* Customizing per-seq composition table (with -C) */
   { "-x",         eslARG_NONE,    FALSE, NULL, NULL, NULL, "-C",        NULL, "report composition of all noncanonicals (not just summed)", 5 },
@@ -154,8 +154,11 @@ esl_cmd_seqstat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
       }
     }
   else {
-    if ( esl_opt_GetBoolean(go, "-f")) esl_fatal("Column width formatting with -f requires a tabular output option (-A|-C)");
-    if ( esl_opt_GetBoolean(go, "-q")) esl_fatal("Column header suppression with -q requires a tabular output option (-A|-C)");
+    if ( esl_opt_GetBoolean(go, "-f"))  esl_fatal("Column width formatting with -f requires a tabular output option (-A|-C)");
+    if ( esl_opt_GetBoolean(go, "-q"))  esl_fatal("Column header suppression with -q requires a tabular output option (-A|-C)");
+    if ( esl_opt_IsUsed(go, "--namew")) esl_fatal("Setting name width with --namew requires a tabular output option (-A|-C)");
+    if ( esl_opt_IsUsed(go, "--colw"))  esl_fatal("Setting column width with --colw requires a tabular output option (-A|-C)");
+    
   }
 
   /* Headers for tabular per-sequence output styles (-A|-C) */

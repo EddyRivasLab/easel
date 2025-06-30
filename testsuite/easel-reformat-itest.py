@@ -152,6 +152,7 @@ unaligned_accept_tests = [
     ( "--acceptx 0123", 'ABC0123DEF', 'ABCXXXXDEF' ),
     ( "--ignore  0123", 'ABC0123DEF', 'ABCDEF'     ),
 ]
+# optcheck assertion: --accept,--acceptn,--acceptx,--ignore
 
 for (opt, test_input, expected_output) in unaligned_accept_tests:
     with open(f'{tmppfx}.fa', 'w') as f: f.write(f'>foo\n{test_input}')
@@ -177,6 +178,7 @@ msa_conversions   = [         # seq1:
     ( '--replace BY:yb', r'seq1\s+abcdefghijklmnopqrstuvwxyz---AyCDEFGHIJKLMNOPQRSTUVWXbZ' ),
     ( '--gapsym .',      r'seq1\s+abcdefghijklmnopqrstuvwxyz\.\.\.ABCDEFGHIJKLMNOPQRSTUVWXYZ' ),
 ]
+# optcheck assertion: -d,-l,-n,-r,-u,-x,--xbad,--replace,--gapsym
 
 for (opt, expected_output_pattern) in msa_conversions:
     r = esl_itest.run(f'{builddir}/miniapps/easel reformat {opt} stockholm {tmppfx}.sto')

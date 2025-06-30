@@ -100,13 +100,16 @@
 
 # New style easel miniapps
 #
-1 exercise easel-afetch       !testsuite/easel-afetch-itest.py!  @@ !! %TESTPFX%
-1 exercise easel-afetchn      !testsuite/easel-afetchn-itest.py! @@ !! %TESTPFX%
-1 exercise easel-aindex       !testsuite/easel-aindex-itest.py!  @@ !! %TESTPFX%
-1 exercise easel-sfetch       !testsuite/easel-sfetch-itest.py!  @@ !! %TESTPFX%
-1 exercise easel-sfetchn      !testsuite/easel-sfetchn-itest.py! @@ !! %TESTPFX%
-1 exercise easel-shuffle      !testsuite/easel-shuffle-itest.py! @@ !! %TESTPFX%
-1 exercise easel-sindex       !testsuite/easel-sindex-itest.py!  @@ !! %TESTPFX%
+1 exercise easel-afetch       !testsuite/easel-afetch-itest.py!     @@ !! %TESTPFX%
+1 exercise easel-afetchn      !testsuite/easel-afetchn-itest.py!    @@ !! %TESTPFX%
+1 exercise easel-aindex       !testsuite/easel-aindex-itest.py!     @@ !! %TESTPFX%
+1 exercise easel-downsample   !testsuite/easel-downsample-itest.py! @@ !! %TESTPFX%
+1 exercise easel-reformat     !testsuite/easel-reformat-itest.py!   @@ !! %TESTPFX%
+1 exercise easel-seqstat      !testsuite/easel-seqstat-itest.py!    @@ !! %TESTPFX%
+1 exercise easel-sfetch       !testsuite/easel-sfetch-itest.py!     @@ !! %TESTPFX%
+1 exercise easel-sfetchn      !testsuite/easel-sfetchn-itest.py!    @@ !! %TESTPFX%
+1 exercise easel-shuffle      !testsuite/easel-shuffle-itest.py!    @@ !! %TESTPFX%
+1 exercise easel-sindex       !testsuite/easel-sindex-itest.py!     @@ !! %TESTPFX%
 
 # Still to do:
 # gev
@@ -210,13 +213,16 @@
 
 # New style easel miniapps
 #
-3 valgrind easel-afetch       !testsuite/easel-afetch-itest.py!  @@ !! %TESTPFX%
-3 valgrind easel-afetchn      !testsuite/easel-afetchn-itest.py! @@ !! %TESTPFX%
-3 valgrind easel-aindex       !testsuite/easel-aindex-itest.py!  @@ !! %TESTPFX%
-3 valgrind easel-sfetch       !testsuite/easel-sfetch-itest.py!  @@ !! %TESTPFX%
-3 valgrind easel-sfetchn      !testsuite/easel-sfetchn-itest.py! @@ !! %TESTPFX%
-3 valgrind easel-shuffle      !testsuite/easel-shuffle-itest.py! @@ !! %TESTPFX%
-3 valgrind easel-sindex       !testsuite/easel-sindex-itest.py!  @@ !! %TESTPFX%
+3 valgrind easel-afetch       !testsuite/easel-afetch-itest.py!     @@ !! %TESTPFX%
+3 valgrind easel-afetchn      !testsuite/easel-afetchn-itest.py!    @@ !! %TESTPFX%
+3 valgrind easel-aindex       !testsuite/easel-aindex-itest.py!     @@ !! %TESTPFX%
+3 valgrind easel-downsample   !testsuite/easel-downsample-itest.py! @@ !! %TESTPFX%
+3 valgrind easel-reformat     !testsuite/easel-reformat-itest.py!   @@ !! %TESTPFX%
+3 valgrind easel-seqstat      !testsuite/easel-sfetch-itest.py!     @@ !! %TESTPFX%
+3 valgrind easel-sfetch       !testsuite/easel-sfetch-itest.py!     @@ !! %TESTPFX%
+3 valgrind easel-sfetchn      !testsuite/easel-sfetchn-itest.py!    @@ !! %TESTPFX%
+3 valgrind easel-shuffle      !testsuite/easel-shuffle-itest.py!    @@ !! %TESTPFX%
+3 valgrind easel-sindex       !testsuite/easel-sindex-itest.py!     @@ !! %TESTPFX%
 
 
 

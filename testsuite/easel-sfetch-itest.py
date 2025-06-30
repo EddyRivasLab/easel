@@ -27,7 +27,7 @@ esl_itest.check_files(srcdir,   files_used)
 esl_itest.check_progs(builddir, progs_used)
 
 # -h
-r = esl_itest.run(f'{builddir}/miniapps/easel sfetchn -h')
+r = esl_itest.run(f'{builddir}/miniapps/easel sfetch -h')
 
 
 ##
