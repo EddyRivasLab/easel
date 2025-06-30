@@ -82,8 +82,6 @@ r = esl_itest.run(f'{easel} weight --idf 0.40    {srcdir}/testsuite/example-stoc
 r = esl_itest.run(f'{easel} weight -f --idf -1.0 {srcdir}/testsuite/example-stockholm.sto', expect_success=False)
 r = esl_itest.run(f'{easel} weight -f --idf 2.0  {srcdir}/testsuite/example-stockholm.sto', expect_success=False)
 
-
-
 # Cleanup
 for tmpfile in glob.glob(f'{tmppfx}.*'):
     os.remove(tmpfile)
@@ -92,9 +90,3 @@ for tmpfile in glob.glob(f'{tmppfx}.*'):
 print('ok')
 
 
-
-
-  # { "--amino",    eslARG_NONE,   FALSE, NULL,     NULL,   NULL,NULL,"--dna,--rna",    "<msa file> contains protein alignments",      1 },
-  # { "--dna",      eslARG_NONE,   FALSE, NULL,     NULL,   NULL,NULL,"--amino,--rna",  "<msa file> contains DNA alignments",          1 },
-  # { "--rna",      eslARG_NONE,   FALSE, NULL,     NULL,   NULL,NULL,"--amino,--dna",  "<msa file> contains RNA alignments",          1 },
- 
