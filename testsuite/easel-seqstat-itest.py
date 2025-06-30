@@ -26,7 +26,7 @@ esl_itest.check_progs(builddir, progs_used)
 easel = f'{builddir}/miniapps/easel'
 
 # `-h` help 
-r = esl_itest.run(f'{easel} seqstat -h'.format(builddir))
+r = esl_itest.run(f'{easel} seqstat -h')
 
 # basic
 r = esl_itest.run(f'{easel} seqstat  {srcdir}/testsuite/example-uniprot.dat')

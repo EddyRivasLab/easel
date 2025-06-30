@@ -165,7 +165,7 @@ Assert that
 contains protein sequences, bypassing alphabet autodetection.
 
 .TP
-.BI \-\-colw " <n>"
+.BI \-\-colw " n"
 Set column width for seq length and residue counts to
 .I <n>
 for tabular outputs (\fB\-C|\-A\fR). Default is 9 for DNA|RNA, 6 for protein.
@@ -197,7 +197,7 @@ See
 for more detail on formats and autodetection.
 
 .TP
-.BI \-\-namew " <n>"
+.BI \-\-namew " n"
 Set name column width to
 .I <n>
 for tabular outputs (\fB\-C|\-A\fR). Default is 30.

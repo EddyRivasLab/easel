@@ -39,16 +39,6 @@ Print brief help;  includes version number and summary of
 all options, including expert options.
 
 .TP
-.B \-g
-Use the Gerstein/Sonnhammer/Chothia weighting algorithm; this is the
-default.
-
-.TP
-.B \-p
-Use the Henikoff position-based weighting algorithm. This is faster
-and more memory efficient than the default.
-
-.TP
 .B \-b
 "BLOSUM weights": use approximately the same rule used in constructing
 the BLOSUM score matrices. This involves single-linkage clustering at
@@ -57,15 +47,52 @@ some fractional identity threshold (default 0.62; see
 option), then for each cluster, splitting a total weight of one
 uniformly amongst all sequences in the cluster.
 
+.TP
+.B \-f
+Filter out sequences by fractional identity, rather than calculating
+weights. Default 0.80; settable by
+.B \-\-idf
+option.
+When two sequences
+have >=x fractional identity, keep the one that covers more consensus
+columns in the alignment and remove the other. Easel calls this Tom's
+conscover filtering rule. Fractional identity is calculated using a denominator
+of MIN(rlen1,rlen2) for the raw (unaligned) lengths of each seq.
+
+.TP
+.B \-g
+Use the Gerstein/Sonnhammer/Chothia weighting algorithm; this is the
+default.
+
+.TP
+.BI \-o " outfile"
+Output the weighted or filtered alignment to a file
+.I outfile
+instead of to stdout.
+
+.TP
+.B \-p
+Use the Henikoff position-based weighting algorithm. This is faster
+and more memory efficient than the default.
+
+
 
 .SH EXPERT OPTIONS
 
 .TP 
-.BI \-\-id " <x>"
+.BI \-\-id " x"
 Sets the fractional identity threshold used by the BLOSUM weighting
 rule (option 
 .BR \-b ;
 required), to a number 0<=x<=1. Default is 0.62.
+
+.TP 
+.BI \-\-idf " x"
+Sets the fractional identity threshold used by the
+filtering rule
+(option 
+.BR \-f ;
+required), to a number 0<=x<=1. Default is 0.80.
 
 .TP
 .B \-\-amino
@@ -78,6 +105,24 @@ contains protein sequences.
 Assert that the 
 .I msafile 
 contains DNA sequences. 
+
+.TP
+.BI \-\-informat " fmt"
+Assert that the input
+.I msafile
+is in format
+.IR fmt ,
+bypassing format autodetection. 
+Choices for 
+.I fmt
+are
+.BR a2m|afa|clustal|phylip|psiblast|selex|stockholm .
+.I fmt
+is case-insensitive (e.g.
+.B a2m
+or
+.B A2M
+both work).
 
 .TP 
 .B \-\-rna

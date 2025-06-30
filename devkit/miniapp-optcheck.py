@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# Check all options in the .c file that they're documented in .man.in and tested in -itest.py.
+# Check that options in .c file are documented and tested.
 #
 # Usage:    miniapp-optcheck.py <.c file> <.man page> <itest.py script>
 # Example:  devkit/miniapp-optcheck.py miniapps/cmd_afetch.c miniapps/easel-afetch.man.in testsuite/easel-afetch-itest.py
@@ -13,10 +13,11 @@
 #
 # In the <miniapp>.itest.py file, parses for `esl_itest.run('easel
 # <miniapp> <args>')` commands that match the <miniapp> we're testing,
-# then checks for any arg that starts with a `-`. Allows concat of
-# simple options (e.g. '-abc` is `-a -b -c`.). For options tested
-# in a way that can't be parsed like this, also checks for formatted
-# comment lines of form:
+# then parses that <args> list for options. Allows concat of
+# simple options (e.g. '-abc` is `-a -b -c`), and knows that '-'
+# is a cmdline arg (read from stdin pipe) and '--' means end-of-options.
+# For options tested in a way that can't be parsed like this, also checks
+# for formatted comment lines of form:
 #    # optcheck assertion: <comma-sep list of options>'
 #
 import getopt
@@ -25,18 +26,31 @@ import re
 import sys
 
 def process_cfile(cfile):
+    """
+    Parse cmd_<miniapp>.c source file. 
+
+    Parses the ESL_OPTIONS structure. Returns (optset, opts_with_arg).
+
+    <optset> is a set of implemented options, as strings, including the
+    dashes: e.g. ( '-a', '-b', '--long' ).
+
+    <opts_with_args> is a similar set, but only of the options that take
+    args. process_itestfile() uses this to help parse test commands.
+    """
     with open(cfile) as f:
-        in_opts = False
-        optlist = []
+        in_opts       = False
+        optset        = set()
+        opts_with_arg = set()
         for line in f:
             if m := re.match(r'static ESL_OPTIONS ',   line):
                 in_opts = True
             elif m := re.match(r'\s*\{\s*0\s*(,\s*0\s*){9}\},', line):
                 in_opts = False
             elif in_opts:
-                if m := re.match(r'\s+\{\s*"(-\S+)",\s*eslARG', line):
-                    optlist.append(m.group(1))
-    return set(optlist)
+                if m := re.match(r'\s+\{\s*"(-\S+)",\s*eslARG_(\S+?),', line):
+                    optset.add(m.group(1))
+                    if m.group(2) != 'NONE': opts_with_arg.add(m.group(1))
+    return (optset, opts_with_arg)
 
 def process_manfile(manfile):
     with open(manfile) as f:
@@ -57,12 +71,12 @@ def process_manfile(manfile):
                         expect_optline = False
     return set(optlist)
 
-def process_itestfile(itestfile):
+def process_itestfile(itestfile, opts_with_arg):
     if m := re.search(r'easel-(\S+)-itest.py', itestfile):
         miniapp = m.group(1)
     else: sys.exit('Expect itestfile name to look like easel-*-itest.py')
 
-    optlist = []
+    optset = set()
     with open(itestfile) as f:
         for line in f:
             # This pattern needs to work for a variety of ways the test scripts call esl_itest.run or esl_itest.run_piped,
@@ -70,20 +84,24 @@ def process_itestfile(itestfile):
             # any quoted string containing 'easel <miniapp>' with or without f-string braces around the easel command. 
             if m := re.search(r"""esl_itest\.run.+(['"]).*[\{]?easel[\}]?\s+""" + re.escape(miniapp) + r"""\s+(.*?)\1""", line):
                 argv = m.group(2).split()
-
-                for a in argv:  # We don't know when to stop parsing options. It's conceivable that we could mistake a mandatory arg for an option, if it starts with '-'.
-                    if    m := re.fullmatch(r'-[^-]', a):
-                        optlist.append(a)                              # -a      simple option
-                    elif  m := re.match(r'-(\w+)', a):
-                        for c in m.group(1):
-                            optlist.append(f'-{c}')                    # -abc    concatenated options
-                    elif  m := re.match(r'--', a):
-                        optlist.append(a)                              # --long  long form opts
+                i    = 0
+                while i < len(argv):
+                    if    m := re.fullmatch(r'-[^-]', argv[i]):           # -a      simple option
+                        optset.add(argv[i])                    
+                        if argv[i] in opts_with_arg: i += 1
+                    elif  m := re.match(r'-(\w+)', argv[i]):              # -abc    concatenated options. only last one can have an argument
+                        for c in m.group(1):       optset.add(f'-{c}')  
+                        for c in m.group(1)[:-1]:
+                            if f'-{c}' in opts_with_arg: sys.exit(f"Parsing problem. Saw -{c} inside concatenated option, but it's supposed to take an arg")
+                        if f'-{m.group(1)[:-1]}' in opts_with_arg: i += 1
+                    elif  m := re.match(r'--\S+', argv[i]):               # --long  long form opts            
+                        optset.add(argv[i])
+                        if argv[i] in opts_with_arg: i += 1
+                    else: break                                           # anything else means end of options: including - or -- by themself
+                    i += 1
             elif m := re.match(r'#\s+optcheck assertion:\s+(.+)', line):
-                for opt in m.group(1).split(','):
-                    optlist.append(opt)
-
-    return set(optlist)
+                for opt in m.group(1).split(','): optset.add(opt)
+    return optset
                     
 
 def main():
@@ -100,9 +118,9 @@ def main():
     manfile     = args[1]; 
     itestfile   = args[2]; 
 
-    cfile_optset     = process_cfile(cfile)         if os.path.isfile(cfile)     else sys.exit(f'failed to find or open C source file {cfile}')
-    manfile_optset   = process_manfile(manfile)     if os.path.isfile(manfile)   else None
-    itestfile_optset = process_itestfile(itestfile) if os.path.isfile(itestfile) else None
+    cfile_optset, opts_with_arg = process_cfile(cfile)                        if os.path.isfile(cfile)     else sys.exit(f'failed to find or open C source file {cfile}')
+    manfile_optset              = process_manfile(manfile)                    if os.path.isfile(manfile)   else None
+    itestfile_optset            = process_itestfile(itestfile, opts_with_arg) if os.path.isfile(itestfile) else None
 
     undoc_opts       = cfile_optset - manfile_optset    if manfile_optset   is not None else []
     untest_opts      = cfile_optset - itestfile_optset  if itestfile_optset is not None else []
