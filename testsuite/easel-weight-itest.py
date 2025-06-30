@@ -62,7 +62,7 @@ if m := re.search(r'^Number of sequences: 38', r2.stdout, flags=re.MULTILINE) ==
 
 # -o  : output to file
 r  = esl_itest.run(f'{easel} weight -o {tmppfx}.sto {srcdir}/testsuite/example-stockholm.sto')
-r2 = subprocess.run(f'{easel} msastat {tmppfx}.sto'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+r2 = subprocess.run(f'{easel} msastat {tmppfx}.sto'.split(), check=True, encoding='utf-8', capture_output=True)
 if m := re.search(r'^Number of sequences: 38', r2.stdout, flags=re.MULTILINE) == None: esl_itest.fail()
 
 # --id  : set fid threshold for -b. default 0.62, a la BLOSUM62. Requires -b.
