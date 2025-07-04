@@ -145,7 +145,7 @@ Print brief help; includes version number and summary of
 all options.
 
 .TP
-.BI \-o " <outfile>"
+.BI \-o " outfile"
 Output filtered MSA(s) to
 .I <outfile>
 instead of 
@@ -182,7 +182,7 @@ Only one alphabet option can be used, of
 .BR \-\-amino|\-\-dna|\-\-rna .
 
 .TP
-.BI \-\-fragthresh " <x>"
+.BI \-\-fragthresh " x"
 Sets the fractional alignment span threshold for defining a sequence
 fragment. For sequence fragments, external gaps are not counted.
 The fractional alignment span
@@ -192,10 +192,10 @@ length from first to last aligned residue, divided by the total
 alignment length.  If
 .I <aspan>
 <
-.IR <x> ,
+.IR x ,
 define sequence as a
 fragment.
-.I <x>
+.I x
 is between 0 and 1, inclusive; default is 0.5.
 
 .IP
@@ -204,7 +204,7 @@ calculations, without affecting the alignment itself.
 
 .IP
 The smaller the fragthresh
-.I <x>
+.I x
 is, the fewer fragments are defined.
 .B \-\-fragthresh 0
 says no sequences are fragments.
@@ -236,24 +236,24 @@ options aren't valid to use.
 
 
 .TP
-.BI \-\-informat " <fmt>"
+.BI \-\-informat " fmt"
 Specify that the input
 .I msafile
 is in format
-.IR <fmt> ,
+.IR fmt ,
 and bypass format autodetection.
 Choices for
-.I <fmt>
+.I fmt
 are:
 .BR stockholm|pfam|a2m|afa|psiblast|clustal|clustallike|phylip|phylips|selex .
 
 .TP
-.BI \-\-maxfrag " <n>"
+.BI \-\-maxfrag " n"
 If the statistical sample contains >
-.I <n>
+.I n
 sequence fragments, reject it
 and use all sequences instead.
-.I <n>
+.I n
 is an integer value >= 0. That said, it should be <
 .I <nsamp>
 (we don't check) and it doesn't make a lot of sense to make it very
@@ -267,11 +267,11 @@ is set.
 
 
 .TP
-.BI \-\-nsamp " <n>"
+.BI \-\-nsamp " n"
 When using statistical subsampling, take a random sample of
-.I <n>
+.I n
 sequences.
-.I <n>
+.I n
 is an integer value >= 1 (but should be large enough to calculate
 symfrac occupancy frequencies with reasonable accuracy). Default
 is 10000.
@@ -293,11 +293,11 @@ only one of these options can be set on the command line.
 
 
 .TP
-.BI \-\-outformat " <fmt>"
+.BI \-\-outformat " fmt"
 Write the filtered output MSA in alignment file format
-.IR <fmt> .
+.IR fmt .
 Choices for
-.I <fmt>
+.I fmt
 are:
 .BR stockholm|pfam|a2m|afa|psiblast|clustal|clustallike|phylip|phylips|selex .
 Default is to use the same format as the input
@@ -324,11 +324,11 @@ Only one alphabet option can be used, of
 
 
 .TP
-.BI \-\-sampthresh " <n>"
+.BI \-\-sampthresh " n"
 If the number of sequences in the alignment is >
-.IR <n> ,
+.IR n ,
 the alignment is "deep" enough that we switch to statistical subsampling.
-.I <n>
+.I n
 is an integer value >= 0; default is 50000.
 
 .IP
@@ -337,10 +337,10 @@ This option can't be used if
 is set.
 
 .TP
-.BI \-\-seed " <n>"
+.BI \-\-seed " n"
 Set the random number generator seed to
-.IR <n> .
-.I <n>
+.IR n .
+.I n
 is an integer value >= 0.
 The default is a fixed seed (42), which makes results reproducible.
 Selecting a different seed creates a different (reproducible) stream
@@ -353,7 +353,7 @@ rule.
 
 
 .TP
-.BI \-\-symfrac " <x>"
+.BI \-\-symfrac " x"
 Sets the residue occupancy threshold for defining a consensus column.
 Occupancy is calculated as <nres> / (<nres> + <ngap>), where
 <nres> is the number of residues and <ngap> is the number of gaps.
@@ -363,14 +363,14 @@ symbols (typically
 and "not a residue" symbols (typically
 .BR * )
 are ignored. If occupancy >=
-.IR <x> ,
+.IR x ,
 the column is called consensus.
-.I <x>
+.I x
 is a value between 0 and 1, inclusive; default is 0.5.
 
 .IP
 The smaller the symfrac
-.I <x>
+.I x
 is, the more consensus columns are defined.
 .B \-\-symfrac 0
 calls all columns consensus.

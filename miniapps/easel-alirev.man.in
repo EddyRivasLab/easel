@@ -24,12 +24,9 @@ downloaded a chunk of multiway genomic alignment from one of the
 genome browsers, but your RNA of interest is on the opposite strand.
 
 .PP
-Any per-column and per-residue annotation lines are reversed as well,
-including Stockholm format and old SELEX format annotations.
-Annotations that Easel recognizes as secondary structure annotation (a
-consensus structure line, individual secondary structure lines) will
-be "reverse complemented" to preserve proper bracketing orders: for
-example, ...<<<...>>> is reverse complemented to <<<...>>>..., not
+Any per-column and per-residue annotation lines are also reversed,
+and secondary structure annotations are "reverse complemented": e.g.,
+ ...<<<...>>> is reverse complemented to <<<...>>>..., not
 simply reversed to >>>...<<<..., which would be wrong.
 
 .PP
@@ -49,7 +46,8 @@ Because the alignment is parsed into Easel's digital internal
 representation, the output alignment may differ in certain details
 from the original alignment; these details should be inconsequential
 but may catch your eye. One is that if you have a reference annotation
-line, Easel's output will put consensus residues in upper case,
+line defining consensus columns, Easel's default MSA output 
+will format consensus residues in your sequences in upper case,
 nonconsensus (inserted) residues in lower case. Another is that the
 headers for some formats, such as Clustal format, are written with an
 arbitrary version number - so you may find yourself revcomping an
@@ -79,33 +77,45 @@ Print brief help;  includes version number and summary of
 all options, including expert options.
 
 .TP
-.BI \-\-informat " <s>"
+.BI \-o " outfile"
+Output the reverse complemented alignment to a file
+.I outfile
+instead of to stdout.
+
+
+.TP
+.BI \-\-informat " fmt"
 Assert that input
 .I msafile
 is in alignment format
-.IR <s> ,
+.IR fmt ,
 bypassing format autodetection.
-Common choices for 
-.I <s> 
-include:
-.BR stockholm , 
-.BR a2m ,
-.BR afa ,
-.BR psiblast ,
-.BR clustal ,
-.BR phylip .
-For more information, and for codes for some less common formats,
-see main documentation.
-The string
-.I <s>
-is case-insensitive (\fBa2m\fR or \fBA2M\fR both work).
+Choices for 
+.I fmt
+are
+.BR a2m|afa|clustal|phylip|psiblast|selex|stockholm .
+.I fmt
+is case-insensitive (e.g.
+.B a2m
+or
+.B A2M
+both work).
 
 .TP
-.BI \-\-outformat " <s>"
-Write the output alignment in alignment format
-.IR <s> .
+.BI \-\-outformat " fmt"
+Write the reverse complemented output alignment in alignment format
+.IR fmt .
+Choices for
+.I fmt
+are:
+.BR stockholm|pfam|a2m|afa|psiblast|clustal|clustallike|phylip|phylips|selex .
+Default is to use the same format as the input
+.IR msafile .
+
+
+
 Common choices for 
-.I <s> 
+.I s 
 include:
 .BR stockholm , 
 .BR a2m ,
@@ -114,7 +124,7 @@ include:
 .BR clustal ,
 .BR phylip .
 The string
-.I <s>
+.I s
 is case-insensitive (\fBa2m\fR or \fBA2M\fR both work).
 Default is to use same format as the input
 .IR msafile .

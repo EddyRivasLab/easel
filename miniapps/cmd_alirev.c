@@ -14,6 +14,7 @@
 static ESL_OPTIONS cmd_options[] = {
   /* name             type          default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",        0 },
+  { "-o",          eslARG_OUTFILE,     NULL,  NULL, NULL,  NULL,  NULL, NULL, "send output to file <f>, not stdout",         0 },
   { "--informat",  eslARG_STRING,      NULL,  NULL, NULL,  NULL,  NULL, NULL, "specify the input MSA file is in format <s>", 0 }, 
   { "--outformat", eslARG_STRING,      NULL,  NULL, NULL,  NULL,  NULL, NULL, "write the output MSA in format <s>",          0 }, 
   { "--dna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use DNA alphabet",                            0 },
@@ -32,6 +33,7 @@ esl_cmd_alirev(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   ESL_ALPHABET *abc     = NULL;
   ESL_MSAFILE  *afp     = NULL;
   ESL_MSA      *msa     = NULL;
+  FILE         *ofp     = NULL;
   int           nali    = 0;
   int           status;
 
@@ -67,6 +69,11 @@ esl_cmd_alirev(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
     }
   else outfmt = afp->format;
 
+  /* Open output file, if we were given one */
+  ofp = (esl_opt_GetString (go, "-o") == NULL ? stdout : fopen(esl_opt_GetString(go, "-o"), "w"));
+  if (! ofp)  esl_fatal("Failed to open output file %s\n", esl_opt_GetString(go, "-o"));
+
+
   /* Here we go. */
   while ((status = esl_msafile_Read(afp, &msa)) == eslOK)
     {	
@@ -74,13 +81,14 @@ esl_cmd_alirev(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 
       status = esl_msa_ReverseComplement(msa);
 
-      esl_msafile_Write(stdout, msa, outfmt);
+      esl_msafile_Write(ofp, msa, outfmt);
 
       esl_msa_Destroy(msa);
     }
    if (nali   == 0)      esl_fatal("No alignments found in input file %s\n", msafile);
    if (status != eslEOF) esl_msafile_ReadFailure(afp, status);
 
+   if (ofp != stdout) fclose(ofp);
    esl_msafile_Close(afp);
    esl_alphabet_Destroy(abc);
    esl_getopts_Destroy(go);
