@@ -152,12 +152,13 @@ def main():
     # doing.
     #
     # manfile_optset or itestfile_optset are None if .man, -itest.py
-    # files don't exist. 
+    # files don't exist.
+    all_opts = cfile_optset | devopts
 
     undoc_opts         = cfile_optset - manfile_optset    if manfile_optset   is not None else []
     untest_opts        = cfile_optset - itestfile_optset  if itestfile_optset is not None else []
     extradoc_opts      = manfile_optset - cfile_optset    if manfile_optset   is not None else []
-    extratest_opts     = itestfile_optset - cfile_optset  if itestfile_optset is not None else []
+    extratest_opts     = itestfile_optset - all_opts      if itestfile_optset is not None else []
     tested_devopts     = itestfile_optset & devopts       if itestfile_optset is not None else []
     documented_devopts = manfile_optset & devopts         if manfile_optset   is not None else []
 

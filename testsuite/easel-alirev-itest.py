@@ -52,7 +52,8 @@ if not filecmp.cmp(f'{tmppfx}.sto', f'{tmppfx}.sto3', shallow=False): esl_itest.
 # --dna,--rna   Assert alphabet
 r   = esl_itest.run(f'{easel} alirev --rna {srcdir}/testsuite/example-rna.sto')
 r2  = esl_itest.run(f'{easel} alirev --dna {srcdir}/testsuite/example-rna.sto')
-if r.stdout != r2.stdout: esl_itest.fail()
+r3  = subprocess.run(f'{easel} reformat -r --informat stockholm stockholm -'.split(), check=True, encoding='utf-8', capture_output=True, input=r2.stdout)
+if r.stdout != r3.stdout: esl_itest.fail()
 
 # Requires a DNA|RNA input alignment
 r   = esl_itest.run(f'{easel} alirev {srcdir}/testsuite/example-stockholm.sto', expect_success=False)
