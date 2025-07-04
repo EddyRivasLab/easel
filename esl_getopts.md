@@ -582,6 +582,17 @@ Usage: ./example [-options] <arg>
   --char <c> : long option, with character arg
 ```
 
+Sometimes we have undocumented "developer" options, assigned to one or
+more docgroups for which we have no `esl_opt_DisplayHelp()` in the
+usual `-h` formatting. These may be experimental options we're playing
+with, or options that have to be provided in the code for some deeper
+reason but aren't supposed to be exposed to the user in this
+particular program.  Sometimes we have a `--devhelp` option that
+prints all the options, including many or all of the developer
+options. Our convention is to assign developer options to a
+high-numbered docgroup: typically 99, or sometimes 999, or sometimes
+101 and up in the case of developer options that are themselves split
+into separate help sections with `--devhelp`.
 
 
 

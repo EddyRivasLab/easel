@@ -44,8 +44,8 @@ static int   get_pp_idx(ESL_ALPHABET *abc, char ppchar);
 static int   get_tree_order(ESL_TREE *T, char *errbuf, int **ret_order);
 static int   reorder_msa(ESL_MSA *msa, int *order, char *errbuf);
 static int   read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_mask_len);
-static int   expand_msa2mask(char *errbuf, ESL_MSA *msa1, char *xmask, ESL_MSA **newmsa1);
-static int   add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, int *toadd, ESL_MSA **ret_msa, int do_treat_as_rf_gap);
+static int   expand_msa2mask(char *errbuf, ESL_MSA *msa1, const char *xmask, ESL_MSA **newmsa1);
+static int   add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, const int *toadd, ESL_MSA **ret_msa, int do_treat_as_rf_gap);
 static int   msa_median_length(ESL_MSA *msa);
 static int   msa_remove_seqs_below_minlen(ESL_MSA *msa, float minlen, int *i_am_rf, ESL_MSA **ret_new_msa);
 static int   msa_remove_seqs_above_maxlen(ESL_MSA *msa, float maxlen, ESL_MSA **ret_new_msa);
@@ -69,7 +69,7 @@ static int   dst_nongap_XDiffMx(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ES
 static int   find_seqs_with_given_insert(ESL_MSA *msa, int *i_am_rf, char *errbuf, int target, int min, int max, int **ret_useme);
 static int   minorize_msa(const ESL_GETOPTS *go, ESL_MSA *msa, char *errbuf, FILE *fp, char *tag, int outfmt);
 static int   remove_gc_markup(ESL_MSA *msa, char *errbuf, char *tag);
-static int   cp_and_add_gaps_to_aseq(char *new_aseq, char *orig_aseq, int alen, int *toadd, int nnew, char gapchar);
+static int   cp_and_add_gaps_to_aseq(char *new_aseq, char *orig_aseq, int alen, const int *toadd, int nnew, char gapchar);
 static int   map_rfpos_to_apos(ESL_MSA *msa, ESL_ALPHABET *abc, char *errbuf, int **ret_i_am_rf, int **ret_rf2a_map, int *ret_rflen);
 static int   convert_post_to_pp(ESL_MSA *msa, char *errbuf, int nali);
 static int   compare_ints(const void *el1, const void *el2);
@@ -82,8 +82,8 @@ static ESL_OPTIONS cmd_options[] = {
   { "--outformat", eslARG_STRING,NULL,  NULL, NULL,      NULL,NULL,NULL,                        "specify that output format be <s>",                                1 },
   { "--devhelp",   eslARG_NONE,  NULL,  NULL, NULL,      NULL,NULL, NULL,                       "show list of undocumented developer options",                      1 },
   /* options for removing/trimming/reordering sequences */
-  { "--lnfract",   eslARG_REAL,  NULL,  NULL, "0<=x<=2", NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length < <x> fraction of median length",        2 },
-  { "--lxfract",   eslARG_REAL,  NULL,  NULL, "0<=x<=3", NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length > <x> fraction of median length",        2 },
+  { "--lnfract",   eslARG_REAL,  NULL,  NULL, "x>=0",    NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length < <x> fraction of median length",        2 },
+  { "--lxfract",   eslARG_REAL,  NULL,  NULL, "x>=0",    NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length > <x> fraction of median length",        2 },
   { "--lmin",      eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length < <n> residues",                         2 },
   { "--lmax",      eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length > <n> residues",                         2 },
   { "--rffract",   eslARG_REAL,  NULL,  NULL, "0<=x<=1", NULL,NULL, CHOOSESEQOPTS,              "remove seqs w/nongap RF len < <x> fraction of aln nongap RF len",  2 },
@@ -116,7 +116,7 @@ static ESL_OPTIONS cmd_options[] = {
   { "--rna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--dna",             "<msafile> contains RNA alignments",                                4 },
 
   /* All options below are developer options, only shown if --devhelp invoked */
-  { "--xmask",     eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, NULL,                       "for each 0 column in <f>, add a 100% gap column to <msafile>",     101 },
+  { "--xmask",     eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, NULL,                       "add empty (all-gap) columns to <msafile>, using 1|0 mask in <f>",  101 },
   { "--cn-id",      eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into <n> clusters based on sequence identity",           101 },
   { "--cs-id",      eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into clusters on id s.t max cluster has <n> seqs",       101 },
   { "--cx-id",      eslARG_REAL,  NULL,   NULL, "0.<x<1.",NULL,NULL, CLUSTOPTS,                 "split MSA into clusters s.t. no seq b/t 2 clusters > <x> seq id",  101 },
@@ -342,7 +342,7 @@ esl_cmd_alimanip(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
   }
   /* read --xmask file, if nec */
   if(esl_opt_GetString(go, "--xmask") != NULL) {
-    if((status = read_mask_file(esl_opt_GetString(go, "--xmask"), errbuf, &xmask, &xmask_len)) != eslOK)
+    if((status = read_mask_file(esl_opt_GetString(go, "--xmask"), errbuf, &xmask, &xmask_len)) != eslOK) 
       esl_fatal(errbuf);
   }
 
@@ -601,8 +601,7 @@ esl_cmd_alimanip(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
 	 ***************************************************/
 	/* --xmask option: expand the alignment to fit lanemask in xmask <f>, number of TOTAL msa columns must equal number of 1s in <f>. */
 	    if(xmask != NULL) { 
-	      if((status = expand_msa2mask(errbuf, msa, xmask, &new_msa)) != eslOK) esl_fatal(errbuf);
-	      esl_msa_Destroy(msa);
+	      if((status = expand_msa2mask(errbuf, msa, xmask, &new_msa)) != eslOK) esl_fatal(errbuf); // this function destroys and frees original <msa>
 	      msa = new_msa;
 	    }
 
@@ -613,7 +612,7 @@ esl_cmd_alimanip(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
 	    if(do_id_cluster || do_insert_cluster) { 
 	      if(msa->rf == NULL) esl_fatal("--c* options require #=GC RF annotation marking consensus columns.");
 	      if(do_id_cluster) { 
-	        if(msa->rf == NULL) esl_fatal("Error, --cn-id, --cs-id and --cx-id require all alignments have #=GC RF anntotation, aln %d does not.", nali);
+	        if(msa->rf == NULL) esl_fatal("Error, --cn-id, --cs-id and --cx-id require all alignments have #=GC RF anntotation, MSA %d does not.", nali);
 	    /* create distance matrix and infer tree by single linkage clustering */
 	    /* first, remove all non-consensus columns */
 	        rfmsa = esl_msa_Clone(msa);
@@ -629,7 +628,7 @@ esl_cmd_alimanip(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
 	        mindiff          = esl_opt_IsOn(go, "--cx-id") ? 1. - esl_opt_GetReal(go, "--cx-id") : 0; 
 	      }
 	      else { /* do_insert_cluster, create insert distance matrix and infer tree by SLC */ 
-	        if(msa->rf == NULL) esl_fatal("Error, --cn-ins, --cs-ins and --cx-ins require all alignments have #=GC RF anntotation, aln %d does not.", nali);
+	        if(msa->rf == NULL) esl_fatal("Error, --cn-ins, --cs-ins and --cx-ins require all alignments have #=GC RF annotation, MSA %d does not.", nali);
 	        if((status = insert_x_diffmx(go, errbuf, msa, rflen, i_am_rf, TRUE, TRUE, &D)) != eslOK) esl_fatal(errbuf);
 	        do_ctarget_nc    = esl_opt_IsOn(go, "--cn-ins");
 	        do_ctarget_nsize = esl_opt_IsOn(go, "--cs-ins");
@@ -674,7 +673,7 @@ esl_cmd_alimanip(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
 	/********************
 	 * Output alignment *
 	 ********************/
-	    if(! esl_opt_IsOn(go, "-M")) { /* if -M, we already output the alignments in minorize_msa() */
+	    if(msa && ! esl_opt_IsOn(go, "-M")) { /* if -M, we already output the alignments in minorize_msa(). if msa=NULL, we already dealt with output: e.g. in --c-* options above. */
 	      status = esl_msafile_Write(ofp, msa, outfmt);
 	      if      (status == eslEMEM) esl_fatal("Memory error when outputting alignment\n");
 	      else if (status != eslOK)   esl_fatal("Writing alignment file failed with error %d\n", status);
@@ -683,8 +682,8 @@ esl_cmd_alimanip(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
 	/* Clean up for this msa */
       esl_arr2_Destroy((void **) abc_ct, msa? msa->alen:0);  abc_ct   = NULL; 
       esl_arr2_Destroy((void **) pp_ct,  msa? msa->alen:0);  pp_ct    = NULL; 
-	    esl_msa_Destroy(msa);                                  msa      = NULL; 
-	    esl_free(i_am_rf);                                     i_am_rf  = NULL; 
+      esl_msa_Destroy(msa);                                  msa      = NULL; 
+      esl_free(i_am_rf);                                     i_am_rf  = NULL; 
       esl_free(rf2a_map);                                    rf2a_map = NULL; 
     }	/* end loop over msa's */
     if (nali   == 0) esl_fatal("No alignments found in file %s\n", alifile);
@@ -1491,21 +1490,24 @@ read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_mask_len)
 
 /* expand_msa2mask
  *
- * Given an MSA <msa> and a lanemask <xmask> with exactly msa->alen 1s in it.
- * Add 100% gap columns in between each column as dictated by <xmask>.
+ * Given an MSA <msa> and a lanemask <xmask> with exactly msa->alen 1's in it,
+ * add 100% gap columns at positions marked by 0's in <xmask>.
  *
  * For example if lanemask is 100101, msa->alen is 3, we add 2 100% gap
  * columns after column 1, and 1 100% gap column after column 2, to make
  * the msa length = length(xmask) = 6.
+ *
+ * <msa> is destroyed and free'd.
+ * The modified MSA is returned thru <*newmsa>. 
  */
 static int
-expand_msa2mask(char *errbuf, ESL_MSA *msa, char *xmask, ESL_MSA **newmsa)
+expand_msa2mask(char *errbuf, ESL_MSA *msa, const char *xmask, ESL_MSA **newmsa)
 {
-  int status;
   int  mpos;
   int  masklen;
-  int *nzeroesA;
-  int  nones = 0;
+  int *nzeroesA = NULL;
+  int  nones    = 0;
+  int  status;
 
   if(xmask == NULL) ESL_FAIL(eslEINVAL, errbuf, "expand_msa2mask(), xmask is NULL.");
 
@@ -1534,14 +1536,15 @@ expand_msa2mask(char *errbuf, ESL_MSA *msa, char *xmask, ESL_MSA **newmsa)
     }*/
 
   /* add the 100% gap columns */
-  if((status = add_gap_columns_to_msa(errbuf, msa, nzeroesA, newmsa, TRUE)) != eslOK) return status ;
+  if ((status = add_gap_columns_to_msa(errbuf, msa, nzeroesA, newmsa, TRUE)) != eslOK) goto ERROR; // <msa> was free'd by this function
   /* new alen should equal masklen */
   if((*newmsa)->alen != masklen) ESL_FAIL(eslEINVAL, errbuf, "expand_msa2mask(), new msa->alen: (%" PRId64 ") != length of mask (%d), this shouldn't happen.", (*newmsa)->alen, masklen);
-  free(nzeroesA);
 
+  free(nzeroesA);
   return eslOK;
 
  ERROR:
+  free(nzeroesA);
   return status;
 }
 
@@ -3007,7 +3010,7 @@ remove_gc_markup(ESL_MSA *msa, char *errbuf, char *tag)
   else { 
     ESL_FAIL(eslEINVAL, errbuf, "--rm-gc <s> only works if <s> is \'RF\', \'SS_cons\', \'SA_cons\', or \'PP_cons\'");
   }
-  if(does_not_exist) { 
+  if (does_not_exist) { 
     ESL_FAIL(eslEINVAL, errbuf, "--rm-gc %s enabled but %s GC markup exists in the MSA.", tag, tag);
   }
   return eslOK;
@@ -3022,10 +3025,13 @@ remove_gc_markup(ESL_MSA *msa, char *errbuf, char *tag)
  * if(do_treat_as_rf_gap) make new column a gap
  * in the RF line, else make it an 'x'.
  *
- * toadd is numbered 1..alen.
+ * <toadd> is numbered 1..alen.
+ *
+ * Original <msa> is destroyed/free'd.
+ * The new MSA is returned thru <*ret_msa>.
  */
 static int
-add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, int *toadd, ESL_MSA **ret_msa, int do_treat_as_rf_gap)
+add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, const int *toadd, ESL_MSA **ret_msa, int do_treat_as_rf_gap)
 {
   int status;
   int i,j;
@@ -3198,7 +3204,7 @@ add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, int *toadd, ESL_MSA **ret_msa
  *
  * toadd is numbered 1..alen.
  */
-static int cp_and_add_gaps_to_aseq(char *new_aseq, char *orig_aseq, int alen, int *toadd, int nnew, char gapchar)
+static int cp_and_add_gaps_to_aseq(char *new_aseq, char *orig_aseq, int alen, const int *toadd, int nnew, char gapchar)
 {
   int orig_apos = 0;
   int new_apos  = 0;

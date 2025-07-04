@@ -25,32 +25,57 @@ import os
 import re
 import sys
 
-def process_cfile(cfile):
-    """
-    Parse cmd_<miniapp>.c source file. 
+def process_cfile(cfile, max_docgroup=50):
+    """Parse cmd_<miniapp>.c source file. 
 
-    Parses the ESL_OPTIONS structure. Returns (optset, opts_with_arg).
+    Parses the ESL_OPTIONS structure. Returns (optset, opts_with_arg, undoc_opts).
 
-    <optset> is a set of implemented options, as strings, including the
-    dashes: e.g. ( '-a', '-b', '--long' ).
+    If there are multiple ESL_OPTIONS in the same source C file, only
+    the first one is parsed.
 
-    <opts_with_args> is a similar set, but only of the options that take
-    args. process_itestfile() uses this to help parse test commands.
+    <max_docgroup> is used to distinguish between fully implemented
+    and documented options, versus undocumented "developer" options.
+    We have a convention of assigning developer options to
+    large-valued docgroups >= 99. (99 is most common; sometimes 999;
+    also 101-111 when the developer options are themselves assigned to
+    docgroups.)
+
+    <optset> is a set of fully implemented and documented options, as
+    strings, including the dashes: e.g. ( '-a', '-b', '--long' ).
+    These are the args we will check that they're documented in the
+    man page and tested in the itest script.
+
+    <opts_with_args> is the set of options that take args. It includes
+    all such options, both documented and developer
+    options. process_itestfile() uses this to help parse test
+    commands.
+
+    <undoc_opts> is a set of developer options. We check that these
+    options do _not_ get documented in the man page, but they might
+    be tested in the itest script.
     """
     with open(cfile) as f:
         in_opts       = False
         optset        = set()
         opts_with_arg = set()
+        devopts       = set()
         for line in f:
             if m := re.match(r'static ESL_OPTIONS ',   line):
                 in_opts = True
             elif m := re.match(r'\s*\{\s*0\s*(,\s*0\s*){9}\},', line):
                 in_opts = False
-            elif in_opts:
-                if m := re.match(r'\s+\{\s*"(-\S+)",\s*eslARG_(\S+?),', line):
-                    optset.add(m.group(1))
-                    if m.group(2) != 'NONE': opts_with_arg.add(m.group(1))
-    return (optset, opts_with_arg)
+            elif in_opts:   # Can't simply split stuff inside {} on commas, because values may be comma-containing strings
+                if m := re.match(r'\s+\{\s*"(-\S+)",\s*eslARG_(\S+?),.+?(\d+)\s*\}\s*,', line):    # there may be /* */ or // comments after the closing brace
+                    option   = m.group(1)
+                    opttype  = m.group(2)
+                    docgroup = int(m.group(3))
+
+                    if docgroup <= max_docgroup: optset.add(option)
+                    else:                        devopts.add(option)
+                    if opttype != 'NONE':        opts_with_arg.add(option)
+                elif re.search(r'eslARG', line) and not re.match(r'\s*/', line):  # paranoia: check for non-comment lines that might be options we didn't recognize
+                    sys.exit(f'Possible mis-parsed option line:\n{line}')
+    return (optset, opts_with_arg, devopts)
 
 def process_manfile(manfile):
     with open(manfile) as f:
@@ -118,14 +143,23 @@ def main():
     manfile     = args[1]; 
     itestfile   = args[2]; 
 
-    cfile_optset, opts_with_arg = process_cfile(cfile)                        if os.path.isfile(cfile)     else sys.exit(f'failed to find or open C source file {cfile}')
-    manfile_optset              = process_manfile(manfile)                    if os.path.isfile(manfile)   else None
-    itestfile_optset            = process_itestfile(itestfile, opts_with_arg) if os.path.isfile(itestfile) else None
+    cfile_optset, opts_with_arg, devopts = process_cfile(cfile)                        if os.path.isfile(cfile)     else sys.exit(f'failed to find or open C source file {cfile}')
+    manfile_optset                       = process_manfile(manfile)                    if os.path.isfile(manfile)   else None
+    itestfile_optset                     = process_itestfile(itestfile, opts_with_arg) if os.path.isfile(itestfile) else None
 
-    undoc_opts       = cfile_optset - manfile_optset    if manfile_optset   is not None else []
-    untest_opts      = cfile_optset - itestfile_optset  if itestfile_optset is not None else []
-    extradoc_opts    = manfile_optset - cfile_optset    if manfile_optset   is not None else []
-    extratest_opts   = itestfile_optset - cfile_optset  if itestfile_optset is not None else []
+    # cfile_optset, opts_with_arg, devopts always exist ... if source
+    # C file didn't exist we already failed, because what are we
+    # doing.
+    #
+    # manfile_optset or itestfile_optset are None if .man, -itest.py
+    # files don't exist. 
+
+    undoc_opts         = cfile_optset - manfile_optset    if manfile_optset   is not None else []
+    untest_opts        = cfile_optset - itestfile_optset  if itestfile_optset is not None else []
+    extradoc_opts      = manfile_optset - cfile_optset    if manfile_optset   is not None else []
+    extratest_opts     = itestfile_optset - cfile_optset  if itestfile_optset is not None else []
+    tested_devopts     = itestfile_optset & devopts       if itestfile_optset is not None else []
+    documented_devopts = manfile_optset & devopts         if manfile_optset   is not None else []
 
     if do_oneline:
         if   manfile_optset is None:  col1 = '[no manpage]'
@@ -136,7 +170,10 @@ def main():
         elif len(untest_opts) > 0:     col2 = f'[{len(untest_opts)} undocumented]'
         else:                          col2 = 'ok'
 
-        col3 = 'ok' if len(extradoc_opts) == 0 and len(extratest_opts) == 0 else '[+warnings]'
+        if len(extradoc_opts) > 0 or len(extratest_opts) > 0 or len(documented_devopts) > 0:
+           col3 = '[+problems]'
+        else:
+            col3 = 'ok'    # tested_devopts are not a problem
 
         print(f'{col1:18s} {col2:18s} {col3:12s}')
 
@@ -170,6 +207,12 @@ def main():
         if len(extratest_opts) > 0:
             print(f"Warning: {len(extratest_opts)} options tested that aren't in .c file:")
             for opt in extratest_opts: print(f'    {opt}')
+            print('')
+            is_ok = False
+
+        if len(documented_devopts) > 0:
+            print(f'Warning: {len(documented_devopts)} undocumented developer options are documented')
+            for opt in documented_devopts: print(f'    {opt}')
             print('')
             is_ok = False
 

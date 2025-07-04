@@ -17,7 +17,16 @@ can manipulate the multiple sequence alignment(s) in
 in various ways. Options exist to remove
 specific sequences, reorder sequences, designate reference columns
 using Stockholm "#=GC RF" markup, and add annotation that numbers
-columns. 
+columns.
+
+.PP
+.B easel alimanip
+is typically called with one option for what to manipulate in the alignment.
+With no options, it regurgitates the same alignment (with gaps
+converted to - dash characters). Use combinations of manipulations warily,
+because some combinations can have
+unexpected effects because of the order that manipulations are
+applied.
 
 .PP
 The alignments can be of protein or DNA/RNA sequences. All alignments
@@ -41,9 +50,9 @@ Print brief help;  includes version number and summary of
 all options, including expert options.
 
 .TP
-.BI \-o " <f>"
+.BI \-o " f"
 Save the resulting, modified alignment in Stockholm format to a file
-.I <f>.
+.I f.
 The default is to write it to standard output.
 
 .TP 
@@ -103,70 +112,76 @@ is enabled, and the source code.
 .SH EXPERT OPTIONS
 
 .TP 
-.BI \-\-lnfract " <x>"
+.BI \-\-lnfract " x"
 Remove any sequences with length less than 
-.I <x>
+.I x
 fraction the length of the median length sequence in the alignment.
 
 .TP 
-.BI \-\-lxfract " <x>"
+.BI \-\-lxfract " x"
 Remove any sequences with length more than 
-.I <x>
+.I x
 fraction the length of the median length sequence in the alignment.
 
 .TP 
-.BI \-\-lmin " <n>"
+.BI \-\-lmin " n"
 Remove any sequences with length less than 
-.I <n>
+.I n
 residues.
 
 .TP 
-.BI \-\-lmax " <n>"
+.BI \-\-lmax " n"
 Remove any sequences with length more than 
-.I <n>
+.I n
 residues.
 
 .TP 
-.BI \-\-rfnfract " <x>"
+.BI \-\-rffract " x"
 Remove any sequences with nongap RF length less than 
-.I <x>
+.I x
 fraction the nongap RF length of the alignment.
+That is: for each sequence, calculate the fractional occupancy of
+annotated consensus columns by residues (as opposed to gaps), and
+remove sequences with consensus occupancy < x.
 
 .TP 
-.BI \-\-detrunc " <n>"
+.BI \-\-detrunc " n"
 Remove any sequences that have all gaps in the first 
-.I <n>
-non-gap #=GC RF columns or the last 
-.I <n>
-non-gap #=GC RF columns.
+.I n
+or more non-gap #=GC RF columns or the last 
+.I n
+or more non-gap #=GC RF columns.
+That is: remove sequences with
+.I n
+or more terminal gaps in consensus columns.
 
 .TP 
-.BI \-\-xambig " <n>"
+.BI \-\-xambig " n"
 Remove any sequences that has more than
-.I <n>
+.I n
 ambiguous (degenerate) residues.
 
 .TP 
-.BI \-\-seq\-r " <f>"
+.BI \-\-seq\-r " f"
 Remove any sequences with names listed in file 
-.I <f>.
+.I f.
 Sequence names listed in 
-.I <f>
+.I f
 can be separated by tabs, new lines, or spaces.
 The file must be in Stockholm format for this option to work. 
 
 .TP 
-.BI \-\-seq\-k " <f>"
+.BI \-\-seq\-k " f"
 Keep only sequences with names listed in file 
-.I <f>.
+.I f.
 Sequence names listed in 
-.I <f>
+.I f
 can be separated by tabs, new lines, or spaces.
 By default, the kept sequences will remain in the original order
 they appeared in 
 .I msafile,
 but the order from 
-.I <f> 
+.I f 
 will be used if the 
 .B \-\-k\-reorder
 option is enabled.
@@ -198,45 +213,59 @@ must be given as well.
 .TP 
 .B \-\-k\-reorder
 With
-.BI \-\-seq\-k " <f>",
+.BI \-\-seq\-k " f",
 reorder the kept sequences in the output alignment to the order
 from the list file
-.I <f>.
+.I f.
 
 .TP 
-.BI \-\-seq\-ins " <n>"
+.BI \-\-seq\-ins " n"
 Keep only sequences that have at least 1 inserted residue after 
-nongap RF position 
-.I <n>.
+consensus (nongap RF) position 
+.IR n ,
+where
+.I n
+is 1..M, for M consensus columns.
 
 .TP 
-.BI \-\-seq\-ni " <n>"
+.BI \-\-seq\-ni " n"
 With 
 .B \-\-seq\-ins
 require at least 
-.I <n> 
+.I n 
 inserted residues in a sequence for it to be kept.
+That is, keep seqs that have longer insertions after that
+consensus position.
 
 .TP 
-.BI \-\-seq\-xi " <n>"
+.BI \-\-seq\-xi " n"
 With 
 .B \-\-seq\-ins
 allow at most
-.I <n> 
-inserted residues in a sequence for it to be kept.
+.I n 
+inserted residues in a sequence for it to be kept.  That is, keep seqs
+that have shorter insertions after that consensus position.
 
 .TP 
-.BI \-\-trim " <f>"
+.BI \-\-trim " f"
 File 
-.I <f>
+.I f
 is an unaligned FASTA file containing truncated versions of each
 sequence in the 
 .I msafile. 
 Trim the sequences in the alignment to match their truncated versions
 in 
-.I <f>.
-If the alignment output format is Stockholm (the default output
-format), all per-column (GC) and per-residue (GR) annotation will be
+.I f.
+Each subseq in
+.I f
+are expected to have a unique exact match in the corresponding aligned seq in
+.IR msafile ;
+if there is more than one exact match, the first matching subseq is kept.
+The output alignment preserves the original number of aligned columns,
+though leading and trailing columns may now be all-gap, after the aligned seqs have
+been trimmed.
+All per-column (GC) and per-residue (GR) annotation in Stockholm-format
+output alignments is
 removed from the alignment when
 .B \-\-trim
 is used. However, if 
@@ -250,43 +279,46 @@ reference (GC RF) annotation. Only works in combination with
 .B \-\-trim.
 
 .TP 
-.BI \-\-minpp " <x>"
+.BI \-\-minpp " x"
 Replace all residues in the alignments for which the posterior
 probability annotation (#=GR PP) is less than 
-.I <x>
+.I x
 with gaps. The PP annotation for these residues is also converted to
 gaps. 
-.I <x>
+.I x
+is a real number; it
 must be greater than 0.0 and less than or equal to 0.95.
 
+
+
 .TP 
-.BI \-\-tree " <f>"
+.BI \-\-tree " f"
 Reorder sequences by tree order. 
 Perform single linkage clustering on the sequences in the alignment
 based on sequence identity given the alignment to define a 'tree' 
 of the sequences. The sequences in the alignment are reordered
 according to the tree, which groups similar sequences together. The
 tree is output in Newick format to 
-.I <f>.
+.I f.
 
 .TP 
-.BI \-\-reorder " <f>"
+.BI \-\-reorder " f"
 Reorder sequences to the order listed in file 
-.I <f>.
+.I f.
 Each sequence in the alignment must be listed in 
-.I <f>.
+.I f.
 Use
 .B \-\-k\-reorder
 to reorder only a subset of sequences to a subset alignment file. 
 The file must be in Stockholm format for this option to work. 
 
 .TP 
-.BI \-\-mask2rf " <f>"
+.BI \-\-mask2rf " f"
 Read in the 'mask' file 
-.I <f>
+.I f
 and use it to define new #=GC RF annotation for the 
 alignment.
-.I <f>
+.I f
 must be a single line, with exactly 
 .I <alen> 
 or 
@@ -332,7 +364,15 @@ must be one of:
 .BI \-\-sindi 
 Annotate individual secondary structures for each sequence by imposing
 the consensus secondary structure defined by the #=GC SS_cons
-annotation. 
+annotation. Omit bp annotation wherever the individual sequence
+has gaps in one or both positions.
+
+.TP 
+.BI \-\-cindi 
+Like
+.BR  \-\-sindi ,
+but keep bp annotation where the individual sequence
+has gaps in one or both positions.
 
 .TP 
 .BI \-\-post2pp 
