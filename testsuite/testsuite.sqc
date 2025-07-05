@@ -104,6 +104,7 @@
 1 exercise easel-afetchn      !testsuite/easel-afetchn-itest.py!    @@ !! %TESTPFX%
 1 exercise easel-aindex       !testsuite/easel-aindex-itest.py!     @@ !! %TESTPFX%
 1 exercise easel-alimanip     !testsuite/easel-alimanip-itest.py!   @@ !! %TESTPFX%
+1 exercise easel-alipid       !testsuite/easel-alipid-itest.py!     @@ !! %TESTPFX%
 1 exercise easel-alirev       !testsuite/easel-alirev-itest.py!     @@ !! %TESTPFX%
 1 exercise easel-downsample   !testsuite/easel-downsample-itest.py! @@ !! %TESTPFX%
 1 exercise easel-reformat     !testsuite/easel-reformat-itest.py!   @@ !! %TESTPFX%
@@ -222,6 +223,7 @@
 3 valgrind easel-afetchn      !testsuite/easel-afetchn-itest.py!    @@ !! %TESTPFX%
 3 valgrind easel-aindex       !testsuite/easel-aindex-itest.py!     @@ !! %TESTPFX%
 3 valgrind easel-alimanip     !testsuite/easel-alimanip-itest.py!   @@ !! %TESTPFX%
+3 exercise easel-alipid       !testsuite/easel-alipid-itest.py!     @@ !! %TESTPFX%
 3 valgrind easel-alirev       !testsuite/easel-alirev-itest.py!     @@ !! %TESTPFX%
 3 valgrind easel-downsample   !testsuite/easel-downsample-itest.py! @@ !! %TESTPFX%
 3 valgrind easel-reformat     !testsuite/easel-reformat-itest.py!   @@ !! %TESTPFX%

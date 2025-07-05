@@ -76,26 +76,32 @@ Print brief help;  includes version number and summary of
 all options, including expert options.
 
 .TP
-.BI \-\-informat " <s>"
+.BI \-o " outfile"
+Output the data table to a file
+.I outfile
+instead of stdout.
+
+.TP
+.B \-q
+Quieter: suppress the #-prefixed column headers in the tabular output.
+
+.TP
+.BI \-\-informat " fmt"
 Assert that input
 .I msafile
 is in alignment format
-.IR <s> ,
+.IR fmt ,
 bypassing format autodetection.
-Common choices for 
-.I <s> 
-include:
-.BR stockholm , 
-.BR a2m ,
-.BR afa ,
-.BR psiblast ,
-.BR clustal ,
-.BR phylip .
-For more information, and for codes for some less common formats,
-see main documentation.
-The string
-.I <s>
-is case-insensitive (\fBa2m\fR or \fBA2M\fR both work).
+Choices for 
+.I fmt
+are
+.BR a2m|afa|clustal|clustallike|pfam|phylip|phylips|psiblast|selex|stockholm .
+.I fmt
+is case-insensitive (e.g.
+.B afa
+or
+.B AFA
+both work).
 
 .TP
 .B \-\-amino
