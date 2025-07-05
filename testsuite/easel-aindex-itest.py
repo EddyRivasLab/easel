@@ -37,9 +37,6 @@ r = esl_itest.run(f'{easel} aindex {tmppfx}.sto', expect_success=False)
 # -f does allow overwriting
 r = esl_itest.run(f'{easel} aindex -f {tmppfx}.sto')
 
-# --informat
-r = esl_itest.run(f'{easel} aindex -f --informat stockholm {tmppfx}.sto')
-
 # Only Stockholm format works, it's the only multi-MSA format
 r = esl_itest.run(f'{easel} afetch -o {tmppfx}.sto2 {tmppfx}.sto Delta')
 r = esl_itest.run(f'{easel} reformat -o {tmppfx}.afa afa {tmppfx}.sto2')

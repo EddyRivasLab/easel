@@ -80,7 +80,7 @@ all options, including expert options.
 .BI \-o " outfile"
 Output the reverse complemented alignment to a file
 .I outfile
-instead of to stdout.
+instead of stdout.
 
 
 .TP
@@ -93,12 +93,12 @@ bypassing format autodetection.
 Choices for 
 .I fmt
 are
-.BR a2m|afa|clustal|phylip|psiblast|selex|stockholm .
+.BR a2m|afa|clustal|clustallike|pfam|phylip|phylips|psiblast|selex|stockholm .
 .I fmt
 is case-insensitive (e.g.
-.B a2m
+.B afa
 or
-.B A2M
+.B AFA
 both work).
 
 .TP
@@ -108,25 +108,11 @@ Write the reverse complemented output alignment in alignment format
 Choices for
 .I fmt
 are:
-.BR stockholm|pfam|a2m|afa|psiblast|clustal|clustallike|phylip|phylips|selex .
-Default is to use the same format as the input
-.IR msafile .
-
-
-
-Common choices for 
-.I s 
-include:
-.BR stockholm , 
-.BR a2m ,
-.BR afa ,
-.BR psiblast ,
-.BR clustal ,
-.BR phylip .
+.BR a2m|afa|clustal|clustallike|pfam|phylip|phylips|psiblast|selex|stockholm
 The string
-.I s
+.I fmt
 is case-insensitive (\fBa2m\fR or \fBA2M\fR both work).
-Default is to use same format as the input
+Default is to use the same format as the input
 .IR msafile .
 
 .TP 

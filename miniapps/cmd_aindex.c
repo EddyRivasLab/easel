@@ -17,7 +17,6 @@ static ESL_OPTIONS cmd_options[] = {
   /* name             type      default env   range togs  reqs  incomp      help                                docgroup */
   { "-h",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, NULL, "help; show brief info on version and usage",   0 },
   { "-f",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, NULL, "force; overwrite .ssi file if it exists",      0 },
-  { "--informat", eslARG_STRING, FALSE, NULL, NULL, NULL, NULL, NULL, "specify that <msafile> is in format <s>",      0 },
   { "--noacc",    eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, NULL, "don't index any accessions, only MSA names",   0 },
   { 0,0,0,0,0,0,0,0,0,0 },
 };
@@ -27,7 +26,7 @@ esl_cmd_aindex(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
   ESL_GETOPTS  *go              = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, /*custom opthelp=*/NULL);
   char         *msafile         = esl_opt_GetArg(go, 1);       // MSA file name
-  int           infmt           = eslMSAFILE_UNKNOWN;          // format code for msafile
+  int           infmt           = eslMSAFILE_STOCKHOLM;        // format code for msafile: must be Stockholm|Pfam multi-MSA 
   ESL_MSAFILE  *afp             = NULL;	                       // open alignment file
   char         *ssifile         = NULL;
   int           allow_overwrite = esl_opt_GetBoolean(go, "-f");
@@ -38,19 +37,11 @@ esl_cmd_aindex(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   uint16_t      fh;
   int           status;
 
-  if (esl_opt_IsOn(go, "--informat")) {
-    infmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
-    if (infmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input alignment file format for --informat", esl_opt_GetString(go, "--informat")); 
-  }
-
   /* Open MSA file, text mode.
    * We don't need to parse sequence data, so we don't need digital alphabet.
    */
   if ( (status  = esl_msafile_Open(NULL, msafile, NULL, infmt, NULL, &afp)) != eslOK)
     esl_msafile_OpenFailure(afp, status);
-
-  if (afp->format != eslMSAFILE_STOCKHOLM && afp->format != eslMSAFILE_PFAM)
-    esl_fatal("`easel aindex` is only useful for Stockholm format: multi-MSA file with named or accessioned MSAs");
 
   if (afp->bf->mode_is != eslBUFFER_FILE &&
       afp->bf->mode_is != eslBUFFER_ALLFILE &&

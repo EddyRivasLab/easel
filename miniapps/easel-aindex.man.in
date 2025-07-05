@@ -36,11 +36,11 @@ option allows overwriting a previous index file.
 .PP
 The
 .B msafile
-must be in Stockholm format.
+must be in Stockholm format (used by Pfam and Rfam).
 Fetching MSAs is only useful for MSA formats that allow files to contain more
 than one MSA, and moreover that have MSAs with names and/or
-accessions. Currently this means Stockholm format (used by Pfam and
-Rfam). Most common MSA formats have one MSA per file and don't have
+accessions.
+Other MSA formats have one MSA per file and don't have
 names or accessions other than the filename. Running
 .B easel aindex
 on MSA formats other than Stockholm results in an error.
@@ -96,19 +96,6 @@ clobber an existing file.
 .B \-h 
 Print brief help; includes version number and summary of
 all options, including expert options.
-
-.TP
-.BI \-\-informat " <fmt>"
-Assert that the input
-.I msafile
-is in format
-.IR fmt ,
-bypassing format autodetection. The
-only valid choices for
-.I fmt
-is
-.B stockholm
-(case-insensitive), because it's the only multi-MSA file format.
 
 .TP
 .B \-\-noacc

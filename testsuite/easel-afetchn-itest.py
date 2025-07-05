@@ -47,9 +47,6 @@ r = esl_itest.run('{0}/miniapps/easel afetchn -o {1}.sto3 {1}.sto {1}.list'.form
 # -f allows overwriting
 r = esl_itest.run('{0}/miniapps/easel afetchn -fo {1}.sto3 {1}.sto {1}.list'.format(builddir, tmppfx))
 
-# --informat
-r = esl_itest.run('{0}/miniapps/easel afetchn --informat stockholm {1}.sto {1}.list'.format(builddir, tmppfx))
-
 # text mode
 with open('{}.list'.format(tmppfx), 'w') as f: print('Foxtrot\n', file=f)
 r = esl_itest.run('{0}/miniapps/easel afetchn {1}.sto2 {1}.list'.format(builddir, tmppfx))
@@ -91,7 +88,6 @@ if re.search(r'^Retrieved 2 alignments\.', r.stdout, flags=re.MULTILINE) == None
 
 r = esl_itest.run('{0}/miniapps/easel afetchn -o {1}.sto4 {1}.sto {1}.list'.format(builddir, tmppfx), expect_success=False)
 r = esl_itest.run('{0}/miniapps/easel afetchn -fo {1}.sto4 {1}.sto {1}.list'.format(builddir, tmppfx))
-r = esl_itest.run('{0}/miniapps/easel afetchn --informat stockholm {1}.sto {1}.list'.format(builddir, tmppfx))
 
 with open('{}.list'.format(tmppfx), 'w') as f: print('Foxtrot\n', file=f)
 r = esl_itest.run('{0}/miniapps/easel afetchn {1}.sto2 {1}.list'.format(builddir, tmppfx))

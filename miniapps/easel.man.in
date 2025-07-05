@@ -124,10 +124,19 @@ Multiple sequence alignment format names are:
 When a miniapp outputs sequences or alignments, it will typically
 have an
 .B \-\-outformat " fmt"
-option for selecting the output format. The same lists of choices for 
-unaligned sequence and multiple alignment
+option for selecting the output format.
+The choices for multiple sequence alignment output formats,
+are the same as for inputs:
+.BR stockholm|pfam|a2m|afa|psiblast|clustal|clustallike|phylip|phylips|selex .
+For unaligned sequence output, the
+only choice for
 .I fmt
-apply.
+is
+.B fasta 
+(unless otherwise stated). 
+GenBank/DDBJ and EMBL/UniProt formats have extensive
+metadata which Easel does not store in its internal
+sequence object.
 
 .PP
 .B pfam

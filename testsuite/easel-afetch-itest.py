@@ -69,9 +69,6 @@ r = esl_itest.run('{0}/miniapps/easel msastat -1q {1}-test'.format(builddir, tmp
 pattern = r'^1\s+{}-test\s+XX0005\s+Stockholm\s+1\s+20'.format(tmppfx)
 if ( m := re.search(pattern, r.stdout, flags=re.MULTILINE)) == None: esl_itest.fail()
 
-# --informat
-r = esl_itest.run('{0}/miniapps/easel afetch --informat stockholm {1}.sto Delta'.format(builddir, tmppfx))
-
 # Because `easel afetch` uses Easel text mode, it allows lower/upper
 # case and indeed any weird character
 #

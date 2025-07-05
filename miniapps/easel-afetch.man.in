@@ -43,10 +43,13 @@ input is being read from a stream or pipe (stdin or .gz),
 only unindexed retrieval is possible.
 
 .PP
+The
+.I msafile
+must be in Stockholm format (used by Pfam and Rfam).
 Fetching MSAs is only useful for MSA formats that allow files to contain more
 than one MSA, and moreover that have MSAs with names and/or
-accessions. Currently this means Stockholm format (used by Pfam and
-Rfam). Most common MSA formats have one MSA per file and don't have
+accessions. 
+Other MSA formats have one MSA per file and don't have
 names or accessions other than the filename. Running
 .B easel afetch
 on MSA formats other than Stockholm results in an error.
@@ -55,11 +58,11 @@ on MSA formats other than Stockholm results in an error.
 The MSA is fetched in Easel's "text mode", rather than being parsed
 with a specific biological alphabet. This means that the sequences can
 contain any non-whitespace characters, and they will be preserved on
-output (including use of lower/upper case). (This is why
+output (including use of lower/upper case). This is why
 .B easel afetch
 lacks the usual
 .B \-\-amino|\-\-dna|\-\-rna
-options.)
+options.
 
 .PP
 Moreover, when an SSI index is used, the MSA record is fetched
@@ -72,11 +75,6 @@ Without an SSI index, the MSA record passes through the Easel
 parser, which can result in some minor reformatting changes.
 
 .PP
-Aside from not having bioalphabet-setting options, usual Easel conventions apply to the input
-.I msafile.
-Its format is autodetected; format autodetection
-can be overridden with
-.B \-\-informat.
 If
 .I msafile
 is
@@ -118,19 +116,6 @@ instead of to stdout.
 .BI \-O
 Output retrieved alignment to a file named
 .IR key .
-
-.TP
-.BI \-\-informat " fmt"
-Assert that the input
-.I msafile
-is in format
-.IR fmt ,
-bypassing format autodetection. The
-only valid choice for
-.I fmt
-is
-.B stockholm
-(case-insensitive), because it's the only multi-MSA file format.
 
 .SH SEE ALSO
 

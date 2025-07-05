@@ -21,7 +21,6 @@ static ESL_OPTIONS cmd_options[] = {
   { "-f",         eslARG_NONE,        FALSE, NULL, NULL, NULL, NULL, NULL,   "force; allow -o|-O to overwrite existing outfile",  0 },
   { "-o",         eslARG_OUTFILE,     FALSE, NULL, NULL, NULL, NULL,"-O",    "output MSA to file <f> instead of stdout",          0 },
   { "-O",         eslARG_NONE,        FALSE, NULL, NULL, NULL, NULL,"-o",    "output MSA to file named <key>",                    0 },
-  { "--informat", eslARG_STRING,      FALSE, NULL, NULL, NULL, NULL, NULL,   "specify that <msafile> is in format <s>",           0 },
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
@@ -33,7 +32,7 @@ esl_cmd_afetch(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   ESL_GETOPTS  *go      = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, /*custom opthelp=*/NULL);
   char         *msafile = esl_opt_GetArg(go, 1);       // MSA file name
   char         *key     = esl_opt_GetArg(go, 2);       // which MSA to fetch: name or accession
-  int           infmt   = eslMSAFILE_UNKNOWN;          // format code for msafile
+  int           infmt   = eslMSAFILE_STOCKHOLM;        // Stockholm is the only multi-MSA format
   ESL_MSAFILE  *afp     = NULL;	                       // open alignment file
   char         *outfile = NULL;
   int           allow_overwrite = esl_opt_GetBoolean(go, "-f");
@@ -46,16 +45,9 @@ esl_cmd_afetch(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   /* Open MSA file, text mode.
    * We don't need to parse sequence data, so we don't need digital alphabet.
    */
-  if (esl_opt_IsOn(go, "--informat")) {
-    infmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
-    if (infmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input alignment file format for --informat", esl_opt_GetString(go, "--informat")); 
-  }
   if ( (status  = esl_msafile_Open(NULL, msafile, NULL, infmt, NULL, &afp)) != eslOK)
     esl_msafile_OpenFailure(afp, status);
   outfmt = afp->format;
-
-  if (afp->format != eslMSAFILE_STOCKHOLM && afp->format != eslMSAFILE_PFAM)
-    esl_fatal("`easel afetch` is only useful for Stockholm format: multi-MSA file with named or accessioned MSAs");
 
   /* Open optional SSI index, if input is seekable and SSI index exists
    */
