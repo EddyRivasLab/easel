@@ -160,6 +160,8 @@ esl_cmd_reformat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
    */
   if ((outfmt = esl_sqio_EncodeFormat(fmt)) == eslSQFILE_UNKNOWN)
     esl_fatal("%s is not a recognized output seqfile format\n", fmt);
+  if (! esl_sqio_IsAlignment(outfmt) && (outfmt != eslSQFILE_FASTA && outfmt != eslSQFILE_HMMPGMD))  // Unaligned output formats: fasta|hmmpgmd
+    esl_fatal("Can't reformat to %s format: only can do fasta|hmmpgmd format for unaligned seqfiles", fmt);
 
   if (esl_opt_IsOn(go, "--informat")) {
     if ( (infmt = esl_sqio_EncodeFormat(esl_opt_GetString( go, "--informat"))) == eslSQFILE_UNKNOWN)

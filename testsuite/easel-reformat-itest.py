@@ -55,6 +55,11 @@ r = esl_itest.run(f'{builddir}/miniapps/easel reformat -h')
 r  =  esl_itest.run(f'{builddir}/miniapps/easel reformat fasta {srcdir}/testsuite/example-uniprot.fa')
 compare_composition(f'{srcdir}/testsuite/example-uniprot.fa', r.stdout, is_stdout=True)
 
+# Unaligned seqfile output format can only be FASTA (or hmmpgmd). Make sure we're handling that gracefully, not throwing exception.
+r  =  esl_itest.run(f'{builddir}/miniapps/easel reformat uniprot {srcdir}/testsuite/example-uniprot.fa', expect_success=False)
+if (m := re.match(r"Can't reformat to uniprot format", r.stderr)) is None: esl_itest.fail()
+if (m := re.match(r'Fatal exception', r.stderr)):                          esl_itest.fail()
+
 # MSA>MSA conversions, with -o <outfile>
 # Using Easel-standard file suffixes bypasses format autodetection, forces the appropriate format
 # Use example Pfam (w/ 3 MSAs) for formats that handle multiple MSAs ((stockholm,pfam,phylip,phylips)
