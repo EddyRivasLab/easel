@@ -28,8 +28,8 @@ r = esl_itest.run(f'{builddir}/miniapps/easel downsample -h')
 # basic
 #
 r  =  esl_itest.run(f'{builddir}/miniapps/easel downsample 5 {srcdir}/testsuite/example-genbank.gb')
-r2 = subprocess.run(f'wc -l'.split(), input=r.stdout, check=True, encoding='utf-8', capture_output=True)
-if re.fullmatch(r'\s+5\s*', r2.stdout) == None: esl_itest.fail()
+nlines = len(r.stdout.splitlines())
+if nlines != 5: esl_itest.fail()
 
 # -s  sequence sampling. Output is FASTA; seqs are parsed and there can be metadata loss.
 #

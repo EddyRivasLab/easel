@@ -374,6 +374,9 @@ esl_cmd_reformat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
         }
       if      (status == eslEFORMAT) esl_fatal("seqfile parse failed\n  %s", esl_sqfile_GetErrorBuf(sqfp));
       else if (status != eslEOF)     esl_fatal("unexpected error %d reading seqfile", status);
+
+      esl_sqfile_Close(sqfp);
+      esl_sq_Destroy(sq);
     }
 
   esl_getopts_Destroy(go);

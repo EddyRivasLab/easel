@@ -113,6 +113,7 @@ esl_cmd_synth(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   if (outfile) fclose(ofp);
   free(fq);
   esl_sq_Destroy(sq);
+  esl_randomness_Destroy(rng);
   esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
   return eslOK;

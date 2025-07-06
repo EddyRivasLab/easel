@@ -292,7 +292,7 @@ determine_exact_fieldwidths(ESL_SQFILE *sqfp, int *ret_maxw_name, int *ret_maxw_
       else if (status != eslOK)      esl_fatal("Unexpected error %d reading sequence file %s", status, sqfp->filename);
     }
   if ( esl_sqfile_Position(sqfp, 0) != eslOK) esl_fatal("attempt to rewind seq input file failed");
-  free(sq);
+  esl_sq_Destroy(sq);
 
   if   (maxL > 0) { w = 0; while (maxL > 0) { maxL /= 10; w++; } }
   else              w = 1;
