@@ -66,28 +66,31 @@ esl_avx512_hmax_epi8(__m512i a)
 }
 
 /* Function:  esl_avx512_hmax_epi16()
- * Synopsis:  Return max of 32 signed int8_t elements in epi16 vector.
+ * Synopsis:  Return max of 32 signed int16_t elements in epi16 vector.
  */
 static inline int16_t
 esl_avx512_hmax_epi16(__m512i a)
 {
-  __m256i b = _mm256_max_epi8(_mm512_extracti32x8_epi32(a, 0), _mm512_extracti32x8_epi32(a, 1));
+  __m256i b = _mm256_max_epi16(_mm512_extracti32x8_epi32(a, 0), _mm512_extracti32x8_epi32(a, 1));
+  b = _mm256_max_epi16(b, _mm256_permute2x128_si256(b, b, 0x01));    
   b = _mm256_max_epi16(b, _mm256_shuffle_epi32     (b,    0x4e));    
   b = _mm256_max_epi16(b, _mm256_shuffle_epi32     (b,    0xb1));
   b = _mm256_max_epi16(b, _mm256_shufflelo_epi16   (b,    0xb1));
   return _mm256_extract_epi16(b, 0);
 }
-/* Function:  esl_avx512_hmax_epi16()
+
+/* Function:  esl_avx512_hmax_ps()
  * Synopsis:  Return max of 16 signed float elements in vector.
  */
 static inline void
 esl_avx512_hmax_ps(__m512 a, float *ret_max){
+  float  v[8];
   __m256 b = _mm256_max_ps(_mm512_extractf32x8_ps(a, 1), _mm512_extractf32x8_ps(a, 0)); //b has per-element max of the two halves of a
-  b = _mm256_max_ps(b, _mm256_permute2f128_ps(b, b, 0x01));  // now per-element max of 128-bit quarters    
+  b = _mm256_max_ps(b, _mm256_permute2f128_ps(b, b, 0x01));     // now per-element max of 128-bit quarters    
   b = _mm256_max_ps(b, _mm256_shuffle_ps     (b, b,  0x0e));    // 64-bit 
-  b = _mm256_max_ps(b, _mm256_shuffle_ps     (b, b,  0x01)); //low float has max of all floats in a
-  int *retint_ptr = (int *) ret_max; // Hack because AVX doesn't have an extract for floats
-  *retint_ptr = _mm256_extract_epi32((__m256i) b, 0);
+  b = _mm256_max_ps(b, _mm256_shuffle_ps     (b, b,  0x01));    // low float has max of all floats in a
+  _mm256_storeu_ps(v,b);
+  *ret_max = v[0];
 }
 
 /* Function: esl_avx512_hsum_ps()
