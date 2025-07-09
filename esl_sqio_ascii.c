@@ -3340,8 +3340,8 @@ esl_sqascii_Parse(char *buf, int size, ESL_SQ *sq, int format)
   if ((status = ascii->parse_header(&sqfp, sq)) != eslOK) goto ERROR; /* EOF, EFORMAT */
 
   do {
-    if ((status = seebuf(&sqfp, -1, &n, &epos)) != eslOK) goto ERROR;
-    if ((status = esl_sq_GrowTo(sq, sq->n + n)) != eslOK) goto ERROR;
+    if ((status = seebuf(&sqfp, -1, &n, &epos)) == eslEFORMAT)      goto ERROR;     // EOD is ok! Don't overwrite <status> now, until we reach the status==eslEOD check below. 
+    if ( esl_sq_GrowTo(sq, sq->n + n) != eslOK) { status = eslEMEM; goto ERROR; }   // (though overwriting <status> as we fail is ok)
     addbuf(&sqfp, sq, n);
     ascii->L   += n;
     sq->eoff   = ascii->boff + epos - 1;
