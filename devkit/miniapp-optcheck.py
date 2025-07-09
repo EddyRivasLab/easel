@@ -115,11 +115,14 @@ def process_itestfile(itestfile, opts_with_arg):
                         optset.add(argv[i])                    
                         if argv[i] in opts_with_arg: i += 1
                     elif  m := re.match(r'-(\w+)', argv[i]):              # -abc    concatenated options. only last one can have an argument
-                        for c in m.group(1):       optset.add(f'-{c}')  
-                        for c in m.group(1)[:-1]:
-                            if f'-{c}' in opts_with_arg: sys.exit(f"Parsing problem. Saw -{c} inside concatenated option, but it's supposed to take an arg")
-                        if f'-{m.group(1)[:-1]}' in opts_with_arg: i += 1
-                    elif  m := re.match(r'--\S+', argv[i]):               # --long  long form opts            
+                        for c in m.group(1):
+                            optset.add(f'-{c}')  
+                        c = m.group(1)[-1]                     # last option in the concatenated list: check for arg
+                        if f'-{c}' in opts_with_arg: i += 1
+                        for c in m.group(1)[:-1]:              # the rest of the options in the list may not take an arg
+                            if f'-{c}' in opts_with_arg:
+                                sys.exit(f"Parsing problem. Saw -{c} inside concatenated option, but it takes an arg")
+                    elif  m := re.match(r'--\S+', argv[i]):               # --foo   long form opts            
                         optset.add(argv[i])
                         if argv[i] in opts_with_arg: i += 1
                     else: break                                           # anything else means end of options: including - or -- by themself
@@ -168,7 +171,7 @@ def main():
         else:                         col1 = 'ok'
 
         if   itestfile_optset is None: col2 = '[no itest]'
-        elif len(untest_opts) > 0:     col2 = f'[{len(untest_opts)} undocumented]'
+        elif len(untest_opts) > 0:     col2 = f'[{len(untest_opts)} untested]'
         else:                          col2 = 'ok'
 
         if len(extradoc_opts) > 0 or len(extratest_opts) > 0 or len(documented_devopts) > 0:

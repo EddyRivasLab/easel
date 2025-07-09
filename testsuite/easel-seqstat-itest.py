@@ -103,6 +103,5 @@ r = esl_itest.run(f'{easel} seqstat --colw  10       {srcdir}/testsuite/example-
 for tmpfile in glob.glob(f'{tmppfx}.*'):
     os.remove(tmpfile)
 
-
 print('ok')
 

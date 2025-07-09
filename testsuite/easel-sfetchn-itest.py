@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# Integration test for `easel sfetchn` miniapp
+# Integration test for `easel sfetchn` 
 #
 # Usage: easel-sfetchn-itest.py <builddir> <srcdir> <tmppfx>
 #   <builddir>: path to Easel build dir. `easel` miniapp is <builddir>/miniapps/easel
@@ -26,81 +26,95 @@ progs_used = [ 'miniapps/easel' ]
 esl_itest.check_files(srcdir,   files_used)
 esl_itest.check_progs(builddir, progs_used)
 
+easel = f'{builddir}/miniapps/easel'
+
+
 # -h
-r = esl_itest.run('{0}/miniapps/easel sfetchn -h'.format(builddir, tmppfx))
+r = esl_itest.run(f'{easel} sfetchn -h')
 
 # Make copies of three example files from Easel testsuite directory.
-shutil.copyfile('{}/testsuite/example-genbank.gb'.format(srcdir), '{}.gb'.format(tmppfx))
-shutil.copyfile('{}/testsuite/example-uniprot.dat'.format(srcdir), '{}.dat'.format(tmppfx))
-shutil.copyfile('{}/testsuite/example-uniprot.fa'.format(srcdir), '{}.fa'.format(tmppfx))
+shutil.copyfile(f'{srcdir}/testsuite/example-genbank.gb',  f'{tmppfx}.gb')
+shutil.copyfile(f'{srcdir}/testsuite/example-uniprot.dat', f'{tmppfx}.dat')
+shutil.copyfile(f'{srcdir}/testsuite/example-uniprot.fa',  f'{tmppfx}.fa')
 
 # Index them. (SSI is mandatory for sfetchn)
-r = esl_itest.run('{}/miniapps/easel sindex --noacc {}.gb'.format(builddir, tmppfx))    # GenBank name = accession, so don't bother indexing accession
-r = esl_itest.run('{}/miniapps/easel sindex {}.dat'.format(builddir, tmppfx))
-r = esl_itest.run('{}/miniapps/easel sindex -u {}.fa'.format(builddir, tmppfx))
+r = esl_itest.run(f'{easel} sindex --noacc {tmppfx}.gb')    # GenBank name = accession, so don't bother indexing accession
+r = esl_itest.run(f'{easel} sindex {tmppfx}.dat')
+r = esl_itest.run(f'{easel} sindex -u {tmppfx}.fa')
 
 ## Complete sequence fetching
 ##
 
 # Uniprot .fa can be fetched using <id> or <acc> in <db>|<acc>|<id> names, when sindexed with -u
-with open('{}.list'.format(tmppfx), 'w') as f:    print('# comment\n\nGPMI_YERP3 ignore\n\nMNME_BEII9 other fields\n', file=f)
-r = esl_itest.run('{0}/miniapps/easel sfetchn {1}.fa {1}.list'.format(builddir, tmppfx))
-if re.search(r'^>sp\|A7FCU8\|GPMI_YERP3 (?s:.+)^>sp\|B2IJQ3\|MNME_BEII9 ', r.stdout,  flags=re.MULTILINE) == None: esl_itest.fail()  # indexed fetch: seqs in order of <keyfile>
+#
+with open(f'{tmppfx}.list', 'w') as f:
+    f.write('# comment\n\nGPMI_YERP3 ignore\n\nMNME_BEII9 other fields\n')
+r = esl_itest.run(f'{easel} sfetchn {tmppfx}.fa {tmppfx}.list')
+if re.search(r'^>sp\|A7FCU8\|GPMI_YERP3 (?s:.+)^>sp\|B2IJQ3\|MNME_BEII9 ', r.stdout,  flags=re.MULTILINE) is None: esl_itest.fail()  # indexed fetch: seqs in order of <keyfile>
 
-with open('{}.list'.format(tmppfx), 'w') as f:    print('# comment\n\nA7FCU8\n\nB2IJQ3\n', file=f)
-r = esl_itest.run('{0}/miniapps/easel sfetchn {1}.fa {1}.list'.format(builddir, tmppfx))
-if re.search(r'^>sp\|A7FCU8\|GPMI_YERP3 (?s:.+)^>sp\|B2IJQ3\|MNME_BEII9 ', r.stdout,  flags=re.MULTILINE) == None: esl_itest.fail()  
+with open(f'{tmppfx}.list', 'w') as f:
+    f.write('# comment\n\nA7FCU8\n\nB2IJQ3\n')
+r = esl_itest.run(f'{easel} sfetchn {tmppfx}.fa {tmppfx}.list')
+if re.search(r'^>sp\|A7FCU8\|GPMI_YERP3 (?s:.+)^>sp\|B2IJQ3\|MNME_BEII9 ', r.stdout,  flags=re.MULTILINE) is None: esl_itest.fail()  
 
-with open('{}.list'.format(tmppfx), 'w') as f:    print('sp|A7FCU8|GPMI_YERP3\nsp|B2IJQ3|MNME_BEII9', file=f)
-r = esl_itest.run('{0}/miniapps/easel sfetchn {1}.fa {1}.list'.format(builddir, tmppfx))
-if re.search(r'^>sp\|A7FCU8\|GPMI_YERP3 (?s:.+)^>sp\|B2IJQ3\|MNME_BEII9 ', r.stdout,  flags=re.MULTILINE) == None: esl_itest.fail()  
+with open(f'{tmppfx}.list', 'w') as f:
+    f.write('sp|A7FCU8|GPMI_YERP3\nsp|B2IJQ3|MNME_BEII9')
+r = esl_itest.run(f'{easel} sfetchn {tmppfx}.fa {tmppfx}.list')
+if re.search(r'^>sp\|A7FCU8\|GPMI_YERP3 (?s:.+)^>sp\|B2IJQ3\|MNME_BEII9 ', r.stdout,  flags=re.MULTILINE) is None: esl_itest.fail()  
 
 # Fetching complete, nonrevcomp sequences is verbatim in original format. This also tests -o
-with open('{}.list'.format(tmppfx), 'w') as f:    print('NC_047788\nNC_055916\nNC_007046\nNC_049972\n', file=f)
-r = esl_itest.run('{0}/miniapps/easel sfetchn -o {1}.out {1}.gb {1}.list'.format(builddir, tmppfx))
-if filecmp.cmp('{}.gb'.format(tmppfx), '{}.out'.format(tmppfx), shallow=False) == False: esl_itest.fail()
+#
+with open(f'{tmppfx}.list', 'w') as f:
+    f.write('NC_047788\nNC_055916\nNC_007046\nNC_049972\n')
+r = esl_itest.run(f'{easel} sfetchn -o {tmppfx}.out {tmppfx}.gb {tmppfx}.list')
+if filecmp.cmp(f'{tmppfx}.gb', f'{tmppfx}.out', shallow=False) == False: esl_itest.fail()
 
 # -o will refuse to overwrite: this fails:
-r = esl_itest.run('{0}/miniapps/easel sfetchn -o {1}.out {1}.gb {1}.list'.format(builddir, tmppfx), expect_success=False)
+r = esl_itest.run(f'{easel} sfetchn -o {tmppfx}.out {tmppfx}.gb {tmppfx}.list', expect_success=False)
 
 # -f allows the overwrite
-r = esl_itest.run('{0}/miniapps/easel sfetchn -fo {1}.out {1}.gb {1}.list'.format(builddir, tmppfx))
+r = esl_itest.run(f'{easel} sfetchn -fo {tmppfx}.out {tmppfx}.gb {tmppfx}.list')
 
 # --informat
-with open('{}.list'.format(tmppfx), 'w') as f:    print('DEF_RICCK\nGPMI_YERP3\n', file=f)
-r = esl_itest.run('{0}/miniapps/easel sfetchn -fo {1}.out --informat uniprot {1}.dat {1}.list'.format(builddir, tmppfx))
+with open(f'{tmppfx}.list', 'w') as f:
+    f.write('DEF_RICCK\nGPMI_YERP3\n')
+r = esl_itest.run(f'{easel} sfetchn -fo {tmppfx}.out --informat uniprot {tmppfx}.dat {tmppfx}.list')
 
 # -r  : reverse complement comes out in FASTA, not original format
-with open('{}.list'.format(tmppfx), 'w') as f:    print('NC_049972\nNC_007046\n', file=f)
-r = esl_itest.run('{0}/miniapps/easel sfetchn -r -fo {1}.out {1}.gb {1}.list'.format(builddir, tmppfx))
-r = esl_itest.run('{0}/miniapps/easel seqstat {1}.out'.format(builddir, tmppfx))
-if re.search(r'^Format:\s+FASTA(?s:.+)^Total # residues:\s+37131', r.stdout, flags=re.MULTILINE) == None: esl_itest.fail()
+with open(f'{tmppfx}.list', 'w') as f:
+    f.write('NC_049972\nNC_007046\n')
+r = esl_itest.run(f'{easel} sfetchn -r -fo {tmppfx}.out {tmppfx}.gb {tmppfx}.list')
+r = esl_itest.run(f'{easel} seqstat {tmppfx}.out')
+if re.search(r'^Format:\s+FASTA(?s:.+)^Total # residues:\s+37131', r.stdout, flags=re.MULTILINE) is None: esl_itest.fail()
 
 
 ## Subsequence fetching (-C)
 ##
 
 # end=0 means fetch suffix
-with open('{}.list'.format(tmppfx), 'w') as f:    print('subseq1 101 200 NC_049972\nsubseq2 18000 0 NC_007046\n', file=f)
-r = esl_itest.run('{0}/miniapps/easel sfetchn -C -fo {1}.out {1}.gb {1}.list'.format(builddir, tmppfx))
-r = esl_itest.run('{0}/miniapps/easel seqstat -Aq {1}.out'.format(builddir, tmppfx))                             # .out: 100, 199nt subseqs
-if re.search(r'^subseq1\s+100 (?s:.+)^subseq2\s+200 ', r.stdout, flags=re.MULTILINE) == None: esl_itest.fail()
+with open(f'{tmppfx}.list', 'w') as f:
+    f.write('subseq1 101 200 NC_049972\nsubseq2 18000 0 NC_007046\n')
+r = esl_itest.run(f'{easel} sfetchn -C -fo {tmppfx}.out {tmppfx}.gb {tmppfx}.list')
+r = esl_itest.run(f'{easel} seqstat -Aq {tmppfx}.out')                             # .out: 100, 199nt subseqs
+if re.search(r'^subseq1\s+100 (?s:.+)^subseq2\s+200 ', r.stdout, flags=re.MULTILINE) is None: esl_itest.fail()
 
 # revcomp by -r
-r = esl_itest.run('{0}/miniapps/easel sfetchn -C -r -fo {1}.out2 {1}.gb {1}.list'.format(builddir, tmppfx))      # .out2: revcomp of the 2 subseqs
-with open('{}.list2'.format(tmppfx), 'w') as f:    print('subseq1\nsubseq2', file=f)                             # .list2: for complete sfetchn of the 2 subseqs
-r = esl_itest.run('{0}/miniapps/easel sindex -f {1}.out2'.format(builddir, tmppfx))
-r = esl_itest.run('{0}/miniapps/easel sfetchn -r -fo {1}.out3 {1}.out2 {1}.list2'.format(builddir, tmppfx))      # .out3 now == .out: revcomp of revcomp
-if filecmp.cmp('{}.out3'.format(tmppfx), '{}.out'.format(tmppfx), shallow=False) == False: esl_itest.fail()
+r = esl_itest.run(f'{easel} sfetchn -C -r -fo {tmppfx}.out2 {tmppfx}.gb {tmppfx}.list')  # .out2: revcomp of the 2 subseqs
+with open(f'{tmppfx}.list2', 'w') as f:                                                  # .list2: for complete sfetchn of the 2 subseqs
+    f.write('subseq1\nsubseq2\n')
+r = esl_itest.run(f'{easel} sindex -f {tmppfx}.out2')
+r = esl_itest.run(f'{easel} sfetchn -r -fo {tmppfx}.out3 {tmppfx}.out2 {tmppfx}.list2')      # .out3 now == .out: revcomp of revcomp
+if filecmp.cmp(f'{tmppfx}.out3', f'{tmppfx}.out', shallow=False) == False: esl_itest.fail()
 
 # revcomp by coord
-with open('{}.list'.format(tmppfx), 'w') as f:    print('subseq1 200 101 NC_049972\nsubseq2 18199 18000 NC_007046\n', file=f)
-r = esl_itest.run('{0}/miniapps/easel sfetchn -C -fo {1}.out2 {1}.gb {1}.list'.format(builddir, tmppfx))        # again .out2: revcomp of the two subseqs
-r = esl_itest.run('{0}/miniapps/easel sindex -f {1}.out2'.format(builddir, tmppfx))
-r = esl_itest.run('{0}/miniapps/easel sfetchn -r -fo {1}.out3 {1}.out2 {1}.list2'.format(builddir, tmppfx))     # .out3 now == .out: revcomp of revcomp
-if filecmp.cmp('{}.out3'.format(tmppfx), '{}.out'.format(tmppfx), shallow=False) == False: esl_itest.fail()
+with open(f'{tmppfx}.list', 'w') as f:
+    f.write('subseq1 200 101 NC_049972\nsubseq2 18199 18000 NC_007046\n')
+r = esl_itest.run(f'{easel} sfetchn -C -fo {tmppfx}.out2 {tmppfx}.gb {tmppfx}.list')        # again .out2: revcomp of the two subseqs
+r = esl_itest.run(f'{easel} sindex -f {tmppfx}.out2')
+r = esl_itest.run(f'{easel} sfetchn -r -fo {tmppfx}.out3 {tmppfx}.out2 {tmppfx}.list2')     # .out3 now == .out: revcomp of revcomp
+if filecmp.cmp(f'{tmppfx}.out3', f'{tmppfx}.out', shallow=False) == False: esl_itest.fail()
 
-
-for tmpfile in glob.glob('{}.*'.format(tmppfx)): os.remove(tmpfile)
+for tmpfile in glob.glob(f'{tmppfx}.*'):
+    os.remove(tmpfile)
 
 print('ok')
