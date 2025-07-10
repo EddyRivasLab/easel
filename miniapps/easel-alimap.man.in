@@ -83,7 +83,7 @@ that optimally map to columns of the
 .I msafile2
 alignment
 using the 
-.B esl\-alimask
+.B easel alimask
 miniapp. To extract the corresponding set of columns 
 from 
 .I msafile2
@@ -91,7 +91,7 @@ from
 .IR msafile1 ),
 it is necessary to rerun the program with the order of the two 
 msafiles reversed, save new masks, and use
-.B esl\-alimask
+.B easel alimask
 again.
 
 .SH OPTIONS
@@ -148,19 +148,23 @@ in the optimal map.
 
 .TP
 .BI \-\-submap " <f>"
-Specify that all of the columns from the alignment from 
-.I msafile1
+.I msafile2
+is a sub-MSA, a piece the MSA in
+.I msafile1,
+in the sense that 
+all of the columns from a smaller alignment in
+.I msafile2
 exist identically (contain the same residues from all sequences) in
-the alignment from 
-.I msafile2. 
-This makes the task of mapping trivial.
-However, not all columns of 
-.I msafile1 
-must exist in 
-.I msafile2.
-Save the mask to file
-.I <f>.
-A '1' at position x of the mask means that position x of the alignment from
+the larger alignment in
+.I msafile1. 
+Find the columns in
+.I msafile1
+that correspond to the subalignment in
+.I msafile2,
+and save a 1|0 mask to
+.I <f>
+that marks those columns with 1's.
+That is, a '1' at position x of the mask means that position x of the alignment from
 .I msafile1
 is the same as position y of
 .I msafile2,
