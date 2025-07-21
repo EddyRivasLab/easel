@@ -23,14 +23,14 @@ static int read_mask_file(char *filename, char *errbuf, char **ret_mask, int *re
 
 static ESL_OPTIONS cmd_options[] = {
   /* name        type        default  env   range togs  reqs  incomp           help                                                   docgroup */
-  { "-h",        eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,            "help; show brief info on version and usage",                     1 },
-  { "-c",        eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,            "print per column statistics instead of per sequence stats",      1 },
-  { "-p",        eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,            "print stats on accuracy versus posterior probability (PP)",      1 },
-  { "--p-mask",  eslARG_OUTFILE,NULL, NULL, NULL, NULL,"-p",  NULL,            "with -p, only consider columns within mask ('1' columns) in <f>",1 },
-  { "--c2dfile", eslARG_OUTFILE,NULL, NULL, NULL, NULL,"-c",  NULL,            "print per column stats to esl-ssdraw --dfile file <f>",          1 },
-  { "--amino",   eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, "--dna,--rna",   "<msafile> contains protein alignments",                          2 },
-  { "--dna",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, "--amino,--rna", "<msafile> contains DNA alignments",                              2 },
-  { "--rna",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, "--amino,--dna", "<msafile> contains RNA alignments",                              2 },
+  { "-h",        eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,            "help; show brief info on version and usage",                     0 },
+  { "-c",        eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,            "print per column statistics instead of per sequence stats",      0 },
+  { "-p",        eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,            "print stats on accuracy versus posterior probability (PP)",      0 },
+  { "--p-mask",  eslARG_OUTFILE,NULL, NULL, NULL, NULL,"-p",  NULL,            "with -p, only consider columns within mask ('1' columns) in <f>",0 },
+  { "--c2dfile", eslARG_OUTFILE,NULL, NULL, NULL, NULL,"-c",  NULL,            "print per column stats to esl-ssdraw --dfile file <f>",          0 },
+  { "--amino",   eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, "--dna,--rna",   "assert that MSA files contain protein alignments",               0 },
+  { "--dna",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, "--amino,--rna", "assert that MSA files contain DNA alignments",                   0 },
+  { "--rna",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, "--amino,--dna", "assert that MSA files contain RNA alignments",                   0 },
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
@@ -44,8 +44,7 @@ show_opthelp(const ESL_GETOPTS *go)
   esl_printf("See the manual page for details on how accuracy is computed.\n");
 
   esl_printf("\noptions are:\n");
-  esl_opt_DisplayHelp(stdout, go, /*docgroup=*/1, /*indent=*/2, /*textwidth=*/80);
-  esl_opt_DisplayHelp(stdout, go, /*docgroup=*/2, /*indent=*/2, /*textwidth=*/80);
+  esl_opt_DisplayHelp(stdout, go, /*docgroup=*/0, /*indent=*/2, /*textwidth=*/80);
 
   return eslOK;
 }
@@ -194,25 +193,30 @@ esl_cmd_compalign(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **ar
 	    if((! esl_abc_CIsGap       (ta->abc, ta->rf[apos-1])) && 
 	      (! esl_abc_CIsMissing   (ta->abc, ta->rf[apos-1]))) t_rflen++;
     }
-    if(t_rflen != rflen) esl_fatal("Trusted alignment non-gap RF length (%d) != predicted alignment non-gap RF length (%d).\n", rflen, t_rflen);
+    if(t_rflen != rflen) esl_fatal("Trusted alignment consensus (non-gap RF) length (%d) != predicted alignment consensus length (%d).\n", rflen, t_rflen);
 
-      /* if -p, make sure the test alignment has posterior probabilities, and allocate our counters for correct/incorrect per post value */
-    if(do_post) { 
-	    if(! esl_opt_IsDefault(go, "--p-mask")) {
-	      if(masklen != rflen) { 
-	        esl_fatal("Length of mask in %s (%d) not equal to non-gap RF len of alignments (%d)\n", esl_opt_GetString(go, "--p-mask"), masklen, rflen);
-	      }
-	    }
-	    if(ta->pp == NULL) esl_fatal("-p requires \"#=GR PP\" annotation in the test alignment, but none exists");
-	    ESL_ALLOC(ptm,     sizeof(int) * npostvals);
-	    ESL_ALLOC(pti,     sizeof(int) * npostvals);
-	    ESL_ALLOC(cor_ptm, sizeof(int) * npostvals);
-	    ESL_ALLOC(cor_pti, sizeof(int) * npostvals);
-	    esl_vec_ISet(ptm, npostvals, 0);
-	    esl_vec_ISet(pti, npostvals, 0);
-	    esl_vec_ISet(cor_ptm, npostvals, 0);
-	      esl_vec_ISet(cor_pti, npostvals, 0);
-    }
+    /* if -p, make sure the test alignment has per-seq posterior
+     * probabilities on every sequence, and allocate our counters for
+     * correct/incorrect per post value
+     */
+    if (do_post)
+      { 
+        if (! esl_opt_IsDefault(go, "--p-mask")) {
+          if (masklen != rflen) esl_fatal("Length of mask in %s (%d) not equal to consensus (non-gap RF) len of alignments (%d)\n", esl_opt_GetString(go, "--p-mask"), masklen, rflen);
+        }
+
+        if (ta->pp == NULL) esl_fatal("-p requires \"#=GR PP\" annotation in test MSA, but none exists");
+        for (i = 0; i < ta->nseq; i++)
+          if (ta->pp[i] == NULL)  esl_fatal("-p requires \"#=GR PP\" annotation for all sequences in test MSA,\nbut %s doesn't have it", ta->sqname[i]);
+        ESL_ALLOC(ptm,     sizeof(int) * npostvals);
+        ESL_ALLOC(pti,     sizeof(int) * npostvals);
+        ESL_ALLOC(cor_ptm, sizeof(int) * npostvals);
+        ESL_ALLOC(cor_pti, sizeof(int) * npostvals);
+        esl_vec_ISet(ptm, npostvals, 0);
+        esl_vec_ISet(pti, npostvals, 0);
+        esl_vec_ISet(cor_ptm, npostvals, 0);
+        esl_vec_ISet(cor_pti, npostvals, 0);
+      }
 
     /* allocate and initialize our counters */
     ESL_ALLOC(kp, sizeof(int *) * ka->nseq);
@@ -278,6 +282,8 @@ esl_cmd_compalign(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **ar
 	    rfpos++; is_rfpos = TRUE;
 	    if(do_post) { 
 	      do_post_for_this_rfpos = (mask != NULL && mask[rfpos-1] == '0') ? FALSE : TRUE;
+              // [SRE 21 Jul25]: the rule above means that insert columns *following* marked consensus columns will get counted.
+              //  The logic should probably instead be that inserts *between* marked consensus columns are counted.
 	    }
 	  }
 	  if(esl_abc_XIsResidue(ta->abc, ta->ax[i][apos])) { 
