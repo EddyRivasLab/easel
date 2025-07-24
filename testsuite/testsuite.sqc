@@ -107,7 +107,9 @@
 1 exercise easel-alimap       !testsuite/easel-alimap-itest.py!     @@ !! %TESTPFX%
 1 exercise easel-alipid       !testsuite/easel-alipid-itest.py!     @@ !! %TESTPFX%
 1 exercise easel-alirev       !testsuite/easel-alirev-itest.py!     @@ !! %TESTPFX%
+1 exercise easel-compalign    !testsuite/easel-compalign-itest.py!  @@ !! %TESTPFX%
 1 exercise easel-downsample   !testsuite/easel-downsample-itest.py! @@ !! %TESTPFX%
+1 exercise easel-kmer         !testsuite/easel-kmer-itest.py!       @@ !! %TESTPFX%
 1 exercise easel-msastat      !testsuite/easel-msastat-itest.py!    @@ !! %TESTPFX%
 1 exercise easel-reformat     !testsuite/easel-reformat-itest.py!   @@ !! %TESTPFX%
 1 exercise easel-seqstat      !testsuite/easel-seqstat-itest.py!    @@ !! %TESTPFX%
@@ -228,7 +230,9 @@
 3 valgrind easel-alimap       !testsuite/easel-alimap-itest.py!     @@ !! %TESTPFX%
 3 exercise easel-alipid       !testsuite/easel-alipid-itest.py!     @@ !! %TESTPFX%
 3 valgrind easel-alirev       !testsuite/easel-alirev-itest.py!     @@ !! %TESTPFX%
+3 valgrind easel-compalign    !testsuite/easel-compalign-itest.py!  @@ !! %TESTPFX%
 3 valgrind easel-downsample   !testsuite/easel-downsample-itest.py! @@ !! %TESTPFX%
+3 valgrind easel-kmer         !testsuite/easel-kmer-itest.py!       @@ !! %TESTPFX%
 3 valgrind easel-msastat      !testsuite/easel-msastat-itest.py!    @@ !! %TESTPFX%
 3 valgrind easel-reformat     !testsuite/easel-reformat-itest.py!   @@ !! %TESTPFX%
 3 valgrind easel-seqstat      !testsuite/easel-sfetch-itest.py!     @@ !! %TESTPFX%
