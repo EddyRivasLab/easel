@@ -1299,6 +1299,12 @@ esl_msa_SetDefaultWeights(ESL_MSA *msa)
  *            optional field; in which case any existing name in
  *            the <msa> is erased.
  *
+ *            This function is writing <msa->name>, so do not use the
+ *            existing <msa->name> as an argument. For example, don't
+ *            do something like <esl_msa_FormatName(msa, "%s-modified",
+ *            msa->name)>. Behavior is undefined if you do this.
+ *            See <esl_msa_AppendToName()> instead.
+ *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation error;
@@ -1522,6 +1528,59 @@ esl_msa_FormatSeqDescription(ESL_MSA *msa, int idx, const char *desc, ...)
  ERROR:
   return status;
 }
+
+/* Function:  esl_msa_AppendToName()
+ * Synopsis:  Append a suffix to an MSA name.
+ * Incept:    SRE, Fri 25 Jul 2025 [Benasque]
+ *
+ * Purpose:   Append suffix <sfx> to the name of this MSA.  <sfx> can
+ *            use standard printf formatting.
+ *
+ *            If the optional MSA name is NULL, create the name rather
+ *            than appending (equivalent to appending to an empty
+ *            string).
+ *
+ *            If <sfx> is NULL, do nothing (leave the name as it is),
+ *            and return <eslOK>.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ *
+ *            <eslEFORMAT> if something's wrong with the printf-style
+ *            formatting of <sfx>.
+ */
+int
+esl_msa_AppendToName(ESL_MSA *msa, const char *sfx, ...)
+{
+  int     len1  = (msa->name ? strlen(msa->name) : 0);
+  int     len2  = 0;
+  va_list argp, argp2;
+  int     status;
+
+  if (sfx == NULL) return eslOK;
+
+  va_start(argp, sfx);
+  va_copy(argp2, argp);
+  if ((len2 = vsnprintf(NULL, 0, sfx, argp)) < 0)
+    ESL_XEXCEPTION(eslEFORMAT, "bad sfx format");
+
+  ESL_REALLOC(msa->name, sizeof(char) * (len1+len2+1));
+   
+  if (vsnprintf(msa->name+len1, len2+1, sfx, argp2) < 0)
+    ESL_XEXCEPTION(eslEFORMAT, "bad sfx format");
+
+  va_end(argp);
+  va_end(argp2);
+  return eslOK;
+ 
+ ERROR:
+  va_end(argp);
+  va_end(argp2);
+  return status;
+}
+
+
 
 /* Function:  esl_msa_AddComment()
  * Synopsis:  Add an unparsed command to an <ESL_MSA>

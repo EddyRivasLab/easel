@@ -111,6 +111,7 @@
 1 exercise easel-downsample   !testsuite/easel-downsample-itest.py! @@ !! %TESTPFX%
 1 exercise easel-histplot     !testsuite/easel-histplot-itest.py!   @@ !! %TESTPFX%
 1 exercise easel-kmer         !testsuite/easel-kmer-itest.py!       @@ !! %TESTPFX%
+1 exercise easel-msashuf      !testsuite/easel-msashuf-itest.py!    @@ !! %TESTPFX%
 1 exercise easel-msastat      !testsuite/easel-msastat-itest.py!    @@ !! %TESTPFX%
 1 exercise easel-reformat     !testsuite/easel-reformat-itest.py!   @@ !! %TESTPFX%
 1 exercise easel-seqstat      !testsuite/easel-seqstat-itest.py!    @@ !! %TESTPFX%
@@ -235,6 +236,7 @@
 3 valgrind easel-downsample   !testsuite/easel-downsample-itest.py! @@ !! %TESTPFX%
 3 valgrind easel-histplot     !testsuite/easel-histplot-itest.py!   @@ !! %TESTPFX%
 3 valgrind easel-kmer         !testsuite/easel-kmer-itest.py!       @@ !! %TESTPFX%
+3 valgrind easel-msashuf      !testsuite/easel-msashuf-itest.py!    @@ !! %TESTPFX%
 3 valgrind easel-msastat      !testsuite/easel-msastat-itest.py!    @@ !! %TESTPFX%
 3 valgrind easel-reformat     !testsuite/easel-reformat-itest.py!   @@ !! %TESTPFX%
 3 valgrind easel-seqstat      !testsuite/easel-sfetch-itest.py!     @@ !! %TESTPFX%

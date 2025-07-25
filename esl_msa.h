@@ -164,6 +164,8 @@ extern int esl_msa_FormatSeqName       (ESL_MSA *msa, int idx, const char *name,
 extern int esl_msa_FormatSeqAccession  (ESL_MSA *msa, int idx, const char *acc, ...);
 extern int esl_msa_FormatSeqDescription(ESL_MSA *msa, int idx, const char *desc, ...);
 
+extern int esl_msa_AppendToName(ESL_MSA *msa, const char *sfx, ...);
+
 extern int esl_msa_AddComment(ESL_MSA *msa, char *p,   esl_pos_t n);
 extern int esl_msa_AddGF     (ESL_MSA *msa, char *tag, esl_pos_t taglen,            char *value, esl_pos_t vlen);
 extern int esl_msa_AddGS     (ESL_MSA *msa, char *tag, esl_pos_t taglen, int sqidx, char *value, esl_pos_t vlen);

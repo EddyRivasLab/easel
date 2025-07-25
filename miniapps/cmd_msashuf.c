@@ -127,8 +127,8 @@ assign_shufmsa_name(ESL_MSA *shuf, char *basename, int i, int N)
 {
   /* msa name is optional. if we have one, embed it in the shuffle/sample name */
   if (shuf->name) {
-    if (N > 1) esl_msa_FormatName(shuf, "%s-%s-%d", shuf->name, basename, i);
-    else       esl_msa_FormatName(shuf, "%s-%s",    shuf->name, basename);
+    if (N > 1) esl_msa_AppendToName(shuf, "-%s-%d", basename, i);
+    else       esl_msa_AppendToName(shuf, "-%s",    basename);
   } else {
     if (N > 1) esl_msa_FormatName(shuf, "%s-%d", basename, i);
     else       esl_msa_FormatName(shuf, "%s",    basename);
@@ -165,13 +165,17 @@ esl_cmd_msashuf(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
   status = esl_msafile_Open(&abc, msafile, NULL, infmt, NULL, &afp);
   if (status != eslOK) esl_msafile_OpenFailure(afp, status);
 
+  if (outfile) {
+    if ((ofp = fopen(outfile, "w")) == NULL) esl_fatal("failed to open output MSA file %s", outfile);
+  }
+
   while ((status = esl_msafile_Read(afp, &msa)) == eslOK)
     {
-      shuf = esl_msa_Clone(msa);
-      strip_msa_annotation(shuf);
-
       for (i = 1; i <= N; i++)
 	{
+          shuf = esl_msa_Clone(msa);
+          strip_msa_annotation(shuf);
+
 	  if      (esl_opt_GetBoolean(go, "-v")) esl_msashuffle_VShuffle (rng, msa, shuf);
 	  else if (esl_opt_GetBoolean(go, "-b")) esl_msashuffle_Bootstrap(rng, msa, shuf);
 	  else                                   esl_msashuffle_Shuffle  (rng, msa, shuf);
@@ -180,8 +184,9 @@ esl_cmd_msashuf(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
           else                              assign_shufmsa_name(shuf, "shuffle",    i, N);
 
 	  esl_msafile_Write(ofp, shuf, afp->format);
+
+          esl_msa_Destroy(shuf);
 	}
-      esl_msa_Destroy(shuf);
       esl_msa_Destroy(msa); 
     }
   if (status != eslEOF) esl_msafile_ReadFailure(afp, status);
