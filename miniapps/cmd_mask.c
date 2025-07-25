@@ -79,8 +79,17 @@ esl_cmd_mask(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   else if (status == eslEINVAL)    esl_fatal("Can't autodetect stdin or .gz.\n");
   else if (status != eslOK)        esl_fatal("Open failed, code %d.\n", status);
 
-  if (do_fetching && sqfp->data.ascii.ssi == NULL)
-    esl_fatal("-R option (random access/fetching) requires %s to be SSI indexed\n", seqfile);
+  if (do_fetching)
+    {
+      if (sqfp->data.ascii.do_gzip || sqfp->data.ascii.do_stdin || esl_sqio_IsAlignment(sqfp->format) )
+        esl_fatal("For fetching sequences with -R, <seqfile> must be an SSI-indexed plain sequence file");
+
+      status = esl_sqfile_OpenSSI(sqfp, /*ssifile_hint=*/NULL);
+      if      (status == eslEFORMAT)   esl_fatal("SSI index is in incorrect format\n");
+      else if (status == eslERANGE)    esl_fatal("SSI index is in 64-bit format; this machine can't read it\n");
+      else if (status == eslENOTFOUND) esl_fatal("-R option (random access/fetching) requires %s to be SSI indexed\n", seqfile);
+      else if (status != eslOK)        esl_fatal("Failed to open SSI index\n");
+    }
 
   /* Open the <maskfile> */
   if (esl_fileparser_Open(maskfile, NULL, &maskefp) != eslOK) 
