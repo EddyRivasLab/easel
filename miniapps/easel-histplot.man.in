@@ -15,19 +15,28 @@ easel histplot \- collate a histogram as an xmgrace datafile
 .PP
 .B easel histplot
 summarizes numerical data in the input file
-.I datafile.
+.I datafile,
+by plotting a histogram, with an optional fitted distribution and/or fixed
+distribution, and writing output for these plotted line(s)
+in xmgrace XY format.
 
 .PP
-One real-numbered value is taken from each line of the input file. 
+This miniapp was developed for plotting empirical versus predicted
+bit score distributions for HMMER and Infernal. The various defaults
+are set up for our typical score distributions.
+
+.PP
+One real-numbered value (one score) is taken from each line of the input file. 
 Each line is split into whitespace-delimited fields, and one field
-is converted to data. By default this is the first field; this can be 
+is converted to this score value. By default this is the first field; this can be 
 changed by the 
 .B \-f 
 option.
 
 .PP
-Default output is a survival plot (Prob(value > x)) in xmgrace XY data
-format, to stdout.
+Default output containing xy plotting data for the histogram
+and optional distribution lines is in xmgrace XY data
+format, sent to standard output.
 Output may be directed to a file with the
 .B \-o
 option.
@@ -39,14 +48,21 @@ is \- (a single dash), input lines are read from stdin
 instead of opening a file.
 
 
-
-
 .SH OPTIONS
 
 .TP
-.BI \-f  " <n>"
+.B \-b
+Parse the
+.I datafile
+as a binary file consisting of an array of double-precision floats,
+rather than parsing it as a text file.
+This option allows more space-efficient collection and analysis
+of large samples of score distributions.
+
+.TP
+.BI \-f  " n"
 Read data from whitespace-delimited field 
-.I <n>
+.I n
 on each line, instead of the first field.
 Fields are numbered starting from 1.
 
@@ -56,11 +72,171 @@ Print brief help; includes version number and summary of
 all options, including expert options.
 
 .TP
-.BI \-o  " <f>"
-Send output to file
+.BI \-o  " f"
+Send output XY file to file
 .I <f>
 instead of stdout.
 
+.TP
+.BI \-w  " x"
+Set the width of each histogram bin to
+.I x.
+The default is 1.0.
+
+.TP
+.BI \-\-max " x"
+Set the initial upper bound hint on the collected histogram.  You
+expect scores to roughly be in the range min..max. However, the
+histogram is dynamically resized as needed, so this is only a hint,
+and setting
+.B \-\-max
+has negligible effect, saving some reallocation. The default
+is 100.
+
+.TP
+.B \-\-min " x"
+Set the initial lower bound hint on the collected histogram, and
+also determines the boundaries for each histogram bin i. Each
+bin i contains scores (min + iw < x <= min + (i+1)w ).
+Default is 0.0.
+
+
+.TP
+.B \-\-surv
+Instead of a histogram, collect and plot the observed cumulative survival function
+(i.e. 1 - CDF), and for additional fitted or fixed distributions, plot these
+lines as survival functions P(X <= x) instead of as binned PDFs
+P(minb_i < X <= maxb_i).
+
+
+
+.SH OPTIONS FOR FITTING A DISTRIBUTION TO THE DATA
+
+These options perform a fit to the observed data, and plot the fitted
+line.
+
+.TP
+.B \-\-exptail
+Fit the high-scoring tail of the data to an exponential, by maximum
+likelihood fitting of location mu and slope lambda parameters.
+The default tail mass fraction to be fit is 0.01; use
+.B \-t
+to specify it.
+
+.TP
+.B \-\-exptailloc
+Fit the high-scoring tail of the data to an exponential with
+a fixed slope lambda, fitting only the location parameter mu.
+The mu parameter is determined not by maximum likelihood but simply from the minimum
+value of the data in the tail. The default tail mass
+is 0.01; use
+.B \-t
+to specify it.
+The default slope lambda is 0.693; use
+.B \-\-lambda
+to specify it.
+
+.TP
+.B \-\-gev
+Fit the data to a generalized extreme value distribution (GEV),
+using maximum likelihood to estimate shape alpha, location mu, and
+slope lambda.
+
+.TP
+.B \-\-gumbel
+Fit the data to a Gumbel extreme value distribution,
+using maximum likelihood to estimate location mu and
+slope lambda.
+
+.TP
+.B \-\-gumloc
+Fit the data to a Gumbel distribution with a fixed lambda
+parameter, fitting only the location parameter mu by maximum
+likelihood.
+The default slope lambda is 0.693; use
+.B \-\-lambda
+to specify it.
+        
+.TP
+.B \-\-normal
+Fit the data to a Gaussian normal distribution, using
+maximum likelihood to estimate location mu and standard deviation sigma.
+
+.TP
+.BI \-\-trunc " x"
+With
+.BR \-\-gumbel ,
+fit the data to a left-truncated Gumbel distribution where the low
+scores below a threshold phi = 
+.I x
+were not observed. (That is, all data points have values >=
+.I x.)
+The location parameter mu and slope parameter lambda are
+fit by maximum likelihood.
+The truncation threshold phi should not be much greater than the
+location parameter mu (i.e., the bulk of the distribution needs to be
+observed), or the fit may be unreliable or even fail to converge,
+because for phi >> mu, the tail of the Gumbel converges to a
+scale-free exponential and the mu location parameter becomes
+impossible to identify.
+
+
+
+.SH OPTIONS FOR PLOTTING A FIXED DISTRIBUTION
+
+These options plot a line showing a distribution for comparison, using
+specified parameters.
+
+.TP
+.B \-\-showgum
+Plot a known Gumbel distribution for comparison.
+Defaults parameters are location mu = 0, slope lambda = 0.693 (log 2); use
+.B \-\-mu,
+.B \-\-lambda
+to specify them.
+
+.TP
+.B \-\-showexp
+Plot a known exponential tail for comparison.
+Default parameters are tail mass t = 0.01, location mu = 0.0, slope lambda = 0.693; use 
+.BR \-t ,
+.BR \-\-mu ,
+.B \-\-lambda
+to specify them.
+
+.TP
+.B \-\-showgev
+Plot a known generalized extreme value (GEV) distribution for comparison.
+Defaults parameters are shape alpha = 0, location mu = 0, slope lambda = 0.693; use
+.B \-\-alpha,
+.B \-\-mu,
+.B \-\-lambda
+to specify them.
+
+.TP
+.BI \-\-alpha " x"
+Specify the alpha shape parameter for the GEV. Default 0.0.
+
+.TP
+.BI \-\-lambda " x"
+Specify the lambda slope parameter for the Gumbel, GEV, or exponential
+tail. Default log 2, 0.693.
+This option also controls the lambda parameter for
+.BR \-\-gumloc .
+
+.TP
+.BI \-\-mu " x"
+Specify the mu location parameter for the Gumbel or GEV.
+Default 0.0.
+
+.TP
+.BI \-t " x"
+Specify the high-scoring tail mass fraction for the exponential tail, as a probability. 0 <=
+x <= 1. Default 0.01.
+This option also controls the mass fraction to be fit by
+.B \-\-exptail
+and
+.BR \-\-exptailloc .
 
 
 .SH SEE ALSO
