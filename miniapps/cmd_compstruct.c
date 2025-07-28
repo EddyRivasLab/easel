@@ -256,8 +256,8 @@ esl_cmd_compstruct(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **a
 	tot_kcorrect  += kcorrect;
 	tot_positions += klen;
 	  
-				/* print out per sequence info */
-	printf(" ==  %5d %5d %5.2f%%   %5d %5d %5.2f%%\n", 
+        /* print out per sequence info */
+	printf(" ==  %5d %5d %6.2f%%   %5d %5d %6.2f%%\n", 
 	       kcorrect, kpairs, 100. * (float) kcorrect/ (float) kpairs,
 	       tcorrect, tpairs, 100. * (float) tcorrect/ (float) tpairs);
 

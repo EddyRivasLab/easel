@@ -102,15 +102,6 @@ trusted annotation. This is probably not what you'd want to do.
 
 
 
-.SH EXPERT OPTIONS
-
-.TP
-.B \-\-quiet
-Don't print any verbose header information. (Used by regression test
-scripts, for example, to suppress version/date information.)
-
-
-
 .SH SEE ALSO
 
 .B man easel
