@@ -109,6 +109,7 @@
 1 exercise easel-alirev       !testsuite/easel-alirev-itest.py!     @@ !! %TESTPFX%
 1 exercise easel-compalign    !testsuite/easel-compalign-itest.py!  @@ !! %TESTPFX%
 1 exercise easel-downsample   !testsuite/easel-downsample-itest.py! @@ !! %TESTPFX%
+1 exercise easel-filter       !testsuite/easel-filter-itest.py!     @@ !! %TESTPFX%
 1 exercise easel-histplot     !testsuite/easel-histplot-itest.py!   @@ !! %TESTPFX%
 1 exercise easel-kmer         !testsuite/easel-kmer-itest.py!       @@ !! %TESTPFX%
 1 exercise easel-mask         !testsuite/easel-mask-itest.py!       @@ !! %TESTPFX%
@@ -236,6 +237,7 @@
 3 valgrind easel-alirev       !testsuite/easel-alirev-itest.py!     @@ !! %TESTPFX%
 3 valgrind easel-compalign    !testsuite/easel-compalign-itest.py!  @@ !! %TESTPFX%
 3 valgrind easel-downsample   !testsuite/easel-downsample-itest.py! @@ !! %TESTPFX%
+3 valgrind easel-filter       !testsuite/easel-filter-itest.py!     @@ !! %TESTPFX%
 3 valgrind easel-histplot     !testsuite/easel-histplot-itest.py!   @@ !! %TESTPFX%
 3 valgrind easel-kmer         !testsuite/easel-kmer-itest.py!       @@ !! %TESTPFX%
 3 valgrind easel-mask         !testsuite/easel-mask-itest.py!       @@ !! %TESTPFX%
