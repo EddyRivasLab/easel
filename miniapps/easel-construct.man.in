@@ -19,9 +19,9 @@ structure annotation for individual aligned sequences.
 The alignment file must contain either individual sequence secondary
 structure annotation (Stockholm #=GR SS), consensus secondary
 structure annotation (Stockohlm #=GC SS_cons), or both. All structure
-annotation must be in WUSS notation (Vienna dot paranetheses notation will be
-correctly interpreted). At present, the alignment file must be in
-Stockholm format and contain RNA or DNA sequences.
+annotation must be in WUSS notation (which includes Vienna dot-bracket notation)
+The alignment file must be in
+Stockholm format, and it must contain RNA or DNA sequences.
 
 .PP
 By default, 
@@ -102,6 +102,12 @@ This option must be used in combination with the
 .B \-o 
 option. 
 
+.TP 
+.B \-\-dna
+Assert that the 
+.I msafile 
+contains DNA sequences. 
+
 .TP
 .B \-\-rfc
 With 
@@ -125,6 +131,13 @@ With
 \fB\-\-indi \fR\fI<s>\fR, 
 set the reference annotation (#=GC RF) as the sequence named
 .BR <s> .
+
+.TP 
+.B \-\-rna
+Assert that the 
+.I msafile 
+contains RNA sequences. 
+
 
 .TP
 .BI \-\-ffreq " <x>"
