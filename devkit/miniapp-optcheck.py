@@ -18,7 +18,12 @@
 # is a cmdline arg (read from stdin pipe) and '--' means end-of-options.
 # For options tested in a way that can't be parsed like this, also checks
 # for formatted comment lines of form:
-#    # optcheck assertion: <comma-sep list of options>'
+#    # optcheck assertion: <comma-sep list of options>
+#
+#   - doesn't handle attached arguments, e.g. `-x1` for `-x 1`; must use `-x 1` form
+#   - options must follow {miniapp}. If you are adding extra options through an f-string,
+#     those options must come last: e.g.
+#        esl_itest.run(f'{easel} foo --bar {extraopts} file1 file2')
 #
 import getopt
 import os
@@ -127,7 +132,7 @@ def process_itestfile(itestfile, opts_with_arg):
                         if argv[i] in opts_with_arg: i += 1
                     else: break                                           # anything else means end of options: including - or -- by themself
                     i += 1
-            elif m := re.match(r'#\s+optcheck assertion:\s+(.+)', line):
+            elif m := re.match(r'\s*#\s+optcheck assertion:\s+(\S+)', line):
                 for opt in m.group(1).split(','): optset.add(opt)
     return optset
                     

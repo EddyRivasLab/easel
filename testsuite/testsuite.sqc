@@ -124,6 +124,7 @@
 1 exercise easel-sfetchn      !testsuite/easel-sfetchn-itest.py!    @@ !! %TESTPFX%
 1 exercise easel-shuffle      !testsuite/easel-shuffle-itest.py!    @@ !! %TESTPFX%
 1 exercise easel-sindex       !testsuite/easel-sindex-itest.py!     @@ !! %TESTPFX%
+1 exercise easel-ssdraw       !testsuite/easel-ssdraw-itest.py!     @@ !! %TESTPFX%
 1 exercise easel-synth        !testsuite/easel-synth-itest.py!      @@ !! %TESTPFX%
 1 exercise easel-translate    !testsuite/easel-translate-itest.py!  @@ !! %TESTPFX%
 1 exercise easel-weight       !testsuite/easel-weight-itest.py!     @@ !! %TESTPFX%
@@ -254,6 +255,7 @@
 3 valgrind easel-sfetchn      !testsuite/easel-sfetchn-itest.py!    @@ !! %TESTPFX%
 3 valgrind easel-shuffle      !testsuite/easel-shuffle-itest.py!    @@ !! %TESTPFX%
 3 valgrind easel-sindex       !testsuite/easel-sindex-itest.py!     @@ !! %TESTPFX%
+3 valgrind easel-ssdraw       !testsuite/easel-ssdraw-itest.py!     @@ !! %TESTPFX%
 3 valgrind easel-synth        !testsuite/easel-synth-itest.py!      @@ !! %TESTPFX%
 3 valgrind easel-translate    !testsuite/easel-translate-itest.py!  @@ !! %TESTPFX%
 3 valgrind easel-weight       !testsuite/easel-weight-itest.py!     @@ !! %TESTPFX%

@@ -94,14 +94,14 @@ explained below in the descriptions for those options.
 
 .PP
 If the 
-.BI \-\-tabfile " <f>"
+.BI \-\-tabfile " f"
 option is used, a tab-delimited text file 
-.I <f>
+.I f
 will be created that includes per-position lists of the numerical
 values for each of the calculated statistics that were drawn to 
 .IR postscript_output_file .
 Comment lines in
-.I <f>
+.I f
 are prefixed with a '#' character and explain the meaning of
 each of the tab-delimited columns and how each of the statistics was
 calculated.
@@ -143,29 +143,29 @@ option is used.
 can also be used to draw 'mask' diagrams which color positions of the
 structure one of two colors depending on if they are included or
 excluded by a mask. This is enabled with the 
-.BI \-\-mask\-col " <f>"
+.BI \-\-mask\-col " f"
 option. 
-.I <f> 
+.I f
 must contain a single line of <rflen> characters, where <rflen> is the
 the number of nongap RF characters in the alignment. The line must
 contain only '0' and '1' characters. A '0' at position <x> of the
 string indicates position <x> is excluded from the mask, and a '1'
 indicates position <x> is included by the mask.
 A page comparing the overlap of the 
-.I <f> 
+.I f 
 mask from 
 .B \-\-mask\-col
 and another mask in 
-.I <f2> 
+.I f2 
 will be created if the 
-.BI \-\-mask\-diff " <f2>" 
+.BI \-\-mask\-diff " f2" 
 option is used.
 
 .PP
 If the 
-.BI \-\-mask " <f>"
+.BI \-\-mask " f"
 option is used, positions excluded by the mask in 
-.I <f>
+.I f
 will be drawn differently (as open circles by default) than positions
 included by the mask. The style of the masked positions can be
 modified with the 
@@ -474,6 +474,13 @@ option allows the user to add additional pages, such as individual
 aligned sequences with
 .BR \-\-indi .
 
+.TP
+.B \-\-cons
+Add a page to 
+.I postscript_output_file 
+showing the alignment consensus sequence.
+This page is drawn by default (if zero command-line options are used).
+
 .TP 
 .BI \-\-mask " <f>"
 Read the mask from file
@@ -608,6 +615,19 @@ position a if s has at least one nongap nucleotide aligned to a position
 b <= a and at least one nongap nucleotide aligned to a consensus position
 c >= a. This page is drawn by default (if zero command-line options
 are used).
+
+.TP
+.BI \-\-tabfile " f"
+Create a tab-delimited text file
+.I f
+that includes per-position lists of the numerical
+values for each of the calculated statistics that were drawn to 
+.IR postscript_output_file .
+Comment lines in
+.I f
+are prefixed with a '#' character and explain the meaning of
+each of the tab-delimited columns and how each of the statistics was
+calculated.
 
 
 .SH OPTIONS FOR DRAWING INDIVIDUAL ALIGNED SEQUENCES

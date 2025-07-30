@@ -59,7 +59,7 @@ def fail(msg=None):
     if msg: print('  ', msg, file=sys.stderr)
     sys.exit(1)
 
-def run(cmd, expect_success=True):
+def run(cmd, expect_success=True, outfile=None):
     """Run <cmd> in shell; return subprocess.CompletedProcess object.
 
     If <cmd> fails, print a test failure message and exit non-zero.
@@ -72,8 +72,11 @@ def run(cmd, expect_success=True):
     valgrind detects an error or leak, run() will fail and the stderr
     it prints will be the valgrind failure information.
 
-    Returns subprocess.CompletedProcess object <r>. In particular,
+    By default, returns subprocess.CompletedProcess object <r>. In particular,
     <r.stdout> contains the stdout output from the successful command.
+
+    Alternatively, with `outfile=f` option, returns the contents of output
+    file <f> as a string (UTF8-encoded).
     """
     frameinfo = getframeinfo(currentframe().f_back)
     lineno    = frameinfo.lineno
@@ -96,7 +99,13 @@ def run(cmd, expect_success=True):
         print("FAIL: {} integration test failed\n   command at line {}, expected to fail, didn't".format(filename, lineno),file=sys.stderr)
         print('   command was:', cmd,     file=sys.stderr)
         sys.exit(1)
-    return r
+
+    if outfile:
+        with open(outfile, encoding='utf-8') as f:
+            output = f.read()
+        return output
+    else:
+        return r
 
 def run_piped(cmd1, cmd2, expect_success=True):
     """Run <cmd1> | <cmd2>; return subprocess.CompleteProcess object from <cmd2>.
