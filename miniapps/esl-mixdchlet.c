@@ -111,6 +111,7 @@ static ESL_OPTIONS fit_options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                   docgroup*/
   { "-h",    eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",         0 },
   { "-s",    eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                0 },
+  { "-d",    eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "fit a DNA strand-symmetric mixture to A C G T counts", 0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
@@ -119,13 +120,14 @@ cmd_fit(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
   ESL_GETOPTS    *go      = esl_subcmd_CreateDefaultApp(topcmd, sub, fit_options, argc, argv, /*custom opthelp?:*/NULL);
   ESL_RANDOMNESS *rng     = esl_randomness_Create( esl_opt_GetInteger(go, "-s"));
+  int             isDna   = esl_opt_GetBoolean(go, "-d");              // a complement-symmetric mixture Dirichlet for DNA base counts?
   int             Q       = strtol(esl_opt_GetArg(go, 1), NULL, 10);   // number of mixture components
   int             K       = strtol(esl_opt_GetArg(go, 2), NULL, 10);   // size of probability/parameter vectors - length of count vectors
   char           *ctfile  = esl_opt_GetArg(go, 3);                     // count file to input
   char           *outfile = esl_opt_GetArg(go, 4);                     // mixture Dirichlet file output
   ESL_FILEPARSER *efp     = NULL;                                      // open fileparser for reading                                                
   FILE           *ofp     = NULL;                                      // open output file for writing
-  ESL_MIXDCHLET  *dchl    = esl_mixdchlet_Create(Q,K);                 // mixture Dirichlet being estimated
+  ESL_MIXDCHLET  *dchl    = esl_mixdchlet_CreateForFitting(Q,K,isDna); // mixture Dirichlet being estimated
   int             Nalloc  = 1024;                                      // initial allocation for ct[]
   double        **ct      = esl_mat_DCreate(Nalloc, K);                // count vectors, [0..N-1][0..K-1]
   int             N       = 0;                                         // number of count vectors so far

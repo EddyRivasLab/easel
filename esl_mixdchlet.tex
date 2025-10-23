@@ -1,6 +1,7 @@
 \documentclass[11pt]{article}
 \setcounter{secnumdepth}{0}
 
+\usepackage{amsmath}
 \usepackage{relsize}
 
 \newcommand{\mono}[1]{{\smaller\texttt{#1}}}                    % literal (to be typed): code, program names
@@ -38,7 +39,7 @@ Dirichlet component, is:
 \[
 P(c_i \mid \alpha_k) = \frac{ |c_i|! }
                             { \prod_a c_{ia}! }
-                       \frac{ \prod_a \Gamma \left( c_{ia} + \alpha_{ia} \right) }
+                       \frac{ \prod_a \Gamma \left( c_{ia} + \alpha_{ka} \right) }
                             { \Gamma ( |c_i + \alpha_k| ) }
                        \frac{ \Gamma ( |\alpha_k| ) }
                             { \prod_a \Gamma \left( \alpha_{ka} \right) }
@@ -91,6 +92,55 @@ The Easel conjugate gradient descent optimizer is a minimizer, not a
 maximizer.  The implementation provides the negative log likelihood
 and the negative gradient to the CG routine.
 
+\subsection{Fitting a mixture Dirichlet with DNA strand symmetry}
+
+Here, each count vector has $K=4$ counts of DNA bases.  For a
+strand-symmetric mixture Dirichlet, each component must be either
+self-symmetric: $\alpha_{ka} = \alpha_{ka'}$ (where $a'$ is the
+complement of base $a$), or paired with a symmetric component:
+$\alpha_{ka} = \alpha_{k'a'}$ and $q_k = q_{k'}$ (where $k$ and $k'$
+indicate paired components).  Define $R$ to be the number of pairs
+plus the number of unpaired components.  It's convenient to make these
+definitions:
+\[
+r_k = \begin{cases}
+  2 q_k & \text{for a paired component (i.e., the prior probability of the pair),} \\
+  q_k   & \text{for an unpaired component}
+\end{cases}
+\]
+\[
+\hat{P}(k \mid \theta, c_i) = \begin{cases}
+  P(k \mid \theta, c_i) + P(k' \mid \theta, c_i) & \text{for a paired component,}\\
+  P(k \mid \theta, c_i) & \text{for an unpaired component}
+\end{cases}
+\]
+Here, the number of $\lambda$ parameters is $R$, and the number of
+$\beta$ parameters is: $K \times \text{(number of components) / 2}$.
+We can define $\beta_{ka}$ as above, and $\lambda_k$ like this:
+\begin{eqnarray*}
+  r_k & = & \frac{ e^{\lambda_k} } { \sum_{m=1}^R e^{\lambda_m} } \,.
+\end{eqnarray*}
+Then,
+\begin{eqnarray*}
+\frac{\partial L}{\partial \lambda_k} &=& \sum_i \bigl( \hat{P}(k \mid \theta, c_i) - r_k \bigr) \\
+\frac{\partial L}{\partial \beta_{ka}} &=&
+ \begin{cases}
+\sum_i \alpha_{ka} \hat{P}(k \mid \theta, c_i)
+    (X_{ika} + Z_{ika}) & \text{for a paired component,} \\
+\sum_i \alpha_{ka} \hat{P}(k \mid \theta, c_i)
+    (Y_{ika} + 2 Z_{ika}) & \text{for an unpaired component}
+    \end{cases}
+\end{eqnarray*}
+where
+\begin{eqnarray*}
+X_{ika} & = &
+\frac{ \Psi \left( c_{ia} + \alpha_{ka} \right) \prod_a \Gamma \left( c_{ia} + \alpha_{ka} \right) +
+       \Psi \left( c_{ia'} + \alpha_{ka} \right) \prod_a \Gamma \left( c_{ia'} + \alpha_{ka} \right) }
+     { \prod_a \Gamma \left( c_{ia} + \alpha_{ka} \right) + \prod_a \Gamma \left( c_{ia'} + \alpha_{ka} \right) } \,,\\
+Y_{ika} & = & \Psi \left( c_{ia} + \alpha_{ka} \right) + \Psi \left( c_{ia'} + \alpha_{ka} \right) \,,\\
+Z_{ika} & = & -  \Psi \left( | c_i | + | \alpha_k | \right)
+        +  \Psi \left( | \alpha_k | \right)
+        -  \Psi \left( \alpha_{ka} \right) \,.
+\end{eqnarray*}
 
 \end{document}
-

@@ -47,6 +47,12 @@
 ESL_MIXDCHLET *
 esl_mixdchlet_Create(int Q, int K)
 {
+  return esl_mixdchlet_CreateForFitting(Q, K, 0);
+}
+
+ESL_MIXDCHLET *
+esl_mixdchlet_CreateForFitting(int Q, int K, int isDnaStrandSymmetric)
+{
   ESL_MIXDCHLET *dchl = NULL;
   int            status;
 
@@ -64,6 +70,7 @@ esl_mixdchlet_Create(int Q, int K)
 
   dchl->Q = Q;
   dchl->K = K;
+  dchl->isDnaStrandSymmetric = isDnaStrandSymmetric;
   return dchl;
 
  ERROR:
@@ -218,6 +225,25 @@ mixdchlet_pack_paramvector(ESL_MIXDCHLET *dchl, double *p)
   int j = 0;     /* counter in packed parameter vector <p> */
   int k,a;	 /* indices over components, residues */
 
+  if (dchl->isDnaStrandSymmetric)
+    {
+      for (k = 0; k < dchl->Q - 1; k += 2)  // paired components
+	p[j++] = log(dchl->q[k] * 2);  // Prob(component) * 2 = Prob(pair)
+
+      if (k == dchl->Q - 1)  // unpaired self-symmetric component
+	p[j++] = log(dchl->q[k]);
+
+      for (k = 0; k < dchl->Q - 1; k += 2)  // paired components
+	for (a = 0; a < dchl->K; a++)
+	  p[j++] = log(dchl->alpha[k][a]);
+
+      if (k == dchl->Q - 1)  // unpaired self-symmetric component
+	for (a = 0; a < dchl->K / 2; a++)
+	  p[j++] = log(dchl->alpha[k][a]);
+
+      return;
+    }
+
   /* mixture coefficients */
   for (k = 0; k < dchl->Q; k++)
     p[j++] = log(dchl->q[k]);
@@ -239,6 +265,27 @@ mixdchlet_unpack_paramvector(double *p, ESL_MIXDCHLET *dchl)
 {
   int j = 0;     /* counter in packed parameter vector <p> */
   int k,a;	 /* indices over components, residues */
+
+  if (dchl->isDnaStrandSymmetric)
+    {
+      for (k = 0; k < dchl->Q - 1; k += 2)  // paired components
+	dchl->q[k] = dchl->q[k+1] = exp(p[j++]) / 2;
+
+      if (k == dchl->Q - 1)  // unpaired self-symmetric component
+	dchl->q[k] = exp(p[j++]);
+
+      esl_vec_DNorm(dchl->q, dchl->Q);
+
+      for (k = 0; k < dchl->Q - 1; k += 2)  // paired components
+	for (a = 0; a < dchl->K; a++)
+	  dchl->alpha[k][a] = dchl->alpha[k+1][dchl->K - 1 - a] = exp(p[j++]);
+
+      if (k == dchl->Q - 1)  // unpaired self-symmetric component
+	for (a = 0; a < dchl->K / 2; a++)
+	  dchl->alpha[k][a] = dchl->alpha[k][dchl->K - 1 - a] = exp(p[j++]);
+
+      return;
+    }
 
   /* mixture coefficients */
   for (k = 0; k < dchl->Q; k++) 
@@ -278,6 +325,7 @@ mixdchlet_gradient(double *p, int np, void *dptr, double *dp)
   double  sum_alpha;     //  |alpha_k| 
   double  sum_c;         //  |c_i|
   double  psi1;          //  \Psi(c_ia + alpha_ka)        
+  double  psi1b;         //  \Psi(c_ia' + alpha_ka)
   double  psi2;          //  \Psi( |c_i| + |alpha_k| ) 
   double  psi3;          //  \Psi( |alpha_k| )        
   double  psi4;          //  \Psi( alpha_ka )
@@ -289,9 +337,61 @@ mixdchlet_gradient(double *p, int np, void *dptr, double *dp)
     {
       mixdchlet_postq(dchl, data->c[i]);           // d->postq[q] is now P(q | c_i, theta)
       sum_c = esl_vec_DSum(data->c[i], dchl->K);   // |c_i|
-      
-      /* mixture coefficient gradient */
       j = 0;
+      
+      if (dchl->isDnaStrandSymmetric)
+	{
+	  for (k = 0; k < dchl->Q - 1; k += 2)  // paired components
+	    dp[j++] -= dchl->postq[k] + dchl->postq[k+1] - 2 * dchl->q[k];
+
+	  if (k == dchl->Q - 1)  // unpaired self-symmetric component
+	    dp[j++] -= dchl->postq[k] - dchl->q[k];
+
+	  for (k = 0; k < dchl->Q - 1; k += 2)  // paired components
+	    {
+	      double strand_weights[2] = {0, 0};
+	      for (a = 0; a < dchl->K; a++)
+		{
+		  int b = dchl->K - 1 - a;  // complement of DNA base a
+		  strand_weights[0] += lgamma(dchl->alpha[k][a] + data->c[i][a]);
+		  strand_weights[1] += lgamma(dchl->alpha[k][a] + data->c[i][b]);
+		}
+	      esl_vec_DLogNorm(strand_weights, 2);
+
+	      sum_alpha = esl_vec_DSum(dchl->alpha[k], dchl->K);
+	      esl_stats_Psi( sum_alpha + sum_c, &psi2);
+	      esl_stats_Psi( sum_alpha,         &psi3);
+	      for (a = 0; a < dchl->K; a++)
+		{
+		  int b = dchl->K - 1 - a;  // complement of DNA base a
+		  esl_stats_Psi( dchl->alpha[k][a] + data->c[i][a], &psi1);
+		  esl_stats_Psi( dchl->alpha[k][a] + data->c[i][b], &psi1b);
+		  esl_stats_Psi( dchl->alpha[k][a],                 &psi4);
+		  dp[j++] -= dchl->alpha[k][a] * (dchl->postq[k] + dchl->postq[k+1])
+		    * (strand_weights[0] * psi1 + strand_weights[1] * psi1b - psi2 + psi3 - psi4);
+		}
+	    }
+
+	  if (k == dchl->Q - 1)  // unpaired self-symmetric component
+	    {
+	      sum_alpha = esl_vec_DSum(dchl->alpha[k], dchl->K);
+	      esl_stats_Psi( sum_alpha + sum_c, &psi2);
+	      esl_stats_Psi( sum_alpha,         &psi3);
+	      for (a = 0; a < dchl->K / 2; a++)
+		{
+		  int b = dchl->K - 1 - a;  // complement of DNA base a
+		  esl_stats_Psi( dchl->alpha[k][a] + data->c[i][a], &psi1);
+		  esl_stats_Psi( dchl->alpha[k][a] + data->c[i][b], &psi1b);
+		  esl_stats_Psi( dchl->alpha[k][a],                 &psi4);
+		  dp[j++] -= dchl->alpha[k][a] * dchl->postq[k]
+		    * (psi1 + psi1b - 2 * psi2 + 2 * psi3 - 2 * psi4);
+		}
+	    }
+
+	  continue;
+	}
+
+      /* mixture coefficient gradient */
       for (k = 0; k < dchl->Q; k++)
 	dp[j++] -= dchl->postq[k] - dchl->q[k];
 
@@ -350,6 +450,8 @@ esl_mixdchlet_Fit(double **c, int N, ESL_MIXDCHLET *dchl, double *opt_nll)
   int     nparam   =  dchl->Q * (dchl->K + 1); 
   double  fx;
   int     status;
+
+  if (dchl->isDnaStrandSymmetric) nparam = (nparam + 1) / 2;
 
   cfg = esl_min_cfg_Create(nparam);
   if (! cfg) { status = eslEMEM; goto ERROR; }
@@ -418,6 +520,23 @@ int
 esl_mixdchlet_Sample(ESL_RANDOMNESS *rng, ESL_MIXDCHLET *dchl)
 {
   int k,a;
+
+  if (dchl->isDnaStrandSymmetric)
+    {
+      esl_dirichlet_DSampleUniform(rng, dchl->Q, dchl->q);
+      for (k = 0; k < dchl->Q - 1; k += 2)  // paired components
+	dchl->q[k] = dchl->q[k+1] = (dchl->q[k] + dchl->q[k+1]) / 2;
+
+      for (k = 0; k < dchl->Q - 1; k += 2)  // paired components
+	for (a = 0; a < dchl->K; a++)
+	  dchl->alpha[k][a] = dchl->alpha[k+1][dchl->K - 1 - a] = 2.0 * esl_rnd_UniformPositive(rng);
+
+      if (k == dchl->Q - 1)  // unpaired self-symmetric component
+	for (a = 0; a < dchl->K / 2; a++)
+	  dchl->alpha[k][a] = dchl->alpha[k][dchl->K - 1 - a] = 2.0 * esl_rnd_UniformPositive(rng);
+
+      return eslOK;
+    }
 
   esl_dirichlet_DSampleUniform(rng, dchl->Q, dchl->q);
   for (k = 0; k < dchl->Q; k++)
