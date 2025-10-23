@@ -91,51 +91,6 @@ The Easel conjugate gradient descent optimizer is a minimizer, not a
 maximizer.  The implementation provides the negative log likelihood
 and the negative gradient to the CG routine.
 
-\subsection{Fitting a mixture Dirichlet with DNA strand symmetry}
-
-Here, each count vector has $K=4$ counts of DNA bases.  The mixture
-Dirichlet consists of $Q$ \emph{pairs} of components.  Each component
-in a pair is identical to the other after swapping DNA bases with
-their complements.  So, the two components have identical mixture
-coefficients: $q_k/2$.  (It's also possible to have unpaired
-self-symmetric components: that isn't considered here.)
-
-Here, we define $P(c_i \mid \alpha_k)$ to be the probability of one
-count vector given one pair of Dirichlet components:
-
-\[
-P(c_i \mid \alpha_k) = \frac{ |c_i|! }
-                            { \prod_a c_{ia}! }
-                       \frac{ \prod_a \Gamma \left( c_{ia} + \alpha_{ia} \right) + \prod_a \Gamma \left( c_{ia'} + \alpha_{ia} \right) }
-                            { 2 \enspace \Gamma ( |c_i + \alpha_k| ) }
-                       \frac{ \Gamma ( |\alpha_k| ) }
-                            { \prod_a \Gamma \left( \alpha_{ka} \right) }\,,
-\]
-where $a'$ means the complement of base $a$.
-
-Then, the equation for $\frac{\partial L}{\partial \lambda_k}$ is the
-same as above, except we're using the new definition of $P(c_i \mid
-\alpha_k)$:
-\[
-P(k \mid \theta, c_i) = q_k P(c_i \mid \alpha_k) \Big/ \sum_k q_k P(c_i \mid \alpha_k)\,.
-\]
-The partial derivative with respect to $\beta_{ka}$ is
-\[
-\frac{\partial L}{\partial \beta_{ka}}  =  \sum_i
- \alpha_{ka} P(k \mid \theta, c_i)
-    \left( X_{ika}
-        -  \Psi \left( | c_i | + | \alpha_k | \right)
-        +  \Psi \left( | \alpha_k | \right)
-        -  \Psi \left( \alpha_{ka} \right)
-    \right)\,,
-\]
-where
-\[
-X_{ika} =
-\frac{ \Psi \left( c_{ia} + \alpha_{ka} \right) \prod_a \Gamma \left( c_{ia} + \alpha_{ka} \right) +
-       \Psi \left( c_{ia'} + \alpha_{ka} \right) \prod_a \Gamma \left( c_{ia'} + \alpha_{ka} \right) }
-     { \prod_a \Gamma \left( c_{ia} + \alpha_{ka} \right) + \prod_a \Gamma \left( c_{ia'} + \alpha_{ka} \right) }\,.
-\]
-
 
 \end{document}
+

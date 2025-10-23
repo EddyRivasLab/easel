@@ -45,12 +45,11 @@
  * Throws:    NULL on allocation failure.
  */
 ESL_MIXDCHLET *
-esl_mixdchlet_CreateForFitting(int Q, int K, int isDnaStrandSymmetric)
+esl_mixdchlet_Create(int Q, int K)
 {
   ESL_MIXDCHLET *dchl = NULL;
   int            status;
 
-  if (isDnaStrandSymmetric) Q /= 2;  // Q components => Q/2 pairs of components
   ESL_DASSERT1( (Q > 0) );
   ESL_DASSERT1( (K > 0) );
 
@@ -65,18 +64,14 @@ esl_mixdchlet_CreateForFitting(int Q, int K, int isDnaStrandSymmetric)
 
   dchl->Q = Q;
   dchl->K = K;
-  dchl->isDnaStrandSymmetric = isDnaStrandSymmetric;
   return dchl;
 
  ERROR:
   esl_mixdchlet_Destroy(dchl);
   return NULL;
 }
-ESL_MIXDCHLET *
-esl_mixdchlet_Create(int Q, int K)
-{
-  return esl_mixdchlet_CreateForFitting(Q, K, 0);
-}
+
+
 
 /* Function:  esl_mixdchlet_Destroy()
  * Synopsis:  Free a mixture Dirichlet.
@@ -99,28 +94,6 @@ esl_mixdchlet_Destroy(ESL_MIXDCHLET *dchl)
  * 2. Likelihoods, posteriors, inference
  *****************************************************************/
 
-// Return the log probability of a vector c of counts of A/C/G/T, given a
-// DNA-strand-symmetric pair of Dirichlet distributions: log P(c | alpha)
-static double
-mixdchlet_logprob_c_dna(double *c, double *alpha, int K)  // presumably, K=4
-{
-  double lgamma_sums[2] = {0, 0};
-  double sum1, sum2, sum3, logp;
-  sum1 = sum2 = sum3 = logp = 0;
-
-  for (int a = 0; a < K; a++)  // loop over 4 DNA bases
-    {
-      sum1 += c[a] + alpha[a];
-      sum2 += alpha[a];
-      sum3 += c[a];
-      lgamma_sums[0] += lgamma(alpha[a] + c[a]);
-      lgamma_sums[1] += lgamma(alpha[a] + c[K - 1 - a]);  // complement of a
-      logp -= lgamma(c[a] + 1) + lgamma(alpha[a]);
-    }
-
-  return logp + esl_vec_DLogSum(lgamma_sums, 2) - eslCONST_LOG2
-    + lgamma(sum2) + lgamma(sum3 + 1) - lgamma(sum1);
-}
 
 /* mixchlet_postq()
  * Calculate P(q | c), the posterior probability of component q.
@@ -130,9 +103,7 @@ mixdchlet_postq(ESL_MIXDCHLET *dchl, double *c)
 {
   int k;
   for (k = 0; k < dchl->Q; k++)
-    if (dchl->q[k] > 0.)
-      dchl->postq[k] = log(dchl->q[k]) +
-	(dchl->isDnaStrandSymmetric ? mixdchlet_logprob_c_dna : esl_dirichlet_logpdf_c)(c, dchl->alpha[k], dchl->K);
+    if (dchl->q[k] > 0.) dchl->postq[k] = log(dchl->q[k]) + esl_dirichlet_logpdf_c(c, dchl->alpha[k], dchl->K);
     else                 dchl->postq[k] = -eslINFINITY;
   esl_vec_DLogNorm(dchl->postq, dchl->Q); 
 }
@@ -157,9 +128,7 @@ esl_mixdchlet_logp_c(ESL_MIXDCHLET *dchl, double *c)
 {
   int k; 
   for (k = 0; k < dchl->Q; k++) 
-    if (dchl->q[k] > 0.)
-      dchl->postq[k] = log(dchl->q[k]) +
-	(dchl->isDnaStrandSymmetric ? mixdchlet_logprob_c_dna : esl_dirichlet_logpdf_c)(c, dchl->alpha[k], dchl->K);
+    if (dchl->q[k] > 0.) dchl->postq[k] = log(dchl->q[k]) + esl_dirichlet_logpdf_c(c, dchl->alpha[k], dchl->K);
     else                 dchl->postq[k] = -eslINFINITY;
   return esl_vec_DLogSum(dchl->postq, dchl->Q);
 }
@@ -309,7 +278,6 @@ mixdchlet_gradient(double *p, int np, void *dptr, double *dp)
   double  sum_alpha;     //  |alpha_k| 
   double  sum_c;         //  |c_i|
   double  psi1;          //  \Psi(c_ia + alpha_ka)        
-  double  psi1b;         //  \Psi(c_ia' + alpha_ka)
   double  psi2;          //  \Psi( |c_i| + |alpha_k| ) 
   double  psi3;          //  \Psi( |alpha_k| )        
   double  psi4;          //  \Psi( alpha_ka )
@@ -329,27 +297,12 @@ mixdchlet_gradient(double *p, int np, void *dptr, double *dp)
 
       for (k = 0; k < dchl->Q; k++)
 	{
-	  double strand_weights[2] = {0, 0};
-	  for (a = 0; a < dchl->K; a++)
-	    {
-	      int b = dchl->K - 1 - a;  // complement of DNA base a
-	      strand_weights[0] += lgamma(dchl->alpha[k][a] + data->c[i][a]);
-	      strand_weights[1] += lgamma(dchl->alpha[k][a] + data->c[i][b]);
-	    }
-	  esl_vec_DLogNorm(strand_weights, 2);
-
 	  sum_alpha = esl_vec_DSum(dchl->alpha[k], dchl->K);
 	  esl_stats_Psi( sum_alpha + sum_c, &psi2);
 	  esl_stats_Psi( sum_alpha,         &psi3);
 	  for (a = 0; a < dchl->K; a++)
 	    {
 	      esl_stats_Psi( dchl->alpha[k][a] + data->c[i][a], &psi1);
-	      if (dchl->isDnaStrandSymmetric)
-		{
-		  int b = dchl->K - 1 - a;  // complement of DNA base a
-		  esl_stats_Psi( dchl->alpha[k][a] + data->c[i][b], &psi1b);
-		  psi1 = strand_weights[0] * psi1 + strand_weights[1] * psi1b;
-		}
 	      esl_stats_Psi( dchl->alpha[k][a],                 &psi4);
 	      dp[j++] -= dchl->alpha[k][a] * dchl->postq[k] * (psi1 - psi2 + psi3 - psi4);
 	    }
@@ -565,20 +518,16 @@ esl_mixdchlet_Read(ESL_FILEPARSER *efp,  ESL_MIXDCHLET **ret_dchl)
 int
 esl_mixdchlet_Write(FILE *fp, const ESL_MIXDCHLET *dchl)
 {
-  int k,s,a;
+  int k,a;
   int status;
-  int n = 1 + dchl->isDnaStrandSymmetric;
 
-  if ((status = esl_fprintf(fp, "%d %d\n", dchl->K, dchl->Q * n))      != eslOK) return status;
+  if ((status = esl_fprintf(fp, "%d %d\n", dchl->K, dchl->Q))      != eslOK) return status;
   for (k = 0; k < dchl->Q; k++)
     {
-      for (s = 0; s < n; ++s)
-	{
-	  if ((status = esl_fprintf(fp, "%.4f ", dchl->q[k] / n))      != eslOK) return status;
-	  for (a = 0; a < dchl->K; a++)
-	    if ((status = esl_fprintf(fp, "%.4f ", dchl->alpha[k][s ? dchl->K - 1 - a : a])) != eslOK) return status;
-	  if ((status = esl_fprintf(fp, "\n"))                         != eslOK) return status;
-	}
+      if ((status = esl_fprintf(fp, "%.4f ", dchl->q[k]))          != eslOK) return status;
+      for (a = 0; a < dchl->K; a++)
+	if ((status = esl_fprintf(fp, "%.4f ", dchl->alpha[k][a])) != eslOK) return status;
+      if ((status = esl_fprintf(fp, "\n"))                         != eslOK) return status;
     }
   return eslOK;
 }
