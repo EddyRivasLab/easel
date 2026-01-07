@@ -1,5 +1,6 @@
-/* RNA secondary structure markup in WUSS notation.
+/* esl_wuss : RNA secondary structure markup annotation format
  *
+ * Full (Infernal output) WUSS notation:
  *    <>  : base pairs in stem-loops, i.e. <<<___>>>
  *    ()  : base pairs in helices enclosing multifurcation of all <> stems
  *    []  : base pairs in helices enclosing multifurc of at least one () helix
@@ -16,6 +17,18 @@
  *    .   : insertion relative to a known consensus structure
  *    ~   : nucleotide is unaligned to a structure profile, because of local structure alignment
  *
+ * "Simple" (input) WUSS:
+ *  ..<<..AA..>>..aa..  dots and brackets, plus Aa etc for PKs.
+ *
+ *
+ * Contents:
+ *    1. Functions that allow annotation to be a string or esl_mem.
+ *    2. Functions that assume annotation is a string.
+ *    3. Interconversion with obsolete Konings-Hogeweg convention.
+ *    4. Unit tests
+ *    5. Test driver
+ *    6. Example
+ *    
  */
 #include <esl_config.h>
 
@@ -26,6 +39,161 @@
 #include "esl_stack.h"
 #include "esl_vectorops.h"
 #include "esl_wuss.h"
+
+/*****************************************************************
+ * 1. Functions that allow annotation to be a string or esl_mem.
+ *****************************************************************/
+
+/* Function:  esl_wuss_IsSimple()
+ * Synopsis:  Returns TRUE if string looks like simple WUSS annotation.
+ * Incept:    SRE, Fri 02 Jan 2026
+ *
+ * Purpose:   Return TRUE if input string or buf <ss> of length <n> is
+ *            consistent with simple WUSS secondary structure
+ *            annotation format. Else, return FALSE.
+ *
+ *            If <ss> is an Easel parsing buffer (no \0 terminator), length
+ *            <n> must be provided. If <ss> is a string (\0-terminated)
+ *            and its length is unknown, <n> can be passed as -1.
+ *
+ *            The string is considered consistent if it is composed
+ *            only of '.', one choice of open/close parenthesis-like
+ *            characters "<>" or "()" or "[]" or "{}" (using more than
+ *            one choice is not simple format), or alphabetic
+ *            characters [A-Za-z] (for pseudoknots). Moreover, the
+ *            pairs indicated by the annotation must be validly
+ *            balanced: the number of open-pair characters must equal
+ *            the number of close-pair characters.
+ *
+ *            Because this test will tend to fail quickly on a full
+ *            WUSS annotation string (often on the first character),
+ *            there is negligible cost in evaluating the ternary
+ *            simple|full|not WUSS at all by cascading if's:
+ * 
+ *               if      (esl_wuss_IsSimple(ss)) {...}
+ *               else if (esl_wuss_IsFull(ss)    {...}
+ *               else                            {...}
+ */
+int
+esl_wuss_IsSimple(const char *ss, int n)
+{
+  int has_angle = 0;
+  int has_paren = 0;
+  int has_brack = 0;
+  int has_curly = 0;
+  int nopen     = 0;
+  int nclose    = 0;
+  int nuppers[26];
+  int nlowers[26];
+  int i;
+
+  esl_vec_ISet(nuppers, 26, 0);
+  esl_vec_ISet(nlowers, 26, 0);
+
+  if (n < 0) n = strlen(ss);
+
+  for (i = 0; i < n; i++)
+    {
+      if      (strchr("<>", ss[i])) has_angle = 1;
+      else if (strchr("()", ss[i])) has_paren = 1;
+      else if (strchr("[]", ss[i])) has_brack = 1;
+      else if (strchr("{}", ss[i])) has_curly = 1;
+      else if (ss[i] != '.' && !isalpha(ss[i])) return FALSE;
+
+      if       (strchr("<([{", ss[i])) nopen++;
+      else if  (strchr(">)]}", ss[i])) nclose++;
+      else if  (isupper(ss[i]))        nuppers[ss[i]-'A']++;
+      else if  (islower(ss[i]))        nlowers[ss[i]-'a']++;
+    }
+
+  if (has_angle + has_paren + has_brack + has_curly > 1) return FALSE;
+  if (nopen != nclose) return FALSE;
+  for (i = 0; i < 26; i++) if (nuppers[i] != nlowers[i]) return FALSE;
+
+  return TRUE;
+}
+
+/* Function:  esl_wuss_IsFull()
+ * Synopsis:  Returns TRUE if string looks like full WUSS annotation.
+ * Incept:    SRE, Fri 02 Jan 2026
+ *
+ * Purpose:   Return TRUE if input string <ss> is consistent with full
+ *            WUSS secondary structure annotation format. Else, return
+ *            FALSE.
+ *
+ *            If <ss> is an Easel parsing buffer (no \0 terminator), length
+ *            <n> must be provided. If <ss> is a string (\0-terminated)
+ *            and its length is unknown, <n> can be passed as -1.
+ *
+ *
+ *            The string is considered consistent if it is composed
+ *            only of pairing chars "<>()[]{}", unpaired chars "_-,:",
+ *            gap pad chars ".~", or pseudoknot pairing chars
+ *            [A-Za-z].  Moreover, annotated pairs must be validly
+ *            balanced: the number of open-pair characters must equal
+ *            the number of close-pair characters, for each type of
+ *            open char "<([{" and [A-Z], and each type of close char
+ *            ">)]}" and [a-z].
+ *
+ *            Simple WUSS annotation is valid as full WUSS, so if you're
+ *            aiming to distinguish simple from full, test simple first:
+ *            e.g.:
+ *
+ *               if      (esl_wuss_IsSimple(ss)) {...}
+ *               else if (esl_wuss_IsFull(ss)    {...}
+ *               else                            {...}
+ */
+int
+esl_wuss_IsFull(const char *ss, int n)
+{
+  int nl_angle = 0;
+  int nl_paren = 0;
+  int nl_brack = 0;
+  int nl_curly = 0;
+  int nr_angle = 0;
+  int nr_paren = 0;
+  int nr_brack = 0;
+  int nr_curly = 0;
+  int nuppers[26];
+  int nlowers[26];
+  int i;
+
+  esl_vec_ISet(nuppers, 26, 0);
+  esl_vec_ISet(nlowers, 26, 0);
+
+  if (n < 0) n = strlen(ss);
+  
+  for (i = 0; i < n; i++)
+    {
+      switch (ss[i]) {
+      case '<': nl_angle++; break;
+      case '(': nl_paren++; break;
+      case '[': nl_brack++; break;
+      case '{': nl_curly++; break;
+      case '>': nr_angle++; break;
+      case ')': nr_paren++; break;
+      case ']': nr_brack++; break;
+      case '}': nr_curly++; break;
+      default:
+        if      (isupper(ss[i])) nuppers[ss[i]-'A']++;
+        else if (islower(ss[i])) nlowers[ss[i]-'a']++;
+        else if (!strchr("_-,:.~", ss[i])) return FALSE;
+      }
+    }
+
+  if (nl_angle != nr_angle ||
+      nl_paren != nr_paren ||
+      nl_brack != nr_brack ||
+      nl_curly != nr_curly)
+    return FALSE;
+  for (i = 0; i < 26; i++)
+    if (nuppers[i] != nlowers[i])
+      return FALSE;
+
+  return TRUE;
+}
+
+
 
 /* Function:  esl_wuss2ct()
  * Incept:    SRE, Tue Feb 15 08:44:54 2005 [St. Louis]
@@ -42,13 +210,13 @@
  *            alphabetic pair is interpreted as a base pair; any other
  *            WUSS annotation is interpreted as unpaired.
  *            
- * Returns:   <eslOK> on success. Returns <eslESYNTAX> if the WUSS
- *            string isn't valid.
+ * Returns:   <eslOK> on success.
+ *            <eslESYNTAX> if the WUSS string isn't valid.
  *            
  * Throws:    <eslEMEM> on allocation failure.           
  */
 int 
-esl_wuss2ct(char *ss, int len, int *ct)
+esl_wuss2ct(const char *ss, int len, int *ct)
 {
   ESL_STACK *pda[27];     /* 1 secondary structure + up to 26 levels of pk's */
   int        i;
@@ -139,27 +307,46 @@ esl_wuss2ct(char *ss, int len, int *ct)
 
 /* Function:  esl_ct2wuss()
  * Incept:    SRE, Wed Feb 16 11:22:53 2005 [St. Louis]
+ *            pseudoknot support by ER, Sat Aug 18 13:22:03 EDT 2012
  *
  * Purpose:   Convert a CT array <ct> for <n> residues (1..n) to a WUSS
  *            format string <ss>. <ss> must be allocated for at least
- *            n+1 chars (+1 for the terminal NUL). 
+ *            n+1 chars (+1 for the terminal '\0').
  *
- *            ER, Sat Aug 18 13:22:03 EDT 2012 
- *            esl\_ct2wuss() extended to deal with pseudoknots structures.
- *            Pseudoknots are annotated as AA...aa, BB...bb,..., ZZ..zz.
+ *            Pseudoknots are annotated as AA...aa, BB...bb, ...,
+ *            ZZ..zz, with upper case letters for open-pair and lower
+ *            case for close-pair.
+ *
+ *            Because pseudoknotted structures can be resolved
+ *            different ways into what's called "main structure" and
+ *            what's called pseudoknot, if you convert a WUSS
+ *            annotation for a pseudoknotted structure to CT and then
+ *            back to WUSS, you may not get the same WUSS string, even
+ *            though the set of base pairs is identical.
+ *            
+ *            The WUSS annotation generated here is for an
+ *            unaligned/ungapped single sequence or consensus
+ *            structure of length <n>. If the CT was made from a WUSS
+ *            annotation on an Infernal alignment of alen <n> that
+ *            contains `.` and `~` characters for insertion padding
+ *            and local structural alignment padding, the WUSS
+ *            generated here will not have any of that padding. There
+ *            are no `.` or `~` characters in the generated WUSS.
+ *
  *            Attempting to convert a <ct> that requires more letters
  *            than [A-Z] will return an <eslEINVAL> error.
  *
  *            Attempting to convert a <ct> that involves triplet interactions
- *            will return an <eslEINVAL> error.
+ *            will also return an <eslEINVAL> error.
  *
  * Returns:   <eslOK> on success.
+ *            <eslEINVAL> if the CT implies a structure that can't be rendered in WUSS.
  * 
  * Throws:    <eslEMEM> on allocation failure.
- *            <eslEINCONCEIVABLE> on internal failure.
+ *            <eslEINCONCEIVABLE> on "impossible" internal failures.
  */
 int
-esl_ct2wuss(int *ct, int n, char *ss)
+esl_ct2wuss(const int *ct, int n, char *ss)
 {
   int        rb[26];                // array that delimits the right bound of a pseudoknot character
   ESL_STACK *pda    = NULL;         // stack for "main" secondary structure
@@ -170,7 +357,6 @@ esl_ct2wuss(int *ct, int n, char *ss)
   int        minface;               // max depth of faces in a cWW structure
   int        leftbound, rightbound; // left and right bound to find basepairs belonging to a given pseudoknot
   int        xpk = 0;               // number of pseudoknot characters used
-  // int     npk = 0;               // number of pseudoknots; commented out because we don't use it for anything right now
   int        npairs = 0;            // total number of basepairs
   int        npairs_reached = 0;    // number of basepairs found so far
   int        found_partner;         // true if we've found left partner of a given base in stack pda
@@ -208,7 +394,7 @@ esl_ct2wuss(int *ct, int n, char *ss)
 	{
 	  if (esl_stack_IPush(pda, j) != eslOK) goto FINISH;
 	}
-      else   /* right side of a bp; main routine: fingh the left partner */
+      else   /* right side of a bp; main routine: find the left partner */
 	{
 	  found_partner = FALSE;
 	  /* Pop back until we find the left partner of j;
@@ -283,16 +469,13 @@ esl_ct2wuss(int *ct, int n, char *ss)
 	      else /* cct[i]>0, != j: i is paired, but not to j: pseudoknot! */
 		{
 		  /* i is in the way to find j's left partner. 
-		   * Move i to stack auxpk; resolve pseudoknot(s) after we've found partern for j.
+		   * Move i to stack auxpk; resolve pseudoknot(s) after we've found partner for j.
 		   */ 
 		  if (esl_stack_IPush(auxpk, i) != eslOK) goto FINISH;
 		}
 	    } 
 	  
-	  if (!found_partner) {
-	    esl_stack_Destroy(pda); esl_stack_Destroy(auxpk); esl_stack_Destroy(auxss); free(cct); 
-	    ESL_EXCEPTION(eslEINVAL, "Cannot find left partner (%d) of base %d. Likely a triplet", ct[j], j);
-	  }
+	  if (!found_partner) { status = eslEINVAL; goto ERROR; }  // Cannot find left partner ct[j] of base j. Likely a triplet.
 	} /* finished finding the left partner of j */
       
       /* After we've found the left partner of j, resolve pks found along the way.
@@ -340,23 +523,19 @@ esl_ct2wuss(int *ct, int n, char *ss)
 	    cct[i]     = 0;
 	    cct[ct[i]] = 0;
 	  }
-	  else  ESL_EXCEPTION(eslEINVAL, "Don't have enough letters to describe all different pseudoknots.");	      
-	    	  
+	  else { status = eslEINVAL; goto ERROR; } // Ran out of letters for PK's.
 	} 	
       } /* while there is something in auxpk stack */
+  } /* finished loop over j: end position on seq, 1..n*/ 
+  if (npairs != npairs_reached) ESL_XEXCEPTION(eslEINCONCEIVABLE, "only found %d out of %d pairs.", npairs_reached, npairs);
 
-    } /* finished loop over j: end position on seq, 1..n*/ 
-  
   status = eslOK;
-
  ERROR:
  FINISH:
-  if (npairs != npairs_reached) 		  
-    ESL_EXCEPTION(eslFAIL, "found %d out of %d pairs.", npairs_reached, npairs);
-  if (pda   != NULL) esl_stack_Destroy(pda);
-  if (auxpk != NULL) esl_stack_Destroy(auxpk);
-  if (auxss != NULL) esl_stack_Destroy(auxss);
-  if (cct   != NULL) free(cct);
+  esl_stack_Destroy(pda);
+  esl_stack_Destroy(auxpk);
+  esl_stack_Destroy(auxss);
+  free(cct);
   return status;
 }
 
@@ -369,7 +548,7 @@ esl_ct2wuss(int *ct, int n, char *ss)
  *
  *            This function can be used with the <ct> of a secondary
  *            structure including arbitrary pseudoknots, or for the 
- *            <ct> or a tertiary structure (say cWH, tWH, cSS,... H bonds). 
+ *            <ct> of a tertiary structure (say cWH, tWH, cSS,... H bonds). 
  *
  *            The string <ss> has basepairs annotated as <>, Aa, Bb, ..., Zz;
  *            unpaired bases are annotated as '.'.
@@ -381,12 +560,13 @@ esl_ct2wuss(int *ct, int n, char *ss)
  *            will return an <eslEINVAL> error.
  *
  * Returns:   <eslOK> on success.
+ *            <eslEINVAL> if structure in CT cannot be represented in WUSS format.
  * 
  * Throws:    <eslEMEM> on allocation failure.
  *            <eslEINCONCEIVABLE> on internal failure.
  */
 int
-esl_ct2simplewuss(int *ct, int n, char *ss)
+esl_ct2simplewuss(const int *ct, int n, char *ss)
 {
   int        rb[26];                // array that delimits the right bound of a pseudoknot character
   ESL_STACK *pda    = NULL;         // stack for "main" secondary structure
@@ -394,13 +574,12 @@ esl_ct2simplewuss(int *ct, int n, char *ss)
   int       *cct    = NULL;         // copy of ct vector
   int        leftbound, rightbound; // left and right bound to find basepairs belonging to a given pseudoknot
   int        xpk = 0;               // number of pseudoknot characters used
-  // int     npk = 0;               // number of pseudoknots; commented out because we don't use it for anything right now
   int        npairs = 0;            // total number of basepairs
   int        npairs_reached = 0;    // number of basepairs found so far
   int        found_partner;         // true if we've found left partner of a given base in stack pda
   int        i,j,k;                 // sequence indices
   int        x;                     // index for pseudoknot characters
-  int        status = eslEMEM;	    // exit status 'til proven otherwise
+  int        status;
 
   /* total number of basepairs */
   for (j = 1; j <= n; j ++) { if (ct[j] > 0 && j < ct[j]) npairs ++; }
@@ -418,18 +597,18 @@ esl_ct2simplewuss(int *ct, int n, char *ss)
   ss[n] = '\0'; 
  
   /* Initialization*/
-  if ((pda   = esl_stack_ICreate()) == NULL) goto FINISH;
-  if ((auxpk = esl_stack_ICreate()) == NULL) goto FINISH;
+  if ((pda   = esl_stack_ICreate()) == NULL) { status = eslEMEM; goto ERROR; }
+  if ((auxpk = esl_stack_ICreate()) == NULL) { status = eslEMEM; goto ERROR; }
   
   for (j = 1; j <= n; j++)
     {
       if (cct[j] == 0)	/* unpaired: push j. */
 	{
-	  if (esl_stack_IPush(pda, j) != eslOK) goto FINISH;
+	  if ((status = esl_stack_IPush(pda, j)) != eslOK) goto ERROR;
 	}
       else if (cct[j] > j) /* left side of a bp: push j. */
 	{
-	  if (esl_stack_IPush(pda, j) != eslOK) goto FINISH;
+	  if ((status = esl_stack_IPush(pda, j)) != eslOK) goto ERROR;
 	}
       else   /* right side of a bp; main routine: fingh the left partner */
 	{
@@ -442,7 +621,7 @@ esl_ct2simplewuss(int *ct, int n, char *ss)
 	   */	 
 	  while (esl_stack_ObjectCount(pda)) 
 	    {
-	      if (esl_stack_IPop(pda, &i) != eslOK) goto FINISH;
+	      if ((status = esl_stack_IPop(pda, &i)) != eslOK) goto ERROR;
 	      
 	      if (cct[i] == j)  /* we found the i,j pair. */
 		{
@@ -464,14 +643,10 @@ esl_ct2simplewuss(int *ct, int n, char *ss)
 		  /* i is in the way to find j's left partner. 
 		   * Move i to stack auxpk; resolve pseudoknot(s) after we've found partern for j.
 		   */ 
-		  if (esl_stack_IPush(auxpk, i) != eslOK) goto FINISH;
+		  if ((status = esl_stack_IPush(auxpk, i)) != eslOK) goto ERROR;
 		}
 	    } 
-	  
-	  if (!found_partner) {
-	    esl_stack_Destroy(pda); esl_stack_Destroy(auxpk); free(cct); 
-	    ESL_EXCEPTION(eslEINVAL, "Cannot find left partner (%d) of base %d. Likely a triplet", ct[j], j);
-	  }
+	  if (!found_partner) { status = eslEINVAL; goto ERROR; } // Cannot find left partner (ct[j] of base j. Likely a triplet.
 	} /* finished finding the left partner of j */
       
       /* After we've found the left partner of j, resolve pks found along the way.
@@ -519,24 +694,182 @@ esl_ct2simplewuss(int *ct, int n, char *ss)
 	    cct[i]     = 0;
 	    cct[ct[i]] = 0;
 	  }
-	  else  ESL_EXCEPTION(eslEINVAL, "Don't have enough letters to describe all different pseudoknots.");	      
-	    	  
+	  else { status = eslEINVAL; goto ERROR; } // Don't have enough letters to describe all different pseudoknots.
 	} 	
       } /* while there is something in auxpk stack */
-
     } /* finished loop over j: end position on seq, 1..n*/ 
-  
-  status = eslOK;
+  if (npairs != npairs_reached) ESL_XEXCEPTION(eslEINCONCEIVABLE, "only found %d out of %d pairs.", npairs_reached, npairs);
 
+  status = eslOK;
  ERROR:
- FINISH:
-  if (npairs != npairs_reached) 		  
-    ESL_EXCEPTION(eslFAIL, "found %d out of %d pairs.", npairs_reached, npairs);
-  if (pda   != NULL) esl_stack_Destroy(pda);
-  if (auxpk != NULL) esl_stack_Destroy(auxpk);
-  if (cct   != NULL) free(cct);
+  esl_stack_Destroy(pda);
+  esl_stack_Destroy(auxpk);
+  free(cct);
   return status;
 }
+/*------------ end, annotation as string or esl_mem -------------*/
+
+
+/*****************************************************************
+ * 2. Functions that assume annotation is a string.
+ *
+ *    These also allow overwriting: input <ss> and output <ss>
+ *    can be the same.
+ *****************************************************************/
+
+/* Function:  esl_wuss_full()
+ * Incept:    SRE, Mon Feb 28 09:44:40 2005 [St. Louis]
+ *
+ * Purpose:   Given a simple ("input") WUSS format annotation string <oldss>,
+ *            convert it to full ("output") WUSS format in <newss>.
+ *            <newss> must be allocated by the caller to be at least as 
+ *            long as <oldss>. <oldss> and <newss> can be the same,
+ *            to convert a secondary structure string in place.
+ *            
+ *            Any pseudoknot annotation on <oldss> is preserved exactly
+ *            on <newss>. 
+ *
+ * Returns:   <eslOK> on success.
+ *            <eslSYNTAX> if <oldss> isn't in valid WUSS format.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <eslEINCONCEIVABLE> on internal error that can't happen.
+ */
+int
+esl_wuss_full(const char *oldss, char *newss)
+{
+  char *tmp = NULL;
+  int  *ct  = NULL;
+  int   n;
+  int   i;
+  int   status;
+
+  /* The assignment of base pairs to the main nested structure vs. to
+   * pseudoknots, and the A-Z label on each pseudoknotted stem, are
+   * arbitrary choices. So if we do the obvious thing of converting to
+   * a CT array then using ct2wuss(), for pseudoknotted structures, we
+   * might get a full WUSS that's been arbitrarily rearranged relative
+   * to the input WUSS. That's undesirable.
+   *
+   * To work around this, we remove pseudoknots... then to CT, then
+   * ct2wuss()... and then put the pseudoknots back exactly where they
+   * were.
+   */
+  n = strlen(oldss);
+  ESL_ALLOC(ct,  sizeof(int)  * (n+1));
+  ESL_ALLOC(tmp, sizeof(char) * (n+1));
+  
+  if ((status = esl_wuss_nopseudo(oldss, tmp)) != eslOK) goto ERROR; // tmp = nonpseudoknotted oldss
+  if ((status = esl_wuss2ct(tmp, n, ct))       != eslOK) goto ERROR; // ct  = oldss in ct format, no pks 
+  if ((status = esl_ct2wuss(ct, n, tmp))       != eslOK) goto ERROR; // now tmp is a full WUSS string, no pks. (eslEINVAL can't happen here)
+  
+  for (i = 0; i < n; i++)
+    newss[i] = ( isalpha(oldss[i]) ? oldss[i] : tmp[i] );  // old pk annotation | new WUSS
+
+  free(ct);
+  free(tmp);
+  return eslOK;
+
+ ERROR:
+  free(ct);
+  free(tmp);
+  return status;
+}
+
+
+
+/* Function:  esl_wuss_nopseudo()
+ * Incept:    SRE, Tue Feb 15 11:02:43 2005 [St. Louis]
+ *
+ * Purpose:   Given a WUSS format annotation string <ss1>,
+ *            removes all pseudoknot annotation to create a new 
+ *            WUSS string <ss2> that contains only a "canonical"
+ *            (nonpseudoknotted) structure. <ss2> must be allocated to
+ *            be at least as large as <ss1>. <ss1> and <ss2>
+ *            may be the same, in which case the conversion is
+ *            done in place.
+ *
+ *            Pseudoknot annotation in <ss1> is simply replaced by <.>
+ *            in <ss2>. The resulting <ss2> WUSS string is therefore
+ *            in valid simplified format, but may not be valid full
+ *            format WUSS.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_wuss_nopseudo(const char *ss1, char *ss2)
+{
+  while (*ss1 != '\0') 
+    {
+      if (isalpha(*ss1)) *ss2 = '.';
+      else *ss2 = *ss1;
+      ss1++;
+      ss2++;
+    }
+  *ss2 = '\0';
+  return eslOK;
+}
+
+
+/* Function:  esl_wuss_reverse()
+ * Synopsis:  "Reverse complement" a WUSS annotation
+ * Incept:    SRE, Wed Feb 10 12:46:51 2016 [JB251 BOS-MCO]
+ *
+ * Purpose:   If we need to reverse complement a structure-annotated RNA
+ *            sequence, we need to "reverse complement" the WUSS
+ *            annotation string. Reverse complement the annotation string
+ *            <ss> into caller-provided space <new>. To revcomp an annotation 
+ *            in place, use <esl_wuss_reverse(ss, ss)>.
+ *            
+ *            Old SELEX files use a different structure annotation
+ *            format, with angle brackets pointing the opposite
+ *            direction: \ccode{><} for a base pair. As a convenient
+ *            side effect, <esl_wuss_reverse()> will also reverse
+ *            complement SELEX annotation lines.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_wuss_reverse(const char *ss, char *new)
+{
+  int i, n;
+
+  /* first, "complement" the annotation */
+  for (i = 0; ss[i] != '\0'; i++)
+    {
+      if      (isupper(ss[i])) new[i] = tolower(ss[i]);
+      else if (islower(ss[i])) new[i] = toupper(ss[i]);
+      else {
+	switch (ss[i]) {
+	case '<': new[i] = '>';   break;
+	case '>': new[i] = '<';   break;
+	case '(': new[i] = ')';   break;
+	case ')': new[i] = '(';   break;
+	case '[': new[i] = ']';   break;
+	case ']': new[i] = '[';   break;
+	case '{': new[i] = '}';   break;
+	case '}': new[i] = '{';   break;
+	default:  new[i] = ss[i]; break;
+	}
+      }
+    }
+  n = i;
+  /* Then, reverse it in place. */
+  for (i = 0; i < n/2; i++)
+    ESL_SWAP(new[i], new[n-i-1], char);
+
+  return eslOK;
+}
+/*------------------ end, WUSS as string only -------------------*/
+
+
+/***************************************************************** 
+ * 3. Interconversion with obsolete Konings-Hogeweg convention.
+ *
+ *    "KH" annotation has the angle brackets facing the other way; for
+ *    example, ">>>>....<<<<" is a stem loop. COVE, the predecessor to
+ *    Infernal, used this convention in ~1993-2002.
+ *****************************************************************/
 
 /* Function:  esl_wuss2kh()
  * Incept:    SRE, Tue Feb 15 10:05:35 2005 [St. Louis]
@@ -556,7 +889,7 @@ esl_ct2simplewuss(int *ct, int n, char *ss)
  * Returns:   <eslOK> on success.
  */
 int
-esl_wuss2kh(char *ss, char *kh)
+esl_wuss2kh(const char *ss, char *kh)
 {
   while (*ss != '\0')
     {
@@ -597,7 +930,7 @@ esl_wuss2kh(char *ss, char *kh)
  * Returns:   <eslOK> on success.
  */
 int
-esl_kh2wuss(char *kh, char *ss)
+esl_kh2wuss(const char *kh, char *ss)
 {
   while (*kh != '\0')
     {
@@ -611,257 +944,240 @@ esl_kh2wuss(char *kh, char *ss)
   *ss = '\0';
   return eslOK;
 }
+/*----------------- end, KH interconversion ---------------------*/
 
 
-/* Function:  esl_wuss_full()
- * Incept:    SRE, Mon Feb 28 09:44:40 2005 [St. Louis]
+
+/*****************************************************************
+ * 4. Unit tests
+ *****************************************************************/
+#ifdef eslWUSS_TESTDRIVE
+
+/* utest_basic()
  *
- * Purpose:   Given a simple ("input") WUSS format annotation string <oldss>,
- *            convert it to full ("output") WUSS format in <newss>.
- *            <newss> must be allocated by the caller to be at least as 
- *            long as <oldss>. <oldss> and <newss> can be the same,
- *            to convert a secondary structure string in place.
- *            
- *            Pseudoknot annotation is preserved, if <oldss> had it.
+ * Tests for most functions and their main uses (as opposed to testing
+ * pathological edge cases).
  *
- * Returns:   <eslSYNTAX> if <oldss> isn't in valid WUSS format.
- *
- * Throws:    <eslEMEM> on allocation failure.
- *            <eslEINCONCEIVABLE> on internal error that can't happen.
+ * The provided <ss> can be simple or full WUSS, but when represented
+ * as full WUSS, it must be distinguishable from simple WUSS. (This
+ * would usually be true; even a hairpin "<<<<....>>>>"
+ * vs. "<<<<____>>>>" is distinguishable.)
  */
-int
-esl_wuss_full(char *oldss, char *newss)
+static void
+utest_basic(const char *ss)
 {
-  char *tmp = NULL;
-  int  *ct  = NULL;
-  int   n;
+  char msg[]      = "esl_wuss::utest_basic() failed";
+  int  n          = strlen(ss);
+  int  nbp_nested = 0;
+  int  nbp_pk     = 0;
+  int  nbp        = 0;
+  int  *ct        = NULL;
+  int  *ct2       = NULL;
+  char *ss2       = NULL;
+  char *ss3       = NULL;
   int   i;
   int   status;
 
-  /* We can use the ct2wuss algorithm to generate a full WUSS string -
-   * convert to ct, then back to WUSS.  ct2wuss doesn't deal with pk's
-   * though, and we want to propagate pk annotation if it's there.  So
-   * we need two workspaces: ct array, and a temporary ss string that
-   * we use to hold non-pk annotation.  As a final step, we overlay
-   * the pk annotation from the original oldss annotation.
+  ESL_ALLOC(ct,  sizeof(int) * (n+1));
+  ESL_ALLOC(ct2, sizeof(int) * (n+1));
+  ESL_ALLOC(ss2, sizeof(int) * (n+1));
+  ESL_ALLOC(ss3, sizeof(int) * (n+1));
+
+  /* <ct> is CT array derived from the input <ss>.
+   * We won't change <ct> again, having created it - but we will reuse <ct2>,<ss2>,<ss3>
    */
-  n = strlen(oldss);
-  ESL_ALLOC(ct,  sizeof(int)  * (n+1));
-  ESL_ALLOC(tmp, sizeof(char) * (n+1));
+  if (esl_wuss2ct(ss,  n, ct) != eslOK) esl_fatal(msg);         
+
+  for (i = 0; i < n; i++)                                        // count bps in <ss>
+    if      (strchr("{[(<", ss[i]) != NULL) nbp_nested++;
+    else if (isupper(ss[i]))                nbp_pk++;
   
-  esl_wuss_nopseudo(oldss, tmp);/* tmp = nonpseudoknotted oldss */
+  for (i = 1; i <= n; i++)                                       // count bps in corresponding <ct>, check that they match.
+    if (ct[i] > i) nbp++;
+  if (nbp != nbp_nested + nbp_pk) esl_fatal(msg);
 
-  status = esl_wuss2ct(tmp, n, ct);   /* ct  = oldss in ct format, no pks */
-  if (status != eslOK) goto ERROR;
+  /* Converting ct => full wuss => ct gives us the same ct
+   */
+  if (esl_ct2wuss(ct, n, ss2)         != eslOK) esl_fatal(msg);  
+  if (esl_wuss_IsFull(ss2, n)         != TRUE)  esl_fatal(msg);
+  if (esl_wuss_IsSimple(ss2, n)       != FALSE) esl_fatal(msg);
+  if (esl_wuss2ct(ss2, n, ct2)        != eslOK) esl_fatal(msg);
+  if (esl_vec_ICompare(ct, ct2, n+1)  != eslOK) esl_fatal(msg);
+   
+  /* Converting ct => simple wuss => ct also gives the same ct
+   */
+  if (esl_ct2simplewuss(ct, n, ss2)   != eslOK) esl_fatal(msg);  
+  if (esl_wuss_IsSimple(ss2, n)       != TRUE)  esl_fatal(msg);
+  if (esl_wuss_IsFull(ss2, n)         != TRUE)  esl_fatal(msg);  // this evaluates TRUE because simple WUSS is a subset of full
+  if (esl_wuss2ct(ss2, n, ct2)        != eslOK) esl_fatal(msg);
+  if (esl_vec_ICompare(ct, ct2, n+1)  != eslOK) esl_fatal(msg);
 
-  status = esl_ct2wuss(ct, n, tmp);   /* now tmp is a full WUSS string */
-  if (status == eslEINVAL) { status = eslEINCONCEIVABLE; goto ERROR; }/* we're sure, no pk's */
-  else if (status != eslOK) goto ERROR; /* EMEM, EINCONCEIVABLE  */
+  /* Converting simple wuss => full wuss => ct also gives same ct
+   * <ss2> is simple WUSS from above.
+   */
+  if (esl_wuss_full(ss2, ss3)         != eslOK) esl_fatal(msg);
+  if (esl_wuss_IsFull(ss3, n)         != TRUE)  esl_fatal(msg);  
+  if (esl_wuss_IsSimple(ss3, n)       != FALSE) esl_fatal(msg); // FALSE depends on <ss> being sufficiently complicated
+  if (esl_wuss2ct(ss3, n, ct2)        != eslOK) esl_fatal(msg);
+  if (esl_vec_ICompare(ct, ct2, n+1)  != eslOK) esl_fatal(msg);
   
-  for (i = 0; i < n; i++)
-    if (isalpha(oldss[i])) newss[i] = oldss[i];	/* transfer pk annotation */
-    else newss[i] = tmp[i];                     /* transfer new WUSS      */
+  /* Test esl_wuss_nopseudo()
+   * simple wuss => ct => simple wuss is guaranteed to give the same WUSS if no PKs (though *not* when there are PKs)
+   * <ss2> is still a simple WUSS from above. (<ss> itself may not have been)
+   * Don't count bp's in <ct2> and expect it to equal nbp_nested; we got to <ss2> by a wuss->ct->wuss conversion of a PK'd structure
+   */
+  if (esl_wuss_nopseudo(ss2, ss2)     != eslOK) esl_fatal(msg);   // strip PKs in place
+  if (esl_wuss2ct(ss2, n, ct2)        != eslOK) esl_fatal(msg);   // ct2 is now the no-PK version
+  if (esl_ct2simplewuss(ct2, n, ss3)  != eslOK) esl_fatal(msg);   // make ss3 from it...
+  if (strcmp(ss2, ss3)                != 0)     esl_fatal(msg);   // ss2 == ss3
 
+  /* Test esl_wuss_reverse()
+   * Reverse complement of a reverse complement of either simple or full WUSS is the original WUSS.
+   */
+  if (esl_wuss_reverse(ss,  ss2) != eslOK) esl_fatal(msg);
+  if (esl_wuss_reverse(ss2, ss3) != eslOK) esl_fatal(msg);
+  if (strcmp(ss, ss3)            != 0)     esl_fatal(msg);
+
+  /* Test the conversions in/out of obsolete KH-style annotation */
+  if (esl_wuss2kh(ss,  ss2)           != eslOK) esl_fatal(msg);
+  if (esl_kh2wuss(ss2, ss2)           != eslOK) esl_fatal(msg);
+  if (esl_wuss2ct(ss2, n, ct2)        != eslOK) esl_fatal(msg);
+  if (esl_vec_ICompare(ct, ct2, n+1)  != eslOK) esl_fatal(msg);
+ 
   free(ct);
-  free(tmp);
-  return eslOK;
+  free(ct2);
+  free(ss2);
+  free(ss3);
+  return;
 
  ERROR:
-  free(ct);
-  free(tmp);
-  return status;
+  esl_fatal(msg);
 }
+#endif //eslWUSS_TESTDRIVE
+/*--------------------- end, unit tests -------------------------*/
 
 
 
-/* Function:  esl_wuss_nopseudo()
- * Incept:    SRE, Tue Feb 15 11:02:43 2005 [St. Louis]
- *
- * Purpose:   Given a WUSS format annotation string <ss1>,
- *            removes all pseudoknot annotation to create a new 
- *            WUSS string <ss2> that contains only a "canonical"
- *            (nonpseudoknotted) structure. <ss2> must be allocated to
- *            be at least as large as <ss1>. <ss1> and <ss2>
- *            may be the same, in which case the conversion is
- *            done in place. Pseudoknot annotation in <ss1> is
- *            simply replaced by <.> in <ss2>; the resulting
- *            <ss2> WUSS string is therefore in valid simplified format,
- *            but may not be valid full format WUSS.
- *
- * Returns:   <eslOK>.
- */
-int
-esl_wuss_nopseudo(char *ss1, char *ss2)
-{
-  while (*ss1 != '\0') 
-    {
-      if (isalpha(*ss1)) *ss2 = '.';
-      else *ss2 = *ss1;
-      ss1++;
-      ss2++;
-    }
-  *ss2 = '\0';
-  return eslOK;
-}
-
-
-/* Function:  esl_wuss_reverse()
- * Synopsis:  "Reverse complement" a WUSS annotation
- * Incept:    SRE, Wed Feb 10 12:46:51 2016 [JB251 BOS-MCO]
- *
- * Purpose:   If we need to reverse complement a structure-annotated RNA
- *            sequence, we need to "reverse complement" the WUSS
- *            annotation string. Reverse complement the annotation string
- *            <ss> into caller-provided space <new>. To revcomp an annotation 
- *            in place, use <esl_wuss_reverse(ss, ss)>.
- *            
- *            Old SELEX files use a different structure annotation
- *            format, with angle brackets pointing the opposite
- *            direction: \ccode{><} for a base pair. As a convenient
- *            side effect, <esl_wuss_reverse()> will also reverse
- *            complement SELEX annotation lines.
- *
- * Returns:   <eslOK> on success.
- */
-int
-esl_wuss_reverse(char *ss, char *new)
-{
-  int i, n;
-
-  /* first, "complement" the annotation */
-  for (i = 0; ss[i] != '\0'; i++)
-    {
-      if      (isupper(ss[i])) new[i] = tolower(ss[i]);
-      else if (islower(ss[i])) new[i] = toupper(ss[i]);
-      else {
-	switch (ss[i]) {
-	case '<': new[i] = '>';   break;
-	case '>': new[i] = '<';   break;
-	case '(': new[i] = ')';   break;
-	case ')': new[i] = '(';   break;
-	case '[': new[i] = ']';   break;
-	case ']': new[i] = '[';   break;
-	case '{': new[i] = '}';   break;
-	case '}': new[i] = '{';   break;
-	default:  new[i] = ss[i]; break;
-	}
-      }
-    }
-  n = i;
-  /* Then, reverse it in place. */
-  for (i = 0; i < n/2; i++)
-    ESL_SWAP(new[i], new[n-i-1], char);
-
-  return eslOK;
-}
-
-
+/*****************************************************************
+ * 5. Test driver
+ *****************************************************************/
 #ifdef eslWUSS_TESTDRIVE
-/* gcc -g -Wall -o testwuss -I. -DeslWUSS_TESTDRIVE esl_wuss.c esl_random.c esl_stack.c esl_vectorops.c easel.c
- * ./testwuss
- */
-
-#include <stdlib.h>
-
-#include "easel.h"
-#include "esl_random.h"
-#include "esl_stack.h"
-#include "esl_vectorops.h"
-#include "esl_wuss.h"
 
 int
 main(int argc, char **argv)
 {
-  /* The example is E. coli RNase P, w/ and w/o pks. 
-   * J Brown figure 10.3.00 shows 1 too many bp for pk stem A. 
+  /* Some example structure annotations, for real examples with pseudoknots.
+   *   ss_examples[0] : Twister consensus [Roth..Breaker, Nat Chem Bio 2014]
+   *              [1] : theta ribozyme    [Riccitelli..Luptak, 2014]
+   *              [2] : S4 autoregulation [Peselis & Serganov, 2014]
+   *              [3] : E. coli RNAse P.  [J Brown figure 10.3.00]
+   *
+   * Some . and ~'s artificially added to the RNase P to test aligned WUSS.             
    */
-  char ss[] = "\
-{{{{{{{{{{{{{{{{{{,<<<<<<<<<<<<<-<<<<<____>>>>>>>>>->>>>>>>>\
+  char *ss_examples[] = { "<<<<...<<<<AA<<<..BBB..aa.>>>>>>>..bbb>>>>",
+                          "<<<<<<..BBBBBB<<<.AA....>>>>>>>>>aa..........bbbbbb",
+                          "...<<<<<<<.<<<<<........AAAA...AAAAA.....BBBB.>>>>>>>>>>>>..........................aaaaa....aaaa...........bbbb.",
+                          "\
+.....{{{{{{{{{{{{{{{{{{,<<<<<<<<<<<<<-<<<<<____~~~~~>>>>>>>>>->>>>>>>>.....\
 >,,,,AAA-AAAAA[[[[---BBBB-[[[[[<<<<<_____>>>>><<<<____>>>->(\
 (---(((((,,,,,,,,,,,,<<<<<--<<<<<<<<____>>>>>->>>>>>-->>,,,,\
 ,,,<<<<<<_______>>>>>><<<<<<<<<____>>>->>>>>->,,)))--))))]]]\
 ]]]]]],,,<<<<------<<<<<<----<<<<<_bbbb>>>>>>>>>>>----->>>>,\
 ,,,,,<<<<<<<<____>>>>>>>>,,,,,,,,,,}}}}}}}----------aaaaaaaa\
--}-}}}}}}}}}}::::";
-  char ss_nopk[] = "\
-{{{{{{{{{{{{{{{{{{,<<<<<<<<<<<<<-<<<<<____>>>>>>>>>->>>>>>>>\
->,,,,,,,,,,,,,[[[[--------[[[[[<<<<<_____>>>>><<<<____>>>->(\
-(---(((((,,,,,,,,,,,,<<<<<--<<<<<<<<____>>>>>->>>>>>-->>,,,,\
-,,,<<<<<<_______>>>>>><<<<<<<<<____>>>->>>>>->,,)))--))))]]]\
-]]]]]],,,<<<<------<<<<<<----<<<<<_____>>>>>>>>>>>----->>>>,\
-,,,,,<<<<<<<<____>>>>>>>>,,,,,,,,,,}}}}}}}------------------\
--}-}}}}}}}}}}::::";
-  int  len;
-  int  *ct1 = NULL;
-  int  *ct2 = NULL;
-  char *ss2 = NULL;
-  char *ss3 = NULL;
-  int  i;
-  int  nbp, nbp_true, npk;
-  int  status;
+-}-}}}}}}}}}}::::" };
+  int nexamples = sizeof(ss_examples) / sizeof(char *);
+  int i;
 
-  len = strlen(ss);
-  ESL_ALLOC(ct1, sizeof(int)  * (len+1));
-  ESL_ALLOC(ct2, sizeof(int)  * (len+1));
-  ESL_ALLOC(ss2, sizeof(char) * (len+1));
-  ESL_ALLOC(ss3, sizeof(char) * (len+1));
-  nbp_true = npk = 0;
-  for (i = 0; i < len; i++)
-    {
-      if (strchr("{[(<", ss[i]) != NULL)
-	nbp_true++;
-      if (isupper(ss[i]))
-	npk++;
-    }
-	
-  if (esl_wuss2ct(ss, len, ct1) != eslOK) abort();
-  nbp = 0;
-  for (i = 1; i <= len; i++)
-    if (ct1[i] > i) nbp++;
-  if (nbp != nbp_true + npk) abort();
-  
-  if (esl_wuss2kh(ss, ss)       != eslOK) abort();
-  if (esl_kh2wuss(ss, ss)       != eslOK) abort();
-  if (esl_wuss2ct(ss, len, ct2) != eslOK) abort();
-  for (i = 1; i <= len; i++)
-    if (ct1[i] != ct2[i]) abort();
-  
-  /* test of pseudoknots */
-  if (esl_ct2wuss(ct1, len, ss2) != eslOK) abort();
-  if (esl_wuss2ct(ss2, len, ct2) != eslOK) abort();
-  for (i = 1; i <= len; i++)
-    if (ct1[i] != ct2[i]) abort();
+  fprintf(stderr, "## %s\n", argv[0]);
 
-  if (esl_ct2simplewuss(ct1, len, ss2) != eslOK) abort();
-  if (esl_wuss2ct(ss2, len, ct2) != eslOK) abort();
-  for (i = 1; i <= len; i++)
-    if (ct1[i] != ct2[i]) abort();
+  for (i = 0; i < nexamples; i++)
+    utest_basic(ss_examples[i]);
 
-  if (esl_wuss_nopseudo(ss, ss)      != eslOK) abort();
-  if (esl_wuss2ct(ss, len, ct1)      != eslOK) abort();
-  if (esl_wuss2ct(ss_nopk, len, ct2) != eslOK) abort();
-  for (i = 1; i <= len; i++)
-    if (ct1[i] != ct2[i]) abort();
-
-  if (esl_wuss2ct(ss_nopk, len, ct1) != eslOK) abort();
-  if (esl_ct2wuss(ct1, len, ss3)     != eslOK) abort();
-  if (strcmp(ss_nopk, ss3) != 0) abort();
-
-  free(ct1);
-  free(ct2);
-  free(ss2);
-  free(ss3);
-  return 0;
-
- ERROR:
-  free(ct1);
-  free(ct2);
-  free(ss2);
-  free(ss3);
-  return status;
+  fprintf(stderr, "#  status = ok\n");
+  return eslOK;
 }
 #endif /*eslWUSS_TESTDRIVE*/
+/*---------------------- end, test driver -----------------------*/
 
 
+/***************************************************************** 
+ * 6. Example
+ *****************************************************************/
+#ifdef eslWUSS_EXAMPLE
 
+int
+main(void)
+{
+  /* theta ribozyme drz-Mtgn-1, 51nt, 17bp, 9/17 nested
+   * [Riccitelli..Luptak, 2014; Kienbeck..Sigel, bioRxiv 2023] 
+   *        5'-GGUAGCACACCUAUGCGUUCCCGUCGCGCUACUGAUUUAGACUAAAUAGGU-3'
+   */
+  char  ss[] = "<<<<<<..AAAAAA<<<.BB....>>>>>>>>>bb..........aaaaaa";
+  int   n;
+  int  *ct;   // "CT" array: ct[i=1..n] = 0 if i unpaired, j if i:j basepair. ct[0] unused (=0)
+  char *ss2;
+
+  /* ss annotations are length n: ss[0..n-1].
+   * A CT array is length n+1: ct[0,1..n], with ct[0] unused.
+   *
+   * Some esl_wuss functions are used in file parsers, where <ss>
+   * might be an esl_mem buffer (no \0 termination); these functions
+   * take the length <n> as an argument. Other esl_wuss functions
+   * assume that <ss> is a string, with \0 termination.
+   */
+  n  = strlen(ss);
+  if ((ct  = malloc(sizeof(int) * (n+1))) == NULL) esl_fatal("malloc failed");
+  if ((ss2 = malloc(sizeof(int) * n))     == NULL) esl_fatal("malloc failed");
+
+  /* This example is "simple" WUSS, a subset of "full" WUSS.
+   *
+   * We sometimes also refer to simple WUSS as "input" WUSS because
+   * it's easier for a person to write, and full WUSS as "output" WUSS
+   * because it's the output of Infernal.
+   *
+   * Simple WUSS is valid as full WUSS, but the reverse is generally
+   * not true.
+   */
+  if ( esl_wuss_IsSimple(ss, n) != TRUE ) esl_fatal("yes it is");
+  if ( esl_wuss_IsFull  (ss, n) != TRUE ) esl_fatal("yes it is");
+
+  /* A "CT" array ct[i=1..n] gives the position j that i is base
+   * paired to, or 0 if i is unpaired; ct[0] is unused.
+   *
+   * The name "ct" comes from "Connectivity Table" format, originally
+   * used (I believe) by Michael Zuker in MFOLD. CT format has other
+   * fields [https://rna.urmc.rochester.edu/Text/File_Formats.html].
+   * Easel just needs the basepairing information.
+   */
+  if (esl_wuss2ct(ss, n, ct) != eslOK)  esl_fatal("conversion to CT failed");
+
+  /* A CT array can be converted to simple or full WUSS.
+   *
+   * Pseudoknot annotation is not unique: the choice of what to call
+   * "main structure" vs "pseudoknot" is arbitrary, and so is the A-Z
+   * labelling of each PK.  Converting a pseudoknotted WUSS to CT and
+   * back to WUSS may give a different WUSS.
+   */
+  printf("\n");
+  printf("Original SS:           %s\n", ss);
+
+  if (esl_ct2wuss      (ct, n, ss2) != eslOK) esl_fatal("ct2wuss conversion failed");
+  printf("full WUSS via CT:      %s\n", ss2);
+  
+  if (esl_ct2simplewuss(ct, n, ss2) != eslOK) esl_fatal("ct2simplewuss conversion failed");
+  printf("simple WUSS via CT:    %s\n", ss2);
+
+  /* Simple WUSS can be converted to full.
+   *
+   * This function *does* guarantee that the pseudoknot annotation will be unchanged.
+   */
+  if (esl_wuss_full (ss, ss2) != eslOK) esl_fatal("esl_wuss_full conversion failed");
+  printf("full WUSS from simple: %s\n", ss2);
+  
+  free(ct);
+  free(ss2);
+  return 0;
+}
+#endif /*eslWUSS_EXAMPLE*/
+/*----------------------- end, example --------------------------*/
 

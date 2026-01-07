@@ -1807,7 +1807,7 @@ esl_msa_AppendGC(ESL_MSA *msa, char *tag, char *value)
       msa->gc[0]  = NULL;
     }
   else
-    {			/* new tag? */
+    { /* new tag? */
       /* get tagidx for this GC tag. existing tag: <ngc; new: == ngc. */
       status = esl_keyhash_Store(msa->gc_idx, tag, -1, &tagidx);
       if (status != eslOK && status != eslEDUP) goto ERROR;
@@ -2448,6 +2448,11 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
  *            (or <msa->ax>, in the case of a digital mode alignment), 
  *            and all associated per-residue or per-column annotation
  *            is shrunk.
+ *
+ *            If the MSA is in digital mode, and it's eslDNA|eslRNA,
+ *            then secondary structure (base pairing) annotations are
+ *            modified to fix any base pairs that are broken by column
+ *            deletion.
  * 
  * Returns:   <eslOK> on success.
  *            Possibilities from <esl_msa_RemoveBrokenBasepairs()> call:
@@ -2928,7 +2933,7 @@ esl_msa_Checksum(const ESL_MSA *msa, uint32_t *ret_checksum)
  *
  * Returns:   <eslOK> on success.
  *            <eslESYNTAX> if SS string 
-  *            <eslEINVAL> if a derived ct array implies a pknotted 
+ *            <eslEINVAL> if a derived ct array implies a pknotted 
  *            SS, this should be impossible.
  *
  * Throws:    <eslEMEM> on allocation failure.

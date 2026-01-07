@@ -512,7 +512,8 @@ EXAMPLES = \
 	esl_varint_example\
         esl_vectorops_example\
         esl_weibull_example\
-        esl_workqueue_example
+        esl_workqueue_example\
+	esl_wuss_example
 #       esl_hmm_example\
 #       esl_msafile_clustal_example\
 #       esl_randomseq_example\
