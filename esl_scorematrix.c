@@ -16,6 +16,7 @@
  */
 #include <esl_config.h>
 
+#include <assert.h>
 #include <string.h>
 #include <math.h>
 
@@ -52,6 +53,8 @@ esl_scorematrix_Create(const ESL_ALPHABET *abc)
   ESL_SCOREMATRIX *S = NULL;
   int status;
   int i;
+
+  assert(abc->Kp > 0);    // silence gcc false positive warnings on the S->outorder allocation below; it thinks Kp=-1 might wrap a uint32_t (but it's ok with other allocations?)
 
   ESL_ALLOC(S, sizeof(ESL_SCOREMATRIX));
   S->s          = NULL;

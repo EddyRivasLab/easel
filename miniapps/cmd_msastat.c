@@ -47,7 +47,7 @@ esl_cmd_msastat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
   int             with_recsize =  esl_opt_GetBoolean(go, "--recsize");
   int             status;
   
- if (esl_opt_IsOn(go, "--informat") &&
+  if (esl_opt_IsOn(go, "--informat") &&
      (fmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
    esl_fatal("%s is not a valid MSA file format for --informat", esl_opt_GetString(go, "--informat"));
 

@@ -1,4 +1,4 @@
-/* easel reformat :: convert between sequence formats
+/* `easel reformat` : convert between sequence formats
  *
  * Works in text mode, so it does not normally know the alphabet of
  * input sequence data. An `easel reformat` option may only do a

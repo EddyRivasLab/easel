@@ -2058,7 +2058,7 @@ main(int argc, char **argv)
 #endif /*eslVECTOROPS_TESTDRIVE*/
 
 /*****************************************************************
- * 4. Examples
+ * 4. Example
  *****************************************************************/ 
 
 #ifdef eslVECTOROPS_EXAMPLE
@@ -2067,7 +2067,8 @@ main(int argc, char **argv)
 #include "easel.h"
 #include "esl_vectorops.h"
 
-int main(void)
+int
+main(void)
 {
   double *p;
   char    labels[] = "ACGT";
