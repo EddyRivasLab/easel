@@ -179,16 +179,15 @@ extern int esl_msa_ReasonableRF(ESL_MSA *msa, double symfrac, int useconsseq, ch
 extern int esl_msa_MarkFragments (const ESL_MSA *msa, float fragthresh, ESL_BITFIELD **ret_fragassign);
 extern int esl_msa_MarkFragments_old(ESL_MSA *msa, double fragthresh);
 extern int esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new);
-extern int esl_msa_ColumnSubset (ESL_MSA *msa, char *errbuf, const int *useme);
-extern int esl_msa_MinimGaps    (ESL_MSA *msa, char *errbuf, const char *gaps, int consider_rf);
-extern int esl_msa_MinimGapsText(ESL_MSA *msa, char *errbuf, const char *gaps, int consider_rf, int fix_bps);
-extern int esl_msa_NoGaps       (ESL_MSA *msa, char *errbuf, const char *gaps);
-extern int esl_msa_NoGapsText   (ESL_MSA *msa, char *errbuf, const char *gaps, int fix_bps);
+extern int esl_msa_ColumnSubset (ESL_MSA *msa, const int *useme);
+extern int esl_msa_MinimGaps    (ESL_MSA *msa, int consider_rf);
+extern int esl_msa_NoGaps       (ESL_MSA *msa, int consider_rf);
+extern int esl_msa_MinimGapsText(ESL_MSA *msa, const char *gaps, int consider_rf, int fix_bps);
+extern int esl_msa_NoGapsText   (ESL_MSA *msa, const char *gaps, int consider_rf, int fix_bps);
 extern int esl_msa_SymConvert(ESL_MSA *msa, const char *oldsyms, const char *newsyms);
 extern int esl_msa_Checksum(const ESL_MSA *msa, uint32_t *ret_checksum);
 
-extern int esl_msa_RemoveBrokenBasepairsFromSS(char *ss, char *errbuf, int len, const int *useme);
-extern int esl_msa_RemoveBrokenBasepairs(ESL_MSA *msa, char *errbuf, const int *useme);
+extern int esl_msa_RemoveBrokenBasepairs(ESL_MSA *msa, const int *useme);
 
 extern int esl_msa_ReverseComplement(ESL_MSA *msa);
 extern int esl_msa_Hash(ESL_MSA *msa);

@@ -197,7 +197,7 @@ main(int argc, char **argv)
 
   if (esl_opt_IsOn(go, "--informat")) {
     infmt = esl_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
-    if (infmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
+    if (infmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input MSA file format for --informat", esl_opt_GetString(go, "--informat")); 
     if (do_small && infmt != eslMSAFILE_PFAM) esl_fatal("small memory mode requires Pfam formatted alignments"); 
   }
   if (esl_opt_IsOn(go, "--outformat")) {

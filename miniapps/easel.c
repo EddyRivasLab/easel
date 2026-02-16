@@ -1,7 +1,6 @@
 /* easel - little utilities for biological sequence analysis
  *
- * A single program with many subcommands, subsuming the former Easel
- * miniapps.
+ * A single program with many subcommands for the Easel miniapps.
  */
 #include <esl_config.h>
 
@@ -17,7 +16,9 @@
 extern int esl_cmd_afetch    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
 extern int esl_cmd_afetchn   (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
 extern int esl_cmd_aindex    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
+extern int esl_cmd_alicol    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
 extern int esl_cmd_alimanip  (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
+extern int esl_cmd_alimerge  (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
 extern int esl_cmd_alimap    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
 extern int esl_cmd_alipid    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
 extern int esl_cmd_alirev    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
@@ -46,14 +47,19 @@ extern int esl_cmd_weight    (const char *topcmd, const ESL_SUBCMD *sub, int arg
 
 /* The ESL_SUBCMD array associates subcommand names with their
  * implementations and command-line help strings.
+ *
+ * nargs=-1 means a variable number of command-line arguments;
+ * auto checking of narg by getopts is skipped.
  */
 ESL_SUBCMD subcommands[] = {
   /* function            subcmd_name  nargs        arg_description                            help_line */
   { esl_cmd_afetch,     "afetch",        2, "[-options] <msafile> <key>",                    "fetch MSA from multi-MSA file (such as Pfam, Rfam)"       },
   { esl_cmd_afetchn,    "afetchn",       2, "[-options] <msafile> <keyfile>",                "fetch a list of MSAs from multi-MSA file"                 },
   { esl_cmd_aindex,     "aindex",        1, "[-options] <msafile>",                          "index multi-MSA file for fast afetch|afetchn retrieval"   },
+  { esl_cmd_alicol,     "alicol",        1, "[-options] <msafile>",                          "select a subset of columns from an MSA"                   },
   { esl_cmd_alimanip,   "alimanip",      1, "[-options] <msafile>",                          "manipulate a multiple sequence alignment in various ways" },
   { esl_cmd_alimap,     "alimap",        2, "[-options] <msafile1> <msafile2>",              "map two multiple sequence alignments to each other"       },
+  { esl_cmd_alimerge,   "alimerge",     -1, "[-options] <msafile1> [<msafile2>...]",         "merge MSAs into one, via reference (RF) annotation"       },
   { esl_cmd_alipid,     "alipid",        1, "[-options] <msafile>",                          "calculate pairwise %id for all aligned seq pairs in MSA"  },
   { esl_cmd_alirev,     "alirev",        1, "[-options] <msafile>",                          "reverse complement multiple sequence alignment(s)"        },
   { esl_cmd_compalign,  "compalign",     2, "[-options] <trusted_msa> <test_msa>",           "compare trusted vs. test multiple sequence alignments"    },
@@ -80,7 +86,7 @@ ESL_SUBCMD subcommands[] = {
 };
 
 
-/* `easel` has its own options; each subcommand also has its own
+/* `easel` has its own options. Each subcommand also has its own
  * options (specified in `cmd_*.c` files)
  */
 static ESL_OPTIONS top_options[] = {

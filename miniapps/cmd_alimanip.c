@@ -616,13 +616,16 @@ esl_cmd_alimanip(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
         if(msa->rf == NULL) esl_fatal("--c* options require #=GC RF annotation marking consensus columns.");
         if(do_id_cluster) { 
           if(msa->rf == NULL) esl_fatal("Error, --cn-id, --cs-id and --cx-id require all alignments have #=GC RF anntotation, MSA %d does not.", nali);
-          /* create distance matrix and infer tree by single linkage clustering */
-          /* first, remove all non-consensus columns */
-          rfmsa = esl_msa_Clone(msa);
-          if((status = esl_msa_ColumnSubset(rfmsa, errbuf, i_am_rf)) != eslOK) esl_fatal(errbuf);
+          /* create distance matrix and infer tree by single linkage clustering.
+           * first, remove all non-consensus columns from the MSA.
+           * don't need to worry about breaking any RNA base pair annotation with this downselect,
+           * because we're going to immediately discard the <rfmsa> after using it to get a distance mx.
+           */
+          if (( rfmsa = esl_msa_Clone(msa))          == NULL) esl_fatal("Failed to clone MSA for making all-RF MSA");
+          if ( esl_msa_ColumnSubset(rfmsa, i_am_rf) != eslOK) esl_fatal("Failed to make an all-RF MSA");
           dst_nongap_XDiffMx(rfmsa->abc, rfmsa->ax, rfmsa->nseq, &D);
-          esl_msa_Destroy(rfmsa);
-          rfmsa = NULL;
+          esl_msa_Destroy(rfmsa); rfmsa = NULL;
+
           do_ctarget_nc    = esl_opt_IsOn(go, "--cn-id");
           do_ctarget_nsize = esl_opt_IsOn(go, "--cs-id");
           do_cmindiff      = esl_opt_IsOn(go, "--cx-id");

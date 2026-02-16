@@ -5,9 +5,10 @@
  *    2. Digital mode MSA's        
  *    3. Setting, checking data fields in an <ESL_MSA>
  *    4. Miscellaneous functions for manipulating MSAs
- *    5. Debugging, testing, development
- *    6. Unit tests
- *    7. Test driver
+ *    5. Internal (static) support functions
+ *    6. Debugging, testing, development
+ *    7. Unit tests
+ *    8. Test driver
  */
 #include <esl_config.h>
 
@@ -36,11 +37,16 @@
 
 #include "esl_msa.h"
 
+static ESL_MSA *msa_create_mostly(int nseq, int64_t alen);
+static int      msa_set_seq_ss(ESL_MSA *msa, int seqidx, const char *ss);
+static int      msa_set_seq_sa(ESL_MSA *msa, int seqidx, const char *sa);
+static int      msa_set_seq_pp(ESL_MSA *msa, int seqidx, const char *pp);
+static int64_t  msa_get_rlen(const ESL_MSA *msa, int seqidx);
+
 /******************************************************************************
  *# 1. The <ESL_MSA> object                                           
  *****************************************************************************/
 
-static ESL_MSA *msa_create_mostly(int nseq, int64_t alen);
 
 
 /* Function:  esl_msa_Create()
@@ -553,128 +559,6 @@ esl_msa_Destroy(ESL_MSA *msa)
 }
 
 
-/* msa_create_mostly()
- *
- * This is the routine called by esl_msa_Create() and esl_msa_CreateDigital()
- * that does all allocation except the aseq/ax alignment data.
- * 
- * <nseq> may be the exact known # of seqs in an alignment; or <nseq>
- * may be an allocation block size (to be expanded by doubling, in
- * esl_msa_Expand(), as in:
- *     <if (msa->nseq == msa->sqalloc) esl_msa_Expand(msa);>
- * <nseq> should not be 0.
- *
- * <alen> may be the exact length of an alignment, in columns; or it
- * may be -1, which states that your parser will take responsibility
- * for expanding as needed as new input is read into a growing new
- * alignment.
- *
- * A created <msa> can only be <_Expand()>'ed if <alen> is -1.
- *
- * Args:     <nseq> - number of sequences, or nseq allocation blocksize
- *           <alen> - length of alignment in columns, or -1     
- *
- * Returns:   pointer to new MSA object, w/ all values initialized.
- *            Note that msa->nseq is initialized to 0 here, even though space
- *            is allocated.
- *           
- * Throws:    <NULL> on allocation failure.          
- */
-static ESL_MSA *
-msa_create_mostly(int nseq, int64_t alen)
-{
-  int      status;
-  ESL_MSA *msa     = NULL;
-  int      i;
-
-  ESL_ALLOC(msa, sizeof(ESL_MSA));
-  msa->aseq    = NULL;
-  msa->sqname  = NULL;
-  msa->wgt     = NULL;
-  msa->alen    = alen;		/* if -1, then we're growable. */
-  msa->nseq    = 0;		/* our caller (text or digital allocation) sets this.  */
-  msa->flags   = 0;
-
-  msa->abc     = NULL;
-  msa->ax      = NULL;
-
-  msa->name    = NULL;
-  msa->desc    = NULL;
-  msa->acc     = NULL;
-  msa->au      = NULL;
-  msa->ss_cons = NULL;
-  msa->sa_cons = NULL;
-  msa->pp_cons = NULL;
-  msa->rf      = NULL;
-  msa->mm      = NULL;
-  msa->sqacc   = NULL;
-  msa->sqdesc  = NULL;
-  msa->ss      = NULL;
-  msa->sa      = NULL;
-  msa->pp      = NULL;
-  for (i = 0; i < eslMSA_NCUTS; i++) {
-    msa->cutoff[i] = 0.;
-    msa->cutset[i] = FALSE;
-  }
-  msa->sqalloc = nseq;
-  msa->sqlen   = NULL;
-  msa->sslen   = NULL;
-  msa->salen   = NULL;
-  msa->pplen   = NULL;
-  msa->lastidx = 0;
-
-  /* Unparsed markup, including comments and Stockholm tags.
-   */
-  msa->comment        = NULL;
-  msa->ncomment       = 0;
-  msa->alloc_ncomment = 0;
-
-  msa->gf_tag         = NULL;
-  msa->gf             = NULL;
-  msa->ngf            = 0;
-  msa->alloc_ngf      = 0;
-
-  msa->gs_tag         = NULL;
-  msa->gs             = NULL;
-  msa->ngs            = 0;
-
-  msa->gc_tag         = NULL;
-  msa->gc             = NULL;
-  msa->ngc            = 0;
-
-  msa->gr_tag         = NULL;
-  msa->gr             = NULL;
-  msa->ngr            = 0;
-
-  msa->index     = esl_keyhash_Create();
-  msa->gs_idx    = NULL;
-  msa->gc_idx    = NULL;
-  msa->gr_idx    = NULL;
-
-  msa->offset    = 0;
-
-  /* Allocation, round 2.
-   */
-  if(nseq > 0) { 
-    ESL_ALLOC(msa->sqname, sizeof(char *) * nseq);
-    ESL_ALLOC(msa->wgt,    sizeof(double) * nseq);
-    ESL_ALLOC(msa->sqlen,  sizeof(int64_t)* nseq);
-  }    
-  /* Initialize at the second level.
-   */
-  for (i = 0; i < nseq; i++)
-    {
-      msa->sqname[i] = NULL;
-      msa->sqlen[i]  = 0;
-      msa->wgt[i]    = -1.0;	/* "unset so far" */
-    }
-
-  return msa;
-
- ERROR:
-  esl_msa_Destroy(msa);
-  return NULL;
-}
 /*------------------- end, ESL_MSA object -----------------------*/
 
 
@@ -1946,92 +1830,6 @@ esl_msa_CheckUniqueNames(const ESL_MSA *msa)
 
 }
 
-/* msa_set_seq_ss() 
- *
- * Set the secondary structure annotation for sequence number
- * <seqidx> in an alignment <msa> by copying the string <ss>.
- *
- * Returns:  <eslOK> on success.
- * 
- * Throws:   <eslEMEM> on allocation failure.
- */
-static int
-msa_set_seq_ss(ESL_MSA *msa, int seqidx, const char *ss)
-{
-  int status;
-  int i;
-
-  ESL_DASSERT1((seqidx < msa->sqalloc));   // heads-up to static analyzers 
-
-  if (msa->ss == NULL) 
-    {
-      ESL_ALLOC(msa->ss, sizeof(char *) * msa->sqalloc);
-      for (i = 0; i < msa->sqalloc; i++) msa->ss[i] = NULL;
-    }
-  if (msa->ss[seqidx] != NULL) free(msa->ss[seqidx]);
-  return (esl_strdup(ss, -1, &(msa->ss[seqidx])));
-
- ERROR:
-  return status;
-}
-
-/* msa_set_seq_sa() 
- *
- * Set the surface accessibility annotation for sequence number
- * <seqidx> in an alignment <msa> by copying the string <sa>.
- *
- * Returns:  <eslOK> on success.
- * 
- * Throws:   <eslEMEM> on allocation failure.
- */
-static int
-msa_set_seq_sa(ESL_MSA *msa, int seqidx, const char *sa)
-{
-  int status;
-  int i;
-
-  ESL_DASSERT1((seqidx < msa->sqalloc));  // heads-up to static analyzers
-
-  if (msa->sa == NULL) 
-    {
-      ESL_ALLOC(msa->sa, sizeof(char *) * msa->sqalloc);
-      for (i = 0; i < msa->sqalloc; i++) msa->sa[i] = NULL;
-    }
-  if (msa->sa[seqidx] != NULL) free(msa->sa[seqidx]);
-  return (esl_strdup(sa, -1, &(msa->sa[seqidx])));
-
- ERROR:
-  return status;
-}
-
-/* msa_set_seq_pp() 
- *
- * Set the posterior probability annotation for sequence number
- * <seqidx> in an alignment <msa> by copying the string <pp>.
- *
- * Returns:  <eslOK> on success.
- * 
- * Throws:   <eslEMEM> on allocation failure.
- */
-static int
-msa_set_seq_pp(ESL_MSA *msa, int seqidx, const char *pp)
-{
-  int status;
-  int i;
-
-  ESL_DASSERT1((seqidx < msa->sqalloc));  // heads-up to static analyzers
-
-  if (msa->pp == NULL) 
-    {
-      ESL_ALLOC(msa->pp, sizeof(char *) * msa->sqalloc);
-      for (i = 0; i < msa->sqalloc; i++) msa->pp[i] = NULL;
-    }
-  if (msa->pp[seqidx] != NULL) free(msa->pp[seqidx]);
-  return (esl_strdup(pp, -1, &(msa->pp[seqidx])));
-
- ERROR:
-  return status;
-}
 /*---------- end of ESL_MSA field setting/checking --------------*/
 
 
@@ -2040,7 +1838,7 @@ msa_set_seq_pp(ESL_MSA *msa, int seqidx, const char *pp)
  *# 4. Miscellaneous functions for manipulating MSAs
  *****************************************************************/
 
-static int64_t msa_get_rlen(const ESL_MSA *msa, int seqidx);
+
 
 
 /* Function:  esl_msa_ReasonableRF()
@@ -2438,43 +2236,31 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
 
 
 /* Function:  esl_msa_ColumnSubset()
- * Synopsis:  Remove a selected subset of columns from the MSA
+ * Synopsis:  Remove a selected subset of columns from MSA
  *
  * Purpose:   Given an array <useme> (0..alen-1) of TRUE/FALSE flags,
- *            where TRUE means "keep this column in the new alignment"; 
- *            remove all columns annotated as FALSE in the <useme> 
- *            array. This is done in-place on the MSA, so the MSA is 
- *            modified: <msa->alen> is reduced, <msa->aseq> is shrunk 
- *            (or <msa->ax>, in the case of a digital mode alignment), 
- *            and all associated per-residue or per-column annotation
- *            is shrunk.
+ *            where TRUE means "keep this column in the new
+ *            alignment"; remove all columns annotated as FALSE.  This
+ *            is done in-place on the MSA, so the MSA is modified:
+ *            <msa->alen> is reduced, <msa->aseq> or <msa->ax> is
+ *            shrunk (text vs. digital mode) and all associated
+ *            per-residue or per-column annotation is shrunk.
  *
- *            If the MSA is in digital mode, and it's eslDNA|eslRNA,
- *            then secondary structure (base pairing) annotations are
- *            modified to fix any base pairs that are broken by column
- *            deletion.
+ *            If the <msa> is an RNA alignment with RNA secondary
+ *            structure annotation, caller must first call
+ *            <esl_msa_RemoveBrokenBasepairs()> to remove any basepair
+ *            annotation (consensus or individual) that will be
+ *            disrupted by deleting one side of a pair.
  * 
  * Returns:   <eslOK> on success.
- *            Possibilities from <esl_msa_RemoveBrokenBasepairs()> call:
- *            <eslESYNTAX> if WUSS string for <SS_cons> or <msa->ss>
- *            following <esl_wuss_nopseudo()> is inconsistent.
- *            <eslEINVAL> if a derived ct array implies a pknotted SS.
  */
 int
-esl_msa_ColumnSubset(ESL_MSA *msa, char *errbuf, const int *useme)
+esl_msa_ColumnSubset(ESL_MSA *msa, const int *useme)
 {
-  int     status;
   int64_t opos;			/* position in original alignment */
   int64_t npos;			/* position in new alignment      */
   int     idx;			/* sequence index */
   int     i;			/* markup index */
-
-  /* For RNA/DNA digital alignments only:
-   * Remove any basepairs from SS_cons and individual sequence SS
-   * for aln columns i,j for which useme[i-1] or useme[j-1] are FALSE 
-   */
-  if ( msa->abc && (msa->abc->type == eslRNA || msa->abc->type == eslDNA) &&
-       (status = esl_msa_RemoveBrokenBasepairs(msa, errbuf, useme)) != eslOK) return status;
 
   /* Since we're minimizing, we can overwrite in place, within the msa
    * we've already got. 
@@ -2490,23 +2276,21 @@ esl_msa_ColumnSubset(ESL_MSA *msa, char *errbuf, const int *useme)
 	  /* The alignment, and per-residue annotations */
 	  for (idx = 0; idx < msa->nseq; idx++)
 	    {
-	      if (msa->flags & eslMSA_DIGITAL) /* watch off-by-one in dsq indexing */
-		msa->ax[idx][npos+1] = msa->ax[idx][opos+1];
-	      else
-		msa->aseq[idx][npos] = msa->aseq[idx][opos];
-	      if (msa->ss != NULL && msa->ss[idx] != NULL) msa->ss[idx][npos] = msa->ss[idx][opos];
-	      if (msa->sa != NULL && msa->sa[idx] != NULL) msa->sa[idx][npos] = msa->sa[idx][opos];
-	      if (msa->pp != NULL && msa->pp[idx] != NULL) msa->pp[idx][npos] = msa->pp[idx][opos];
+	      if (msa->flags & eslMSA_DIGITAL) 	msa->ax[idx][npos+1] = msa->ax[idx][opos+1]; /* watch off-by-one in dsq indexing */
+	      else 		                msa->aseq[idx][npos] = msa->aseq[idx][opos];
+	      if (msa->ss && msa->ss[idx]) msa->ss[idx][npos] = msa->ss[idx][opos];
+	      if (msa->sa && msa->sa[idx]) msa->sa[idx][npos] = msa->sa[idx][opos];
+	      if (msa->pp && msa->pp[idx]) msa->pp[idx][npos] = msa->pp[idx][opos];
 	      for (i = 0; i < msa->ngr; i++)
-		if (msa->gr[i][idx] != NULL)
+		if (msa->gr[i][idx])
 		  msa->gr[i][idx][npos] = msa->gr[i][idx][opos];
 	    }	  
 	  /* The per-column annotations */
-	  if (msa->ss_cons != NULL) msa->ss_cons[npos] = msa->ss_cons[opos];
-	  if (msa->sa_cons != NULL) msa->sa_cons[npos] = msa->sa_cons[opos];
-	  if (msa->pp_cons != NULL) msa->pp_cons[npos] = msa->pp_cons[opos];
-	  if (msa->rf      != NULL) msa->rf[npos]      = msa->rf[opos];
-	  if (msa->mm      != NULL) msa->mm[npos]      = msa->mm[opos];
+	  if (msa->ss_cons) msa->ss_cons[npos] = msa->ss_cons[opos];
+	  if (msa->sa_cons) msa->sa_cons[npos] = msa->sa_cons[opos];
+	  if (msa->pp_cons) msa->pp_cons[npos] = msa->pp_cons[opos];
+	  if (msa->rf)      msa->rf[npos]      = msa->rf[opos];
+	  if (msa->mm)      msa->mm[npos]      = msa->mm[opos];
 	  for (i = 0; i < msa->ngc; i++)
 	    msa->gc[i][npos] = msa->gc[i][opos];
 	}
@@ -2517,77 +2301,98 @@ esl_msa_ColumnSubset(ESL_MSA *msa, char *errbuf, const int *useme)
 }
 
 /* Function:  esl_msa_MinimGaps()
- * Synopsis:  Remove columns containing all gap symbols.
+ * Synopsis:  Remove columns containing all gap symbols, for digital MSA
  *
- * Purpose:   Remove all columns in the multiple alignment <msa>
- *            that consist entirely of gaps or missing data.
- *            
- *            For a text mode alignment, <gaps> is a string defining
- *            the gap characters, such as <"-_.~">. For a digital mode
- *            alignment, <gaps> may be passed as <NULL>, because the
- *            internal alphabet already knows what the gap and missing
- *            data characters are.
+ * Purpose:   Remove all columns in the multiple alignment <msa> that
+ *            consist entirely of gaps or missing data.  <msa> is in
+ *            digital mode. For a text mode <msa>, use
+ *            <esl_msa_MinimGapsText()> instead.
  *            
  *            <msa> is changed in-place to a narrower alignment
  *            containing fewer columns. All per-residue and per-column
  *            annotation is altered appropriately for the columns that
  *            remain in the new alignment.
  * 
- *            If <consider_rf> is TRUE, only columns that are gaps
- *            in all sequences of <msa> and a gap in the RF annotation 
- *            of the alignment (<msa->rf>) will be removed. It is 
- *            okay if <consider_rf> is TRUE and <msa->rf> is NULL
- *            (no error is thrown), the function will behave as if 
- *            <consider_rf> is FALSE.
+ *            If <consider_rf> is TRUE and reference annotation
+ *            <msa->rf> is present, only columns that are gaps in all
+ *            sequences of <msa> _and_ a gap in the RF annotation of
+ *            the alignment (<msa->rf>) are removed.
+ *
+ *            If the MSA might be an RNA alignment with an RNA
+ *            secondary structure consensus annotation that could be
+ *            broken by the column downselection, the consensus
+ *            structure <msa->ss_cons> is edited to fix
+ *            base pair annotation disrupted by removing one side of
+ *            an annotated pair. This only happens when:
+ *               - msa->abc->type is eslDNA or eslRNA; and
+ *               - msa->ss_cons is present (non-NULL);
+ *               - msa->ss_cons appears to be in WUSS annotation format, when tested
+ *                 with esl_wuss_IsSimple() or esl_wuss_IsFull();
+ *               - <consider_rf> is FALSE or <msa->rf> is NULL.
+ *
+ *            Individual secondary structures (msa->ss[]) can't be
+ *            broken by column downselection here, because only
+ *            residues can have individual basepair annotation, and
+ *            we're only removing all-gap columns. When <consider_rf>
+ *            is TRUE and there's consensus column annotation
+ *            <msa->rf>, column downselection can't break consensus
+ *            structure annotation either, because only consensus
+ *            columns can have annotated consensus basepairs.
  *
  * Returns:   <eslOK> on success.
  * 
  * Throws:    <eslEMEM> on allocation failure.
- *            Possibilities from <esl_msa_ColumnSubset()> call:
- *            <eslESYNTAX> if WUSS string for <SS_cons> or <msa->ss>
- *            following <esl_wuss_nopseudo()> is inconsistent.
- *            <eslEINVAL> if a derived ct array implies a pknotted SS.
+ *            <eslEINVAL> if <msa> is not in digital mode.
  *
  * Xref:      squid's MSAMingap().
  */
 int
-esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps, int consider_rf)
+esl_msa_MinimGaps(ESL_MSA *msa, int consider_rf)
 {
-  int    *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
-  int64_t apos;		/* column index   */
-  int     idx;		/* sequence index */
+  int    *useme = NULL;	// array of TRUE/FALSE flags for which cols to keep 
+  int64_t apos;		// column index  
+  int     idx;		// sequence index 
   int     status;
-  int     rf_is_nongap; /* TRUE if current position is not a gap in msa->rf OR msa->rf is NULL */
+  
+  if (msa->abc == NULL) ESL_EXCEPTION(eslEINVAL, "esl_msa_MinimGaps() requires digital-mode MSA");
 
+  ESL_ALLOC(useme, sizeof(int) * (msa->alen+1));  // +1 is just to deal w/ alen=0 special case, avoiding malloc(0)
 
-  if (msa->flags & eslMSA_DIGITAL) /* be careful of off-by-one: useme is 0..L-1 indexed */
+  /* Construct useme[] array of flags */
+  for (apos = 1; apos <= msa->alen; apos++)
     {
-      ESL_ALLOC(useme, sizeof(int) * (msa->alen+1)); /* +1 is just to deal w/ alen=0 special case */
-
-      for (apos = 1; apos <= msa->alen; apos++)
-	{
-	  rf_is_nongap = ((msa->rf != NULL) && 
-			  (! esl_abc_CIsGap    (msa->abc, msa->rf[apos-1])) &&
-			  (! esl_abc_CIsMissing(msa->abc, msa->rf[apos-1]))) ?
-	    TRUE : FALSE;
-	  if(rf_is_nongap && consider_rf) { /* RF is not a gap and consider_rf is TRUE, keep this column */
-	    useme[apos-1] = TRUE;
-	  }
-	  else { /* check all seqs to see if this column is all gaps */
-	    for (idx = 0; idx < msa->nseq; idx++)
-	      if (! esl_abc_XIsGap    (msa->abc, msa->ax[idx][apos]) &&
-		  ! esl_abc_XIsMissing(msa->abc, msa->ax[idx][apos]))
-		break;
-	    if (idx == msa->nseq) useme[apos-1] = FALSE; else useme[apos-1] = TRUE;
-	  }
-	}
-      if ((status = esl_msa_ColumnSubset(msa, errbuf, useme)) != eslOK) goto ERROR;
+      if (consider_rf && msa->rf && 
+          (! esl_abc_CIsGap(msa->abc, msa->rf[apos-1]) &&
+           ! esl_abc_CIsMissing(msa->abc, msa->rf[apos-1])))
+        useme[apos-1] = TRUE;
+      else {             
+        for (idx = 0; idx < msa->nseq; idx++)
+          if (! esl_abc_XIsGap    (msa->abc, msa->ax[idx][apos]) &&
+              ! esl_abc_XIsMissing(msa->abc, msa->ax[idx][apos]))
+            break;
+        useme[apos-1] = (idx == msa->nseq ? FALSE : TRUE);
+      }
     }
 
-  if (! (msa->flags & eslMSA_DIGITAL)) /* text mode case */
+  /* Given that useme[] array, do we need to check if ss_cons is an
+   * RNA consensus structure in WUSS format, that column deletion might
+   * break?
+   *
+   * If so, then edit to remove consensus basepair annotation as
+   * needed. The esl_wuss call checks for WUSS format first and
+   * returns eslEFORMAT if it's not WUSS, which we can ignore, leaving
+   * the ss_cons unchanged in that case.
+   */
+  if (msa->ss_cons &&
+      (msa->abc->type == eslDNA || msa->abc->type == eslRNA) &&
+      (consider_rf    == FALSE  || msa->rf == NULL))
     {
-      if ( (status = esl_msa_MinimGapsText(msa, errbuf, gaps, consider_rf, FALSE)) != eslOK) goto ERROR;
+      status = esl_wuss_RemoveBrokenBasepairs(msa->ss_cons, msa->alen, useme);
+      if (status != eslOK && status != eslEFORMAT) goto ERROR;  // on eslEFORMAT, we just don't edit the annotation: it's not WUSS
     }
+
+  /* Finally, do the downselection in place */
+  if ((status = esl_msa_ColumnSubset(msa, useme)) != eslOK) goto ERROR;
 
   if (useme) free(useme);
   return eslOK;
@@ -2597,47 +2402,149 @@ esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps, int consider_rf)
   return status;
 }
 
-/* Function:  esl_msa_MinimGapsText()
- * Synopsis:  Remove columns containing all gap symbols, from text mode msa
+
+/* Function:  esl_msa_NoGaps()
+ * Synopsis:  Remove columns containing any gap symbol at all, for digital MSA
  *
- * Purpose:   Same as <esl_msa_MinimGaps()>, but specialized for a text mode
- *            alignment where we don't know the alphabet. The issue is what 
- *            to do about RNA secondary structure annotation (SS, SS_cons)
- *            when we remove columns, which can remove one side of a bp and
- *            invalidate the annotation string. For digital alignments,
- *            <esl_msa_MinimGaps()> knows the alphabet and will fix base pairs
- *            for RNA/DNA alignments. For text mode, though, we have to 
- *            get told to do it, because the default behavior for text mode
- *            alis is to assume that the alphabet is totally arbitrary, and we're
- *            not allowed to make assumptions about its symbols' meaning.
- *            Hence, the <fix_bps> flag here. 
+ * Purpose:   Remove all columns in the multiple alignment <msa> that
+ *            contain any gaps or missing data, such that the modified
+ *            MSA consists only of ungapped columns (a solid block of
+ *            residues). 
  *            
- *            Ditto for the <gaps> string: we don't know what symbols
- *            are supposed to be gaps unless we're told something like 
- *            <"-_.~">.
+ *            This is useful for filtering alignments prior to
+ *            phylogenetic analysis using programs that can't deal
+ *            with gaps.
+ *            
+ *            <msa> is changed in-place to a narrower alignment
+ *            containing fewer columns. All per-residue and per-column
+ *            annotation is altered appropriately for the columns that
+ *            remain in the new alignment.
  *
- * Args:      msa         - alignment to remove all-gap cols from
- *            errbuf      - if non-<NULL>, space for an informative error message on failure
- *            gaps        - string of gap characters
- *            consider_rf - if TRUE, also consider gap/nongap cols in RF annotation line
- *            fix_bps     - if TRUE, fix any broken bps in SS/SS\_cons annotation lines.
+ *            If <consider_rf> is TRUE and reference annotation
+ *            <msa->rf> is present, columns must also be annotated as
+ *            consensus (e.g. be nongap characters in the <msa->rf>
+ *            annotation) to be retained.
+ *
+ *            If the MSA is an DNA|RNA alignment, it might have RNA
+ *            secondary structure annotations (consensus and/or
+ *            individual) that would be broken by the column
+ *            downselection.  Therefore for DNA|RNA MSAs, any
+ *            <msa->ss_cons> or <msa->ss[i]> consensus or individual
+ *            secondary structure annotation that appears to be in a
+ *            WUSS RNA secondary structure annotation format (when
+ *            tested with esl_wuss_IsFull()) is edited to avoid such
+ *            broken base pairs.
  *
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslEMEM> on allocation failure. 
- *            Possibilities from <esl_msa_ColumnSubset()> call:
- *            <eslESYNTAX> if WUSS string for <SS_cons> or <msa->ss>
- *            following <esl_wuss_nopseudo()> is inconsistent.
- *            <eslEINVAL> if a derived ct array implies a pknotted SS.
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <eslEINVAL> if <msa> is not in digital mode.
+ *
+ * Xref:      squid's MSANogap().
  */
 int
-esl_msa_MinimGapsText(ESL_MSA *msa, char *errbuf, const char *gaps, int consider_rf, int fix_bps)
+esl_msa_NoGaps(ESL_MSA *msa, int consider_rf)
 {
-  int    *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
-  int64_t apos;		/* column index   */
-  int     idx;		/* sequence index */
+  int    *useme = NULL;	     // array of TRUE/FALSE flags for which cols to keep
+  int64_t apos;		     // column index
+  int     idx;	 	     // sequence index
   int     status;
-  int     rf_is_nongap; /* TRUE if current position is not a gap in msa->rf OR msa->rf is NULL */
+
+  if (msa->abc == NULL) ESL_EXCEPTION(eslEINVAL, "esl_msa_NoGaps() requires digital-mode MSA");
+
+  ESL_ALLOC(useme, sizeof(int) * (msa->alen+1));  // +1 is just to deal w/ alen=0 special case, avoiding malloc(0)
+
+  for (apos = 1; apos <= msa->alen; apos++)
+    {
+      if (consider_rf && msa->rf &&
+          (esl_abc_CIsGap(msa->abc, msa->rf[apos-1]) || esl_abc_CIsMissing(msa->abc, msa->rf[apos-1])))
+        useme[apos-1] = FALSE;
+      else
+        {
+	  for (idx = 0; idx < msa->nseq; idx++)
+	    if (esl_abc_XIsGap    (msa->abc, msa->ax[idx][apos]) ||
+		esl_abc_XIsMissing(msa->abc, msa->ax[idx][apos]))
+	      break;
+          useme[apos-1] = (idx == msa->nseq ? TRUE : FALSE);
+	}
+    }
+
+  /* Fix both consensus and individual basepair annotation, if needed */
+  if (msa->abc->type == eslDNA || msa->abc->type == eslRNA)
+    if ((status = esl_msa_RemoveBrokenBasepairs(msa, useme)) != eslOK) goto ERROR;
+
+  /* Do the downselect */
+  if ((status = esl_msa_ColumnSubset(msa, useme)) != eslOK) goto ERROR;
+
+  free(useme);
+  return eslOK;
+
+ ERROR:
+  free(useme);
+  return status;
+}
+
+
+/* Function:  esl_msa_MinimGapsText()
+ * Synopsis:  Remove columns containing all gap symbols, from text mode msa
+ *
+ * Purpose:   Same as <esl_msa_MinimGaps()>, but for a text mode
+ *            alignment where we don't know the alphabet.
+ *
+ *            <msa> is changed in-place to a narrower alignment
+ *            containing fewer columns. All per-residue and per-column
+ *            annotation is altered appropriately for the columns that
+ *            remain in the new alignment.
+ *
+ *            <gaps> is a string defining the gap characters in text
+ *            mode, typically "-_.~".
+ *
+ *            If <consider_rf> is TRUE and reference annotation
+ *            <msa->rf> is present, only columns that are gaps in all
+ *            sequences of <msa> _and_ a gap in the RF annotation of
+ *            the alignment (<msa->rf>) are removed.
+ * 
+ *            If the MSA is a DNA|RNA alignment that may have RNA
+ *            secondary structure annotation(s), caller should pass
+ *            <fix_bps = TRUE>. Then, any annotated consensus base
+ *            pairs (in msa->ss_cons) that would be broken by the
+ *            column downselect will be fixed by changing both sides
+ *            of the annotation to unpaired. This only happens when:
+ *               - fix_bps is TRUE
+ *               - msa->ss_cons is present (non-NULL);
+ *               - msa->ss_cons appears to be in WUSS annotation format, when tested
+ *                 with esl_wuss_IsSimple() or esl_wuss_IsFull();
+ *               - <consider_rf> is FALSE or <msa->rf> is NULL.
+ *
+ *            Individual secondary structures (msa->ss[]) can't be
+ *            broken by column downselection here, because only
+ *            residues can have individual basepair annotation, and
+ *            we're only removing all-gap columns. When <consider_rf>
+ *            is TRUE and there's consensus column annotation
+ *            <msa->rf>, column downselection can't break consensus
+ *            structure annotation either, because only consensus
+ *            columns can have annotated consensus basepairs.
+ * 
+ * Args:      msa         - alignment to remove all-gap cols from
+ *            gaps        - string of gap characters
+ *            consider_rf - if TRUE, also consider gap/nongap cols in RF annotation line
+ *            fix_bps     - if TRUE, fix any broken bps in SS_cons annotation lines.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <eslEINVAL> if <msa> is not in text mode.
+ */
+int
+esl_msa_MinimGapsText(ESL_MSA *msa, const char *gaps, int consider_rf, int fix_bps)
+{
+  int    *useme = NULL;	// array of TRUE/FALSE flags for which cols to keep
+  int64_t apos;		// column index 
+  int     idx;		// sequence index
+  int     status;
+  int     rf_is_nongap; // TRUE if current position is not a gap in msa->rf OR msa->rf is NULL 
+
+  if (msa->abc != NULL) ESL_EXCEPTION(eslEINVAL, "esl_msa_MinimGapsText() requires text-mode MSA");
 
   ESL_ALLOC(useme, sizeof(int) * (msa->alen+1)); /* +1 is just to deal w/ alen=0 special case */
 
@@ -2653,8 +2560,13 @@ esl_msa_MinimGapsText(ESL_MSA *msa, char *errbuf, const char *gaps, int consider
 	}
     }
 
-  if (fix_bps && (status = esl_msa_RemoveBrokenBasepairs(msa, errbuf, useme)) != eslOK) goto ERROR;
-  if (           (status = esl_msa_ColumnSubset         (msa, errbuf, useme)) != eslOK) goto ERROR;
+  if (msa->ss_cons && fix_bps && (consider_rf == FALSE  || msa->rf == NULL))
+    {
+      status = esl_wuss_RemoveBrokenBasepairs(msa->ss_cons, msa->alen, useme);
+      if (status != eslOK && status != eslEFORMAT) goto ERROR;  // on eslEFORMAT, we just don't edit the annotation: it's not WUSS
+    }
+
+  if ((status = esl_msa_ColumnSubset(msa, useme)) != eslOK) goto ERROR;
 
   free(useme);
   return eslOK;
@@ -2665,129 +2577,77 @@ esl_msa_MinimGapsText(ESL_MSA *msa, char *errbuf, const char *gaps, int consider
 }
 
 
-/* Function:  esl_msa_NoGaps()
- * Synopsis:  Remove columns containing any gap symbol.
- *
- * Purpose:   Remove all columns in the multiple alignment <msa> that
- *            contain any gaps or missing data, such that the modified
- *            MSA consists only of ungapped columns (a solid block of
- *            residues). 
- *            
- *            This is useful for filtering alignments prior to
- *            phylogenetic analysis using programs that can't deal
- *            with gaps.
- *            
- *            For a text mode alignment, <gaps> is a string defining
- *            the gap characters, such as <"-_.~">. For a digital mode
- *            alignment, <gaps> may be passed as <NULL>, because the
- *            internal alphabet already knows what the gap and
- *            missing data characters are.
- *    
- *            <msa> is changed in-place to a narrower alignment
- *            containing fewer columns. All per-residue and per-column
- *            annotation is altered appropriately for the columns that
- *            remain in the new alignment.
- *
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslEMEM> on allocation failure.
- *            Possibilities from <esl_msa_ColumnSubset()> call:
- *            <eslESYNTAX> if WUSS string for <SS_cons> or <msa->ss>
- *            following <esl_wuss_nopseudo()> is inconsistent.
- *            <eslEINVAL> if a derived ct array implies a pknotted SS.
- *
- * Xref:      squid's MSANogap().
- */
-int
-esl_msa_NoGaps(ESL_MSA *msa, char *errbuf, const char *gaps)
-{
-  int    *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
-  int64_t apos;		/* column index */
-  int     idx;		/* sequence index */
-  int     status;
-
-  if (msa->flags & eslMSA_DIGITAL) /* be careful of off-by-one: useme is 0..L-1 indexed */
-    {
-      ESL_ALLOC(useme, sizeof(int) * (msa->alen+1)); /* +1 is only to deal with alen=0 special case */
-
-      for (apos = 1; apos <= msa->alen; apos++)
-	{
-	  for (idx = 0; idx < msa->nseq; idx++)
-	    if (esl_abc_XIsGap    (msa->abc, msa->ax[idx][apos]) ||
-		esl_abc_XIsMissing(msa->abc, msa->ax[idx][apos]))
-	      break;
-	  if (idx == msa->nseq) useme[apos-1] = TRUE; else useme[apos-1] = FALSE;
-	}
-
-      if ((status = esl_msa_ColumnSubset(msa, errbuf, useme)) != eslOK) goto ERROR;
-    }
-
-  if (! (msa->flags & eslMSA_DIGITAL)) /* text mode case */
-    {
-      if ((status = esl_msa_NoGapsText(msa, errbuf, gaps, FALSE)) != eslOK) goto ERROR;
-    }
-  if (useme) free(useme);
-  return eslOK;
-
- ERROR:
-  if (useme) free(useme);
-  return status;
-}
-
 
 /* Function:  esl_msa_NoGapsText()
- * Synopsis:  Remove columns containing any gap symbol at all, for text mode msa.
+ * Synopsis:  Remove columns containing any gap symbol at all, for text mode MSA
  *
- * Purpose:   Like <esl_msa_NoGaps()> but specialized for textmode <msa> where
- *            we don't know the alphabet, yet might need to fix alphabet-dependent
- *            problems. 
- *            
- *            Like <esl_msa_MinimGapsText()>, the alphabet-dependent issue we might
- *            want to fix is RNA secondary structure annotation (SS, SS\_cons);
- *            removing a column might remove one side of a base pair annotation, and
- *            invalidate a secondary structure string. <fix_bps> tells the function
- *            that SS and SS\_cons are RNA WUSS format strings, and the function is
- *            allowed to edit (and fix) them. Normally, in text mode msa's, we
- *            are not allowed to interpret any meaning of symbols.
+ * Purpose:   Same as <esl_msa_NoGaps()> but for text mode <msa> where
+ *            we don't know the alphabet.
  *
- * Args:      msa     - alignment to remove any-gap cols from
- *            errbuf  - if non-<NULL>, space for an informative error message on failure
- *            gaps    - string of gap characters
- *            fix_bps - if TRUE, fix any broken bps in SS/SS\_cons annotation lines
+ *            Remove all columns in the multiple alignment <msa> that
+ *            contain any gaps or missing data, such that the modified
+ *            MSA consists only of ungapped columns (a solid block of
+ *            residues).
+ *
+ *            <gaps> is a string defining the gap characters in text
+ *            mode, typically "-_.~".
+ *
+ *            If <consider_rf> is TRUE and reference annotation
+ *            <msa->rf> is present, columns must also be annotated as
+ *            consensus (e.g. be nongap characters in the <msa->rf>
+ *            annotation) to be retained.
+ *
+ *            If <fix_bps> is TRUE, caller is saying that this may be
+ *            a DNA|RNA MSA that may have consensus and/or individual
+ *            RNA secondary structure annotations in WUSS format.
+ *            These annotations are edited to remove basepair
+ *            annotation where the basepair would be broken by the
+ *            column downselection. Any <msa->ss_cons> or <msa->ss>
+ *            annotation that is not in WUSS format (as defined by
+ *            <esl_wuss_IsFull()>) is left unchanged.
+ *
+ * Args:      msa         - alignment to remove any-gap cols from
+ *            gaps        - string of gap/missing data characters, typically "-_.~"
+ *            consider_rf - if TRUE, also remove nonconsensus columns (according to gaps in msa->rf)
+ *            fix_bps     - if TRUE, fix any broken bps in SS/SS_cons annotation lines
  *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation failure.
- *            Possibilities from <esl_msa_ColumnSubset()> call:
- *            <eslESYNTAX> if WUSS string for <SS_cons> or <msa->ss>
- *            following <esl_wuss_nopseudo()> is inconsistent.
- *            <eslEINVAL> if a derived ct array implies a pknotted SS.
+ *            <eslEINVAL> if <msa> is not in text mode.
  */
 int
-esl_msa_NoGapsText(ESL_MSA *msa, char *errbuf, const char *gaps, int fix_bps)
+esl_msa_NoGapsText(ESL_MSA *msa, const char *gaps, int consider_rf, int fix_bps)
 {
-  int    *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
-  int64_t apos;		/* column index */
-  int     idx;		/* sequence index */
+  int    *useme = NULL;	// array of TRUE/FALSE flags for which cols to keep 
+  int64_t apos;		// column index
+  int     idx;		// sequence index 
   int     status;
+
+  if (msa->abc != NULL) ESL_EXCEPTION(eslEINVAL, "esl_msa_NoGapsText() requires text-mode MSA");
 
   ESL_ALLOC(useme, sizeof(int) * (msa->alen+1)); /* +1 is only to deal with alen=0 special case */
 
   for (apos = 0; apos < msa->alen; apos++)
     {
-      for (idx = 0; idx < msa->nseq; idx++)
-	if (strchr(gaps, msa->aseq[idx][apos]) != NULL) break;
-      useme[apos] = (idx == msa->nseq ? TRUE : FALSE);
+      if (consider_rf && msa->rf && strchr(gaps, msa->rf[apos]) != NULL)
+        useme[apos] = FALSE;
+      else
+        {
+          for (idx = 0; idx < msa->nseq; idx++)
+            if (strchr(gaps, msa->aseq[idx][apos]) != NULL) break;
+          useme[apos] = (idx == msa->nseq ? TRUE : FALSE);
+        }
     }
   
-  if (fix_bps && (status = esl_msa_RemoveBrokenBasepairs(msa, errbuf, useme)) != eslOK) goto ERROR;
-  if (           (status = esl_msa_ColumnSubset         (msa, errbuf, useme)) != eslOK) goto ERROR;
+  if (fix_bps && (status = esl_msa_RemoveBrokenBasepairs(msa, useme)) != eslOK) goto ERROR;
+  if (           (status = esl_msa_ColumnSubset         (msa, useme)) != eslOK) goto ERROR;
   
   free(useme);
   return eslOK;
   
  ERROR:
-  if (useme) free(useme);
+  free(useme);
   return status;
 }
 
@@ -2906,66 +2766,6 @@ esl_msa_Checksum(const ESL_MSA *msa, uint32_t *ret_checksum)
 }
 
 
-/* Function:  esl_msa_RemoveBrokenBasepairsFromSS()
- * Synopsis:  Remove basepairs about to be broken by a column downselect.
- *
- * Purpose:   Given an array <useme> (0..alen-1) of TRUE/FALSE flags,
- *            remove any basepair from an SS string that is between
- *            alignment columns (i,j) for which either <useme[i-1]> or
- *            <useme[j-1]> is FALSE.  Called by
- *            <esl_msa_RemoveBrokenBasepairs()>.
- * 
- *            The input SS string will be overwritten. If it was not
- *            in full WUSS format when passed in, it will be upon
- *            exit.  Note that that means if there's residues in the
- *            input ss that correspond to gaps in an aligned sequence
- *            or RF annotation, they will not be treated as gaps in
- *            the returned SS. For example, a gap may become a '-'
- *            character, a '<_>' character, or a ':' character. I'm not
- *            sure how to deal with this in a better way. We could
- *            demand an aligned sequence to use to de-gap the SS
- *            string, but that would require disallowing any gap to be
- *            involved in a basepair, which I'm not sure is something
- *            we want to forbid.
- * 
- *            If the original SS is inconsistent it's left untouched
- *            and non-<eslOK> is returned as listed below.
- *
- * Returns:   <eslOK> on success.
- *            <eslESYNTAX> if SS string 
- *            <eslEINVAL> if a derived ct array implies a pknotted 
- *            SS, this should be impossible.
- *
- * Throws:    <eslEMEM> on allocation failure.
- */
-int
-esl_msa_RemoveBrokenBasepairsFromSS(char *ss, char *errbuf, int len, const int *useme)
-{
-  int64_t  apos;                 /* alignment position */
-  int     *ct = NULL;	         /* 0..alen-1 base pair partners array for current sequence */
-  int      status;
-
-  ESL_ALLOC(ct, sizeof(int)  * (len+1));
-
-  if ((status = esl_wuss2ct(ss, len, ct)) != eslOK)  
-    ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
-  for (apos = 1; apos <= len; apos++) { 
-    if (!(useme[apos-1])) { 
-      if (ct[apos] != 0) ct[ct[apos]] = 0;
-      ct[apos] = 0;
-    }
-  }
-  /* All broken bps removed from ct, convert to WUSS SS string and overwrite SS */
-  if ((status = esl_ct2wuss(ct, len, ss)) != eslOK) 
-    ESL_FAIL(status, errbuf, "Error converting de-knotted bp ct array to WUSS notation.");
-  
-  free(ct);
-  return eslOK;
-
- ERROR: 
-  if (ct != NULL) free(ct);
-  return status; 
-}  
 
 /* Function:  esl_msa_RemoveBrokenBasepairs()
  * Synopsis:  Remove all annotated bps about to be broken by column downselect.
@@ -2973,62 +2773,54 @@ esl_msa_RemoveBrokenBasepairsFromSS(char *ss, char *errbuf, int len, const int *
  * Purpose:   Given an array <useme> (0..alen-1) of TRUE/FALSE flags,
  *            remove any basepair from <SS_cons> and individual SS
  *            annotation in alignment columns (i,j) for which either
- *            <useme[i-1]> or <useme[j-1]> is FALSE.  Called
- *            automatically from <esl_msa_ColumnSubset()> with same
- *            <useme>.
+ *            <useme[i-1]> or <useme[j-1]> is FALSE.
+ *
+ *            This should be called, for example, before calling
+ *            esl_msa_ColumnSubset() on an RNA MSA with RNA secondary
+ *            structure annotation.
  * 
- *            If the original structure data is inconsistent it's left
- *            untouched.
+ *            Basically a wrapper around
+ *            <esl_wuss_RemoveBrokenBasepairs()>, calling it on each
+ *            individual SS and the consensus SS, where present in <msa>.
+ *
+ *            Any ss_cons or individual ss annotation that does not
+ *            appear to be valid WUSS annotation is left untouched.
+ *            This is not considered to be an error, even though a
+ *            call to esl_wuss_FixBrokenBasepairs() returned
+ *            <eslEFORMAT>. A caller or user might be annotating an
+ *            RNA MSA with some other annotation scheme, and it's
+ *            appropriate to let that lie.
  *
  * Returns:   <eslOK> on success.
- *            <eslESYNTAX> if WUSS string for <SS_cons> or <msa->ss>
- *            following <esl_wuss_nopseudo()> is inconsistent.
- *            <eslEINVAL> if a derived ct array implies a pknotted 
- *            SS, this should be impossible
  *            
- * Throws:    <eslEMEM> on allocation failure.
+ * Throws:    <eslEMEM> on allocation failure. Now the <msa> remains valid,
+ *            but the state of its <ss_cons> and individual <ss>
+ *            annotations may have changed: some may have successfully
+ *            been fixed up until the point of the allocation failure,
+ *            and after that they remain in their original state.
  */
 int
-esl_msa_RemoveBrokenBasepairs(ESL_MSA *msa, char *errbuf, const int *useme)
+esl_msa_RemoveBrokenBasepairs(ESL_MSA *msa, const int *useme)
 {
-  int status;
   int  i;
+  int  status;
 
-  if (msa->ss_cons) {
-    if((status = esl_msa_RemoveBrokenBasepairsFromSS(msa->ss_cons, errbuf, msa->alen, useme)) != eslOK) return status; 
-  }
-  /* per-seq SS annotation */
-  if (msa->ss) {
-    for(i = 0; i < msa->nseq; i++) { 
-      if (msa->ss[i]) {
-	if ((status = esl_msa_RemoveBrokenBasepairsFromSS(msa->ss[i], errbuf, msa->alen, useme)) != eslOK) return status; 
-      }
+  if (msa->ss_cons)
+    {
+      status = esl_wuss_RemoveBrokenBasepairs(msa->ss_cons, msa->alen, useme);
+      if (status != eslOK && status != eslEFORMAT) return status;
     }
-  }
+
+  if (msa->ss) 
+    for (i = 0; i < msa->nseq; i++)  
+      if (msa->ss[i])
+        {
+          status = esl_wuss_RemoveBrokenBasepairs(msa->ss[i], msa->alen, useme);
+          if (status != eslOK && status != eslEFORMAT) return status;
+        }
+
   return eslOK;
 }  
-
-/* msa_get_rlen()
- *
- * Returns the raw (unaligned) length of sequence number <seqidx>
- * in <msa>. 
- */
-static int64_t
-msa_get_rlen(const ESL_MSA *msa, int seqidx)
-{
-  int64_t rlen = 0;
-  int     pos;
-
-
-  if (msa->flags & eslMSA_DIGITAL) rlen = esl_dsq_GetRawLen(msa->abc, msa->ax[seqidx]);
-
-  if (! (msa->flags & eslMSA_DIGITAL))
-    {
-      for (pos = 0; pos < msa->alen; pos++)
-	if (isalnum(msa->aseq[seqidx][pos])) rlen++;
-    }
-  return rlen;
-}
 
 
 
@@ -3188,9 +2980,249 @@ esl_msa_FlushLeftInserts(ESL_MSA *msa)
     }
   return eslOK;
 }
-
-
 /*----------------- end of misc MSA functions -------------------*/
+
+
+/*****************************************************************
+ * 5. Internal (static) support functions
+ *****************************************************************/
+
+
+/* msa_create_mostly()
+ *
+ * This is the routine called by esl_msa_Create() and esl_msa_CreateDigital()
+ * that does all allocation except the aseq/ax alignment data.
+ * 
+ * <nseq> may be the exact known # of seqs in an alignment; or <nseq>
+ * may be an allocation block size (to be expanded by doubling, in
+ * esl_msa_Expand(), as in:
+ *     <if (msa->nseq == msa->sqalloc) esl_msa_Expand(msa);>
+ * <nseq> should not be 0.
+ *
+ * <alen> may be the exact length of an alignment, in columns; or it
+ * may be -1, which states that your parser will take responsibility
+ * for expanding as needed as new input is read into a growing new
+ * alignment.
+ *
+ * A created <msa> can only be <_Expand()>'ed if <alen> is -1.
+ *
+ * Args:     <nseq> - number of sequences, or nseq allocation blocksize
+ *           <alen> - length of alignment in columns, or -1     
+ *
+ * Returns:   pointer to new MSA object, w/ all values initialized.
+ *            Note that msa->nseq is initialized to 0 here, even though space
+ *            is allocated.
+ *           
+ * Throws:    <NULL> on allocation failure.          
+ */
+static ESL_MSA *
+msa_create_mostly(int nseq, int64_t alen)
+{
+  int      status;
+  ESL_MSA *msa     = NULL;
+  int      i;
+
+  ESL_ALLOC(msa, sizeof(ESL_MSA));
+  msa->aseq    = NULL;
+  msa->sqname  = NULL;
+  msa->wgt     = NULL;
+  msa->alen    = alen;		/* if -1, then we're growable. */
+  msa->nseq    = 0;		/* our caller (text or digital allocation) sets this.  */
+  msa->flags   = 0;
+
+  msa->abc     = NULL;
+  msa->ax      = NULL;
+
+  msa->name    = NULL;
+  msa->desc    = NULL;
+  msa->acc     = NULL;
+  msa->au      = NULL;
+  msa->ss_cons = NULL;
+  msa->sa_cons = NULL;
+  msa->pp_cons = NULL;
+  msa->rf      = NULL;
+  msa->mm      = NULL;
+  msa->sqacc   = NULL;
+  msa->sqdesc  = NULL;
+  msa->ss      = NULL;
+  msa->sa      = NULL;
+  msa->pp      = NULL;
+  for (i = 0; i < eslMSA_NCUTS; i++) {
+    msa->cutoff[i] = 0.;
+    msa->cutset[i] = FALSE;
+  }
+  msa->sqalloc = nseq;
+  msa->sqlen   = NULL;
+  msa->sslen   = NULL;
+  msa->salen   = NULL;
+  msa->pplen   = NULL;
+  msa->lastidx = 0;
+
+  /* Unparsed markup, including comments and Stockholm tags.
+   */
+  msa->comment        = NULL;
+  msa->ncomment       = 0;
+  msa->alloc_ncomment = 0;
+
+  msa->gf_tag         = NULL;
+  msa->gf             = NULL;
+  msa->ngf            = 0;
+  msa->alloc_ngf      = 0;
+
+  msa->gs_tag         = NULL;
+  msa->gs             = NULL;
+  msa->ngs            = 0;
+
+  msa->gc_tag         = NULL;
+  msa->gc             = NULL;
+  msa->ngc            = 0;
+
+  msa->gr_tag         = NULL;
+  msa->gr             = NULL;
+  msa->ngr            = 0;
+
+  msa->index     = esl_keyhash_Create();
+  msa->gs_idx    = NULL;
+  msa->gc_idx    = NULL;
+  msa->gr_idx    = NULL;
+
+  msa->offset    = 0;
+
+  /* Allocation, round 2.
+   */
+  if(nseq > 0) { 
+    ESL_ALLOC(msa->sqname, sizeof(char *) * nseq);
+    ESL_ALLOC(msa->wgt,    sizeof(double) * nseq);
+    ESL_ALLOC(msa->sqlen,  sizeof(int64_t)* nseq);
+  }    
+  /* Initialize at the second level.
+   */
+  for (i = 0; i < nseq; i++)
+    {
+      msa->sqname[i] = NULL;
+      msa->sqlen[i]  = 0;
+      msa->wgt[i]    = -1.0;	/* "unset so far" */
+    }
+
+  return msa;
+
+ ERROR:
+  esl_msa_Destroy(msa);
+  return NULL;
+}
+
+
+/* msa_set_seq_ss() 
+ *
+ * Set the secondary structure annotation for sequence number
+ * <seqidx> in an alignment <msa> by copying the string <ss>.
+ *
+ * Returns:  <eslOK> on success.
+ * 
+ * Throws:   <eslEMEM> on allocation failure.
+ */
+static int
+msa_set_seq_ss(ESL_MSA *msa, int seqidx, const char *ss)
+{
+  int status;
+  int i;
+
+  ESL_DASSERT1((seqidx < msa->sqalloc));   // heads-up to static analyzers 
+
+  if (msa->ss == NULL) 
+    {
+      ESL_ALLOC(msa->ss, sizeof(char *) * msa->sqalloc);
+      for (i = 0; i < msa->sqalloc; i++) msa->ss[i] = NULL;
+    }
+  if (msa->ss[seqidx] != NULL) free(msa->ss[seqidx]);
+  return (esl_strdup(ss, -1, &(msa->ss[seqidx])));
+
+ ERROR:
+  return status;
+}
+
+/* msa_set_seq_sa() 
+ *
+ * Set the surface accessibility annotation for sequence number
+ * <seqidx> in an alignment <msa> by copying the string <sa>.
+ *
+ * Returns:  <eslOK> on success.
+ * 
+ * Throws:   <eslEMEM> on allocation failure.
+ */
+static int
+msa_set_seq_sa(ESL_MSA *msa, int seqidx, const char *sa)
+{
+  int status;
+  int i;
+
+  ESL_DASSERT1((seqidx < msa->sqalloc));  // heads-up to static analyzers
+
+  if (msa->sa == NULL) 
+    {
+      ESL_ALLOC(msa->sa, sizeof(char *) * msa->sqalloc);
+      for (i = 0; i < msa->sqalloc; i++) msa->sa[i] = NULL;
+    }
+  if (msa->sa[seqidx] != NULL) free(msa->sa[seqidx]);
+  return (esl_strdup(sa, -1, &(msa->sa[seqidx])));
+
+ ERROR:
+  return status;
+}
+
+/* msa_set_seq_pp() 
+ *
+ * Set the posterior probability annotation for sequence number
+ * <seqidx> in an alignment <msa> by copying the string <pp>.
+ *
+ * Returns:  <eslOK> on success.
+ * 
+ * Throws:   <eslEMEM> on allocation failure.
+ */
+static int
+msa_set_seq_pp(ESL_MSA *msa, int seqidx, const char *pp)
+{
+  int status;
+  int i;
+
+  ESL_DASSERT1((seqidx < msa->sqalloc));  // heads-up to static analyzers
+
+  if (msa->pp == NULL) 
+    {
+      ESL_ALLOC(msa->pp, sizeof(char *) * msa->sqalloc);
+      for (i = 0; i < msa->sqalloc; i++) msa->pp[i] = NULL;
+    }
+  if (msa->pp[seqidx] != NULL) free(msa->pp[seqidx]);
+  return (esl_strdup(pp, -1, &(msa->pp[seqidx])));
+
+ ERROR:
+  return status;
+}
+
+
+/* msa_get_rlen()
+ *
+ * Returns the raw (unaligned) length of sequence number <seqidx>
+ * in <msa>. 
+ */
+static int64_t
+msa_get_rlen(const ESL_MSA *msa, int seqidx)
+{
+  int64_t rlen = 0;
+  int     pos;
+
+
+  if (msa->flags & eslMSA_DIGITAL) rlen = esl_dsq_GetRawLen(msa->abc, msa->ax[seqidx]);
+
+  if (! (msa->flags & eslMSA_DIGITAL))
+    {
+      for (pos = 0; pos < msa->alen; pos++)
+	if (isalnum(msa->aseq[seqidx][pos])) rlen++;
+    }
+  return rlen;
+}
+
+/*----------------- end, internal support -----------------------*/
 
 
 /*****************************************************************
@@ -3244,17 +3276,18 @@ esl_msa_Validate(const ESL_MSA *msa, char *errmsg)
       if (   msa->flags & eslMSA_HASWGTS) { if (msa->wgt[idx] == -1.0) ESL_FAIL(eslFAIL, errmsg, "seq %d: no weight set", idx);}
       else                                { if (msa->wgt[idx] != 1.0)  ESL_FAIL(eslFAIL, errmsg, "seq %d: HASWGTS flag down, wgt must be default", idx); }
 
+      /* Residue annotations must have correct aligned length */
       if (msa->ss &&  msa->ss[idx] &&  strlen(msa->ss[idx]) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "seq %d: SS wrong length", idx);
       if (msa->sa &&  msa->sa[idx] &&  strlen(msa->sa[idx]) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "seq %d: SA wrong length", idx);
       if (msa->pp &&  msa->pp[idx] &&  strlen(msa->pp[idx]) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "seq %d: PP wrong length", idx);
     }
 
-  /* if cons SS is present, must have length right */
+  /* Column annotations must have correct length */
   if (msa->ss_cons && strlen(msa->ss_cons) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "SS_cons wrong length");
   if (msa->sa_cons && strlen(msa->sa_cons) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "SA_cons wrong length");
   if (msa->pp_cons && strlen(msa->pp_cons) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "PP_cons wrong length");
   if (msa->rf      && strlen(msa->rf)      != msa->alen) ESL_FAIL(eslFAIL, errmsg, "RF wrong length");
-  if (msa->mm      && strlen(msa->mm   )   != msa->alen) ESL_FAIL(eslFAIL, errmsg, "MM wrong length");
+  if (msa->mm      && strlen(msa->mm)      != msa->alen) ESL_FAIL(eslFAIL, errmsg, "MM wrong length");
 
   return eslOK;
 }
@@ -3707,24 +3740,26 @@ utest_MinimGaps(char *tmpfile)
   ESL_MSA      *msa = NULL;
   ESL_ALPHABET *abc = NULL;
 
+  /* Text mode */
   if (esl_msafile_Open(NULL, tmpfile, NULL, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
   if (esl_msafile_Read(mfp, &msa) != eslOK)                                             esl_fatal(msg);
   esl_msafile_Close(mfp);
-  if (esl_msa_MinimGaps(msa, NULL, "-~", FALSE) != eslOK) esl_fatal(msg);
+  if (esl_msa_MinimGapsText(msa, "-~", /*consider_rf=*/FALSE, /*fix_bps=*/FALSE) != eslOK) esl_fatal(msg);
   if (msa->alen        != 45)  esl_fatal(msg); /* orig =47, with one all - column and one all ~ column */
   if (msa->aseq[0][11] != 'L') esl_fatal(msg); /* L shifted from column 13->12 */
   if (msa->aseq[0][18] != 'T') esl_fatal(msg); /* T shifted from column 21->19 */
   esl_msa_Destroy(msa);
 
+  /* Digital mode */
   if ((abc = esl_alphabet_Create(eslAMINO)) == NULL) esl_fatal(msg);
   if (esl_msafile_Open(&abc, tmpfile, NULL, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
   if (esl_msafile_Read(mfp, &msa) != eslOK) esl_fatal(msg);
   esl_msafile_Close(mfp);
-  if (esl_msa_MinimGaps(msa, NULL, NULL, FALSE) != eslOK) esl_fatal(msg);
-  if (msa->alen            != 45)  esl_fatal(msg); /* orig =47, with one all - column and one all ~ column */
+  if (esl_msa_MinimGaps(msa, /*consider_rf=*/FALSE) != eslOK) esl_fatal(msg);
+  if (msa->alen            != 45)    esl_fatal(msg); /* orig =47, with one all - column and one all ~ column */
   if (esl_msa_Textize(msa) != eslOK) esl_fatal(msg);
-  if (msa->aseq[0][11] != 'L') esl_fatal(msg); /* L shifted from column 13->12 */
-  if (msa->aseq[0][18] != 'T') esl_fatal(msg); /* T shifted from column 21->19 */
+  if (msa->aseq[0][11] != 'L')       esl_fatal(msg); /* L shifted from column 13->12 */
+  if (msa->aseq[0][18] != 'T')       esl_fatal(msg); /* T shifted from column 21->19 */
   esl_msa_Destroy(msa);
   esl_alphabet_Destroy(abc);
   return;
@@ -3738,26 +3773,28 @@ utest_NoGaps(char *tmpfile)
   ESL_MSA      *msa = NULL;
   ESL_ALPHABET *abc = NULL;
 
+  /* Text mode */
   if (esl_msafile_Open(NULL, tmpfile, NULL, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
   if (esl_msafile_Read(mfp, &msa) != eslOK)                                             esl_fatal(msg);
   esl_msafile_Close(mfp);
-  if (esl_msa_NoGaps(msa, NULL, "-~") != eslOK) esl_fatal(msg);
+  if (esl_msa_NoGapsText(msa, "-~", /*consider_rf=*/FALSE, /*fix_bps=*/FALSE) != eslOK) esl_fatal(msg);
   if (msa->alen        != 40)  esl_fatal(msg); /* orig =47, w/ 7 columns with gaps */
   if (msa->aseq[0][9]  != 'L') esl_fatal(msg); /* L shifted from column 13->10  */
   if (msa->aseq[0][16] != 'T') esl_fatal(msg); /* T shifted from column 21->17 */
   if (msa->aseq[0][39] != 'Y') esl_fatal(msg); /* Y shifted from column 47->40 */
   esl_msa_Destroy(msa);
 
+  /* Digital mode */
   if ((abc = esl_alphabet_Create(eslAMINO)) == NULL) esl_fatal(msg);
   if (esl_msafile_Open(&abc, tmpfile, NULL, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
   if (esl_msafile_Read(mfp, &msa) != eslOK) esl_fatal(msg);
   esl_msafile_Close(mfp);
-  if (esl_msa_NoGaps(msa, NULL, NULL) != eslOK) esl_fatal(msg);
-  if (msa->alen        != 40)  esl_fatal(msg); /* orig =47, with one all - column and one all ~ column */
+  if (esl_msa_NoGaps(msa, /*consider_rf=*/FALSE) != eslOK) esl_fatal(msg);
+  if (msa->alen        != 40)        esl_fatal(msg); /* orig =47, with one all - column and one all ~ column */
   if (esl_msa_Textize(msa) != eslOK) esl_fatal(msg);
-  if (msa->aseq[0][9]  != 'L') esl_fatal(msg); /* L shifted from column 13->10  */
-  if (msa->aseq[0][16] != 'T') esl_fatal(msg); /* T shifted from column 21->17 */
-  if (msa->aseq[0][39] != 'Y') esl_fatal(msg); /* Y shifted from column 47->40 */
+  if (msa->aseq[0][9]  != 'L')       esl_fatal(msg); /* L shifted from column 13->10  */
+  if (msa->aseq[0][16] != 'T')       esl_fatal(msg); /* T shifted from column 21->17 */
+  if (msa->aseq[0][39] != 'Y')       esl_fatal(msg); /* Y shifted from column 47->40 */
   esl_msa_Destroy(msa);
   esl_alphabet_Destroy(abc);
   return;
@@ -3825,9 +3862,9 @@ utest_SymConvert(char *tmpfile)
   esl_msafile_Close(mfp);
 
   /* many->one version */
-  if (esl_msa_SymConvert(msa, "VWY", "-")          != eslOK) esl_fatal(msg); /* 6 columns convert to all-gap: now 8/47 */
-  if (esl_msa_MinimGaps(msa, NULL, "-~", FALSE)    != eslOK) esl_fatal(msg); /* now we're 39 columns long */
-  if (msa->alen                                    != 39)    esl_fatal(msg);
+  if (esl_msa_SymConvert(msa, "VWY", "-")             != eslOK) esl_fatal(msg); /* 6 columns convert to all-gap: now 8/47 */
+  if (esl_msa_MinimGapsText(msa, "-~", FALSE, FALSE)  != eslOK) esl_fatal(msg); /* now we're 39 columns long */
+  if (msa->alen                                       != 39)    esl_fatal(msg);
 
   /* many->many version */
   if (esl_msa_SymConvert(msa, "DEF", "VWY") != eslOK) esl_fatal(msg);
@@ -3873,7 +3910,6 @@ utest_ZeroLengthMSA(const char *tmpfile)
   int          *useme    = NULL;
   int           nuseme   = 0;
   int           i;
-  char          errbuf[eslERRBUFSIZE];
 
   /* Read a text mode alignment from the tmpfile */
   if (esl_msafile_Open(NULL, tmpfile, NULL, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
@@ -3884,12 +3920,12 @@ utest_ZeroLengthMSA(const char *tmpfile)
   nuseme = ESL_MAX(z1->alen, z1->nseq);
   if ((useme = malloc(sizeof(int) * nuseme)) == NULL)  esl_fatal(msg);
   for (i = 0; i < z1->alen; i++) useme[i] = 0;
-  if (esl_msa_ColumnSubset(z1, errbuf, useme) != eslOK) esl_fatal(msg);
+  if (esl_msa_ColumnSubset(z1, useme) != eslOK)        esl_fatal(msg);
 
   /* These should all no-op if alen=0*/
-  if (esl_msa_MinimGaps(z1, NULL, "-", FALSE) != eslOK) esl_fatal(msg);
-  if (esl_msa_NoGaps(z1, NULL, "-")           != eslOK) esl_fatal(msg);
-  if (esl_msa_SymConvert(z1,"RY","NN")        != eslOK) esl_fatal(msg);
+  if (esl_msa_MinimGapsText(z1, "-", FALSE, FALSE) != eslOK) esl_fatal(msg);
+  if (esl_msa_NoGapsText   (z1, "-", FALSE, FALSE) != eslOK) esl_fatal(msg);
+  if (esl_msa_SymConvert(z1,"RY","NN")             != eslOK) esl_fatal(msg);
   
   /* test sequence subsetting by removing the first sequence */
   for (i = 1; i < z1->nseq; i++) useme[i] = 1;  
@@ -3906,11 +3942,11 @@ utest_ZeroLengthMSA(const char *tmpfile)
 
   /* Now make an alen=0 alignment in digital mode */
   for (i = 0; i < z1->alen; i++) useme[i] = 0;
-  if (esl_msa_ColumnSubset(z1, errbuf, useme) != eslOK) esl_fatal(msg);
+  if (esl_msa_ColumnSubset(z1, useme) != eslOK) esl_fatal(msg);
 
-  /* again these should all no-op if alen=0*/
-  if (esl_msa_MinimGaps(z1, NULL, NULL, FALSE) != eslOK) esl_fatal(msg);
-  if (esl_msa_NoGaps(z1, NULL, NULL)           != eslOK) esl_fatal(msg);
+  /* again these should no-op if alen=0*/
+  if (esl_msa_MinimGaps(z1, FALSE) != eslOK) esl_fatal(msg);
+  if (esl_msa_NoGaps   (z1, FALSE) != eslOK) esl_fatal(msg);
   /* SymConvert throws EINVAL on a digital mode alignment */
 
   /* test sequence subsetting by removing the first sequence */

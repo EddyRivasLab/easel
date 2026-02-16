@@ -36,6 +36,7 @@
 #include <ctype.h>
 
 #include "easel.h"
+#include "esl_mem.h"
 #include "esl_stack.h"
 #include "esl_vectorops.h"
 #include "esl_wuss.h"
@@ -705,6 +706,117 @@ esl_ct2simplewuss(const int *ct, int n, char *ss)
   esl_stack_Destroy(pda);
   esl_stack_Destroy(auxpk);
   free(cct);
+  return status;
+}
+
+/* Function:  esl_wuss_RemoveBrokenBasepairs()
+ * Synopsis:  Fix RNA bp annotations that will be broken by column/position downselection.
+ * Incept:    SRE, Fri 09 Jan 2026
+ *
+ * Purpose:   Given an RNA secondary structure annotation <ss> of length
+ *            <n> (that is not necessarily \0-terminated), and a
+ *            <useme> array of length <n> specifying an upcoming
+ *            column/position subset downselect, edit <ss> in place to
+ *            remove any basepair annotations that will be broken by
+ *            that downselection.
+ *
+ *            Both <ss> and <useme> are 0..n-1.
+
+ *            If the <ss> is simple WUSS, we change the annotation on
+ *            the base pairing partner from '<' or '>' to '.'. Any
+ *            other annotation in <ss> stays the same, including
+ *            alignment padding and local structure alignment padding.
+ *
+ *            If the <ss> is full (Infernal output WUSS), it's more
+ *            complicated.  We convert to ct, delete the pairing in
+ *            the ct, and make a whole new WUSS; then we copy
+ *            alignment padding '.' and local structure alignment
+ *            padding '~' from the old WUSS to the new.
+ *
+ * Args:      ss     : simple or full WUSS annotation 0..n-1
+ *                     esl_mem ok, not necessarily \0-terminated string
+ *                     <ss> is edited in place.
+ *            n      : length of <ss>
+ *            useme  : [0..n-1] array of TRUE|FALSE flags for which positions
+ *                     we'll be keeping in a column subset downselect  
+ *
+ * Returns:   <eslOK> on success
+ *            <eslEFORMAT> if <ss> is not valid WUSS format  
+ *
+ * Throws:    <eslEMEM> on allocation failure
+ *
+ * Notes:     One place this is used is in esl_msa, in
+ *            esl_msa_RemoveBrokenBasepairs(), which a caller may need to
+ *            call before calling esl_msa_ColumnSubset(): it calls
+ *            this routine on consensus and all individual RNA
+ *            secondary structure annotations.
+ *
+ *            Another place is in esl_msafile2, where we're reading
+ *            one line at a time from a Pfam/Stockholm format MSA of
+ *            RNA|DNA sequences, and we've just read an aligned
+ *            secondary structure annotation <ss> of length <n> (from
+ *            either #=GC SS for a single sequence, or a #=GC SS_cons
+ *            for a consensus). There, the <ss> is an esl_mem buffer,
+ *            not \0-terminated.
+ *
+ *            [xref H18/6,H18/10]
+ */
+int
+esl_wuss_RemoveBrokenBasepairs(char *ss, int n, const int *useme)
+{
+  int   is_simple = FALSE;
+  int  *ct        = NULL;          // ct[1..n] is CT format base pair partners array. ct[i] = 0 if unpaired, index 1..n for pairing partner if paired.
+  char *ss_orig   = NULL;
+  int   i;
+  int   status;
+
+  if      (  esl_wuss_IsSimple(ss, n)) is_simple = TRUE;
+  else if (! esl_wuss_IsFull  (ss, n)) return eslEFORMAT;
+
+  ESL_ALLOC(ct, sizeof(int)  * (n+1));
+
+  if ( esl_wuss2ct(ss, n, ct) != eslOK) { status = eslEFORMAT; goto ERROR; }
+
+  /* Remember ct is 1..n while useme and ss are 0..n-1 */
+  if (is_simple)
+    {
+      for (i = 1; i <= n; i++)   // 1..n index 
+        if (! useme[i-1] && ct[i] > 0)
+          {
+            ss[i-1] = ss[ct[i]-1] = '.';
+            ct[i]   = ct[ct[i]]   = 0; 
+          }
+    }
+  else
+    {
+      /* Since we need to compare new wuss to old wuss to restore padding chars,
+       * we make a copy of <ss>.
+       */
+      if ((status = esl_memstrdup(ss, n, &ss_orig)) != eslOK) goto ERROR;  
+
+      /* For any deleted position in a pair, use ct to delete both sides of it */
+      for (i = 1; i <= n; i++)
+        if (! useme[i-1] && ct[i] > 0)
+          ct[i] = ct[ct[i]] = 0;
+
+      /* Make a new WUSS */
+      if ((status = esl_ct2wuss(ct, n, ss)) != eslOK) goto ERROR;
+
+      /* Transfer padding from old wuss to new */
+      for (i = 0; i < n; i++)
+        if      (ss_orig[i] == '.') ss[i] = '.';
+        else if (ss_orig[i] == '~') ss[i] = '~';
+
+      free(ss_orig);
+    }
+      
+  
+  free(ct);
+  return eslOK;
+
+ ERROR:
+  free(ss_orig);
+  free(ct);
   return status;
 }
 /*------------ end, annotation as string or esl_mem -------------*/

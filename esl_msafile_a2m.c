@@ -885,7 +885,7 @@ utest_gibberish(ESL_RANDOMNESS *rng)
   if ( esl_msa_Sample(rng, abc, 100, 100, &msa) != eslOK) esl_fatal(msg);  
   if ( esl_msa_Validate(msa, NULL)              != eslOK) esl_fatal(msg);
   if ( esl_msa_FlushLeftInserts(msa)            != eslOK) esl_fatal(msg);  // Reading A2M back in will flush inserts left.
-  if ( esl_msa_MinimGaps(msa, NULL, NULL, TRUE) != eslOK) esl_fatal(msg);  // Reading A2M back in will minimize gaps.
+  if ( esl_msa_MinimGaps(msa, TRUE)             != eslOK) esl_fatal(msg);  // Reading A2M back in will minimize gaps.
   a2m_no_O(msa);                                                           // A2M doesn't allow O residues.
   ESL_DASSERT1(( !(msa->flags & eslMSA_HASWGTS) ));                        // A2M can't store weights.
   ESL_DASSERT1(( msa->rf != NULL ));                                       // A2M always implies consensus annotation.

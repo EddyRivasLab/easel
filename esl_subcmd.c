@@ -90,7 +90,7 @@ esl_subcmd_CreateDefaultApp(const char *topcmd, const ESL_SUBCMD *sub, const ESL
       }
       exit(0);
     }
-  if (esl_opt_ArgNumber(go) != sub->nargs) 
+  if (sub->nargs != -1 && esl_opt_ArgNumber(go) != sub->nargs) 
     {
       if ( esl_fprintf(stderr, "Incorrect number of command line arguments.\n")                                   != eslOK) goto ERROR;
       if ( esl_fprintf(stderr, "Usage:\n  %s %s %s\n", topcmd, sub->subcmd, sub->usage)                           != eslOK) goto ERROR;

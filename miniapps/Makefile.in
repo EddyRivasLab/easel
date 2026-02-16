@@ -47,8 +47,10 @@ SUBCMDOBJS = \
 	cmd_afetch.o     \
 	cmd_afetchn.o    \
 	cmd_aindex.o     \
+	cmd_alicol.o     \
 	cmd_alimanip.o   \
 	cmd_alimap.o     \
+	cmd_alimerge.o   \
 	cmd_alipid.o     \
 	cmd_alirev.o     \
 	cmd_compalign.o  \

@@ -29,6 +29,7 @@
 #include "esl_arr3.h"
 #include "esl_dsq.h"
 #include "esl_keyhash.h"	/* string hashes, for mapping unique seq names                        */
+#include "esl_mem.h"
 #include "esl_msa.h"		/* ESL_MSA structure                                                  */
 #include "esl_msafile.h"	/* preferred msafile interface, inc. fmt codes shared w/ ESL_MSAFILE2 */
 #include "esl_ssi.h"        	/* indexing large flatfiles on disk                                   */
@@ -36,7 +37,6 @@
 #include "esl_wuss.h"
 
 #include "esl_msafile2.h"
-
 
 static int     msafile2_getline(ESL_MSAFILE2 *afp);
 static int     is_blankline(char *s);
@@ -709,10 +709,22 @@ esl_msafile2_ReadInfoPfam(ESL_MSAFILE2 *afp, FILE *listfp, ESL_ALPHABET *abc, in
  *           line/seq non-interleaved Stockholm). The <do_*> arguments
  *           specify which parts of the alignment to write.  <useme>
  *           specifies which positions to keep in aligned strings, if
- *           NULL then all are kept. <add2me> specifies how many gap
- *           characters to add after each aligned position, if NULL
- *           then none are added. Only one of <useme> and <add2me> 
- *           can be non-NULL. 
+ *           NULL then all are kept. An optional <add2me> array
+ *           specifies how many gap characters to add after each
+ *           aligned position; if NULL then none are added. Only one
+ *           of <useme> and <add2me> can be non-NULL.
+ *
+ *           If <useme> is used to do column downselection, we need to
+ *           watch out for removing one side of annotated RNA
+ *           basepairs. So, if <useme> is non-NULL, and <afp> has a
+ *           digital <afp->abc> set, and <afp->abc->type> is <eslRNA>
+ *           or <eslDNA>, then consensus and individual secondary
+ *           structure annotations are edited as needed to avoid
+ *           breaking basepairs.
+ *
+ *           Fixing RNA basepair annotation is the only use of
+ *           <afp->abc>!  The input MSA is otherwise handled in text
+ *           mode, independent of any digital alphabet.
  * 
  *           If one of the <seqs2regurg> or <seqs2skip> keyhashes are
  *           non-NULL, they specify names of sequences (and affiliated
@@ -897,7 +909,7 @@ esl_msafile2_RegurgitatePfam(ESL_MSAFILE2 *afp, FILE *ofp, int maxname, int maxg
 	      if(useme  != NULL) { 
 		/* if this is a GC SS_cons line, remove broken basepairs first - only if it's in WUSS RNA format (NOT for a protein SS!) */
 		if (strncmp(tag, "SS_cons", 7) == 0 && afp->abc && (afp->abc->type == eslRNA || afp->abc->type == eslDNA)) {
-		  if (esl_msa_RemoveBrokenBasepairsFromSS(text, afp->errbuf, textlen, useme) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GC SS_cons line", afp->linenumber);
+                  if (esl_wuss_RemoveBrokenBasepairs(text, textlen, useme) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GC SS_cons line", afp->linenumber);
 		}
 		shrink_string(text, useme, exp_alen); /* this is done in place on text */
 	      }
@@ -962,7 +974,7 @@ esl_msafile2_RegurgitatePfam(ESL_MSAFILE2 *afp, FILE *ofp, int maxname, int maxg
 		  if(useme  != NULL) { 
 		    /* if this is a GR SS line, remove broken basepairs first */
 		    if( strncmp(tag, "SS", 2) == 0 && afp->abc && (afp->abc->type == eslRNA || afp->abc->type == eslDNA)) {
-		      if (esl_msa_RemoveBrokenBasepairsFromSS(text, afp->errbuf, textlen, useme) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR SS line", afp->linenumber);
+                      if (esl_wuss_RemoveBrokenBasepairs(text, textlen, useme) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR SS line", afp->linenumber);
 		    }
 		    shrink_string(text, useme, exp_alen); /* this is done in place on text */
 		  }
@@ -1151,6 +1163,9 @@ determine_spacelen(char *s)
   while (*s == ' ') { spacelen++; s++; } 
   return spacelen;
 }
+
+
+
 /*------------- end, memory efficient Pfam i/o  -----------------*/
 
 
@@ -1330,20 +1345,19 @@ write_known_pfam_msa(FILE *ofp)
   return;
 }
 
-
 static void
 utest_ReadInfoPfam(char *filename)
 {
-  char         *msg = "ReadInfo() unit test failure";
-  ESL_MSAFILE2 *mfp = NULL;
-  ESL_MSA      *msa = NULL;
-  int           nseq = 0;
-  int64_t       alen = 0;
-  int           ngs = 0;
+  char          msg[]   = "esl_msafile2::esl_msafile2_ReadInfoPfam() unit test failure";
+  ESL_MSAFILE2 *mfp     = NULL;
+  ESL_MSA      *msa     = NULL;
+  int           nseq    = 0;
+  int64_t       alen    = 0;
+  int           ngs     = 0;
   int           maxname = 0;
-  int           maxgf = 0;
-  int           maxgc = 0;
-  int           maxgr = 0;
+  int           maxgf   = 0;
+  int           maxgc   = 0;
+  int           maxgr   = 0;
 
   if (esl_msafile2_Open(filename, NULL, &mfp) != eslOK) esl_fatal(msg);  
   if (esl_msafile2_ReadInfoPfam(mfp, NULL, NULL, -1, NULL, NULL, &msa, &nseq, &alen, &ngs, &maxname, &maxgf, &maxgc, &maxgr, NULL, NULL, NULL, NULL, NULL) != eslOK)  esl_fatal(msg);
@@ -1369,7 +1383,7 @@ utest_ReadInfoPfam(char *filename)
 static void
 utest_RegurgitatePfam(char *filename)
 {
-  char         *msg         = "RegurgitatePfam() unit test failure";
+  char          msg[]       = "esl_msafile2::esl_msafile2_RegurgitatePfam() unit test failure";
   ESL_MSAFILE2 *mfp         = NULL;
   ESL_MSAFILE  *afp         = NULL;
   char          tmpfile[16] = "esltmpXXXXXX";
@@ -1411,6 +1425,101 @@ utest_RegurgitatePfam(char *filename)
   esl_msa_Destroy(msa2);
   remove(tmpfile);
 }
+
+static void
+utest_fix_basepairs(void)
+{
+  char          msg[]       = "esl_msafile2::utest_fix_basepairs() unit test failure";
+  char          msafile[16] = "esltmpXXXXXX";
+  char          outfile[16] = "esltmpXXXXXX";
+  ESL_ALPHABET *abc         = esl_alphabet_Create(eslRNA);
+  ESL_MSAFILE2 *afp         = NULL;
+  ESL_MSAFILE  *afp2        = NULL;
+  FILE         *fp          = NULL;
+  int          *useme       = NULL;
+  ESL_MSA      *msa         = NULL;
+  int64_t       alen;
+  int           i,s;
+  int           status;
+  
+  /* Create a small example where downselecting columns for the
+   * first half of the MSA breaks some base pairs and not others
+   */
+  if (esl_tmpfile_named(msafile, &fp) != eslOK) esl_fatal(msg);
+  if (esl_fprintf(fp, "\
+# STOCKHOLM 1.0\n\
+\n\
+#=GC SS_cons  <<<....<<<....>>>....<<....>>...>>>..\n\
+#=GC RF       xxx..x.xxxxxxxxxx.xx.xxxxxxxx.xxxxxxx\n\
+seq1          GGGAAAGCCCUUUUGGGCAA.GGUUUUCC.AACCCAA\n\
+#=GR seq1 SS  <<<...<<<<....>>>>...<<....>>...>>>..\n\
+seq2          GGC..A.GCCUAUAGGC.AAGCGUAUUCGCAAGCCAU\n\
+#=GR seq2 SS  <<<....<<<....>>>...<<<....>>>..>>>..\n\
+seq3          GGC..A.GCCUAUAGGC.AAGCGUAUUCGCAAGCCAU\n\
+//\n") != eslOK) esl_fatal(msg);
+  fclose(fp);
+
+  /* Reproduce the msafile2_example driver:
+   * downselect the first half of the MSA as we regurgitate it;
+   * requires two passes, first pass to get <alen>
+   */
+  if (esl_msafile2_OpenDigital(abc, msafile, NULL, &afp) != eslOK) esl_fatal(msg);
+  if (esl_msafile2_ReadInfoPfam(afp, NULL, NULL, -1, NULL, NULL, NULL, NULL, &alen, NULL,
+                                NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) != eslOK) esl_fatal(msg);
+  esl_msafile2_Close(afp);
+  
+  ESL_ALLOC(useme, sizeof(int) * alen);
+  for (i = 0; i < alen; i++) useme[i] = (i < alen/2 ? TRUE : FALSE);
+
+  if (esl_msafile2_OpenDigital(abc, msafile, NULL, &afp) != eslOK) esl_fatal(msg);
+  if (esl_tmpfile_named(outfile, &fp)                    != eslOK) esl_fatal(msg);
+  if (esl_msafile2_RegurgitatePfam(afp, fp, -1, -1, -1, -1, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, 
+                                   NULL, NULL, useme, NULL, alen, '.', NULL, NULL) != eslOK) esl_fatal(msg);
+  fclose(fp);
+  esl_msafile2_Close(afp);
+
+  if (esl_msafile_Open(NULL, outfile, NULL, eslMSAFILE_PFAM, NULL, &afp2) != eslOK) esl_fatal(msg); // text mode, so aseq is indexed the same as annotations for clarity below
+  if (esl_msafile_Read(afp2, &msa)                                        != eslOK) esl_fatal(msg);
+  esl_msafile_Close(afp2);
+
+  /* Read the MSA back in through the normal interface and check for issues
+   */
+  if (esl_msa_Validate(msa, /*errmsg=*/NULL) != eslOK)            esl_fatal(msg);
+  if (msa->alen != alen/2)                                        esl_fatal(msg);
+  if (msa->rf == NULL || msa->ss_cons == NULL || msa->ss == NULL) esl_fatal(msg);
+
+  /* consensus SS annotation is valid full WUSS after column downselect,
+   * and only consensus columns are annotated
+   */
+  if ( ! esl_wuss_IsFull(msa->ss_cons, msa->alen)) esl_fatal(msg);
+  for (i = 0; i < msa->alen; i++)
+    if (esl_abc_CIsGap(abc, msa->rf[i]) && ! esl_abc_CIsGap(abc, msa->ss_cons[i])) esl_fatal(msg);  
+
+  /* individual SS annotations are valid full WUSS after column downselect,
+   * and only residues have SS annotation
+   */
+  for (s = 0; s < msa->nseq; s++)
+    if (msa->ss[s]) 
+      {
+        if ( ! esl_wuss_IsFull(msa->ss[s], msa->alen)) esl_fatal(msg);
+        for (i = 0; i < msa->alen; i++)
+          if (esl_abc_CIsGap(abc, msa->aseq[s][i]) && ! esl_abc_CIsGap(abc, msa->ss[s][i])) esl_fatal(msg);
+      }
+
+  esl_msa_Destroy(msa);
+  esl_alphabet_Destroy(abc);
+  free(useme);
+  remove(msafile);
+  //remove(outfile);
+  return;
+
+ ERROR: //UNREACHABLE
+  esl_fatal("allocation failure");
+}
+
+  
+
+
 #endif /* eslMSAFILE2_TESTDRIVE */
 /*------------------ end, unit tests ----------------------------*/
 
@@ -1434,7 +1543,7 @@ utest_RegurgitatePfam(char *filename)
 
 static ESL_OPTIONS options[] = {
    /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
-  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                            0},
+  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",  0},
   { 0,0,0,0,0,0,0,0,0,0},
 };
 static char usage[]  = "[-options]";
@@ -1447,12 +1556,17 @@ main(int argc, char **argv)
   FILE        *fp          = NULL;
   char         tmpfile[16] = "esltmpXXXXXX";
   
+  fprintf(stderr, "## %s\n", argv[0]);
+
   if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal("failed to create tmpfile");
   write_known_pfam_msa(fp);
   fclose(fp);
 
   utest_ReadInfoPfam(tmpfile);
   utest_RegurgitatePfam(tmpfile);
+  utest_fix_basepairs();
+
+  fprintf(stderr, "#  status = ok\n");
 
   remove(tmpfile);
   esl_getopts_Destroy(go);
@@ -1460,3 +1574,150 @@ main(int argc, char **argv)
 }
 #endif /*eslMSAFILE2_TESTDRIVE*/
 /*----------------- end, test driver ----------------------------*/
+
+
+/*****************************************************************
+ * 6. Example
+ *****************************************************************/
+#ifdef eslMSAFILE2_EXAMPLE
+
+/* This example aims to specifically demonstrate using
+ * esl_msafile2_RegurgitatePfam() to downselect columns from an RNA
+ * alignment, which requires fixing basepair annotations that get
+ * broken by the downselection.
+ *
+ * esl_msafile2 uses digital alphabets in a confusing
+ * way. _ReadInfoPfam() and _RegurgitatePfam() are fundamentally
+ * text-mode. But _ReadInfoPfam() needs a digital alphabet to count
+ * some of its optional symbol-counting things, and _RegurgitatePfam()
+ * needs one to know whether it should be fixing broken RNA basepair
+ * annotations when columns are downselected. _ReadInfoPfam() gets
+ * <abc> as an argument and ignores <afp->abc>; _RegurgitatePfam()
+ * uses <afp->abc> as a flag to trigger RNA basepair fixing.
+ *
+ * Typically in using esl_msafile2, we may do two or more passes over
+ * the MSA file, closing/reopening for each subsequent pass. This
+ * means the input must be a file and can't be a stream. It often also
+ * means that we only read a single MSA from the msafile, because
+ * otherwise we have to store information from all MSAs seen in
+ * previous pass(es) before starting a second pass.
+ *
+ * To see it handle RNA secondary structure annotation correctly,
+ * tell it the MSA is RNA:
+ *      esl_msafile2_example --rna <msafile>
+ *
+ * To see what happens for column downselection without fixing broken
+ * basepairs, do it in pure textmode with no alphabet specified:
+ *      esl_msafile2_example <msafile
+ */
+#include <esl_config.h>
+
+#include <stdio.h>
+
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_msafile2.h"
+
+static ESL_OPTIONS options[] = {
+  /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
+  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",    0},
+  { "--dna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use DNA alphabet",                            0 },
+  { "--rna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use RNA alphabet",                            0 },
+  { "--amino",     eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use protein alphabet",                        0 },
+
+  { 0,0,0,0,0,0,0,0,0,0},
+};
+
+static char usage[]  = "[-options] <msafile>";
+static char banner[] = "example of using legacy memory-efficient Pfam format input/output";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS  *go         = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
+  char         *msafile    = esl_opt_GetArg(go, 1);
+  ESL_ALPHABET *abc        = NULL;
+  ESL_MSAFILE2 *afp        = NULL;                      // note `ESL_MSAFILE2`, the legacy version of the data structure, not ESL_MSAFILE
+  int64_t       alen       = 0;
+  int          *useme      = NULL;
+  FILE         *ofp        = stdout;
+  int           i;
+  int           status;
+
+  /* Because <afp->abc> is only used as a flag for a few optional things
+   * like fixing RNA basepair annotation after column downselection,
+   * the <afp> can be set either in text or digital mode.
+   */
+  if      (esl_opt_GetBoolean(go, "--rna"))   abc = esl_alphabet_Create(eslRNA);
+  else if (esl_opt_GetBoolean(go, "--dna"))   abc = esl_alphabet_Create(eslDNA);
+  else if (esl_opt_GetBoolean(go, "--amino")) abc = esl_alphabet_Create(eslAMINO); 
+
+  /* Open for first pass.
+   * In this example, we need to get <alen> before we can do column downselection.
+   */
+  if (abc) status = esl_msafile2_OpenDigital(abc, msafile, NULL, &afp);
+  else     status = esl_msafile2_Open(            msafile, NULL, &afp);
+  if      (status == eslENOTFOUND) esl_fatal("Open failed, MSA file %s doesn't exist or isn't readable",       msafile);
+  else if (status == eslEFORMAT)   esl_fatal("Open failed, MSA file %s not in Pfam|Stockholm one-line format", msafile);
+  else if (afp->do_stdin)          esl_fatal("MSA file %s must be a file, not a stdin stream",                 msafile);
+  else if (status != eslOK)        esl_fatal("MSA file %s open failed with code %d",                           msafile, status);
+
+  /* First pass to get the <alen>
+   */
+  status = esl_msafile2_ReadInfoPfam(afp,
+                                     NULL, NULL, -1, NULL, NULL,                // listfp, abc, known_alen, known_rf, known_ss_cons: unused opt args
+                                     NULL,                                      // even ret_msa itself isn't needed: we're only after alen
+                                     NULL, &alen,                               // ret_nseq, ret_alen
+                                     NULL, NULL, NULL, NULL, NULL,              // opt args ngs, maxname, maxgf, maxgc, maxgr
+                                     NULL, NULL, NULL, NULL, NULL);             //          abc_ct, pp_ct, bp_ct, spos_ct, epos_ct
+  if      (status == eslEFORMAT) esl_fatal("Read failed, MSA file %s not in Pfam|Stockholm one-line format", msafile);
+  else if (status == eslEOF)     esl_fatal("Read failed, MSA file %s appears to be empty", msafile);
+  else if (status != eslOK)      esl_fatal("Read failed for MSA file %s: code %d", msafile, status);
+
+  /* Create a <useme>:
+   * just for the sake of an example: make it so we select the first half of the MSA
+   */
+  ESL_ALLOC(useme, sizeof(int) * alen);
+  for (i = 0; i < alen; i++) useme[i] = (i < alen/2 ? TRUE : FALSE);
+
+  /* Rewind (close/reopen) for second pass
+   */
+  esl_msafile2_Close(afp);
+  if (abc) status = esl_msafile2_OpenDigital(abc, msafile, NULL, &afp);
+  else     status = esl_msafile2_Open(            msafile, NULL, &afp);
+  if      (status == eslENOTFOUND) esl_fatal("Reopen failed, MSA file %s doesn't exist or isn't readable",       msafile);
+  else if (status == eslEFORMAT)   esl_fatal("Reopen failed, MSA file %s not in Pfam|Stockholm one-line format", msafile);
+  else if (status != eslOK)        esl_fatal("MSA file %s reopen failed with code %d",                           msafile, status);
+
+  /* Now read the MSA in small-memory mode, processing one line at a time,
+   * doing the requested column downselection; and if --rna|--dna were set,
+   * fix any RNA basepair annotation that's broken by that downselection.
+   * _RegurgitatePfam() checks <afp->abc->type> for eslRNA|eslDNA.
+   */
+  status = esl_msafile2_RegurgitatePfam(afp, ofp,
+                                        -1, -1, -1, -1,                                         // maxname, maxgf, maxgc, maxgr lengths are unknown
+                                        TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE,   // regurgitate all: header, trailer, blanks, comments, gf, gs, gc, gr, aseq
+                                        NULL, NULL,                                             // no seq filtering: no seqs2regurg or seqs2skip keyhash
+                                        useme,                                                  // our made-up column subsetting <useme>
+                                        NULL,                                                   // no extra gaps specified by an <add2me> vector
+                                        alen,                                                   // needs <exp_alen> to be given when either <useme> or <add2me> is non-NULL
+                                        '.',                                                    // unused: this is the gap char to add if <add2me> is non-NULL
+                                        NULL, NULL);                                            // don't request optRETURNs of <nseq_read> or <nseq_regurged>
+  if       ( status == eslEFORMAT) esl_fatal("Re-reading failed, MSA file %s not in Pfam|Stockholm one-line format", msafile);
+  else if  ( status == eslEOF)     esl_fatal("Unexpected EOF re-reading MSA file %s",                                msafile);
+  else if  ( status != eslOK)      esl_fatal("Unexpected failure attempting to regurgitate MSA file %s: code %d\n",  msafile, status);
+
+  /* Check that that MSA was the only one in the file */
+  status = esl_msafile2_ReadInfoPfam(afp, NULL, NULL, -1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);  // yeah, I'm not a fan of the complexity of this function interface
+  if (status != eslEOF) esl_fatal("\n\nMSA file %s contains more than one MSA;\n this example only processes one MSA in a file", msafile);
+
+  free(useme);
+  esl_msafile2_Close(afp);
+  esl_alphabet_Destroy(abc);
+  esl_getopts_Destroy(go);
+  return 0;
+
+ ERROR: //NOTREACHED
+  esl_fatal("allocation failure");
+}
+#endif /*eslMSAFILE2_EXAMPLE*/

@@ -285,7 +285,7 @@ esl_msafile_stockholm_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 	{ /* blank lines and the Stockholm end-of-record // trigger end-of-block logic */
 	  if (pd->in_block) {
 	    if (pd->nblock) { if (pd->nseq_b != pd->nseq) ESL_XFAIL(eslEFORMAT, afp->errmsg, "number of seqs in block did not match number in earlier block(s)");     }
-	    else            { if (pd->nseq_b < pd->nseq)  ESL_XFAIL(eslEFORMAT, afp->errmsg, "number of seqs in block did not match number annotated by #=GS lines"); };
+	    else            { if (pd->nseq_b < pd->nseq)  ESL_XFAIL(eslEFORMAT, afp->errmsg, "number of seqs in block did not match number annotated by #=GS|#=GR lines"); };
 	    if (pd->nblock) { if (pd->bi != pd->npb)      ESL_XFAIL(eslEFORMAT, afp->errmsg, "unexpected number of lines in alignment block"); }
 
 	    pd->nseq     = msa->nseq = pd->nseq_b;
@@ -1457,7 +1457,7 @@ utest_write_badformat3(FILE *ofp, int *ret_linenumber, char *errmsg)
   fputs("//\n", ofp);
 
   *ret_linenumber = 7;
-  strcpy(errmsg, "number of seqs in block did not match number annotated by #=GS lines");
+  strcpy(errmsg, "number of seqs in block did not match number annotated by #=GS|#=GR lines");
 }
 
 static void
@@ -2500,6 +2500,8 @@ main(int argc, char **argv)
   int             expected_errcode;
   char            expected_errmsg[eslERRBUFSIZE];
 
+  fprintf(stderr, "## %s\n", argv[0]);
+
   utest_bad_open(NULL, eslMSAFILE_UNKNOWN, eslENOFORMAT, ""); 
 
   utest_bad_read(NULL, eslMSAFILE_UNKNOWN, "missing // terminator",  eslEFORMAT, 1,  "# STOCKHOLM 1.0\n");     
@@ -2602,8 +2604,10 @@ main(int argc, char **argv)
       remove(tmpfile);
     }
 
-  esl_getopts_Destroy(go);
-  return 0;
+   fprintf(stderr, "#  status = ok\n");
+
+   esl_getopts_Destroy(go);
+   return 0;
 }
 #endif /*eslMSAFILE_STOCKHOLM_TESTDRIVE*/
 /*---------------- end, test driver -----------------------------*/

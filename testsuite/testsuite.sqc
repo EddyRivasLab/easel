@@ -47,7 +47,6 @@
 1 exercise msa-utest          @esl_msa_utest@
 1 exercise msacluster-utest   @esl_msacluster_utest@
 1 exercise msafile            @esl_msafile_utest@
-1 exercise msafile2           @esl_msafile2_utest@
 1 exercise msafile-a2m        @esl_msafile_a2m_utest@
 1 exercise msafile-afa        @esl_msafile_afa_utest@
 1 exercise msafile-clustal    @esl_msafile_clustal_utest@
@@ -55,6 +54,7 @@
 1 exercise msafile-psiblast   @esl_msafile_psiblast_utest@
 1 exercise msafile-selex      @esl_msafile_selex_utest@
 1 exercise msafile-stockholm  @esl_msafile_stockholm_utest@
+1 exercise msafile2           @esl_msafile2_utest@
 # msashuffle
 1 exercise msaweight-utest    @esl_msaweight_utest@
 1 exercise neon-utest	      @esl_neon_utest@
