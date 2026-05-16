@@ -1,0 +1,221 @@
+.TH "easel printseq" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+
+.SH NAME
+easel printseq \- print a nucleic acid sequence with complement and/or translation
+
+
+.SH SYNOPSIS
+
+.B easel printseq
+[\fIoptions\fR]
+.I seqfile
+
+
+.SH DESCRIPTION
+
+.PP
+Given a
+.I seqfile
+containing a nucleic acid sequence (DNA or RNA),
+.B easel printseq
+prints the sequence to
+.I stdout
+in a human-readable format, with both strands shown by default and with
+coordinate numbering at the left and right of each line.
+
+.PP
+The format of
+.I seqfile
+and its alphabet (DNA or RNA) are autodetected, but can be asserted
+explicitly with the
+.BR \-\-informat ,
+.BR \-\-dna ,
+and
+.B \-\-rna
+options. Protein sequence input is rejected.
+
+.PP
+The default output is double-stranded, in lines of 60 nucleotides
+broken into groups of 10 separated by spaces, with the top strand
+numbered at the left (start of line) and right (end of line):
+
+.nf
+   1: ATTATTATCC ATTACACGAA GATTTAGTAT CATCTTTTTC TTAACTCTCC ACTTGCAAAG 60
+    : TAATAATAGG TAATGTGCTT CTAAATCATA GTAGAAAAAG AATTGAGAGG TGAACGTTTC
+
+  61: TTGCAGCCTT TGCGGTCGCT TCATCAATAT TGCCTACCAA ATAAAAAGCT TGTTCAGGAA 120
+    : AACGTCGGAA ACGCCAGCGA AGTAGTTATA ACGGATGGTT TATTTTTCGA ACAAGTCCTT
+.fi
+
+.PP
+Only the first sequence in
+.I seqfile
+is formatted and printed.
+
+.PP
+With the
+.B \-a
+option, the three top-strand reading frames are translated and shown
+underneath the sequence in single-letter amino acid code. Because the
+amino acid letters are spaced to align with their codons, grouping is
+turned off (the
+.B \-a
+option sets and requires
+.BR "\-g 0" ).
+
+.nf
+      1: ATTATTATCCATTACACGAAGATTTAGTATCATCTTTTTCTTAACTCTCCACTTGCAAAG 60
+       : TAATAATAGGTAATGTGCTTCTAAATCATAGTAGAAAAAGAATTGAGAGGTGAACGTTTC
+     0 : I  I  I  H  Y  T  K  I  *  Y  H  L  F  L  N  S  P  L  A  K
+     1 :  L  L  S  I  T  R  R  F  S  I  I  F  F  L  T  L  H  L  Q  S
+     2 :   Y  Y  P  L  H  E  D  L  V  S  S  F  S  *  L  S  T  C  K  V
+.fi
+
+.PP
+With the
+.B \-3
+option, the sequence is printed in groups of 3 and only the frame-0
+translation is shown, in three-letter amino acid code. The
+.B \-3
+option sets and requires
+.BR "\-g 3" .
+
+.PP
+With the
+.B \-t
+option, coordinates are printed on top of each line of sequence
+(at the end of each group) instead of at the left and right.
+Because the coordinate labels mark the end of each group,
+.B \-t
+requires a nonzero
+.B \-g
+group size.
+
+.nf
+        10         20         30         40         50         60
+ATTATTATCC ATTACACGAA GATTTAGTAT CATCTTTTTC TTAACTCTCC ACTTGCAAAG
+TAATAATAGG TAATGTGCTT CTAAATCATA GTAGAAAAAG AATTGAGAGG TGAACGTTTC
+.fi
+
+
+.SH OPTIONS
+
+.TP
+.B \-h
+Print brief help; includes version number and summary of all options.
+
+.TP
+.B \-3
+Print the sequence in groups of 3, and show the frame-0 translation
+in three-letter amino acid code. Sets and requires
+.B \-g
+to be 3. Incompatible with
+.BR \-a .
+
+.TP
+.B \-a
+Show the translation in all three top-strand reading frames, in
+single-letter amino acid code, aligned with their codons. Sets and requires
+.B \-g
+to be 0 (no grouping). Incompatible with
+.BR \-3 .
+
+.TP
+.BI \-f " <n>"
+Number the first residue as
+.I <n>
+instead of 1.
+.I <n> must be >= 1.
+Useful for printing a region from the middle of a
+larger sequence with its native coordinates.
+
+.TP
+.BI \-g " <n>"
+Print the sequence in groups of
+.I <n>
+symbols, separated by single spaces. The default is 10. A value of 0
+means no grouping (a continuous run of symbols).
+.I <n>
+must be >= 0.
+
+.TP
+.BI \-n " <n>"
+Print
+.I <n>
+symbols per line. The default is 60. This must be an exact multiple
+of the group size.
+.I <n>
+must be >= 10.
+
+.TP
+.B \-s
+Print only the top (single) strand. By default, both top and bottom
+(complement) strands are printed.
+
+.TP
+.B \-t
+Print coordinates above each line of sequence, at the end of each
+group, instead of at the left and right. Requires a nonzero
+.B \-g
+group size.
+
+.TP
+.BI \-\-informat " <s>"
+Assert that the input
+.I seqfile
+is in format
+.IR <s> ,
+bypassing format autodetection. Valid choices for
+.I <s>
+include
+.BR fasta ,
+.BR embl ,
+.BR genbank ,
+.BR ddbj ,
+.BR uniprot ,
+and the aligned formats
+.BR stockholm ,
+.BR a2m ,
+.BR afa ,
+.BR clustal ,
+.BR phylip ,
+.BR psiblast ,
+and
+.BR selex .
+
+.TP
+.B \-\-dna
+Assert that
+.I seqfile
+contains DNA sequence. By default, the alphabet is autodetected from
+the first sequence. Incompatible with
+.BR \-\-rna .
+
+.TP
+.B \-\-rna
+Assert that
+.I seqfile
+contains RNA sequence. By default, the alphabet is autodetected from
+the first sequence. Incompatible with
+.BR \-\-dna .
+
+
+
+.SH SEE ALSO
+
+.nf
+@EASEL_URL@
+.fi
+
+.SH COPYRIGHT
+
+.nf
+@EASEL_COPYRIGHT@
+@EASEL_LICENSE@
+.fi
+
+.SH AUTHOR
+
+.nf
+http://eddylab.org
+.fi

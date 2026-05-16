@@ -63,6 +63,7 @@ SUBCMDOBJS = \
 	cmd_mask.o       \
 	cmd_msashuf.o    \
 	cmd_msastat.o    \
+	cmd_printseq.o   \
 	cmd_reformat.o   \
 	cmd_seqrange.o   \
 	cmd_seqstat.o    \

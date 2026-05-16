@@ -117,6 +117,7 @@
 1 exercise easel-mask         !testsuite/easel-mask-itest.py!       @@ !! %TESTPFX%
 1 exercise easel-msashuf      !testsuite/easel-msashuf-itest.py!    @@ !! %TESTPFX%
 1 exercise easel-msastat      !testsuite/easel-msastat-itest.py!    @@ !! %TESTPFX%
+1 exercise easel-printseq     !testsuite/easel-printseq-itest.py!   @@ !! %TESTPFX%
 1 exercise easel-reformat     !testsuite/easel-reformat-itest.py!   @@ !! %TESTPFX%
 1 exercise easel-seqrange     !testsuite/easel-seqrange-itest.py!   @@ !! %TESTPFX%
 1 exercise easel-seqstat      !testsuite/easel-seqstat-itest.py!    @@ !! %TESTPFX%
@@ -248,6 +249,7 @@
 3 valgrind easel-mask         !testsuite/easel-mask-itest.py!       @@ !! %TESTPFX%
 3 valgrind easel-msashuf      !testsuite/easel-msashuf-itest.py!    @@ !! %TESTPFX%
 3 valgrind easel-msastat      !testsuite/easel-msastat-itest.py!    @@ !! %TESTPFX%
+3 valgrind easel-printseq     !testsuite/easel-printseq-itest.py!   @@ !! %TESTPFX%
 3 valgrind easel-reformat     !testsuite/easel-reformat-itest.py!   @@ !! %TESTPFX%
 3 valgrind easel-seqrange     !testsuite/easel-seqrange-itest.py!   @@ !! %TESTPFX%
 3 valgrind easel-seqstat      !testsuite/easel-sfetch-itest.py!     @@ !! %TESTPFX%

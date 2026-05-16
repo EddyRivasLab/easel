@@ -608,6 +608,7 @@ AC_CONFIG_FILES([ \
   miniapps/easel-mask.man        \
   miniapps/easel-msashuf.man     \
   miniapps/easel-msastat.man     \
+  miniapps/easel-printseq.man    \
   miniapps/easel-reformat.man    \
   miniapps/easel-seqrange.man    \
   miniapps/easel-seqstat.man     \
