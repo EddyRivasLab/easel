@@ -105,6 +105,7 @@
 1 exercise easel-aindex       !testsuite/easel-aindex-itest.py!     @@ !! %TESTPFX%
 1 exercise easel-alimanip     !testsuite/easel-alimanip-itest.py!   @@ !! %TESTPFX%
 1 exercise easel-alimap       !testsuite/easel-alimap-itest.py!     @@ !! %TESTPFX%
+1 exercise easel-alimerge     !testsuite/easel-alimerge-itest.py!   @@ !! %TESTPFX%
 1 exercise easel-alipid       !testsuite/easel-alipid-itest.py!     @@ !! %TESTPFX%
 1 exercise easel-alirev       !testsuite/easel-alirev-itest.py!     @@ !! %TESTPFX%
 1 exercise easel-compalign    !testsuite/easel-compalign-itest.py!  @@ !! %TESTPFX%
@@ -237,7 +238,8 @@
 3 valgrind easel-aindex       !testsuite/easel-aindex-itest.py!     @@ !! %TESTPFX%
 3 valgrind easel-alimanip     !testsuite/easel-alimanip-itest.py!   @@ !! %TESTPFX%
 3 valgrind easel-alimap       !testsuite/easel-alimap-itest.py!     @@ !! %TESTPFX%
-3 exercise easel-alipid       !testsuite/easel-alipid-itest.py!     @@ !! %TESTPFX%
+3 valgrind easel-alimerge     !testsuite/easel-alimap-itest.py!     @@ !! %TESTPFX%
+3 valgrind easel-alipid       !testsuite/easel-alipid-itest.py!     @@ !! %TESTPFX%
 3 valgrind easel-alirev       !testsuite/easel-alirev-itest.py!     @@ !! %TESTPFX%
 3 valgrind easel-compalign    !testsuite/easel-compalign-itest.py!  @@ !! %TESTPFX%
 3 valgrind easel-compstruct   !testsuite/easel-compstruct-itest.py! @@ !! %TESTPFX%

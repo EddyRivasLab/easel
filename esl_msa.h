@@ -19,6 +19,9 @@ extern "C" {
 #endif
 /* The following constants define the Pfam/Rfam cutoff set we propagate
  * from Stockholm format msa's into HMMER and Infernal models.
+ *
+ * Some code assumes that the second cutoff is always +1 of the first,
+ * e.g. eslMSA_TC2 = eslMSA_TC1 + 1
  */
 /*::cexcerpt::msa_cutoffs::begin::*/
 #define eslMSA_TC1     0

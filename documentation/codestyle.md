@@ -114,13 +114,16 @@ sections, to facilitate navigation:
 | unit tests             | `utest_*()` functions for the test driver. |
 | test driver            | All modules have an automated test driver that runs the unit tests. |
 | examples               | At least one example small program showing how to use the main features of the module. |
+| exegesis               | If the code needs lengthy general explanatory notes, they're at the bottom of the file.|
 
 The top of the .c file starts with a comment with a one-line
 description of the module's purpose, a table of contents for its
-sections, and possibly some other notes.
+sections, and possibly some other brief notes. (If the module needs
+more than brief explanatory notes, we write an "exegesis" section at
+the bottom of the file - it's at the bottom deliberately, so a
+maintainer sees the code immediately.)
 
 For example, this is the top of start of `esl_json`:
-
 
 	/* esl_json : JSON data file parsing
 	 * 
@@ -550,6 +553,22 @@ my_func(char **ret_s)
     return status;
 }
 ```
+
+
+#### contract checks
+
+Many Easel functions first validate their arguments before
+proceeding. I call this a "contract check". Contract checks should
+come before any allocations, and they should use
+`ESL_EXCEPTION(eslEINVAL, "message for what was wrong")`.
+
+In some places, we use `ESL_DASSERT1()` for contract checks instead.
+With this way of doing it, we're only checking in code compiled with
+debugging instrumentation, and not checking in production code. The
+`ESL_DASSERT1()` way should be used only sparingly, if at all, and
+only in cases where the check itself is computationally expensive.  In
+general we should replace `ESL_DASSERT1()` contract checks with
+`ESL_EXCEPTION(eslEINVAL, "...")`.
 
 
 ---------------------------------------------------

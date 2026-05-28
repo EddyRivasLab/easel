@@ -1283,12 +1283,12 @@ stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl)
 	if (fprintf(fp, "#=GC %-*s %s\n", margin-6, "PP_cons", buf)      < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
       }
       if (msa->rf) {
-  strncpy(buf, msa->rf + currpos, acpl);
-  if (fprintf(fp, "#=GC %-*s %s\n", margin-6, "RF", buf)           < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
+        strncpy(buf, msa->rf + currpos, acpl);
+        if (fprintf(fp, "#=GC %-*s %s\n", margin-6, "RF", buf)           < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
       }
       if (msa->mm) {
-  strncpy(buf, msa->mm + currpos, acpl);
-  if (fprintf(fp, "#=GC %-*s %s\n", margin-6, "MM", buf)           < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
+        strncpy(buf, msa->mm + currpos, acpl);
+        if (fprintf(fp, "#=GC %-*s %s\n", margin-6, "MM", buf)           < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
       }
       for (j = 0; j < msa->ngc; j++) {
 	strncpy(buf, msa->gc[j] + currpos, acpl);

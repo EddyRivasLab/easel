@@ -273,6 +273,7 @@ msafile2_open(const char *filename, const char *env, ESL_MSAFILE2 **ret_afp)
 
 static int  get_pp_idx(ESL_ALPHABET *abc, char ppchar);
 static int  gapize_string(char *src_str, int64_t src_len, int64_t dst_len, int *ngapA, char gapchar, char **ret_dst_str);
+static void fix_frag_tilde_bug(const char *s, int L, char *as, int N);
 static void shrink_string(char *str, const int *useme, int len);
 static int  determine_spacelen(char *s);
 
@@ -338,18 +339,21 @@ static int  determine_spacelen(char *s);
  *           opt_epos_ct   - optRETURN: [0..apos..alen-1] same as opt_spos_ct,
  *                           except for final position instead of first
  * 
- * Returns:  <eslOK> on success.  Returns <eslEOF> if there are no more
- *           alignments in <afp>, and <ret_msa> is set to NULL and
- *           <opt_*> are set to 0.
+ * Returns:  <eslOK> on success.
+ *
+ *           <eslEOF> if there are no more alignments in <afp>.
+ *           <ret_msa> is set to NULL and <opt_*> are set to 0.
+ *
  *           <eslEFORMAT> if parse fails because of a file format
- *           problem, in which case <afp->errbuf> is set to contain a
+ *           problem. <afp->errbuf> is set to contain a
  *           formatted message that indicates the cause of the
  *           problem, <ret_msa> is set to <NULL> and <opt_*> are set 
  *           to 0.
  *
- * Throws:    <eslEMEM> on allocation error.
+ * Throws:   <eslEINVAL> on contract check failure.
+ *           <eslEMEM> on allocation error.
  * 
- * Xref:      ~nawrockie/notebook/9_1206_esl_msa_mem_efficient/
+ * Xref:     ~nawrockie/notebook/9_1206_esl_msa_mem_efficient/
  */
 int
 esl_msafile2_ReadInfoPfam(ESL_MSAFILE2 *afp, FILE *listfp, ESL_ALPHABET *abc, int64_t known_alen, char *known_rf, char *known_ss_cons, ESL_MSA **ret_msa, 
@@ -392,20 +396,22 @@ esl_msafile2_ReadInfoPfam(ESL_MSAFILE2 *afp, FILE *listfp, ESL_ALPHABET *abc, in
   int       *ct = NULL; 	   /* 0..known_alen-1 base pair partners array for known_ss_cons */
   char      *ss_nopseudo = NULL;   /* no-pseudoknot version of known_ss_cons */
 
-  if(afp->format   != eslMSAFILE_PFAM) ESL_EXCEPTION(eslEINCONCEIVABLE, "only non-interleaved (1 line /seq, Pfam) Stockholm formatted files can be read in small memory mode");
-  if(opt_abc_ct    != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "contract violation, abc == NULL, opt_abc_ct  != NULL");
-  if(opt_pp_ct     != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "contract violation, abc == NULL, opt_pp_ct   != NULL");
-  if(opt_bp_ct     != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "contract violation, abc == NULL, opt_bp_ct != NULL");
-  if(opt_spos_ct   != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "contract violation, abc == NULL, opt_spos_ct != NULL");
-  if(opt_epos_ct   != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "contract violation, abc == NULL, opt_epos_ct != NULL");
-  if(opt_spos_ct   != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "contract violation, opt_spos_ct != NULL, known_alen == -1");
-  if(opt_epos_ct   != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "contract violation, opt_epos_ct != NULL, known_alen == -1");
-  if(opt_bp_ct     != NULL && known_ss_cons == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "contract violation, known_ss_cons == NULL, opt_bp_ct != NULL");
-  if(known_rf      != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "contract violation, known_rf != NULL, known_alen == -1");
-  if(known_ss_cons != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "contract violation, known_ss_cons != NULL, known_alen == -1");
+  /* contract checks */
+  if (opt_abc_ct    && abc == NULL)           ESL_EXCEPTION(eslEINVAL, "contract violation, abc == NULL, opt_abc_ct  != NULL");
+  if (opt_pp_ct     && abc == NULL)           ESL_EXCEPTION(eslEINVAL, "contract violation, abc == NULL, opt_pp_ct   != NULL");
+  if (opt_bp_ct     && abc == NULL)           ESL_EXCEPTION(eslEINVAL, "contract violation, abc == NULL, opt_bp_ct != NULL");
+  if (opt_spos_ct   && abc == NULL)           ESL_EXCEPTION(eslEINVAL, "contract violation, abc == NULL, opt_spos_ct != NULL");
+  if (opt_epos_ct   && abc == NULL)           ESL_EXCEPTION(eslEINVAL, "contract violation, abc == NULL, opt_epos_ct != NULL");
+  if (opt_spos_ct   && known_alen == -1)      ESL_EXCEPTION(eslEINVAL, "contract violation, opt_spos_ct != NULL, known_alen == -1");
+  if (opt_epos_ct   && known_alen == -1)      ESL_EXCEPTION(eslEINVAL, "contract violation, opt_epos_ct != NULL, known_alen == -1");
+  if (opt_bp_ct     && known_ss_cons == NULL) ESL_EXCEPTION(eslEINVAL, "contract violation, known_ss_cons == NULL, opt_bp_ct != NULL");
+  if (known_rf      && known_alen == -1)      ESL_EXCEPTION(eslEINVAL, "contract violation, known_rf != NULL, known_alen == -1");
+  if (known_ss_cons && known_alen == -1)      ESL_EXCEPTION(eslEINVAL, "contract violation, known_ss_cons != NULL, known_alen == -1");
 
-  if (feof(afp->f))  { status = eslEOF; goto ERROR; }
+  if (afp->format != eslMSAFILE_PFAM)         ESL_FAIL(eslEFORMAT, afp->errbuf, "only non-interleaved (1 line /seq, Pfam) Stockholm formatted files can be read in small memory mode");
   afp->errbuf[0] = '\0';
+
+  if (feof(afp->f))  { status = eslEOF; goto ERROR; }   // normal EOF.
 
   /* Preliminaries */
   /* allocate and initialize spos_ct and epos_ct, if we'll return them */
@@ -740,7 +746,7 @@ esl_msafile2_ReadInfoPfam(ESL_MSAFILE2 *afp, FILE *listfp, ESL_ALPHABET *abc, in
  *           preserved. An example of useful non -1 values is if we're
  *           merging multiple alignments into a single alignment, and
  *           the spacing of any given alignment should change when all
- *           alignments are considered (like what the esl-alimerge
+ *           alignments are considered (like what the `easel alimerge`
  *           miniapp does).
  *
  *           This function is not as rigorous about validating the
@@ -795,8 +801,10 @@ esl_msafile2_ReadInfoPfam(ESL_MSAFILE2 *afp, FILE *listfp, ESL_ALPHABET *abc, in
  *                               same as opt_nseq_read unless seqs2regurg != NULL or 
  *                               seqs2skip != NULL.
  * 
- * Returns:   <eslOK> on success. 
- *            Returns <eslEOF> if there are no more alignments in <afp>.
+ * Returns:   <eslOK> on success.
+ * 
+ *            <eslEOF> if there are no more alignments in <afp>.
+
  *            <eslEFORMAT> if parse fails because of a file format problem,
  *            in which case <afp->errbuf> is set to contain a formatted message 
  *            that indicates the cause of the problem.
@@ -1022,6 +1030,8 @@ esl_msafile2_RegurgitatePfam(ESL_MSAFILE2 *afp, FILE *ofp, int maxname, int maxg
 	      if(useme  != NULL) shrink_string(text, useme, exp_alen); /* this is done in place on text */
 	      if(add2me != NULL) { 
 		if((status = gapize_string(text, textlen, textlen + gaps2addlen, add2me, gapchar2add, &gapped_text)) != eslOK) goto ERROR; 
+                if (text[0] == '~' || text[textlen-1] == '~')
+                  fix_frag_tilde_bug(text, textlen, gapped_text, textlen + gaps2addlen);
 		fprintf(ofp, "%-*s %s\n", curmargin, seqname, gapped_text);
 		free(gapped_text);
 	      }
@@ -1045,6 +1055,37 @@ esl_msafile2_RegurgitatePfam(ESL_MSAFILE2 *afp, FILE *ofp, int maxname, int maxg
  ERROR:
   return status;
 }
+
+
+/* fix_frag_tilde_bug()
+ *
+ * When expanding an alignment with <add2me> (as in `easel alimerge
+ * --small`), _RegurgitatePfam() doesn't correctly handle the
+ * convention for marking fragments, where leading and trailing gaps
+ * on an aseq are `~`. _RegurgitatePfam() only adds `.` (<gapchar2add>)
+ * to expand new gap columns.
+ *
+ * Fixing this properly will require more thought, but the whole
+ * esl_msafile2 interface already annoys me, so I'm deferring that. I
+ * added this as a workaround when I reimplemented `easel alimerge`.
+ * [2026/0520-easel-alimerge-small]
+ */
+static void
+fix_frag_tilde_bug(const char *s, int L, char *as, int N)
+{
+  int i,n;
+
+  n = 0; 
+  while (s[n] == '~') n++;
+  for (i = 0; n && i < N; i++)
+    if (as[i] != '~') as[i] = '~'; else n--;
+  
+  n = 0;
+  while (s[L-n-1] == '~') n++;
+  for (i = N-1; n && i >= 0; i--)
+    if (as[i] != '~') as[i] = '~'; else n--;
+}  
+
 
 /* get_pp_idx
  *                   
