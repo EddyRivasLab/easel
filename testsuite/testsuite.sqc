@@ -1,5 +1,19 @@
 # Easel's test suite, in sqc command format
 
+# Valgrind tests require both SQC_VALGRIND to be set in the environment
+# (to assert that `valgrind` is installed) and SQCLEVEL=3 to set the
+# test level high enough to run them. e.g.:
+#
+#   export SQC_VALGRIND=1
+#   export ESL_VALGRIND=1
+#   make SQCLEVEL=3 check
+#
+# Use `valgrind` test types only for utest programs, not for itest scripts.
+# (Running a python script under valgrind only tests python!)
+# Valgrind testing in our itest scripts is controlled separately, by
+# setting `export ESL_VALGRIND=1`.
+
+
 #################################################################
 # Test drivers for each module.
 ################################################################
@@ -99,6 +113,7 @@
 
 
 # New style easel miniapps
+# (These will test with valgrind internally if ESL_VALGRIND is set in the environment.)
 #
 1 exercise easel-afetch       !testsuite/easel-afetch-itest.py!     @@ !! %TESTPFX%
 1 exercise easel-afetchn      !testsuite/easel-afetchn-itest.py!    @@ !! %TESTPFX%
@@ -143,6 +158,7 @@
 
 ################################################################
 # valgrind tests (optional. 'export SQC_VALGRIND=1; make SQCLEVEL=3 check'
+# 
 ################################################################
 
 3 valgrind easel-utest        @easel_utest@
@@ -230,39 +246,4 @@
 3 valgrind weibull-utest      @esl_weibull_utest@
 # workqueue
 3 valgrind wuss-utest         @esl_wuss_utest@
-
-# New style easel miniapps
-#
-3 valgrind easel-afetch       !testsuite/easel-afetch-itest.py!     @@ !! %TESTPFX%
-3 valgrind easel-afetchn      !testsuite/easel-afetchn-itest.py!    @@ !! %TESTPFX%
-3 valgrind easel-aindex       !testsuite/easel-aindex-itest.py!     @@ !! %TESTPFX%
-3 valgrind easel-alimanip     !testsuite/easel-alimanip-itest.py!   @@ !! %TESTPFX%
-3 valgrind easel-alimap       !testsuite/easel-alimap-itest.py!     @@ !! %TESTPFX%
-3 valgrind easel-alimerge     !testsuite/easel-alimap-itest.py!     @@ !! %TESTPFX%
-3 valgrind easel-alipid       !testsuite/easel-alipid-itest.py!     @@ !! %TESTPFX%
-3 valgrind easel-alirev       !testsuite/easel-alirev-itest.py!     @@ !! %TESTPFX%
-3 valgrind easel-compalign    !testsuite/easel-compalign-itest.py!  @@ !! %TESTPFX%
-3 valgrind easel-compstruct   !testsuite/easel-compstruct-itest.py! @@ !! %TESTPFX%
-3 valgrind easel-construct    !testsuite/easel-construct-itest.py!  @@ !! %TESTPFX%
-3 valgrind easel-downsample   !testsuite/easel-downsample-itest.py! @@ !! %TESTPFX%
-3 valgrind easel-filter       !testsuite/easel-filter-itest.py!     @@ !! %TESTPFX%
-3 valgrind easel-histplot     !testsuite/easel-histplot-itest.py!   @@ !! %TESTPFX%
-3 valgrind easel-kmer         !testsuite/easel-kmer-itest.py!       @@ !! %TESTPFX%
-3 valgrind easel-mask         !testsuite/easel-mask-itest.py!       @@ !! %TESTPFX%
-3 valgrind easel-msashuf      !testsuite/easel-msashuf-itest.py!    @@ !! %TESTPFX%
-3 valgrind easel-msastat      !testsuite/easel-msastat-itest.py!    @@ !! %TESTPFX%
-3 valgrind easel-printseq     !testsuite/easel-printseq-itest.py!   @@ !! %TESTPFX%
-3 valgrind easel-reformat     !testsuite/easel-reformat-itest.py!   @@ !! %TESTPFX%
-3 valgrind easel-seqrange     !testsuite/easel-seqrange-itest.py!   @@ !! %TESTPFX%
-3 valgrind easel-seqstat      !testsuite/easel-sfetch-itest.py!     @@ !! %TESTPFX%
-3 valgrind easel-sfetch       !testsuite/easel-sfetch-itest.py!     @@ !! %TESTPFX%
-3 valgrind easel-sfetchn      !testsuite/easel-sfetchn-itest.py!    @@ !! %TESTPFX%
-3 valgrind easel-shuffle      !testsuite/easel-shuffle-itest.py!    @@ !! %TESTPFX%
-3 valgrind easel-sindex       !testsuite/easel-sindex-itest.py!     @@ !! %TESTPFX%
-3 valgrind easel-ssdraw       !testsuite/easel-ssdraw-itest.py!     @@ !! %TESTPFX%
-3 valgrind easel-synth        !testsuite/easel-synth-itest.py!      @@ !! %TESTPFX%
-3 valgrind easel-translate    !testsuite/easel-translate-itest.py!  @@ !! %TESTPFX%
-3 valgrind easel-weight       !testsuite/easel-weight-itest.py!     @@ !! %TESTPFX%
-
-
 

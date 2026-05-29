@@ -89,7 +89,7 @@ GGGCAGUGCG
 """
 
 with open(f'{tmppfx}.fa', 'w') as f: f.write(testseqs)
-r = esl_itest.run(f'easel sindex {tmppfx}.fa')
+r = esl_itest.run(f'{easel} sindex {tmppfx}.fa')
 
 # `-h` help 
 r = esl_itest.run(f'{easel} seqrange -h')

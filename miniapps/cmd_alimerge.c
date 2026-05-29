@@ -709,7 +709,6 @@ transfer_annotation(ESL_MSA *mmsa, ESL_MSA **msa, int nmsa, const int *maxmis, c
   char *tmpstr = NULL;
   int   ai;
   int   i, i2;
-  int   status;
 
   /* name annotation */
   if (msa[0]->name) {
@@ -832,10 +831,8 @@ transfer_annotation(ESL_MSA *mmsa, ESL_MSA **msa, int nmsa, const int *maxmis, c
     {
       for (ai = 1; ai < nmsa; ai++)
         if (! other_gc_ok(msa[0]->ss_cons,  msa[0]->rf, msa[ai]->ss_cons, msa[ai]->rf)) break;
-      if (ai == nmsa) {
-        ESL_ALLOC(mmsa->ss_cons, sizeof(char) * (mmsa->alen+1));  
+      if (ai == nmsa) 
         inflate_string(msa[0]->ss_cons, msa[0]->rf, msa[0]->alen, maxmis, maxgap, C, /*do_local_rna_tildes=*/TRUE, /*do_frag_tildes=*/FALSE, mmsa->alen, &(mmsa->ss_cons));
-      }
     } else ai=0;
   if (be_verbose) {
     if      (ai == 0)   esl_printf("# SS_cons:     absent (at least from first MSA); not included in merge\n");
@@ -849,10 +846,8 @@ transfer_annotation(ESL_MSA *mmsa, ESL_MSA **msa, int nmsa, const int *maxmis, c
     {
       for (ai = 1; ai < nmsa; ai++)
         if (! other_gc_ok(msa[0]->sa_cons,  msa[0]->rf,  msa[ai]->sa_cons, msa[ai]->rf)) break;
-      if (ai == nmsa) {
-        ESL_ALLOC(mmsa->sa_cons, sizeof(char) * (mmsa->alen+1)); 
+      if (ai == nmsa) 
         inflate_string(msa[0]->sa_cons, msa[0]->rf, msa[0]->alen, maxmis, maxgap, C, /*do_local_rna_tildes=*/FALSE, /*do_frag_tildes=*/FALSE, mmsa->alen, &(mmsa->sa_cons));
-      }
     } else ai=0;
   if (be_verbose) {
     if      (ai == 0)   esl_printf("# SA_cons:     absent (at least from first MSA); not included in merge\n");
@@ -866,10 +861,8 @@ transfer_annotation(ESL_MSA *mmsa, ESL_MSA **msa, int nmsa, const int *maxmis, c
     {
       for (ai = 1; ai < nmsa; ai++)
         if (! other_gc_ok(msa[0]->pp_cons,  msa[0]->rf,  msa[ai]->pp_cons, msa[ai]->rf)) break;
-      if (ai == nmsa) {
-        ESL_ALLOC(mmsa->pp_cons, sizeof(char) * (mmsa->alen+1)); 
+      if (ai == nmsa) 
         inflate_string(msa[0]->pp_cons, msa[0]->rf, msa[0]->alen, maxmis, maxgap, C, /*do_local_rna_tildes=*/FALSE, /*do_frag_tildes=*/FALSE, mmsa->alen, &(mmsa->pp_cons));
-      }
     } else ai=0;
   if (be_verbose) {
     if      (ai == 0)   esl_printf("# PP_cons:     absent (at least from first MSA); not included in merge\n");
@@ -891,7 +884,6 @@ transfer_annotation(ESL_MSA *mmsa, ESL_MSA **msa, int nmsa, const int *maxmis, c
         } else ai=0;
 
         if (ai == nmsa) {
-          ESL_ALLOC(tmpstr, sizeof(char) * (mmsa->alen+1));
           inflate_string(msa[0]->gc[i], msa[0]->rf, msa[0]->alen, maxmis, maxgap, C, /*do_local_rna_tildes=*/FALSE, /*do_frag_tildes=*/FALSE, mmsa->alen, &tmpstr);
           esl_msa_AppendGC(mmsa, msa[0]->gc_tag[i], tmpstr);   // would be nice to have a esl_msa_SetGC() here to save the tmpstr allocation
           free(tmpstr);
@@ -909,9 +901,6 @@ transfer_annotation(ESL_MSA *mmsa, ESL_MSA **msa, int nmsa, const int *maxmis, c
   inflate_string(msa[0]->rf, msa[0]->rf, msa[0]->alen, maxmis, maxgap, C, /*do_local_rna_tildes=*/TRUE, FALSE, mmsa->alen, &(mmsa->rf));
   if (be_verbose)
     esl_printf("# Identical RF annotation from all alignments transferred to merged alignment.\n");
-  return;
-
- ERROR: //NOTREACHED
   return;
 }
 

@@ -145,6 +145,8 @@ esl_cmd_kmer(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
       esl_printf(" %10d %10.4g %10.4f\n", kmerct[code], kmerfq, lodsc);
     }
 
+  esl_sqfile_Close(sqfp);
+  esl_sq_Destroy(sq);
   free(kmer);
   free(monoct);
   free(kmerct);

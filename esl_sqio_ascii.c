@@ -3369,12 +3369,11 @@ esl_sqascii_Parse(char *buf, int size, ESL_SQ *sq, int format)
   sq->L     = sq->n;
 
   if (ascii->balloc > 0) free(ascii->buf);
-
   return eslOK;
 
  ERROR:
-  if (ascii->balloc > 0) free(ascii->buf);
-  return status;
+  if (ascii->balloc > 0) free(ascii->buf); // clang static analyzer can report a false positive leak here; 
+  return status;                           // it can't see that we only allocated ascii->buf if balloc > 0
 }
 /*-------------------- end of daemon ----------------------------*/
 

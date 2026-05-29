@@ -1551,7 +1551,7 @@ seq3          GGC..A.GCCUAUAGGC.AAGCGUAUUCGCAAGCCAU\n\
   esl_alphabet_Destroy(abc);
   free(useme);
   remove(msafile);
-  //remove(outfile);
+  remove(outfile);
   return;
 
  ERROR: //UNREACHABLE
