@@ -23,38 +23,38 @@
 
 
 /* 1. Generating simple random character strings. */
-extern int esl_rsq_Sample(ESL_RANDOMNESS *rng, int allowed_chars_flag, int L, char **ret_s);
+extern int esl_rsq_Sample(ESL_RANDOMNESS *rng, int allowed_chars_flag, int64_t L, char **ret_s);
 
 /* 2. Generating iid sequences. */
-extern int esl_rsq_IID  (ESL_RANDOMNESS *r, const char *alphabet, const double *p, int K, int L, char *s);
-extern int esl_rsq_fIID (ESL_RANDOMNESS *r, const char *alphabet, const float  *p, int K, int L, char *s);
+extern int esl_rsq_IID  (ESL_RANDOMNESS *rng, const char *alphabet, const double *p, int K, int64_t L, char *s);
+extern int esl_rsq_fIID (ESL_RANDOMNESS *rng, const char *alphabet, const float  *p, int K, int64_t L, char *s);
 
 /* 3. Shuffling sequences. */
-extern int esl_rsq_CShuffle       (ESL_RANDOMNESS *r, const char *s,        char *shuffled);
-extern int esl_rsq_CShuffleDP     (ESL_RANDOMNESS *r, const char *s,        char *shuffled);
-extern int esl_rsq_CShuffleKmers  (ESL_RANDOMNESS *r, const char *s, int K, char *shuffled);
+extern int esl_rsq_CShuffle       (ESL_RANDOMNESS *rng, const char *s,        char *shuffled);
+extern int esl_rsq_CShuffleDP     (ESL_RANDOMNESS *rng, const char *s,        char *shuffled);
+extern int esl_rsq_CShuffleKmers  (ESL_RANDOMNESS *rng, const char *s, int K, char *shuffled);
 extern int esl_rsq_CReverse       (const char *s, char *rev);
-extern int esl_rsq_CShuffleWindows(ESL_RANDOMNESS *r, const char *s, int w, char *shuffled);
+extern int esl_rsq_CShuffleWindows(ESL_RANDOMNESS *rng, const char *s, int w, char *shuffled);
 
 /* 4. Randomizing sequences */
-extern int esl_rsq_CMarkov0  (ESL_RANDOMNESS *r, const char *s, char *markoved);
-extern int esl_rsq_CMarkov1  (ESL_RANDOMNESS *r, const char *s, char *markoved);
+extern int esl_rsq_CMarkov0  (ESL_RANDOMNESS *rng, const char *s, char *markoved);
+extern int esl_rsq_CMarkov1  (ESL_RANDOMNESS *rng, const char *s, char *markoved);
 
 /* 5. Generating iid sequences (digital mode). */
-extern int esl_rsq_xIID       (ESL_RANDOMNESS *r, const double *p, int K, int L, ESL_DSQ *dsq);
-extern int esl_rsq_xfIID      (ESL_RANDOMNESS *r, const float  *p, int K, int L, ESL_DSQ *dsq);
-extern int esl_rsq_SampleDirty(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, double **byp_p, int L, ESL_DSQ *dsq);
+extern int esl_rsq_xIID       (ESL_RANDOMNESS *rng, const double *p, int K, int64_t L, ESL_DSQ *dsq);
+extern int esl_rsq_xfIID      (ESL_RANDOMNESS *rng, const float  *p, int K, int64_t L, ESL_DSQ *dsq);
+extern int esl_rsq_SampleDirty(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, double **byp_p, int64_t L, ESL_DSQ *dsq);
 
 /* 6. Shuffling sequences (digital mode). */
-extern int esl_rsq_XShuffle       (ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L,        ESL_DSQ *shuffled);
-extern int esl_rsq_XShuffleDP     (ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *shuffled);
-extern int esl_rsq_XShuffleKmers  (ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *shuffled);
-extern int esl_rsq_XReverse(const ESL_DSQ *dsq, int L, ESL_DSQ *rev);
-extern int esl_rsq_XShuffleWindows(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int w, ESL_DSQ *shuffled);
+extern int esl_rsq_XShuffle       (ESL_RANDOMNESS *rng, const ESL_DSQ *dsq, int64_t L,        ESL_DSQ *shuffled);
+extern int esl_rsq_XShuffleDP     (ESL_RANDOMNESS *rng, const ESL_DSQ *dsq, int64_t L, int K, ESL_DSQ *shuffled);
+extern int esl_rsq_XShuffleKmers  (ESL_RANDOMNESS *rng, const ESL_DSQ *dsq, int64_t L, int K, ESL_DSQ *shuffled);
+extern int esl_rsq_XReverse(const ESL_DSQ *dsq, int64_t L, ESL_DSQ *rev);
+extern int esl_rsq_XShuffleWindows(ESL_RANDOMNESS *rng, const ESL_DSQ *dsq, int64_t L, int w, ESL_DSQ *shuffled);
 
 /* 7. Randomizing sequences (digital mode) */
-extern int esl_rsq_XMarkov0  (ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *markoved);
-extern int esl_rsq_XMarkov1  (ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *markoved);
+extern int esl_rsq_XMarkov0  (ESL_RANDOMNESS *rng, const ESL_DSQ *dsq, int64_t L, int K, ESL_DSQ *markoved);
+extern int esl_rsq_XMarkov1  (ESL_RANDOMNESS *rng, const ESL_DSQ *dsq, int64_t L, int K, ESL_DSQ *markoved);
 
 /* 8. Markov models of arbitrary order (digital mode) */
 extern int  esl_rsq_markov_Build(const ESL_ALPHABET *abc, const double *wmerct, int W, double ***ret_pmarkov, double **ret_pwmer);

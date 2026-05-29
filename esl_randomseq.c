@@ -101,13 +101,14 @@
  *            is <NULL>.
  */
 int
-esl_rsq_Sample(ESL_RANDOMNESS *rng, int allowed_chars, int L, char **ret_s)
+esl_rsq_Sample(ESL_RANDOMNESS *rng, int allowed_chars, int64_t L, char **ret_s)
 {
-  char *s = *ret_s;  // if s == NULL, we will allocate here. Else, we're using caller-provided allocation
-  int   n = 0;
-  char  c[127];
-  int   x,i;
-  int   status;
+  char   *s = *ret_s;  // if s == NULL, we will allocate here. Else, we're using caller-provided allocation
+  int     n = 0;
+  char    c[127];
+  int     x;
+  int64_t i;
+  int     status;
 
   /* We can't portably make assumptions about char codes (EBCDIC,
    * ASCII...); and we don't want to write a bunch of fiddly overhead
@@ -177,23 +178,23 @@ esl_rsq_Sample(ESL_RANDOMNESS *rng, int allowed_chars, int L, char **ret_s)
  * Return:   <eslOK> on success.
  */
 int
-esl_rsq_IID(ESL_RANDOMNESS *r, const char *alphabet, const double *p, int K, int L, char *s)
+esl_rsq_IID(ESL_RANDOMNESS *rng, const char *alphabet, const double *p, int K, int64_t L, char *s)
 {
-  int   x;
+  int64_t i;
 
-  for (x = 0; x < L; x++)
-    s[x] = alphabet[esl_rnd_DChoose(r,p,K)];
-  s[x] = '\0';
+  for (i = 0; i < L; i++)
+    s[i] = alphabet[esl_rnd_DChoose(rng,p,K)];
+  s[i] = '\0';
   return eslOK;
 }
 int
-esl_rsq_fIID(ESL_RANDOMNESS *r, const char *alphabet, const float *p, int K, int L, char *s)
+esl_rsq_fIID(ESL_RANDOMNESS *rng, const char *alphabet, const float *p, int K, int64_t L, char *s)
 {
-  int   x;
+  int64_t i;
 
-  for (x = 0; x < L; x++)
-    s[x] = alphabet[esl_rnd_FChoose(r,p,K)];
-  s[x] = '\0';
+  for (i = 0; i < L; i++)
+    s[i] = alphabet[esl_rnd_FChoose(rng,p,K)];
+  s[i] = '\0';
   return eslOK;
 }
 /*------------ end, generating iid sequences --------------------*/
@@ -208,7 +209,7 @@ esl_rsq_fIID(ESL_RANDOMNESS *r, const char *alphabet, const float *p, int K, int
  * Incept:    SRE, Fri Feb 23 08:17:50 2007 [Casa de Gatos]
  *
  * Purpose:   Returns a shuffled version of <s> in <shuffled>, given
- *            a source of randomness <r>.
+ *            a source of randomness <rng>.
  *            
  *            Caller provides allocated storage for <shuffled>, for at
  *            least the same length as <s>.
@@ -219,15 +220,15 @@ esl_rsq_fIID(ESL_RANDOMNESS *r, const char *alphabet, const float *p, int K, int
  * Returns:   <eslOK> on success.
  */
 int
-esl_rsq_CShuffle(ESL_RANDOMNESS *r, const char  *s, char *shuffled)
+esl_rsq_CShuffle(ESL_RANDOMNESS *rng, const char  *s, char *shuffled)
 {
-  int  L, i;
-  char c;
+  int64_t L, i;
+  char    c;
 
   L = strlen(s);
   if (shuffled != s) strcpy(shuffled, s);
   while (L > 1) {
-    i             = esl_rnd_Roll(r, L);
+    i             = esl_rnd_LRoll(rng, L);
     c             = shuffled[i];
     shuffled[i]   = shuffled[L-1];
     shuffled[L-1] = c;
@@ -236,11 +237,12 @@ esl_rsq_CShuffle(ESL_RANDOMNESS *r, const char  *s, char *shuffled)
   return eslOK;
 }
 
+
 /* Function:  esl_rsq_CShuffleDP()
  * Synopsis:  Shuffle a text sequence, preserving diresidue composition.
  * Incept:    SRE, Fri Feb 23 08:56:03 2007 [Casa de Gatos]
  *
- * Purpose:   Given string <s>, and a source of randomness <r>,
+ * Purpose:   Given string <s>, and a source of randomness <rng>,
  *            returns shuffled version in <shuffled>. The shuffle
  *            is a "doublet-preserving" (DP) shuffle which
  *            shuffles a sequence while exactly preserving both mono-
@@ -273,20 +275,20 @@ esl_rsq_CShuffle(ESL_RANDOMNESS *r, const char  *s, char *shuffled)
  *            <eslEMEM> on allocation failure.
  */
 int
-esl_rsq_CShuffleDP(ESL_RANDOMNESS *r, const char *s, char *shuffled)
+esl_rsq_CShuffleDP(ESL_RANDOMNESS *rng, const char *s, char *shuffled)
 {
-  int    status;          /* Easel return status code */
-  int    len;	          /* length of s */
-  int    pos;	          /* a position in s or shuffled */
-  int    x,y;             /* indices of two characters */
-  char **E  = NULL;       /* edge lists: E[0] is the edge list from vertex A */
-  int   *nE = NULL;       /* lengths of edge lists */
-  int   *iE = NULL;       /* positions in edge lists */
-  int    n;	          /* tmp: remaining length of an edge list to be shuffled */
-  char   sf;              /* last character in shuffled */
-  char   Z[26];           /* connectivity in last edge graph Z */ 
-  int    keep_connecting; /* flag used in Z connectivity algorithm */
-  int    is_eulerian;	  /* flag used for when we've got a good Z */
+  int64_t  len;	            /* length of s */
+  int64_t  pos;	            /* a position in s or shuffled */
+  int      x,y;             /* indices of two characters */
+  char   **E  = NULL;       /* edge lists: E[0] is the edge list from vertex A */
+  int64_t *nE = NULL;       /* lengths of edge lists */
+  int64_t *iE = NULL;       /* positions in edge lists */
+  int64_t  n;	            /* tmp: remaining length of an edge list to be shuffled */
+  char     sf;              /* last character in shuffled */
+  char     Z[26];           /* connectivity in last edge graph Z */ 
+  int      keep_connecting; /* flag used in Z connectivity algorithm */
+  int      is_eulerian;	    /* flag used for when we've got a good Z */
+  int      status;          /* Easel return status code */
   
   /* First, verify that the string is entirely alphabetic. */
   len = strlen(s);
@@ -303,8 +305,8 @@ esl_rsq_CShuffleDP(ESL_RANDOMNESS *r, const char *s, char *shuffled)
 
   /* Allocations. */
   ESL_ALLOC(E,  sizeof(char *) * 26);   for (x = 0; x < 26; x++) E[x] = NULL;
-  ESL_ALLOC(nE, sizeof(int)    * 26);   for (x = 0; x < 26; x++) nE[x] = 0;
-  ESL_ALLOC(iE, sizeof(int)    * 26);   for (x = 0; x < 26; x++) iE[x] = 0; 
+  ESL_ALLOC(nE, sizeof(int64_t)* 26);   for (x = 0; x < 26; x++) nE[x] = 0;
+  ESL_ALLOC(iE, sizeof(int64_t)* 26);   for (x = 0; x < 26; x++) iE[x] = 0; 
   for (x = 0; x < 26; x++) 
     ESL_ALLOC(E[x], sizeof(char) * (len-1));
 
@@ -339,7 +341,7 @@ esl_rsq_CShuffleDP(ESL_RANDOMNESS *r, const char *s, char *shuffled)
       for (x = 0; x < 26; x++)
 	{
 	  if (nE[x] == 0 || x == sf) continue;
-	  pos           = esl_rnd_Roll(r, nE[x]);
+	  pos = esl_rnd_LRoll(rng, nE[x]);
 	  ESL_SWAP(E[x][pos], E[x][nE[x]-1], char);
 	}
 
@@ -401,7 +403,7 @@ esl_rsq_CShuffleDP(ESL_RANDOMNESS *r, const char *s, char *shuffled)
   for (x = 0; x < 26; x++)
     for (n = nE[x] - 1; n > 1; n--)
       {
-	pos       = esl_rnd_Roll(r, n);
+	pos       = esl_rnd_LRoll(rng, n);
 	ESL_SWAP(E[x][pos], E[x][n-1], char);
       }
 
@@ -413,7 +415,7 @@ esl_rsq_CShuffleDP(ESL_RANDOMNESS *r, const char *s, char *shuffled)
    *      all edge lists are exhausted."
    */ 
   pos = 0; 
-  x = toupper((int) s[0]) - 'A';
+  x   = toupper((int) s[0]) - 'A';
   while (1) 
     {
       shuffled[pos++] = 'A'+ x; /* add s_i to S' */
@@ -443,8 +445,8 @@ esl_rsq_CShuffleDP(ESL_RANDOMNESS *r, const char *s, char *shuffled)
 
  ERROR:
   esl_arr2_Destroy((void **) E, 26);
-  if (nE != NULL) free(nE);
-  if (iE != NULL) free(iE);
+  free(nE);
+  free(iE);
   return status;
 }
 
@@ -455,7 +457,7 @@ esl_rsq_CShuffleDP(ESL_RANDOMNESS *r, const char *s, char *shuffled)
  *
  * Purpose:   Consider a text sequence <s> as a string of nonoverlapping
  *            k-mers of length <K>. Shuffle the k-mers, given a random
- *            number generator <r>. Put the shuffled sequence in
+ *            number generator <rng>. Put the shuffled sequence in
  *            <shuffled>.
  *            
  *            If the length of <s> is not evenly divisible by <K>, the
@@ -478,7 +480,7 @@ esl_rsq_CShuffleDP(ESL_RANDOMNESS *r, const char *s, char *shuffled)
  *            maybe possibly preserve some higher-than-monomer
  *            statistics.
  *
- * Args:      r        - an <ESL_RANDOMNESS> random generator
+ * Args:      rng      - an <ESL_RANDOMNESS> random generator
  *            s        - sequence to shuffle
  *            K        - size of k-mers to break <s> into
  *            shuffled - RESULT: the shuffled sequence
@@ -488,20 +490,20 @@ esl_rsq_CShuffleDP(ESL_RANDOMNESS *r, const char *s, char *shuffled)
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_rsq_CShuffleKmers(ESL_RANDOMNESS *r, const char *s, int K, char *shuffled)
+esl_rsq_CShuffleKmers(ESL_RANDOMNESS *rng, const char *s, int K, char *shuffled)
 {
-  int   L = strlen(s);
-  int   W = L / K;		/* number of kmers "words" excluding leftover prefix */
-  int   P = L % K;		/* leftover residues in prefix */
-  int   i;
-  char *swap = NULL;
-  int   status;
+  int64_t L = strlen(s);
+  int64_t W = L / K;		/* number of kmers "words" excluding leftover prefix */
+  int64_t P = L % K;		/* leftover residues in prefix */
+  int64_t i;
+  char   *swap = NULL;
+  int     status;
 
   if (shuffled != s) strcpy(shuffled, s);
   ESL_ALLOC(swap, sizeof(char) * K);
   while (W > 1) 
     {	/* use memmove, not strncpy or memcpy, because i==W-1 creates an overlap case */
-      i = esl_rnd_Roll(r, W);	                                                 /* pick a word          */
+      i = esl_rnd_LRoll(rng, W);	                                         /* pick a word          */
       memmove(swap,                   shuffled + P + i*K,     K * sizeof(char)); /* copy it to tmp space */
       memmove(shuffled + P + i*K,     shuffled + P + (W-1)*K, K * sizeof(char)); /* move word W-1 to i   */
       memmove(shuffled + P + (W-1)*K, swap,                   K * sizeof(char)); /* move word i to W-1   */
@@ -536,8 +538,8 @@ esl_rsq_CShuffleKmers(ESL_RANDOMNESS *r, const char *s, int K, char *shuffled)
 int
 esl_rsq_CReverse(const char *s, char *rev)
 {
-  int  L, i;
-  char c;
+  int64_t L, i;
+  char    c;
   
   L = strlen(s);
   for (i = 0; i < L/2; i++)
@@ -571,18 +573,18 @@ esl_rsq_CReverse(const char *s, char *rev)
  * Return:   <eslOK> on success.
  */
 int
-esl_rsq_CShuffleWindows(ESL_RANDOMNESS *r, const char *s, int w, char *shuffled)
+esl_rsq_CShuffleWindows(ESL_RANDOMNESS *rng, const char *s, int w, char *shuffled)
 {
-  int  L;
-  char c;
-  int  i, j, k;
+  int64_t  L;
+  char     c;
+  int64_t  i, j, k;
 
   L = strlen(s);
   if (shuffled != s) strcpy(shuffled, s);
   for (i = 0; i < L; i += w)
     for (j = ESL_MIN(L-1, i+w-1); j > i; j--)
       {
-	k             = i + esl_rnd_Roll(r, j-i);
+	k             = i + esl_rnd_LRoll(rng, j-i);
 	c             = shuffled[k];  /* semantics of a j,k swap, because we might be shuffling in-place */
 	shuffled[k]   = shuffled[j];
 	shuffled[j]   = c;
@@ -603,7 +605,7 @@ esl_rsq_CShuffleWindows(ESL_RANDOMNESS *r, const char *s, int w, char *shuffled)
  *
  * Purpose:   Makes a random string <markoved> with the same length and
  *            0-th order Markov properties as <s>, given randomness
- *            source <r>.
+ *            source <rng>.
  *            
  *            <s> and <markoved> can be point to the same storage, in which
  *            case <s> is randomized in place, destroying the original
@@ -613,7 +615,14 @@ esl_rsq_CShuffleWindows(ESL_RANDOMNESS *r, const char *s, int w, char *shuffled)
  *            Statistics are collected case-insensitively over 26 possible
  *            residues. The random string is generated all upper case.
  *
- * Args:      s         - input string
+ *            Because this function counts residues into
+ *            double-precision float counters, it cannot deal with
+ *            sequences longer than 2^53 residues (about 9e15, 10
+ *            petabases), but I don't expect anyone to reach this
+ *            limit.
+ *
+ * Args:      rng       - random number generator
+ *            s         - input string
  *            markoved  - randomly generated string 
  *                        (storage allocated by caller, at least strlen(s)+1)
  *
@@ -622,12 +631,12 @@ esl_rsq_CShuffleWindows(ESL_RANDOMNESS *r, const char *s, int w, char *shuffled)
  * Throws:    <eslEINVAL> if <s> contains nonalphabetic characters.
  */
 int 
-esl_rsq_CMarkov0(ESL_RANDOMNESS *r, const char *s, char *markoved)
+esl_rsq_CMarkov0(ESL_RANDOMNESS *rng, const char *s, char *markoved)
 {
-  int    L;
-  int    i; 
-  double p[26];		/* initially counts, then probabilities */
-  int    x;
+  int64_t L;
+  int64_t i; 
+  double  p[26];		/* initially counts, then probabilities */
+  int     x;
 
   /* First, verify that the string is entirely alphabetic. */
   L = strlen(s);
@@ -645,7 +654,7 @@ esl_rsq_CMarkov0(ESL_RANDOMNESS *r, const char *s, char *markoved)
 
   /* Generate a random string using those p's. */
   for (i = 0; i < L; i++)
-    markoved[i] = esl_rnd_DChoose(r, p, 26) + 'A';
+    markoved[i] = esl_rnd_DChoose(rng, p, 26) + 'A';
   markoved[i] = '\0';
 
   return eslOK;
@@ -657,7 +666,7 @@ esl_rsq_CMarkov0(ESL_RANDOMNESS *r, const char *s, char *markoved)
  *
  * Purpose:   Makes a random string <markoved> with the same length and
  *            1st order (di-residue) Markov properties as <s>, given
- *            randomness source <r>.
+ *            randomness source <rng>.
  *            
  *            <s> and <markoved> can be point to the same storage, in which
  *            case <s> is randomized in place, destroying the original
@@ -670,7 +679,14 @@ esl_rsq_CMarkov0(ESL_RANDOMNESS *r, const char *s, char *markoved)
  *            If <s> is of length 2 or less, this is a no-op, and
  *            <markoved> is a copy of <s>.
  *
- * Args:      s         - input string
+ *            Because this function counts residues into
+ *            double-precision float counters, it cannot deal with
+ *            sequences longer than 2^53 residues (about 9e15, 10
+ *            petabases), but I don't expect anyone to reach this
+ *            limit.
+ *
+ * Args:      rng       - random number generator
+ *            s         - input string
  *            markoved  - new randomly generated string 
  *                        (storage allocated by caller, at least strlen(s)+1)
  *
@@ -679,14 +695,14 @@ esl_rsq_CMarkov0(ESL_RANDOMNESS *r, const char *s, char *markoved)
  * Throws:    <eslEINVAL> if <s> contains nonalphabetic characters.
  */
 int 
-esl_rsq_CMarkov1(ESL_RANDOMNESS *r, const char *s, char *markoved) 
+esl_rsq_CMarkov1(ESL_RANDOMNESS *rng, const char *s, char *markoved) 
 {
-  int    L;
-  int    i; 
-  int    x,y;
-  int    i0;			/* initial symbol */
-  double p[26][26];		/* conditional probabilities p[x][y] = P(y | x) */
-  double p0[26];		/* marginal probabilities P(x), just for initial residue. */
+  int64_t L;
+  int64_t i; 
+  int     x,y;
+  int     i0;			/* initial symbol */
+  double  p[26][26];		/* conditional probabilities p[x][y] = P(y | x) */
+  double  p0[26];		/* marginal probabilities P(x), just for initial residue. */
 
   /* First, verify that the string is entirely alphabetic. */
   L = strlen(s);
@@ -728,16 +744,15 @@ esl_rsq_CMarkov1(ESL_RANDOMNESS *r, const char *s, char *markoved)
     }
 
   /* Generate a random string using those p's. */
-  x = esl_rnd_DChoose(r, p0, 26);
+  x = esl_rnd_DChoose(rng, p0, 26);
   markoved[0] = x + 'A';
   for (i = 1; i < L; i++)
     {
-      y           = esl_rnd_DChoose(r, p[x], 26);
+      y           = esl_rnd_DChoose(rng, p[x], 26);
       markoved[i] = y + 'A';
       x           = y;
     } 
   markoved[L] = '\0';
-
   return eslOK;
 }
 /*----------------- end, randomizing sequences ------------------*/
@@ -768,7 +783,7 @@ esl_rsq_CMarkov1(ESL_RANDOMNESS *r, const char *s, char *markoved)
  * 
  *           As a special case, if <p> is <NULL>, sample residues uniformly.
  *
- * Args:     r         - ESL_RANDOMNESS object
+ * Args:     rng       - ESL_RANDOMNESS object
  *           p         - probability distribution [0..n-1] (or NULL for uniform)
  *           K         - number of symbols in alphabet
  *           L         - length of generated sequence
@@ -778,23 +793,23 @@ esl_rsq_CMarkov1(ESL_RANDOMNESS *r, const char *s, char *markoved)
  * Return:   <eslOK> on success.
  */
 int
-esl_rsq_xIID(ESL_RANDOMNESS *r, const double *p, int K, int L, ESL_DSQ *dsq)
+esl_rsq_xIID(ESL_RANDOMNESS *rng, const double *p, int K, int64_t L, ESL_DSQ *dsq)
 {
-  int   x;
+  int64_t i;
 
   dsq[0] = dsq[L+1] = eslDSQ_SENTINEL;
-  for (x = 1; x <= L; x++) 
-    dsq[x] = p ? esl_rnd_DChoose(r,p,K) : esl_rnd_Roll(r,K);
+  for (i = 1; i <= L; i++) 
+    dsq[i] = p ? esl_rnd_DChoose(rng,p,K) : esl_rnd_Roll(rng,K);
   return eslOK;
 }
 int
-esl_rsq_xfIID(ESL_RANDOMNESS *r, const float *p, int K, int L, ESL_DSQ *dsq)
+esl_rsq_xfIID(ESL_RANDOMNESS *rng, const float *p, int K, int64_t L, ESL_DSQ *dsq)
 {
-  int   x;
+  int64_t i;
 
   dsq[0] = dsq[L+1] = eslDSQ_SENTINEL;
-  for (x = 1; x <= L; x++) 
-    dsq[x] = p ? esl_rnd_FChoose(r,p,K) : esl_rnd_Roll(r,K);
+  for (i = 1; i <= L; i++) 
+    dsq[i] = p ? esl_rnd_FChoose(rng,p,K) : esl_rnd_Roll(rng,K);
   return eslOK;
 }
 
@@ -843,10 +858,10 @@ esl_rsq_xfIID(ESL_RANDOMNESS *r, const float *p, int K, int L, ESL_DSQ *dsq)
  * Throws:    <eslEMEM> on allocation failure.
  */
 int
-esl_rsq_SampleDirty(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, double **byp_p, int L, ESL_DSQ *dsq)
+esl_rsq_SampleDirty(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, double **byp_p, int64_t L, ESL_DSQ *dsq)
 {
   double *p = NULL;    
-  int     i;
+  int64_t i;
   int     status;
   
   /* If p isn't provided, sample one. */
@@ -906,14 +921,14 @@ esl_rsq_SampleDirty(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc, double **byp_p, int 
  * Returns:   <eslOK> on success.
  */
 int
-esl_rsq_XShuffle(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, ESL_DSQ *shuffled)
+esl_rsq_XShuffle(ESL_RANDOMNESS *rng, const ESL_DSQ *dsq, int64_t L, ESL_DSQ *shuffled)
 {
-  int     i;
+  int64_t i;
   ESL_DSQ x;
 
   if (dsq != shuffled) esl_dsq_Copy(dsq, L, shuffled);
   while (L > 1) {
-    i           = 1 + esl_rnd_Roll(r, L);
+    i           = 1 + esl_rnd_LRoll(rng, L);
     x           = shuffled[i];
     shuffled[i] = shuffled[L];
     shuffled[L] = x;
@@ -943,20 +958,19 @@ esl_rsq_XShuffle(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, ESL_DSQ *shuffled
  *            <eslEMEM> on allocation failure.
  */
 int
-esl_rsq_XShuffleDP(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *shuffled)
+esl_rsq_XShuffleDP(ESL_RANDOMNESS *rng, const ESL_DSQ *dsq, int64_t L, int K, ESL_DSQ *shuffled)
 {
-  int     status;           /* Easel return status code */
-  int     i;	            /* a position in dsq or shuffled */
-  ESL_DSQ x,y;              /* indices of two characters */
-  ESL_DSQ **E  = NULL;      /* edge lists: E[0] is the edge list from vertex A */
-  int     *nE  = NULL;      /* lengths of edge lists */
-  int     *iE  = NULL;      /* positions in edge lists */
-  ESL_DSQ *Z   = NULL;      /* connectivity in last edge graph Z */ 
-  int      n;	            /* tmp: remaining length of an edge list to be shuffled */
-  ESL_DSQ  sf;              /* last character in shuffled */
-
-  int      keep_connecting; /* flag used in Z connectivity algorithm */
-  int      is_eulerian;	    /* flag used for when we've got a good Z */
+  int64_t    i;	              /* a position in dsq or shuffled */
+  ESL_DSQ    x,y;             /* indices of two characters */
+  ESL_DSQ  **E  = NULL;       /* edge lists: E[0] is the edge list from vertex A */
+  int64_t   *nE = NULL;       /* lengths of edge lists */
+  int64_t   *iE = NULL;       /* positions in edge lists */
+  ESL_DSQ   *Z  = NULL;       /* connectivity in last edge graph Z */ 
+  int64_t    n;	              /* tmp: remaining length of an edge list to be shuffled */
+  ESL_DSQ    sf;              /* last character in shuffled */
+  int        keep_connecting; /* flag used in Z connectivity algorithm */
+  int        is_eulerian;     /* flag used for when we've got a good Z */
+  int        status;          /* Easel return status code */
   
   /* First, verify that we can deal with all the residues in dsq. */
   for (i = 1; i <= L; i++)
@@ -971,9 +985,9 @@ esl_rsq_XShuffleDP(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ 
     }
 
   /* Allocations. */
-  ESL_ALLOC(nE, sizeof(int)       * K);  for (x = 0; x < K; x++) nE[x] = 0;
+  ESL_ALLOC(nE, sizeof(int64_t)   * K);  for (x = 0; x < K; x++) nE[x] = 0;
   ESL_ALLOC(E,  sizeof(ESL_DSQ *) * K);  for (x = 0; x < K; x++) E[x]  = NULL;
-  ESL_ALLOC(iE, sizeof(int)       * K);  for (x = 0; x < K; x++) iE[x] = 0; 
+  ESL_ALLOC(iE, sizeof(int64_t)   * K);  for (x = 0; x < K; x++) iE[x] = 0; 
   ESL_ALLOC(Z,  sizeof(ESL_DSQ)   * K);
   for (x = 0; x < K; x++) 
     ESL_ALLOC(E[x], sizeof(ESL_DSQ) * (L-1));
@@ -993,7 +1007,7 @@ esl_rsq_XShuffleDP(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ 
     {
       for (x = 0; x < K; x++) {
 	if (nE[x] == 0 || x == sf) continue;
-	i           = esl_rnd_Roll(r, nE[x]);
+	i           = esl_rnd_LRoll(rng, nE[x]);
 	ESL_SWAP(E[x][i], E[x][nE[x]-1], ESL_DSQ);
       }
 
@@ -1025,7 +1039,7 @@ esl_rsq_XShuffleDP(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ 
   for (x = 0; x < K; x++)
     for (n = nE[x] - 1; n > 1; n--)
       {
-	i       = esl_rnd_Roll(r, n);
+	i = esl_rnd_LRoll(rng, n);
 	ESL_SWAP(E[x][i], E[x][n-1], ESL_DSQ);
       }
 
@@ -1054,9 +1068,9 @@ esl_rsq_XShuffleDP(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ 
 
  ERROR:
   esl_arr2_Destroy((void **) E, K);
-  if (nE != NULL) free(nE);
-  if (iE != NULL) free(iE);
-  if (Z  != NULL) free(Z);
+  free(nE);
+  free(iE);
+  free(Z);
   return status;
 }
 
@@ -1067,7 +1081,7 @@ esl_rsq_XShuffleDP(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ 
  * Purpose:   Same as <esl_rsq_CShuffleKmers()>, but shuffle digital 
  *            sequence <dsq> of length <L> into digital result <shuffled>.
  *
- * Args:      r        - an <ESL_RANDOMNESS> random generator
+ * Args:      rng      - an <ESL_RANDOMNESS> random generator
  *            dsq      - sequence to shuffle
  *            K        - size of k-mers to break <s> into
  *            shuffled - RESULT: the shuffled sequence
@@ -1077,19 +1091,19 @@ esl_rsq_XShuffleDP(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ 
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_rsq_XShuffleKmers(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *shuffled)
+esl_rsq_XShuffleKmers(ESL_RANDOMNESS *rng, const ESL_DSQ *dsq, int64_t L, int K, ESL_DSQ *shuffled)
 {
-  int   W = L / K;		/* number of kmers "words" excluding leftover prefix */
-  int   P = L % K;		/* leftover residues in prefix */
-  int   i;
-  char *swap = NULL;
-  int   status;
+  int64_t W = L / K;		/* number of kmers "words" excluding leftover prefix */
+  int64_t P = L % K;		/* leftover residues in prefix */
+  int64_t i;
+  char   *swap = NULL;
+  int     status;
 
   if (shuffled != dsq) esl_dsq_Copy(dsq, L, shuffled);
   ESL_ALLOC(swap, sizeof(char) * K);
   while (W > 1) 
     {				/* use memmove, not memcpy, because i==W-1 is an overlap case */
-      i = esl_rnd_Roll(r, W);	                                                 /* pick a word          */
+      i = esl_rnd_LRoll(rng, W);	                                                 /* pick a word          */
       memmove(swap,                   shuffled + P + i*K,     K * sizeof(char)); /* copy it to tmp space */
       memmove(shuffled + P + i*K,     shuffled + P + (W-1)*K, K * sizeof(char)); /* move word W-1 to i   */
       memmove(shuffled + P + (W-1)*K, swap,                   K * sizeof(char)); /* move word i to W-1   */
@@ -1120,9 +1134,9 @@ esl_rsq_XShuffleKmers(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_D
  * Returns:   <eslOK> on success.
  */
 int
-esl_rsq_XReverse(const ESL_DSQ *dsq, int L, ESL_DSQ *rev)
+esl_rsq_XReverse(const ESL_DSQ *dsq, int64_t L, ESL_DSQ *rev)
 {
-  int     i;
+  int64_t i;
   ESL_DSQ x;
   
   for (i = 1; i <= L/2; i++)
@@ -1151,7 +1165,8 @@ esl_rsq_XReverse(const ESL_DSQ *dsq, int L, ESL_DSQ *rev)
  *           
  *           <dsq> and <shuffled> can be identical to shuffle in place.
  *
- * Args:     dsq      - digital sequence to shuffle in windows
+ * Args:     rng      - random number generator
+ *           dsq      - digital sequence to shuffle in windows
  *           L        - length of <dsq>
  *           w        - window size (typically 10 or 20)      
  *           shuffled - allocated space for window-shuffled result.
@@ -1159,16 +1174,16 @@ esl_rsq_XReverse(const ESL_DSQ *dsq, int L, ESL_DSQ *rev)
  * Return:   <eslOK> on success.
  */
 int
-esl_rsq_XShuffleWindows(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int w, ESL_DSQ *shuffled)
+esl_rsq_XShuffleWindows(ESL_RANDOMNESS *rng, const ESL_DSQ *dsq, int64_t L, int w, ESL_DSQ *shuffled)
 {
   ESL_DSQ x;
-  int  i, j, k;
+  int64_t i, j, k;
 
   if (dsq != shuffled) esl_dsq_Copy(dsq, L, shuffled);
   for (i = 1; i <= L; i += w)
     for (j = ESL_MIN(L, i+w-1); j > i; j--)
       {
-	k           = i + esl_rnd_Roll(r, j-i+1);
+	k           = i + esl_rnd_LRoll(rng, j-i+1);
 	x           = shuffled[k];  /* semantics of a j,k swap, because we might be shuffling in-place */
 	shuffled[k] = shuffled[j];
 	shuffled[j] = x;
@@ -1200,6 +1215,12 @@ esl_rsq_XShuffleWindows(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int w, ESL
  *            degeneracies, or missing data, pass the alphabet's
  *            <Kp> size, not its canonical <K>.
  *
+ *            Because this function counts residues into
+ *            double-precision float counters, it cannot deal with
+ *            sequences longer than 2^53 residues (about 9e15, 10
+ *            petabases), but I don't expect anyone to reach this
+ *            limit.
+ *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEINVAL> if <s> contains digital residue codes outside
@@ -1207,12 +1228,13 @@ esl_rsq_XShuffleWindows(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int w, ESL
  *            <eslEMEM> on allocation failure.
  */
 int 
-esl_rsq_XMarkov0(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *markoved)
+esl_rsq_XMarkov0(ESL_RANDOMNESS *rng, const ESL_DSQ *dsq, int64_t L, int K, ESL_DSQ *markoved)
 {
-  int     status;
-  int     i; 
+  int64_t i; 
   double *p = NULL;	/* initially counts, then probabilities */
   int     x;
+  int     status;
+
 
   /* First, verify that the string is entirely alphabetic. */
   for (i = 1; i <= L; i++)
@@ -1228,7 +1250,7 @@ esl_rsq_XMarkov0(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *m
     for (x = 0; x < K; x++) p[x] /= (double) L;
 
   for (i = 1; i <= L; i++)
-    markoved[i] = esl_rnd_DChoose(r, p, K);
+    markoved[i] = esl_rnd_DChoose(rng, p, K);
   markoved[0]   = eslDSQ_SENTINEL;
   markoved[L+1] = eslDSQ_SENTINEL;
 
@@ -1263,8 +1285,15 @@ esl_rsq_XMarkov0(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *m
  *            <Kp> size, not its canonical <K>.
  *
  *            If <L> $\leq 2$, this is a no-op; <markoved> is a copy of <dsq>.
+ *
+ *            Because this function counts residues into
+ *            double-precision float counters, it cannot deal with
+ *            sequences longer than 2^53 residues (about 9e15, 10
+ *            petabases), but I don't expect anyone to reach this
+ *            limit.
  *            
- * Args:      dsq       - input digital sequence 1..L
+ * Args:      rng       - random number generator
+ *            dsq       - input digital sequence 1..L
  *            L         - length of dsq
  *            K         - residue codes in dsq are in range 0..K-1
  *            markoved  - new randomly generated digital sequence;
@@ -1278,11 +1307,11 @@ esl_rsq_XMarkov0(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *m
  *            <eslEMEM> on allocation failure.
  */
 int 
-esl_rsq_XMarkov1(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *markoved) 
+esl_rsq_XMarkov1(ESL_RANDOMNESS *rng, const ESL_DSQ *dsq, int64_t L, int K, ESL_DSQ *markoved) 
 {
   double **p  = NULL;	/* conditional probabilities p[x][y] = P(y | x) */
   double  *p0 = NULL;	/* marginal probabilities P(x), just for initial residue. */
-  int      i; 
+  int64_t  i; 
   ESL_DSQ  x,y;
   ESL_DSQ  i0;		/* initial symbol */
   int      status;
@@ -1328,9 +1357,9 @@ esl_rsq_XMarkov1(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *m
     }
 
   /* Generate a random string using those p's. */
-  markoved[1] = esl_rnd_DChoose(r, p0, K);
+  markoved[1] = esl_rnd_DChoose(rng, p0, K);
   for (i = 2; i <= L; i++)
-    markoved[i] = esl_rnd_DChoose(r, p[markoved[i-1]], K);
+    markoved[i] = esl_rnd_DChoose(rng, p[markoved[i-1]], K);
 
   markoved[0]   = eslDSQ_SENTINEL;
   markoved[L+1] = eslDSQ_SENTINEL;
@@ -1750,7 +1779,7 @@ composition_compare(int *m1, int **di1, int *m2, int **di2, int K)
  * the basis of the unit tests.
  */
 static void
-utest_CShufflers(ESL_RANDOMNESS *r, int L, char *alphabet, int K)
+utest_CShufflers(ESL_RANDOMNESS *rng, int L, char *alphabet, int K)
 {
   char   *logmsg  = "Failure in one of the CShuffle* unit tests";
   int     status;
@@ -1771,13 +1800,13 @@ utest_CShufflers(ESL_RANDOMNESS *r, int L, char *alphabet, int K)
   if (composition_allocate(26, &m2, &di2) != eslOK) esl_fatal(logmsg);
 
   /* generate the string we'll start shuffling */
-  if (esl_dirichlet_DSampleUniform(r, K, p) != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_IID(r, alphabet, p, K, L, s)  != eslOK) esl_fatal(logmsg);
+  if (esl_dirichlet_DSampleUniform(rng, K, p) != eslOK) esl_fatal(logmsg);
+  if (esl_rsq_IID(rng, alphabet, p, K, L, s)  != eslOK) esl_fatal(logmsg);
 
   /* esl_rsq_CShuffle: mono composition should stay exactly the same, di may change */
   memset(s2, 0, (L+1)*sizeof(char));
   if (composition(s,   L, m1, di1)                != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_CShuffle(r, s, s2)                  != eslOK) esl_fatal(logmsg);      
+  if (esl_rsq_CShuffle(rng, s, s2)                != eslOK) esl_fatal(logmsg);      
   if (composition(s2, L, m2, di2)                 != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, 26) != eslOK) esl_fatal(logmsg);
   if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
@@ -1785,7 +1814,7 @@ utest_CShufflers(ESL_RANDOMNESS *r, int L, char *alphabet, int K)
   /* esl_rsq_CShuffle, in place */
   strcpy(s, s2);
   if (composition(s2, L, m1, di1)                 != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_CShuffle(r, s2, s2)                 != eslOK) esl_fatal(logmsg);      
+  if (esl_rsq_CShuffle(rng, s2, s2)               != eslOK) esl_fatal(logmsg);      
   if (composition(s2, L, m2, di2)                 != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, 26) != eslOK) esl_fatal(logmsg);
   if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
@@ -1793,7 +1822,7 @@ utest_CShufflers(ESL_RANDOMNESS *r, int L, char *alphabet, int K)
   /* esl_rsq_CShuffleDP: mono and di compositions stay exactly the same */
   memset(s2, 0, (L+1)*sizeof(char));
   if (composition(s, L, m1,  di1)                 != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_CShuffleDP(r, s, s2)                != eslOK) esl_fatal(logmsg);      
+  if (esl_rsq_CShuffleDP(rng, s, s2)              != eslOK) esl_fatal(logmsg);      
   if (composition(s2, L, m2, di2)                 != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, di1, m2, di2, 26)   != eslOK) esl_fatal(logmsg);
   if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
@@ -1801,7 +1830,7 @@ utest_CShufflers(ESL_RANDOMNESS *r, int L, char *alphabet, int K)
   /* esl_rsq_CShuffleDP, in place */
   strcpy(s, s2);
   if (composition(s2, L, m1, di1)                 != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_CShuffleDP(r, s2, s2)               != eslOK) esl_fatal(logmsg);      
+  if (esl_rsq_CShuffleDP(rng, s2, s2)             != eslOK) esl_fatal(logmsg);      
   if (composition(s2, L, m2, di2)                 != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, di1, m2, di2, 26)   != eslOK) esl_fatal(logmsg);
   if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
@@ -1809,7 +1838,7 @@ utest_CShufflers(ESL_RANDOMNESS *r, int L, char *alphabet, int K)
   /* esl_rsq_CShuffleKmers: mono composition stays the same */
   memset(s2, 0, (L+1)*sizeof(char));
   if (composition(s, L, m1,  di1)                 != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_CShuffleKmers(r, s, 3, s2)          != eslOK) esl_fatal(logmsg);      
+  if (esl_rsq_CShuffleKmers(rng, s, 3, s2)        != eslOK) esl_fatal(logmsg);      
   if (composition(s2, L, m2, di2)                 != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, 26) != eslOK) esl_fatal(logmsg);
   if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
@@ -1817,7 +1846,7 @@ utest_CShufflers(ESL_RANDOMNESS *r, int L, char *alphabet, int K)
   /* esl_rsq_CShuffleKmers, in place */
   strcpy(s, s2);
   if (composition(s2, L, m1, di1)                 != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_CShuffleKmers(r, s2, 3, s2)         != eslOK) esl_fatal(logmsg);      
+  if (esl_rsq_CShuffleKmers(rng, s2, 3, s2)       != eslOK) esl_fatal(logmsg);      
   if (composition(s2, L, m2, di2)                 != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, 26) != eslOK) esl_fatal(logmsg);
   if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
@@ -1825,7 +1854,7 @@ utest_CShufflers(ESL_RANDOMNESS *r, int L, char *alphabet, int K)
   /* esl_rsq_CShuffleWindows(): mono composition stays the same */
   memset(s2, 0, (L+1)*sizeof(char));
   if (composition(s,   L, m1, di1)                != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_CShuffleWindows(r, s, w, s2)        != eslOK) esl_fatal(logmsg);      
+  if (esl_rsq_CShuffleWindows(rng, s, w, s2)      != eslOK) esl_fatal(logmsg);      
   if (composition(s2, L, m2, di2)                 != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, 26) != eslOK) esl_fatal(logmsg);
   if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
@@ -1833,7 +1862,7 @@ utest_CShufflers(ESL_RANDOMNESS *r, int L, char *alphabet, int K)
   /* esl_rsq_CShuffleWindows(), in place */
   strcpy(s, s2);
   if (composition(s2, L, m1, di1)                 != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_CShuffleWindows(r, s2, w, s2)       != eslOK) esl_fatal(logmsg);      
+  if (esl_rsq_CShuffleWindows(rng, s2, w, s2)     != eslOK) esl_fatal(logmsg);      
   if (composition(s2, L, m2, di2)                 != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, 26) != eslOK) esl_fatal(logmsg);
   if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
@@ -1870,7 +1899,7 @@ utest_CShufflers(ESL_RANDOMNESS *r, int L, char *alphabet, int K)
  * that zero probability events get zero counts.
  */
 static void
-utest_CMarkovs(ESL_RANDOMNESS *r, int L, char *alphabet)
+utest_CMarkovs(ESL_RANDOMNESS *rng, int L, char *alphabet)
 {
   char   *logmsg = "Failure in a CMarkov*() unit test";
   int     status;
@@ -1894,17 +1923,17 @@ utest_CMarkovs(ESL_RANDOMNESS *r, int L, char *alphabet)
   if (composition_allocate(26, &m2, &di2) != eslOK) esl_fatal(logmsg);
 
   /* generate string with a random letter prob set to 0  */
-  pzero   = esl_rnd_Roll(r, K);
+  pzero   = esl_rnd_Roll(rng, K);
   zeroidx = toupper(alphabet[pzero]) - 'A';
-  if (esl_dirichlet_FSampleUniform(r, K, p)  != eslOK) esl_fatal(logmsg);
+  if (esl_dirichlet_FSampleUniform(rng, K, p)  != eslOK) esl_fatal(logmsg);
   p[pzero] = 0;
   esl_vec_FNorm(p, K);
-  if (esl_rsq_fIID(r, alphabet, p, K, L, s)  != eslOK) esl_fatal(logmsg);
+  if (esl_rsq_fIID(rng, alphabet, p, K, L, s)  != eslOK) esl_fatal(logmsg);
 
   /* esl_rsq_CMarkov0()  */
   memset(s2, 0, (L+1)*sizeof(char));
   if (composition(s,   L, m1, di1)  != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_CMarkov0(r, s, s2)    != eslOK) esl_fatal(logmsg);
+  if (esl_rsq_CMarkov0(rng, s, s2)  != eslOK) esl_fatal(logmsg);
   if (composition(s2, L, m2, di2)   != eslOK) esl_fatal(logmsg);  
   if (m1[zeroidx]                   != 0)     esl_fatal(logmsg);  
   if (m2[zeroidx]                   != 0)     esl_fatal(logmsg);  
@@ -1912,15 +1941,15 @@ utest_CMarkovs(ESL_RANDOMNESS *r, int L, char *alphabet)
   
   /* esl_rsq_CMarkov0(), in place */
   strcpy(s, s2);
-  if (esl_rsq_CMarkov0(r, s2, s2)   != eslOK) esl_fatal(logmsg);
+  if (esl_rsq_CMarkov0(rng, s2, s2) != eslOK) esl_fatal(logmsg);
   if (composition(s2, L, m2, di2)   != eslOK) esl_fatal(logmsg);  
   if (m2[zeroidx]                   != 0)     esl_fatal(logmsg);  
   if (strcmp(s2, s)                 == 0)     esl_fatal(logmsg);  
   
   /* generate string with all homodiresidues set to 0 */
-  if (esl_dirichlet_FSampleUniform(r, K, p)  != eslOK) esl_fatal(logmsg);
+  if (esl_dirichlet_FSampleUniform(rng, K, p)  != eslOK) esl_fatal(logmsg);
   do {
-    if (esl_rsq_fIID(r, alphabet, p, K, L, s)  != eslOK) esl_fatal(logmsg);  
+    if (esl_rsq_fIID(rng, alphabet, p, K, L, s)  != eslOK) esl_fatal(logmsg);  
     for (i = 1; i < L; i++)
       if (s[i] == s[i-1]) /* this incantation will rotate letter forward in alphabet: */
 	s[i] = alphabet[(1+strchr(alphabet,s[i])-alphabet)%K];
@@ -1929,7 +1958,7 @@ utest_CMarkovs(ESL_RANDOMNESS *r, int L, char *alphabet)
   /* esl_rsq_CMarkov1()  */
   memset(s2, 0, (L+1)*sizeof(char));
   if (composition(s,   L, m1, di1)  != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_CMarkov1(r, s, s2)    != eslOK) esl_fatal(logmsg);
+  if (esl_rsq_CMarkov1(rng, s, s2)  != eslOK) esl_fatal(logmsg);
   if (composition(s2, L, m2, di2)   != eslOK) esl_fatal(logmsg);  
   for (x = 0; x < K; x++) {
     if (di1[x][x]                   != 0)     esl_fatal(logmsg);  
@@ -1939,8 +1968,8 @@ utest_CMarkovs(ESL_RANDOMNESS *r, int L, char *alphabet)
 
   /* esl_rsq_CMarkov1(), in place  */
   strcpy(s, s2);
-  if (esl_rsq_CMarkov1(r, s2, s2)  != eslOK)   esl_fatal(logmsg);
-  if (composition(s2, L, m2, di2)  != eslOK) esl_fatal(logmsg);  
+  if (esl_rsq_CMarkov1(rng, s2, s2) != eslOK) esl_fatal(logmsg);
+  if (composition(s2, L, m2, di2)   != eslOK) esl_fatal(logmsg);  
   for (x = 0; x < K; x++) {
     if (di1[x][x]                   != 0)     esl_fatal(logmsg);  
     if (di2[x][x]                   != 0)     esl_fatal(logmsg);  
@@ -1969,7 +1998,7 @@ utest_CMarkovs(ESL_RANDOMNESS *r, int L, char *alphabet)
  * Same ideas as testing the C* versions, adapted for digital sequences. 
  */
 static void
-utest_XShufflers(ESL_RANDOMNESS *r, int L, int K)
+utest_XShufflers(ESL_RANDOMNESS *rng, int L, int K)
 {
   char    *logmsg  = "Failure in one of the XShuffle* unit tests";
   int      status;
@@ -1990,64 +2019,64 @@ utest_XShufflers(ESL_RANDOMNESS *r, int L, int K)
   if (composition_allocate(K, &m2, &di2) != eslOK) esl_fatal(logmsg);
 
   /* generate the string we'll test shuffling on, keep its composition stats */
-  if (esl_dirichlet_FSampleUniform(r, K, p) != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_xfIID(r, p, K, L, dsq)        != eslOK) esl_fatal(logmsg);
+  if (esl_dirichlet_FSampleUniform(rng, K, p) != eslOK) esl_fatal(logmsg);
+  if (esl_rsq_xfIID(rng, p, K, L, dsq)        != eslOK) esl_fatal(logmsg);
 
   /* esl_rsq_XShuffle: mono composition should stay exactly the same, di may change */
   memset(ds2, eslDSQ_SENTINEL, (L+2));
   if (xcomposition(dsq, L, K, m1, di1)           != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_XShuffle(r, dsq, L, ds2)           != eslOK) esl_fatal(logmsg);      
+  if (esl_rsq_XShuffle(rng, dsq, L, ds2)         != eslOK) esl_fatal(logmsg);      
   if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, K) != eslOK) esl_fatal(logmsg);
 
   /* esl_rsq_XShuffle, in place */
   if (esl_dsq_Copy(ds2, L, dsq)                  != eslOK) esl_fatal(logmsg);
   if (xcomposition(ds2, L, K, m1,  di1)          != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_XShuffle(r, ds2, L, ds2)           != eslOK) esl_fatal(logmsg);      
+  if (esl_rsq_XShuffle(rng, ds2, L, ds2)         != eslOK) esl_fatal(logmsg);      
   if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, K) != eslOK) esl_fatal(logmsg);
 
   /* esl_rsq_XShuffleDP: mono and di compositions stay exactly the same */
   memset(ds2, eslDSQ_SENTINEL, (L+2));
   if (xcomposition(dsq, L, K, m1,  di1)          != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_XShuffleDP(r, dsq, L, K, ds2)      != eslOK) esl_fatal(logmsg);      
+  if (esl_rsq_XShuffleDP(rng, dsq, L, K, ds2)    != eslOK) esl_fatal(logmsg);      
   if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, di1, m2, di2, K)   != eslOK) esl_fatal(logmsg);
 
   /* esl_rsq_XShuffleDP, in place */
   if (esl_dsq_Copy(ds2, L, dsq)                  != eslOK) esl_fatal(logmsg);
   if (xcomposition(ds2, L, K, m1, di1)           != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_XShuffleDP(r, ds2, L, K, ds2)      != eslOK) esl_fatal(logmsg);      
+  if (esl_rsq_XShuffleDP(rng, ds2, L, K, ds2)    != eslOK) esl_fatal(logmsg);      
   if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, di1, m2, di2, K)   != eslOK) esl_fatal(logmsg);
   
   /* esl_rsq_XShuffleKmers: mono compositions stay exactly the same */
   memset(ds2, eslDSQ_SENTINEL, (L+2));
   if (xcomposition(dsq, L, K, m1,  di1)          != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_XShuffleKmers(r, dsq, L, 3, ds2)   != eslOK) esl_fatal(logmsg);      
+  if (esl_rsq_XShuffleKmers(rng, dsq, L, 3, ds2) != eslOK) esl_fatal(logmsg);      
   if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, K) != eslOK) esl_fatal(logmsg);
 
   /* esl_rsq_XShuffleKmers, in place */
   if (esl_dsq_Copy(ds2, L, dsq)                  != eslOK) esl_fatal(logmsg);
   if (xcomposition(ds2, L, K, m1, di1)           != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_XShuffleKmers(r, ds2, L, 3, ds2)   != eslOK) esl_fatal(logmsg);      
+  if (esl_rsq_XShuffleKmers(rng, ds2, L, 3, ds2) != eslOK) esl_fatal(logmsg);      
   if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, K) != eslOK) esl_fatal(logmsg);
 
   /* esl_rsq_XShuffleWindows(): mono composition stays the same */
   memset(ds2, eslDSQ_SENTINEL, (L+2));
-  if (xcomposition(dsq, L, K, m1, di1)           != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_XShuffleWindows(r, dsq, L, w, ds2) != eslOK) esl_fatal(logmsg);      
-  if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
-  if (composition_compare(m1, NULL, m2, NULL, K) != eslOK) esl_fatal(logmsg);
+  if (xcomposition(dsq, L, K, m1, di1)             != eslOK) esl_fatal(logmsg);
+  if (esl_rsq_XShuffleWindows(rng, dsq, L, w, ds2) != eslOK) esl_fatal(logmsg);      
+  if (xcomposition(ds2, L, K, m2, di2)             != eslOK) esl_fatal(logmsg);
+  if (composition_compare(m1, NULL, m2, NULL, K)   != eslOK) esl_fatal(logmsg);
   
   /* esl_rsq_XShuffleWindows(), in place */
-  if (esl_dsq_Copy(ds2, L, dsq)                  != eslOK) esl_fatal(logmsg);
-  if (xcomposition(ds2, L, K, m1,  di1)          != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_XShuffleWindows(r, ds2, L, w, ds2) != eslOK) esl_fatal(logmsg);      
-  if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
-  if (composition_compare(m1, NULL, m2, NULL, K) != eslOK) esl_fatal(logmsg);
+  if (esl_dsq_Copy(ds2, L, dsq)                    != eslOK) esl_fatal(logmsg);
+  if (xcomposition(ds2, L, K, m1,  di1)            != eslOK) esl_fatal(logmsg);
+  if (esl_rsq_XShuffleWindows(rng, ds2, L, w, ds2) != eslOK) esl_fatal(logmsg);      
+  if (xcomposition(ds2, L, K, m2, di2)             != eslOK) esl_fatal(logmsg);
+  if (composition_compare(m1, NULL, m2, NULL, K)   != eslOK) esl_fatal(logmsg);
   
   /* esl_rsq_XReverse(): two reverses (one in place) give the same seq back */
   memset(ds2, eslDSQ_SENTINEL, (L+2));
@@ -2078,7 +2107,7 @@ utest_XShufflers(ESL_RANDOMNESS *r, int L, int K)
  * Same ideas as in the C* versions, but for digital sequences.
  */
 static void
-utest_XMarkovs(ESL_RANDOMNESS *r, int L, int K)
+utest_XMarkovs(ESL_RANDOMNESS *rng, int L, int K)
 {
   char    *logmsg = "Failure in an XMarkov*() unit test";
   int      status;
@@ -2100,16 +2129,16 @@ utest_XMarkovs(ESL_RANDOMNESS *r, int L, int K)
   if (composition_allocate(K, &m2, &di2) != eslOK) esl_fatal(logmsg);
 
   /* generate sequence with a random letter prob set to 0  */
-  pzero = esl_rnd_Roll(r, K);
-  if (esl_dirichlet_FSampleUniform(r, K, p)  != eslOK) esl_fatal(logmsg);
+  pzero = esl_rnd_Roll(rng, K);
+  if (esl_dirichlet_FSampleUniform(rng, K, p)  != eslOK) esl_fatal(logmsg);
   p[pzero] = 0.;
   esl_vec_FNorm(p, K);
-  if (esl_rsq_xfIID(r, p, K, L, dsq)         != eslOK) esl_fatal(logmsg);
+  if (esl_rsq_xfIID(rng, p, K, L, dsq)         != eslOK) esl_fatal(logmsg);
 
   /* esl_rsq_XMarkov0()  */
   memset(ds2, eslDSQ_SENTINEL, (L+2)*sizeof(ESL_DSQ));
   if (xcomposition(dsq, L, K, m1, di1)        != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_XMarkov0(r, dsq, L, K, ds2)     != eslOK) esl_fatal(logmsg);
+  if (esl_rsq_XMarkov0(rng, dsq, L, K, ds2)   != eslOK) esl_fatal(logmsg);
   if (xcomposition(ds2, L, K, m2, di2)        != eslOK) esl_fatal(logmsg);  
   if (m1[pzero]                               != 0)     esl_fatal(logmsg);  
   if (m2[pzero]                               != 0)     esl_fatal(logmsg);  
@@ -2117,15 +2146,15 @@ utest_XMarkovs(ESL_RANDOMNESS *r, int L, int K)
   
   /* esl_rsq_CMarkov0(), in place */
   if (esl_dsq_Copy(ds2, L, dsq)               != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_XMarkov0(r, ds2, L, K, ds2)     != eslOK) esl_fatal(logmsg);
+  if (esl_rsq_XMarkov0(rng, ds2, L, K, ds2)   != eslOK) esl_fatal(logmsg);
   if (xcomposition(ds2, L, K, m2, di2)        != eslOK) esl_fatal(logmsg);  
   if (m2[pzero]                               != 0)     esl_fatal(logmsg);  
   if (memcmp(ds2, dsq, sizeof(ESL_DSQ)*(L+2)) == 0)     esl_fatal(logmsg);  
   
   /* generate string with all homodiresidues set to 0 */
-  if (esl_dirichlet_FSampleUniform(r, K, p)   != eslOK) esl_fatal(logmsg);
+  if (esl_dirichlet_FSampleUniform(rng, K, p)   != eslOK) esl_fatal(logmsg);
   do {
-    if (esl_rsq_xfIID(r, p, K, L, dsq)          != eslOK) esl_fatal(logmsg);  
+    if (esl_rsq_xfIID(rng, p, K, L, dsq)        != eslOK) esl_fatal(logmsg);  
     for (i = 2; i <= L; i++)
       if (dsq[i] == dsq[i-1]) /* this incantation will rotate letter forward in alphabet: */
 	dsq[i] = (dsq[i]+1)%K;
@@ -2134,7 +2163,7 @@ utest_XMarkovs(ESL_RANDOMNESS *r, int L, int K)
   /* esl_rsq_XMarkov1()  */
   memset(ds2, eslDSQ_SENTINEL, (L+2)*sizeof(ESL_DSQ));
   if (xcomposition(dsq, L, K, m1, di1)        != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_XMarkov1(r, dsq, L, K, ds2)     != eslOK) esl_fatal(logmsg);
+  if (esl_rsq_XMarkov1(rng, dsq, L, K, ds2)   != eslOK) esl_fatal(logmsg);
   if (xcomposition(ds2, L, K, m2, di2)        != eslOK) esl_fatal(logmsg);  
   for (x = 0; x < K; x++) {
     if (di1[x][x]                             != 0)     esl_fatal(logmsg);  
@@ -2144,7 +2173,7 @@ utest_XMarkovs(ESL_RANDOMNESS *r, int L, int K)
 
   /* esl_rsq_XMarkov1(), in place  */
   if (esl_dsq_Copy(ds2, L, dsq)               != eslOK) esl_fatal(logmsg);
-  if (esl_rsq_XMarkov1(r, ds2, L, K, ds2)     != eslOK) esl_fatal(logmsg);
+  if (esl_rsq_XMarkov1(rng, ds2, L, K, ds2)   != eslOK) esl_fatal(logmsg);
   if (xcomposition(ds2, L, K, m2, di2)        != eslOK) esl_fatal(logmsg);  
   for (x = 0; x < K; x++) {
     if (di1[x][x]                             != 0)     esl_fatal(logmsg);  
@@ -2173,7 +2202,7 @@ utest_XMarkovs(ESL_RANDOMNESS *r, int L, int K)
  * counting Markov statistics as if the input sequence were circular.
  */
 static void
-utest_markov1_bug(ESL_RANDOMNESS *r)
+utest_markov1_bug(ESL_RANDOMNESS *rng)
 {
   char    logmsg[]  = "Failure in markov1_bug test (zero/absorbing transition)";
   char    testseq[] = "AAAAAAAAAT";
@@ -2186,23 +2215,23 @@ utest_markov1_bug(ESL_RANDOMNESS *r)
   int     N         = 100;         
   int     i;
 
-  if ((seq = malloc(sizeof(char)    * (L+1))) == NULL)    esl_fatal(logmsg);
-  if ((dsq = malloc(sizeof(ESL_DSQ) * (L+2))) == NULL)    esl_fatal(logmsg);
+  if ((seq = malloc(sizeof(char)    * (L+1))) == NULL)      esl_fatal(logmsg);
+  if ((dsq = malloc(sizeof(ESL_DSQ) * (L+2))) == NULL)      esl_fatal(logmsg);
 
-  if (composition_allocate(4, &mono, &di)       != eslOK) esl_fatal(logmsg);
+  if (composition_allocate(4, &mono, &di)         != eslOK) esl_fatal(logmsg);
   for (i = 0; i < N; i++) {
-    if (esl_rsq_XMarkov1(r, testdsq, L, 4, dsq) != eslOK) esl_fatal(logmsg);
-    if (xcomposition(testdsq, L, 4, mono, di)   != eslOK) esl_fatal(logmsg);
-    if (mono[0] + mono[3] != L)                           esl_fatal(logmsg);
+    if (esl_rsq_XMarkov1(rng, testdsq, L, 4, dsq) != eslOK) esl_fatal(logmsg);
+    if (xcomposition(testdsq, L, 4, mono, di)     != eslOK) esl_fatal(logmsg);
+    if (mono[0] + mono[3] != L)                             esl_fatal(logmsg);
   }
   esl_arr2_Destroy((void **) di, 4);
   free(mono);
 
-  if (composition_allocate(26, &mono, &di) != eslOK) esl_fatal(logmsg);
+  if (composition_allocate(26, &mono, &di)   != eslOK) esl_fatal(logmsg);
   for (i = 0; i < N; i++) {
-    if (esl_rsq_CMarkov1(r, testseq, seq)  != eslOK) esl_fatal(logmsg);
-    if (composition(seq, L, mono, di)      != eslOK) esl_fatal(logmsg);
-    if (mono[0] + mono['T'-'A'] != L)                esl_fatal(logmsg);
+    if (esl_rsq_CMarkov1(rng, testseq, seq)  != eslOK) esl_fatal(logmsg);
+    if (composition(seq, L, mono, di)        != eslOK) esl_fatal(logmsg);
+    if (mono[0] + mono['T'-'A'] != L)                  esl_fatal(logmsg);
   }
   esl_arr2_Destroy((void **) di, 26);
   free(mono);
@@ -2244,19 +2273,19 @@ int
 main(int argc, char **argv)
 {
   ESL_GETOPTS    *go       = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
-  ESL_RANDOMNESS *r        = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+  ESL_RANDOMNESS *rng      = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
   char           *alphabet = "ACGT";
   int             K        = strlen(alphabet);
   int             L        = esl_opt_GetInteger(go, "-L");
 
-  utest_CShufflers(r, L, alphabet, K);
-  utest_CMarkovs  (r, L, alphabet);
-  utest_XShufflers(r, L, K);
-  utest_XMarkovs  (r, L, K);
+  utest_CShufflers(rng, L, alphabet, K);
+  utest_CMarkovs  (rng, L, alphabet);
+  utest_XShufflers(rng, L, K);
+  utest_XMarkovs  (rng, L, K);
 
-  utest_markov1_bug(r);
+  utest_markov1_bug(rng);
 
-  esl_randomness_Destroy(r);
+  esl_randomness_Destroy(rng);
   esl_getopts_Destroy(go);
   return 0;
 }
@@ -2299,7 +2328,7 @@ main(int argc, char **argv)
     esl_sqio_Write(stdout, sq, eslSQFILE_FASTA);
 
     printf("[After shuffling:]\n");
-    esl_rsq_CShuffle(r, sq->seq, sq->seq); /* shuffle in place */
+    esl_rsq_CShuffle(rng, sq->seq, sq->seq); /* shuffle in place */
     esl_sqio_Write(stdout, sq, eslSQFILE_FASTA);
 
     esl_sq_Reuse(sq);

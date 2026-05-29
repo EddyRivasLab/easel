@@ -1,7 +1,7 @@
 /* Portable, threadsafe Mersenne Twister random number generator
  *
  *  1. The ESL_RANDOMNESS object.
- *  2. The generators, esl_random().
+ *  2. The generators and esl_random().
  *  3. Debugging/development tools.
  *  4. Other fundamental sampling (including Gaussian, gamma).
  *  5. Multinomial sampling from discrete probability n-vectors.
@@ -40,10 +40,10 @@
 #include "esl_random.h"
 
 static uint32_t choose_arbitrary_seed(void);
-static uint32_t knuth              (ESL_RANDOMNESS *r);
-static uint32_t mersenne_twister   (ESL_RANDOMNESS *r);
-static void     mersenne_seed_table(ESL_RANDOMNESS *r, uint32_t seed);
-static void     mersenne_fill_table(ESL_RANDOMNESS *r);
+static uint32_t knuth              (ESL_RANDOMNESS *rng);
+static uint32_t mersenne_twister   (ESL_RANDOMNESS *rng);
+static void     mersenne_seed_table(ESL_RANDOMNESS *rng, uint32_t seed);
+static void     mersenne_fill_table(ESL_RANDOMNESS *rng);
 
 /*****************************************************************
  *# 1. The <ESL_RANDOMNESS> object.
@@ -52,8 +52,8 @@ static void     mersenne_fill_table(ESL_RANDOMNESS *r);
 /* Function:  esl_randomness_Create()
  * Synopsis:  Create the default strong random number generator.
  *
- * Purpose:   Create a random number generator using
- *            a given random seed. 
+ * Purpose:   Create a random number generator using a given random
+ *            seed.
  *            
  *            The default random number generator uses the Mersenne
  *            Twister MT19937 algorithm \citep{Matsumoto98}.  It has a
@@ -89,16 +89,16 @@ static void     mersenne_fill_table(ESL_RANDOMNESS *r);
 ESL_RANDOMNESS *
 esl_randomness_Create(uint32_t seed)
 {
-  ESL_RANDOMNESS *r      = NULL;
+  ESL_RANDOMNESS *rng = NULL;
   int             status;
 
-  ESL_ALLOC(r, sizeof(ESL_RANDOMNESS));
-  r->type = eslRND_MERSENNE;
-  r->mti  = 0;
-  r->x    = 0;
-  r->seed = 0;
-  esl_randomness_Init(r, seed);
-  return r;
+  ESL_ALLOC(rng, sizeof(ESL_RANDOMNESS));
+  rng->type = eslRND_MERSENNE;
+  rng->mti  = 0;
+  rng->x    = 0;
+  rng->seed = 0;
+  esl_randomness_Init(rng, seed);
+  return rng;
 
  ERROR:
   return NULL;
@@ -149,16 +149,16 @@ esl_randomness_Create(uint32_t seed)
 ESL_RANDOMNESS *
 esl_randomness_CreateFast(uint32_t seed)
 {
-  ESL_RANDOMNESS *r      = NULL;
+  ESL_RANDOMNESS *rng  = NULL;
   int             status;
 
-  ESL_ALLOC(r, sizeof(ESL_RANDOMNESS));
-  r->type = eslRND_FAST;
-  r->mti  = 0;
-  r->x    = 0;
-  r->seed = 0;
-  esl_randomness_Init(r, seed);
-  return r;
+  ESL_ALLOC(rng, sizeof(ESL_RANDOMNESS));
+  rng->type = eslRND_FAST;
+  rng->mti  = 0;
+  rng->x    = 0;
+  rng->seed = 0;
+  esl_randomness_Init(rng, seed);
+  return rng;
 
  ERROR:
   return NULL;
@@ -204,7 +204,7 @@ esl_randomness_CreateTimeseeded(void)
  *            HMM/sequence comparison regardless of where in a search
  *            the HMM or sequence occurs.
  *
- * Args:      r     - randomness object
+ * Args:      rng   - randomness object
  *            seed  - new seed to use; >=0.
  *
  * Returns:   <eslOK> on success.
@@ -212,19 +212,19 @@ esl_randomness_CreateTimeseeded(void)
  * Xref:      SRE:STL8/p57.
  */
 int
-esl_randomness_Init(ESL_RANDOMNESS *r, uint32_t seed)
+esl_randomness_Init(ESL_RANDOMNESS *rng, uint32_t seed)
 {
   if (seed == 0) seed = choose_arbitrary_seed();
-  if (r->type == eslRND_MERSENNE)
+  if (rng->type == eslRND_MERSENNE)
     {
-      mersenne_seed_table(r, seed);
-      mersenne_fill_table(r);
+      mersenne_seed_table(rng, seed);
+      mersenne_fill_table(rng);
     }
   else 
     {
-      r->seed = seed;
-      r->x    = esl_mix3(seed, 87654321, 12345678);	/* arbitrary dispersion of the seed */
-      if (r->x == 0) r->x = 42;                         /* make sure we don't have a zero */
+      rng->seed = seed;
+      rng->x    = esl_mix3(seed, 87654321, 12345678);	/* arbitrary dispersion of the seed */
+      if (rng->x == 0) rng->x = 42;                         /* make sure we don't have a zero */
     }
   return eslOK;
 }
@@ -235,9 +235,9 @@ esl_randomness_Init(ESL_RANDOMNESS *r, uint32_t seed)
  * Purpose:   Return the value of the seed. 
  */
 uint32_t
-esl_randomness_GetSeed(const ESL_RANDOMNESS *r)
+esl_randomness_GetSeed(const ESL_RANDOMNESS *rng)
 {
-  return r->seed;
+  return rng->seed;
 }
 
 
@@ -247,12 +247,11 @@ esl_randomness_GetSeed(const ESL_RANDOMNESS *r)
  * Purpose:   Frees an <ESL_RANDOMNESS> object.
  */
 void
-esl_randomness_Destroy(ESL_RANDOMNESS *r)
+esl_randomness_Destroy(ESL_RANDOMNESS *rng)
 {
-  free(r);
+  free(rng);
   return;
 }
-
 /*----------- end of ESL_RANDOMNESS object functions --------------*/
 
 
@@ -265,7 +264,7 @@ esl_randomness_Destroy(ESL_RANDOMNESS *r)
  * Synopsis: Generate a uniform random deviate on [0,1)
  *
  * Purpose:  Returns a uniform deviate x, $0.0 \leq x < 1.0$, given
- *           RNG <r>.
+ *           RNG <rng>.
  *
  *           This new u \in [0,1) still has 2^32-1 possible values.
  *           The base RNG generates a uint32 on range d = [0,2^32).
@@ -281,9 +280,9 @@ esl_randomness_Destroy(ESL_RANDOMNESS *r)
  *           $0.0 \leq x < 1.0$.
  */
 double
-esl_random(ESL_RANDOMNESS *r)
+esl_random(ESL_RANDOMNESS *rng)
 {
-  uint32_t x = (r->type == eslRND_MERSENNE) ? mersenne_twister(r) : knuth(r);
+  uint32_t x = (rng->type == eslRND_MERSENNE) ? mersenne_twister(rng) : knuth(rng);
   return ((double) x / 4294967296.0);    // 2^32: [0,1).  Original MT code has * (1.0/ 4294967296.0), which I believe (and tested) to be identical.
 }
 
@@ -292,13 +291,33 @@ esl_random(ESL_RANDOMNESS *r)
  * Synopsis:  Generate a uniform random deviate on 0..2^32-1
  * Incept:    SRE, Wed Jan 13 10:59:26 2016
  *
- * Purpose:   Returns a uniform deviate x, a 32-bit unsigned
- *            integer $0 \leq x < 2^{32}$, given RNG <r>.
+ * Purpose:   Returns a uniform deviate <n>, a 32-bit unsigned
+ *            integer $0 \leq n < 2^{32}$, given RNG <rng>.
  */
 uint32_t 
-esl_random_uint32(ESL_RANDOMNESS *r)
+esl_random_uint32(ESL_RANDOMNESS *rng)
 {
-  return (r->type == eslRND_MERSENNE) ? mersenne_twister(r) : knuth(r);
+  return (rng->type == eslRND_MERSENNE) ? mersenne_twister(rng) : knuth(rng);
+}
+
+/* Function:  esl_random_uint64()
+ * Synopsis:  Generate uniform random deviate [0,2^64)
+ * Incept:    SRE, Fri 29 May 2026 [Montreal]
+ *
+ * Purpose:   Returns a uniform uint64_t deviate <n> on the interval
+ *            [0,2^64).
+ *
+ *            Compare to esl_rand64(), which samples a uint64_t using
+ *            the MT64 algorithm. This function combines two mt32
+ *            samples, allowing ESL_RANDOMNESS to be used for 64bit
+ *            sampling too.
+ */
+uint64_t
+esl_random_uint64(ESL_RANDOMNESS *rng)
+{
+  uint64_t hi = (rng->type == eslRND_MERSENNE) ? mersenne_twister(rng) : knuth(rng);  // it's important to force the compiler to do hi,lo in deterministic order...
+  uint64_t lo = (rng->type == eslRND_MERSENNE) ? mersenne_twister(rng) : knuth(rng);  // ...so beware if you try to rewrite this in some fancy way
+  return (hi << 32) | lo;
 }
 
 
@@ -310,23 +329,45 @@ esl_random_uint32(ESL_RANDOMNESS *r)
  *            0..n-1, for n>0 and n<2^31.
  */
 int
-esl_rnd_Roll(ESL_RANDOMNESS *r, int n)
+esl_rnd_Roll(ESL_RANDOMNESS *rng, int n)
 {
   ESL_DASSERT1(( n>0 ));
   uint32_t factor = UINT32_MAX / (uint32_t) n;
   uint32_t u;
 
-  do { u = esl_random_uint32(r) / factor; } while (u >= n);
+  do { u = esl_random_uint32(rng) / factor; } while (u >= n);
   return (int) u;
+}
+
+/* Function:  esl_rnd_LRoll()
+ * Synopsis:  Generate a uniform random int64_t on [0,n).
+ * Incept:    SRE, Fri 29 May 2026
+ *
+ * Purpose:   Generate a uniformly distributed integer on [0,n), for n>0
+ *            and n<2^63.
+ *
+ *            Compare esl_rand64_Roll, which uses mt64; this function
+ *            is using two mt32 samples via esl_random_uint64(), enabling
+ *            64b sampling using ESL_RANDOMNESS.
+ */
+int64_t
+esl_rnd_LRoll(ESL_RANDOMNESS *rng, int64_t n)
+{
+  ESL_DASSERT1(( n>0 ));
+  uint64_t factor = UINT64_MAX / (uint64_t) n;
+  uint64_t u;
+
+  do { u = esl_random_uint64(rng) / factor; } while (u >= n);
+  return (int64_t) u;
 }
 
 
 static uint32_t 
-knuth(ESL_RANDOMNESS *r)
+knuth(ESL_RANDOMNESS *rng)
 {
-  r->x *= 69069;
-  r->x += 1;
-  return r->x;
+  rng->x *= 69069;
+  rng->x += 1;
+  return rng->x;
 }
 
 /* mersenne_twister() and other mersenne_*() functions below:
@@ -341,12 +382,12 @@ knuth(ESL_RANDOMNESS *r)
  * [SRE, 30 May 09, Stockholm]
  */
 static uint32_t
-mersenne_twister(ESL_RANDOMNESS *r)
+mersenne_twister(ESL_RANDOMNESS *rng)
 {
   uint32_t x;
-  if (r->mti >= 624) mersenne_fill_table(r);
+  if (rng->mti >= 624) mersenne_fill_table(rng);
 
-  x = r->mt[r->mti++];
+  x = rng->mt[rng->mti++];
   x ^= (x >> 11);
   x ^= (x <<  7) & 0x9d2c5680;
   x ^= (x << 15) & 0xefc60000;
@@ -367,14 +408,14 @@ mersenne_twister(ESL_RANDOMNESS *r)
  * reproducible streams.
  */
 static void
-mersenne_seed_table(ESL_RANDOMNESS *r, uint32_t seed)
+mersenne_seed_table(ESL_RANDOMNESS *rng, uint32_t seed)
 {
   int z;
 
-  r->seed  = seed;
-  r->mt[0] = seed;
+  rng->seed  = seed;
+  rng->mt[0] = seed;
   for (z = 1; z < 624; z++)
-    r->mt[z] = 69069 * r->mt[z-1];
+    rng->mt[z] = 69069 * rng->mt[z-1];
   return;
 }
 
@@ -384,7 +425,7 @@ mersenne_seed_table(ESL_RANDOMNESS *r, uint32_t seed)
  * run out of numbers.
  */
 static void
-mersenne_fill_table(ESL_RANDOMNESS *r)
+mersenne_fill_table(ESL_RANDOMNESS *rng)
 {
   uint32_t y;
   int      z;
@@ -392,17 +433,17 @@ mersenne_fill_table(ESL_RANDOMNESS *r)
 
   for (z = 0; z < 227; z++)	/* 227 = N-M = 624-397 */
     {
-      y = (r->mt[z] & 0x80000000) | (r->mt[z+1] & 0x7fffffff);
-      r->mt[z] = r->mt[z+397] ^ (y>>1) ^ mag01[(int)(y & 0x1)]; /* yes, the (int) cast is necessary; xref bug #e7; some compilers may try to cast y to signed int otherwise, to use it in an array index */
+      y = (rng->mt[z] & 0x80000000) | (rng->mt[z+1] & 0x7fffffff);
+      rng->mt[z] = rng->mt[z+397] ^ (y>>1) ^ mag01[(int)(y & 0x1)]; /* yes, the (int) cast is necessary; xref bug #e7; some compilers may try to cast y to signed int otherwise, to use it in an array index */
     }
   for (; z < 623; z++)
     {
-      y = (r->mt[z] & 0x80000000) | (r->mt[z+1] & 0x7fffffff);
-      r->mt[z] = r->mt[z-227] ^ (y>>1) ^ mag01[(int)(y & 0x1)];
+      y = (rng->mt[z] & 0x80000000) | (rng->mt[z+1] & 0x7fffffff);
+      rng->mt[z] = rng->mt[z-227] ^ (y>>1) ^ mag01[(int)(y & 0x1)];
     }
-  y = (r->mt[623] & 0x80000000) | (r->mt[0] & 0x7fffffff);
-  r->mt[623] = r->mt[396] ^ (y>>1) ^ mag01[(int)(y & 0x1)];
-  r->mti = 0;
+  y = (rng->mt[623] & 0x80000000) | (rng->mt[0] & 0x7fffffff);
+  rng->mt[623] = rng->mt[396] ^ (y>>1) ^ mag01[(int)(y & 0x1)];
+  rng->mti = 0;
 
   return;
 }
@@ -426,8 +467,6 @@ choose_arbitrary_seed(void)
   seed = esl_mix3(a,b,c);	                    // try to decorrelate closely spaced choices of pid/times
   return (seed == 0) ? 42 : seed;                   // 42 is arbitrary, just to avoid seed==0. 
 }
-
-
 /*----------- end of esl_random() --------------*/
 
 
@@ -440,26 +479,26 @@ choose_arbitrary_seed(void)
  * Synopsis:  Dump ESL_RANDOMNESS object to stream, for debugging/examination.
  */
 int
-esl_randomness_Dump(FILE *fp, ESL_RANDOMNESS *r)
+esl_randomness_Dump(FILE *fp, ESL_RANDOMNESS *rng)
 {
-  if (r->type == eslRND_FAST)
+  if (rng->type == eslRND_FAST)
     {
       fputs      ("type  = knuth\n", fp );
-      fprintf(fp, "state = %" PRIu32 "\n", r->x);
-      fprintf(fp, "seed  = %" PRIu32 "\n", r->seed);      
+      fprintf(fp, "state = %" PRIu32 "\n", rng->x);
+      fprintf(fp, "seed  = %" PRIu32 "\n", rng->seed);      
     }
-  else if (r->type == eslRND_MERSENNE)
+  else if (rng->type == eslRND_MERSENNE)
     {
       int i,j;
 
       fputs      ("type    = mersenne twister\n", fp );
-      fprintf(fp, "mti     = %d (0..623)\n", r->mti);
-      fprintf(fp, "mt[mti] = %" PRIu32 "\n", r->mt[r->mti]);
+      fprintf(fp, "mti     = %d (0..623)\n", rng->mti);
+      fprintf(fp, "mt[mti] = %" PRIu32 "\n", rng->mt[rng->mti]);
 
       fprintf(fp, "%6d: ", 0);
       for (i = 0, j=0; i < 624; i++)
 	{
-	  fprintf(fp, "%11" PRIu32 " ", r->mt[i]);
+	  fprintf(fp, "%11" PRIu32 " ", rng->mt[i]);
 	  if (++j == 20) { fprintf(fp, "\n%6d: ", i+1); j=0; }
 	}
       fputs("\n", fp);
@@ -480,10 +519,10 @@ esl_randomness_Dump(FILE *fp, ESL_RANDOMNESS *r)
  *           (positive uniform deviate).
  */
 double
-esl_rnd_UniformPositive(ESL_RANDOMNESS *r)
+esl_rnd_UniformPositive(ESL_RANDOMNESS *rng)
 {
   double x;
-  do { x = esl_random(r); } while (x == 0.0);
+  do { x = esl_random(rng); } while (x == 0.0);
   return x;
 }
 
@@ -511,12 +550,12 @@ esl_rnd_UniformPositive(ESL_RANDOMNESS *r)
  * Method:    Impenetrability of the code is to be blamed on 
  *            FORTRAN/f2c lineage.
  *
- * Args:      r      - ESL_RANDOMNESS object
+ * Args:      rng      - ESL_RANDOMNESS object
  *            mean   - mean of the Gaussian we're sampling from
  *            stddev - standard deviation of the Gaussian     
  */
 double
-esl_rnd_Gaussian(ESL_RANDOMNESS *r, double mean, double stddev)
+esl_rnd_Gaussian(ESL_RANDOMNESS *rng, double mean, double stddev)
 {
   long   i;
   double snorm,u,s,ustar,aa,w,y,tt;
@@ -552,7 +591,7 @@ esl_rnd_Gaussian(ESL_RANDOMNESS *r, double mean, double stddev)
     8.781922E-2,9.930398E-2,0.11556,0.1404344,0.1836142,0.2790016,0.7010474
   };
 
-  u = esl_rnd_UniformPositive(r);
+  u = esl_rnd_UniformPositive(rng);
   s = 0.0;
   if(u > 0.5) s = 1.0;
   u += (u-s);
@@ -580,18 +619,18 @@ S60:
   /*
    * CENTER CONTINUED
    */
-  u = esl_rnd_UniformPositive(r);
+  u = esl_rnd_UniformPositive(rng);
   w = u*(a[i]-aa);
   tt = (0.5*w+aa)*w;
   goto S80;
 S70:
   tt = u;
-  ustar = esl_rnd_UniformPositive(r);
+  ustar = esl_rnd_UniformPositive(rng);
 S80:
   if(ustar > tt) goto S50;
-  u = esl_rnd_UniformPositive(r);
+  u = esl_rnd_UniformPositive(rng);
   if(ustar >= u) goto S70;
-  ustar = esl_rnd_UniformPositive(r);
+  ustar = esl_rnd_UniformPositive(rng);
   goto S40;
 S100:
   /*
@@ -615,11 +654,11 @@ S140:
 S150:
   tt = u;
 S160:
-  ustar = esl_rnd_UniformPositive(r);
+  ustar = esl_rnd_UniformPositive(rng);
   if(ustar > tt) goto S50;
-  u = esl_rnd_UniformPositive(r);
+  u = esl_rnd_UniformPositive(rng);
   if(ustar >= u) goto S150;
-  u = esl_rnd_UniformPositive(r);
+  u = esl_rnd_UniformPositive(rng);
   goto S140;
 }
 
@@ -628,7 +667,7 @@ S160:
 /* subfunctions that esl_rnd_Gamma() is going to call:
  */
 static double
-gamma_ahrens(ESL_RANDOMNESS *r, double a)	/* for a >= 3 */
+gamma_ahrens(ESL_RANDOMNESS *rng, double a)	/* for a >= 3 */
 {
   double V;			/* uniform deviates */
   double X,Y;
@@ -636,37 +675,37 @@ gamma_ahrens(ESL_RANDOMNESS *r, double a)	/* for a >= 3 */
   
   do {
     do {				/* generate candidate X */
-      Y = tan(eslCONST_PI * esl_random(r)); 
+      Y = tan(eslCONST_PI * esl_random(rng)); 
       X = Y * sqrt(2.*a -1.) + a - 1.;
     } while (X <= 0.);
 				/* accept/reject X */
-    V    = esl_random(r);
+    V    = esl_random(rng);
     test = (1+Y*Y) * exp( (a-1.)* log(X/(a-1.)) - Y*sqrt(2.*a-1.));
   } while (V > test);
   return X;
 }
 static double
-gamma_integer(ESL_RANDOMNESS *r, unsigned int a)	/* for small integer a, a < 12 */
+gamma_integer(ESL_RANDOMNESS *rng, unsigned int a)	/* for small integer a, a < 12 */
 {
   int    i;
   double U,X;
 
   U = 1.;
   for (i = 0; i < a; i++) 
-    U *= esl_rnd_UniformPositive(r);
+    U *= esl_rnd_UniformPositive(rng);
   X = -log(U);
 
   return X;
 }
 static double
-gamma_fraction(ESL_RANDOMNESS *r, double a)	/* for fractional a, 0 < a < 1 */
+gamma_fraction(ESL_RANDOMNESS *rng, double a)	/* for fractional a, 0 < a < 1 */
 {				/* Knuth 3.4.1, exercise 16, pp. 586-587 */
   double p, U, V, X, q;
   
   p = eslCONST_E / (a + eslCONST_E);
   do {
-    U = esl_random(r);
-    V = esl_rnd_UniformPositive(r);
+    U = esl_random(rng);
+    V = esl_rnd_UniformPositive(rng);
     if (U < p) {
       X = pow(V, 1./a);
       q = exp(-X);
@@ -674,7 +713,7 @@ gamma_fraction(ESL_RANDOMNESS *r, double a)	/* for fractional a, 0 < a < 1 */
       X = 1. - log(V);
       q = pow(X, a-1.);
     }
-    U = esl_random(r);
+    U = esl_random(rng);
   } while (U >= q);
   return X;
 }
@@ -690,11 +729,11 @@ gamma_fraction(ESL_RANDOMNESS *r, double a)	/* for fractional a, 0 < a < 1 */
  *           but also relied on examination of the implementation in
  *           the GNU Scientific Library (libgsl) \citep{Galassi06}.
  *
- * Args:     r      - random number generation seed
+ * Args:     rng      - random number generation seed
  *           a      - order of the gamma function; a > 0
  */
 double
-esl_rnd_Gamma(ESL_RANDOMNESS *r, double a)
+esl_rnd_Gamma(ESL_RANDOMNESS *rng, double a)
 {
   double aint;
 
@@ -702,13 +741,13 @@ esl_rnd_Gamma(ESL_RANDOMNESS *r, double a)
 
   aint = floor(a);
   if (a == aint && a < 12.) 
-    return gamma_integer(r, (unsigned int) a);
+    return gamma_integer(rng, (unsigned int) a);
   else if (a > 3.) 
-    return gamma_ahrens(r, a);
+    return gamma_ahrens(rng, a);
   else if (a < 1.) 
-    return gamma_fraction(r, a);
+    return gamma_fraction(rng, a);
   else 
-    return gamma_integer(r, aint) + gamma_fraction(r, a-aint);
+    return gamma_integer(rng, aint) + gamma_fraction(rng, a-aint);
 }
 
 
@@ -827,11 +866,11 @@ esl_rnd_Deal(ESL_RANDOMNESS *rng, int m, int n, int *deal)
  *            and all $p_i$ must be $>$ <FLT_EPSILON>.
  */
 int
-esl_rnd_DChoose(ESL_RANDOMNESS *r, const double *p, int N)
+esl_rnd_DChoose(ESL_RANDOMNESS *rng, const double *p, int N)
 {
   double norm = 0.0;		/* ~ 1.0                  */
   double sum  = 0.0;            /* integrated prob        */
-  double roll = esl_random(r);  /* random fraction        */
+  double roll = esl_random(rng);  /* random fraction        */
   int    i;                     /* counter over the probs */
 
   /* we need to deal with finite roundoff error in p's sum */
@@ -847,14 +886,14 @@ esl_rnd_DChoose(ESL_RANDOMNESS *r, const double *p, int N)
   return 0; /*notreached*/
 }
 int
-esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
+esl_rnd_FChoose(ESL_RANDOMNESS *rng, const float *p, int N)
 {
   /* Computing in double precision is important:
    * casting <roll> to (float) gives a [0,1] number instead of [0,1).
    */
   double norm = 0.0;		/* ~ 1.0                  */
   double sum  = 0.0;            /* integrated prob        */
-  double roll = esl_random(r);  /* random fraction        */
+  double roll = esl_random(rng);  /* random fraction        */
   int    i;                     /* counter over the probs */
 
   for (i = 0; i < N; i++) norm += p[i];
@@ -873,7 +912,7 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
 /* Function:  esl_rnd_DChooseCDF()
  * Synopsis:  Return random choice from cumulative multinomial distribution.
  *
- * Purpose:   Given a random number generator <r> and a cumulative
+ * Purpose:   Given a random number generator <rng> and a cumulative
  *            multinomial distribution <cdf[0..N-1]>, sample an element
  *            <0..N-1> from that distribution. Return the index <0..N-1>.
  *
@@ -885,8 +924,8 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
  *            distribution <p>, it will generally be faster to
  *            calculate the CDF once using <esl_vec_DCDF(p, N, cdf)>,
  *            then sampling many times from the CDF with
- *            <esl_rnd_DChooseCDF(r, cdf, N)>, as opposed to calling
- *            <esl_rnd_DChoose(r, p, N)> many times, because
+ *            <esl_rnd_DChooseCDF(rng, cdf, N)>, as opposed to calling
+ *            <esl_rnd_DChoose(rng, p, N)> many times, because
  *            <esl_rnd_DChoose()> has to calculated the CDF before
  *            sampling. This also gives you a bit more control over
  *            error detection: you can make sure that the CDF is ok (p
@@ -896,7 +935,7 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
  *            <esl_rnd_FChooseCDF()> is the same, but for
  *            a single-precision float <cdf>.
  *            
- * Args:      r    - random number generator
+ * Args:      rng    - random number generator
  *            cdf  - cumulative multinomial distribution, cdf[0..N-1]
  *            N    - number of elements in <cdf>
  *
@@ -909,9 +948,9 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
  *            larger vectors.
  */
 int
-esl_rnd_DChooseCDF(ESL_RANDOMNESS *r, const double *cdf, int N)
+esl_rnd_DChooseCDF(ESL_RANDOMNESS *rng, const double *cdf, int N)
 {
-  double roll = esl_random(r);	/* uniform 0.0 <= x < 1.0 */
+  double roll = esl_random(rng);	/* uniform 0.0 <= x < 1.0 */
   int    i;
 
   ESL_DASSERT1((cdf[0] >= 0.0));
@@ -923,9 +962,9 @@ esl_rnd_DChooseCDF(ESL_RANDOMNESS *r, const double *cdf, int N)
   return 0; /*notreached*/
 }
 int
-esl_rnd_FChooseCDF(ESL_RANDOMNESS *r, const float *cdf, int N)
+esl_rnd_FChooseCDF(ESL_RANDOMNESS *rng, const float *cdf, int N)
 {
-  double roll = esl_random(r);	/* uniform 0.0 <= x < 1.0. must be double, not float, to guarantee x <1 */
+  double roll = esl_random(rng);	/* uniform 0.0 <= x < 1.0. must be double, not float, to guarantee x <1 */
   int    i;
 
   ESL_DASSERT1((cdf[0] >= 0.0));
@@ -1079,7 +1118,7 @@ int
 main(int argc, char **argv)
 {
   ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
-  ESL_RANDOMNESS *r       = (esl_opt_GetBoolean(go, "-f") == TRUE ? esl_randomness_CreateFast(42) : esl_randomness_Create(42));
+  ESL_RANDOMNESS *rng     = (esl_opt_GetBoolean(go, "-f") == TRUE ? esl_randomness_CreateFast(42) : esl_randomness_Create(42));
   ESL_STOPWATCH  *w       = esl_stopwatch_Create();
   int             N       = esl_opt_GetInteger(go, "-N");
   double          p[20];
@@ -1089,16 +1128,16 @@ main(int argc, char **argv)
   esl_vec_DCDF(p, 20, cdf);
 
   esl_stopwatch_Start(w);
-  if      (esl_opt_GetBoolean(go, "-c")) { while (N--) esl_rnd_DChoose(r, p, 20);      }
-  else if (esl_opt_GetBoolean(go, "-d")) { while (N--) esl_rnd_DChooseCDF(r, cdf, 20); }
-  else if (esl_opt_GetBoolean(go, "-r")) { while (N--) esl_randomness_Init(r, 42);     }
-  else                                   { while (N--) esl_random(r);                  }
+  if      (esl_opt_GetBoolean(go, "-c")) { while (N--) esl_rnd_DChoose(rng, p, 20);      }
+  else if (esl_opt_GetBoolean(go, "-d")) { while (N--) esl_rnd_DChooseCDF(rng, cdf, 20); }
+  else if (esl_opt_GetBoolean(go, "-r")) { while (N--) esl_randomness_Init(rng, 42);     }
+  else                                   { while (N--) esl_random(rng);                  }
 
   esl_stopwatch_Stop(w);
   esl_stopwatch_Display(stdout, w, "# CPU Time: ");
 
   esl_stopwatch_Destroy(w);
-  esl_randomness_Destroy(r);
+  esl_randomness_Destroy(rng);
   esl_getopts_Destroy(go);
   return 0;
 }
@@ -1122,7 +1161,7 @@ main(int argc, char **argv)
  * a binned frequency test.
  */
 static void
-utest_random(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
+utest_random(ESL_RANDOMNESS *rng, int n, int nbins, int be_verbose)
 {
   char            msg[]  = "esl_random() unit test failed";
   int            *counts = NULL;
@@ -1136,7 +1175,7 @@ utest_random(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
 
   for (i = 0; i < n; i++)
     { 
-      sample = esl_rnd_Roll(r, nbins);
+      sample = esl_rnd_Roll(rng, nbins);
       if (sample < 0 || sample >= nbins) esl_fatal(msg);
       counts[sample]++;
     }
@@ -1155,10 +1194,96 @@ utest_random(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
   return;
 }
 
+/* The esl_rnd_LRoll() unit test.
+ *
+ * Like utest_random(), a binned chi-squared frequency test, but using
+ * the int64_t roller esl_rnd_LRoll(), which draws on the 64-bit
+ * esl_random_uint64() generator.
+ *
+ * We roll on a large range N = nbins * M, choosing M large enough that
+ * N > 2^32. This forces the high 32 bits of each esl_random_uint64()
+ * sample to matter, so the test exercises the full 64-bit path -- it
+ * would catch, for example, a botched combination of the two 32-bit
+ * MT samples into a 64-bit deviate. Each sample is binned by s/M into
+ * one of <nbins> equal-width bins, which should be uniformly occupied.
+ *
+ * As a cheap aside, we also check the n=1 edge case (LRoll must always
+ * return 0).
+ *
+ * Can fail stochastically, so caller should default to an <rng>
+ * with a fixed RNG seed.
+ */
+static void
+utest_lroll(ESL_RANDOMNESS *rng, int n, int nbins, int be_verbose)
+{
+  char     msg[]  = "esl_rnd_LRoll() unit test failed";
+  int     *counts = NULL;
+  int64_t  M      = (int64_t) 1 << 33;     /* bin width. M*nbins > 2^32 forces the high word into play */
+  int64_t  N      = (int64_t) nbins * M;   /* full range we roll on    */
+  int64_t  sample;
+  double   X2p    = 0.;
+  double   X2, exp, diff;
+  int      i;
+
+  for (i = 0; i < 100; i++)
+    if (esl_rnd_LRoll(rng, 1) != 0) esl_fatal(msg);  /* n=1: only possible value is 0 */
+
+  if ((counts = malloc(sizeof(int) * nbins)) == NULL) esl_fatal(msg);
+  esl_vec_ISet(counts, nbins, 0);
+
+  for (i = 0; i < n; i++)
+    {
+      sample = esl_rnd_LRoll(rng, N);
+      if (sample < 0 || sample >= N) esl_fatal(msg);
+      counts[sample / M]++;                          /* sample/M is on 0..nbins-1 */
+    }
+
+  /* X^2 value: \sum (o_i - e_i)^2 / e_i */
+  for (X2 = 0., i = 0; i < nbins; i++) {
+    exp  = (double) n / (double) nbins;
+    diff = (double) counts[i] - exp;
+    X2 +=  diff*diff/exp;
+  }
+  if (esl_stats_ChiSquaredTest(nbins, X2, &X2p) != eslOK) esl_fatal(msg);
+  if (be_verbose) printf("LRoll():   \t%g\n", X2p);
+  if (X2p < 0.01) esl_fatal(msg);
+
+  free(counts);
+  return;
+}
+
+/* The esl_random_uint64() known-answer test.
+ *
+ * esl_random_uint64() combines two 32-bit Mersenne Twister samples
+ * into a 64-bit random deviate as (hi<<32)|lo. esl_random guarantees
+ * platform-independent reproducibility, but C does not specify
+ * operand evaluation order, so the code for esl_random_uint64() must
+ * be written to force a deterministic hi-then-lo sequence. This
+ * (brittle!) test verifies as a regression test, using a fixed RNG seed.
+ *
+ * If the base MT19937 algorithm or its seeding ever changes, these
+ * expected values must be regenerated.
+ */
+static void
+utest_uint64_kat(void)
+{
+  char            msg[]    = "utest_uint64_kat() known-answer test failed";
+  ESL_RANDOMNESS *rng      = esl_randomness_Create(42);   
+  uint64_t        expect[] = { 0x836dbbccbf38c44f, 0x22f891c1c0ba0af5,
+                               0xba708c47e6a4e700, 0xa90d65690b9e6255 };
+  int             i;
+
+  if (!rng) esl_fatal(msg);
+  for (i = 0; i < 4; i++)
+    if (esl_random_uint64(rng) != expect[i]) esl_fatal(msg);
+  esl_randomness_Destroy(rng);
+  return;
+}
+
 /* The DChoose() and FChoose() unit tests.
  */
 static void
-utest_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
+utest_choose(ESL_RANDOMNESS *rng, int n, int nbins, int be_verbose)
 {
   double *pd  = NULL;		/* probability vector, double */
   double *pdc = NULL;		/* CDF, double                */
@@ -1175,7 +1300,7 @@ utest_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
   if ((ct  = malloc(sizeof(int)    * nbins)) == NULL) esl_fatal("malloc failed");
 
   /* Sample a random multinomial probability vector.  */
-  if (esl_dirichlet_DSampleUniform(r, nbins, pd) != eslOK) esl_fatal("dirichlet sample failed");
+  if (esl_dirichlet_DSampleUniform(rng, nbins, pd) != eslOK) esl_fatal("dirichlet sample failed");
   esl_vec_D2F(pd, nbins, pf);
 
   /* Test esl_rnd_DChoose(): 
@@ -1183,7 +1308,7 @@ utest_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
    */
   esl_vec_ISet(ct, nbins, 0);
   for (i = 0; i < n; i++) 
-    ct[esl_rnd_DChoose(r, pd, nbins)]++;
+    ct[esl_rnd_DChoose(rng, pd, nbins)]++;
   for (X2 = 0., i=0; i < nbins; i++) {
     exp = (double) n * pd[i];
     diff = (double) ct[i] - exp;
@@ -1196,7 +1321,7 @@ utest_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
   /* Repeat above for FChoose(). */
   esl_vec_ISet(ct, nbins, 0);
   for (i = 0; i < n; i++)
-    ct[esl_rnd_FChoose(r, pf, nbins)]++;
+    ct[esl_rnd_FChoose(rng, pf, nbins)]++;
   for (X2 = 0., i=0; i < nbins; i++) {
     exp = (double) n * pd[i];
     diff = (double) ct[i] - exp;
@@ -1210,7 +1335,7 @@ utest_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
   esl_vec_ISet(ct, nbins, 0);
   esl_vec_DCDF(pd, nbins, pdc);
   for (i = 0; i < n; i++) 
-    ct[esl_rnd_DChooseCDF(r, pdc, nbins)]++;
+    ct[esl_rnd_DChooseCDF(rng, pdc, nbins)]++;
   for (X2 = 0., i=0; i < nbins; i++) {
     exp  = (double) n * pd[i];
     diff = (double) ct[i] - exp;
@@ -1224,7 +1349,7 @@ utest_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
   esl_vec_ISet(ct, nbins, 0);
   esl_vec_FCDF(pf, nbins, pfc);
   for (i = 0; i < n; i++) 
-    ct[esl_rnd_FChooseCDF(r, pfc, nbins)]++;
+    ct[esl_rnd_FChooseCDF(rng, pfc, nbins)]++;
   for (X2 = 0., i=0; i < nbins; i++) {
     exp  = (double) n * pf[i];
     diff = (double) ct[i] - exp;
@@ -1317,7 +1442,7 @@ static ESL_OPTIONS options[] = {
 static char usage[]  = "[-options]";
 static char banner[] = "test driver for random module";
 
-static int save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n);
+static int save_bitfile(char *bitfile, ESL_RANDOMNESS *rng, int n);
 
 int
 main(int argc, char **argv)
@@ -1335,8 +1460,11 @@ main(int argc, char **argv)
   fprintf(stderr, "#  rng seed 1 (slow) = %" PRIu32 "\n", esl_randomness_GetSeed(r1));
   fprintf(stderr, "#  rng seed 2 (fast) = %" PRIu32 "\n", esl_randomness_GetSeed(r2));
 
+  utest_uint64_kat();
+
   utest_random(r1, n, nbins, be_verbose);
   utest_choose(r1, n, nbins, be_verbose);
+  utest_lroll (r1, n, nbins, be_verbose);
   utest_random(r2, n, nbins, be_verbose);
   utest_choose(r2, n, nbins, be_verbose);
 
@@ -1354,7 +1482,7 @@ main(int argc, char **argv)
 }
 
 static int
-save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
+save_bitfile(char *bitfile, ESL_RANDOMNESS *rng, int n)
 {
   FILE *fp = NULL;
   int b,i;
@@ -1369,7 +1497,7 @@ save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
    */
   for (i = 0; i < n; i++)
     {
-      x = (r->type == eslRND_FAST ? knuth(r) : mersenne_twister(r)); /* generate a 32 bit random variate by MT19937 */
+      x = (rng->type == eslRND_FAST ? knuth(rng) : mersenne_twister(rng)); /* generate a 32 bit random variate by MT19937 */
       for (b = 0; b < 32; b++) 
 	{
 	  if (x & 01) fprintf(fp, "1");
