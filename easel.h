@@ -185,7 +185,7 @@
     }\
     if ( ((p) = malloc(size)) == NULL)  { \
        status = eslEMEM;\
-       esl_exception(status, FALSE, __FILE__, __LINE__, "malloc of size %d failed", size); \
+       esl_exception(status, FALSE, __FILE__, __LINE__, "malloc of size %llu failed", (unsigned long long) size); \
        goto ERROR;\
      }} while (0)
 
@@ -195,7 +195,7 @@
      if ((tmp) != NULL) (p) = (tmp);\
      else {\
        status = eslEMEM;\
-       esl_exception(status, FALSE, __FILE__, __LINE__, "realloc for size %d failed", newsize);	\
+       esl_exception(status, FALSE, __FILE__, __LINE__, "realloc for size %llu failed", (unsigned long long) newsize); \
        goto ERROR;\
      }} while (0)
 
@@ -206,7 +206,7 @@
      if ((esltmpp) != NULL) (p) = (esltmpp);\
      else {\
        status = eslEMEM;\
-       esl_exception(status, FALSE, __FILE__, __LINE__, "realloc for size %d failed", newsize); \
+       esl_exception(status, FALSE, __FILE__, __LINE__, "realloc for size %llu failed", (unsigned long long) newsize); \
        goto ERROR;\
      }} while (0)
 /*::cexcerpt::alloc_macros::end::*/
