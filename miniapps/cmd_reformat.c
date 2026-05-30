@@ -84,7 +84,8 @@ show_opthelp(const ESL_GETOPTS *go)
 Choices for new output <format>:   Unaligned      Aligned    \n\
                                    -----------    -------    \n\
                                    fasta          a2m        \n\
-                                   hmmpgmd        afa        \n\
+                                   hmmpgmd        a3m        \n\
+                                                  afa        \n\
                                                   clustal    \n\
                                                   clustallike\n\
                                                   pfam       \n\

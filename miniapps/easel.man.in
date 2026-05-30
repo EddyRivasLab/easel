@@ -62,7 +62,8 @@ and
 .PP
 Accepted multiple sequence alignment formats are:
 .BR Stockholm " (Pfam/Rfam format)",
-.BR A2M " (including 'dotless' A2M, also known as A3M)",
+.BR A2M " (including 'dotless' A2M)",
+.BR A3M " (which is just dotless A2M)",
 .BR afa " (aligned fasta)",
 .BR psiblast ,
 .BR CLUSTAL " (including clustal-like formats like MUSCLE output)",
@@ -118,7 +119,7 @@ argument are:
 
 .PP
 Multiple sequence alignment format names are:
-.BR stockholm|pfam|a2m|afa|psiblast|clustal|clustallike|phylip|phylips|selex .
+.BR stockholm|pfam|a2m|a3m|afa|psiblast|clustal|clustallike|phylip|phylips|selex .
 
 .PP
 When a miniapp outputs sequences or alignments, it will typically
@@ -127,7 +128,7 @@ have an
 option for selecting the output format.
 The choices for multiple sequence alignment output formats,
 are the same as for inputs:
-.BR stockholm|pfam|a2m|afa|psiblast|clustal|clustallike|phylip|phylips|selex .
+.BR stockholm|pfam|a2m|a3m|afa|psiblast|clustal|clustallike|phylip|phylips|selex .
 For unaligned sequence output, the
 only choice for
 .I fmt

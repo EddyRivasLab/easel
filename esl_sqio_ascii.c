@@ -400,9 +400,10 @@ sqascii_GuessFileFormat(ESL_SQFILE *sqfp, int *ret_fmt)
   /* Attempt to guess file format based on file name suffix. */
   if      (nsfx && strcmp(sfx, ".fa")     == 0)  { *ret_fmt = eslSQFILE_FASTA;      return eslOK; }
   else if (nsfx && strcmp(sfx, ".gb")     == 0)  { *ret_fmt = eslSQFILE_GENBANK;    return eslOK; }
-  else if (nsfx && strcmp(sfx, ".afa")    == 0)  { *ret_fmt = eslSQFILE_UNKNOWN;    return eslEFORMAT; }  // special case: suffix says AFA MSA format. Don't open it as unaligned.
+  else if (nsfx && strcmp(sfx, ".afa")    == 0)  { *ret_fmt = eslSQFILE_UNKNOWN;    return eslEFORMAT; }  // special case: suffix says AFA MSA format. Don't open it as unaligned FASTA.
   else if (nsfx && strcmp(sfx, ".afasta") == 0)  { *ret_fmt = eslSQFILE_UNKNOWN;    return eslEFORMAT; }  
   else if (nsfx && strcmp(sfx, ".a2m")    == 0)  { *ret_fmt = eslSQFILE_UNKNOWN;    return eslEFORMAT; }  // ditto, .a2m
+  else if (nsfx && strcmp(sfx, ".a3m")    == 0)  { *ret_fmt = eslSQFILE_UNKNOWN;    return eslEFORMAT; }  // ditto, .a3m
     
   /* If that didn't work, we'll have a peek at the stream; 
    * turn recording on, and set for line based input.

@@ -1893,7 +1893,7 @@ esl_msa_CheckUniqueNames(const ESL_MSA *msa)
  *            calculation to define model architecture, and could be
  *            rewritten now to use this function. 
  *            
- *            A2M format alignment output uses this to define
+ *            A2M|A3M format alignment output uses this to define
  *            consensus columns when #=RF annotation isn't available.
  */
 int
@@ -2945,7 +2945,7 @@ esl_msa_Hash(ESL_MSA *msa)
  *            This makes profile multiple alignments unique w.r.t.
  *            arbitrary gap ordering in insert regions, since profile
  *            alignments don't specify any alignment of insertions.
- *            A2M alignment format, for example, does not specify any
+ *            A2M|A3M alignment format, for example, does not specify any
  *            insert alignment.
  *
  * Returns:   <eslOK> on success. <msa> is altered, rearranging the
@@ -3419,11 +3419,11 @@ esl_msa_CompareOptional(ESL_MSA *a1, ESL_MSA *a2)
  *
  * Throws:    <eslEMEM> on allocation failure, and <*ret_msa> is <NULL>.
  * 
- * Notes:     I wrote this for A2M format unit tests, which is why it's
- *            not sampling random weights (A2M doesn't store weights),
- *            and why it samples a reference annotation line (A2M
- *            always implies one). If you extend this for other
- *            purposes, make sure you don't break the A2M format
+ * Notes:     I wrote this for A2M|A3M format unit tests, which is why
+ *            it's not sampling random weights (A2M|A3M doesn't store
+ *            weights), and why it samples a reference annotation line
+ *            (A2M|A3M always implies one). If you extend this for
+ *            other purposes, make sure you don't break the A2M|A3M format
  *            tests.  We may even want to pull this out into its own
  *            module, so we can write something a bit for flexible for
  *            passing options to it, to control what it does and

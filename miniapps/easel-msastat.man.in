@@ -106,7 +106,7 @@ is in format
 bypassing format autodetection. Choices for 
 .I fmt
 are
-.BR a2m|afa|clustal|phylip|psiblast|selex|stockholm .
+.BR a2m|a3m|afa|clustal|phylip|psiblast|selex|stockholm .
 .I fmt
 is case-insensitive (e.g.
 .B a2m

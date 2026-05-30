@@ -1,8 +1,8 @@
-/* I/O of multiple sequence alignments in A2M format (UCSC SAM)
+/* I/O of multiple sequence alignments in A2M|A3M format (HHSEARCH, UCSC SAM)
  * 
  * Contents:
- *   1. API for reading/writing A2M format
- *   2. Internal functions used by the A2M parser
+ *   1. API for reading/writing A2M|A3M format
+ *   2. Internal functions used by the A2M|A3M parser
  *   3. Unit tests.
  *   4. Test driver.
  *   5. Examples.
@@ -28,19 +28,19 @@ static int a2m_padding_digital(ESL_MSA *msa, char **csflag, int *nins, int ncons
 static int a2m_padding_text   (ESL_MSA *msa, char **csflag, int *nins, int ncons);
 
 /*****************************************************************
- *# 1. API for reading/writing A2M format
+ *# 1. API for reading/writing A2M|A3M format
  *****************************************************************/
 
 
 /* Function:  esl_msafile_a2m_SetInmap()
- * Synopsis:  Set input map specific for A2M format
+ * Synopsis:  Set input map specific for A2M|A3M format
  *
- * Purpose:   Set the <afp->inmap> for A2M format.
+ * Purpose:   Set the <afp->inmap> for A2M|A3M format.
  *
  *            A2M ignores whitespace and periods (and ignoring
  *            periods makes us agnostic whether the input is
  *            "dotless" format or not). Make ' ', '\t', and
- *            '.' ignored.
+ *            '.' ignored. A3M is just dotless A2M.
  *            
  *            A2M format only allows - for a gap, so make
  *            all other Easel gap characters illegal on input.
@@ -90,16 +90,16 @@ esl_msafile_a2m_SetInmap(ESL_MSAFILE *afp)
 }
 
 /* Function:  esl_msafile_a2m_GuessAlphabet()
- * Synopsis:  Guess the alphabet of an open A2M MSA file.
+ * Synopsis:  Guess the alphabet of an open A2M|A3M MSA file.
  *
  * Purpose:   Guess the alpbabet of the sequences in open
- *            A2M format MSA file <afp>.
+ *            A2M|A3M format MSA file <afp>.
  *            
  *            On a normal return, <*ret_type> is set to <eslDNA>,
  *            <eslRNA>, or <eslAMINO>, and <afp> is reset to its
  *            original position.
  *
- * Args:      afp      - open A2M format MSA file
+ * Args:      afp      - open A2M|A3M format MSA file
  *            ret_type - RETURN: <eslDNA>, <eslRNA>, or <eslAMINO>       
  *
  * Returns:   <eslOK> on success.
@@ -169,10 +169,10 @@ esl_msafile_a2m_GuessAlphabet(ESL_MSAFILE *afp, int *ret_type)
 
 
 /* Function:  esl_msafile_a2m_Read()
- * Synopsis:  Read a UCSC A2M format alignment.
+ * Synopsis:  Read a A2M|A3M format alignment.
  *
  * Purpose:   Read an MSA from an open <ESL_MSAFILE> <afp>, parsing
- *            for UCSC A2M (SAM) format. Create a new MSA,
+ *            for A2M|A3M format. Create a new MSA,
  *            and return a ptr to it in <*ret_msa>. Caller is responsible
  *            for freeing this <ESL_MSA>.
  *            
@@ -182,8 +182,8 @@ esl_msafile_a2m_GuessAlphabet(ESL_MSAFILE *afp, int *ret_type)
  *            and insert (lowercase) columns are marked '.' in the RF
  *            annotation line.
  *
- *            This input parser can deal both with "dotless" A2M, and
- *            full A2M format with dots.
+ *            This input parser can deal with full A2M or dotless A2M;
+ *            A3M is the same as dotless A2M.
  *            
  * Args:      afp     - open <ESL_MSAFILE>
  *            ret_msa - RETURN: newly parsed <ESL_MSA>
@@ -246,12 +246,12 @@ esl_msafile_a2m_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 
   /* tolerate sloppy space at start of name/desc line */
   while (n && isspace(*p)) { p++; n--; }    
-  if (*p != '>') ESL_XFAIL(eslEFORMAT, afp->errmsg, "expected A2M name/desc line starting with >");    
+  if (*p != '>') ESL_XFAIL(eslEFORMAT, afp->errmsg, "expected A2M|A3M name/desc line starting with >");    
 
   do {	/* for each record starting in '>': */
     p++; n--; 			/* advance past > */
     
-    if ( esl_memtok(&p, &n, " \t", &tok, &toklen) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "no name found for A2M record");
+    if ( esl_memtok(&p, &n, " \t", &tok, &toklen) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "no name found for A2M|A3M record");
     if (nseq >= msa->sqalloc) {
       if ( (status = esl_msa_Expand(msa)) != eslOK) goto ERROR;
       ESL_REALLOC(csflag, sizeof(char *) * msa->sqalloc); 
@@ -362,9 +362,9 @@ esl_msafile_a2m_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 
 
 /* Function:  esl_msafile_a2m_Write()
- * Synopsis:  Write an A2M (UCSC SAM) dotless format alignment to a stream.
+ * Synopsis:  Write a dotless A2M (A3M) format alignment to a stream.
  *
- * Purpose:   Write alignment <msa> in dotless UCSC A2M format to a
+ * Purpose:   Write alignment <msa> in dotless A2M format (i.e. A3M) to a
  *            stream <fp>.
  *            
  *            The <msa> should have a valid reference line <msa->rf>,
@@ -374,16 +374,16 @@ esl_msafile_a2m_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
  *            then as a fallback, the first sequence in the alignment is
  *            considered to be the consensus.
  *            
- *            In "dotless" A2M format, gap characters (.) in insert
- *            columns are omitted; therefore sequences can be of
- *            different lengths, but each sequence has the same number
- *            of consensus columns (residue or -).
+ *            In "dotless" A2M format (aka A3M format) gap characters
+ *            (.) in insert columns are omitted; therefore sequences
+ *            can be of different lengths, but each sequence has the
+ *            same number of consensus columns (residue or -).
  *            
- *            A2M format cannot represent missing data symbols
+ *            A2M|A3M format cannot represent missing data symbols
  *            (Easel's ~). Any missing data symbols are converted to
  *            gaps.
  *            
- *            A2M format cannot represent pyrrolysine residues in
+ *            A2M|A3M format cannot represent pyrrolysine residues in
  *            amino acid sequences, because it treats 'O' symbols
  *            specially, as indicating a position at which a
  *            free-insertion module (FIM) should be created. Any 'O'
@@ -417,10 +417,10 @@ esl_msafile_a2m_Write(FILE *fp, const ESL_MSA *msa)
   for (i = 0; i < msa->nseq; i++)
     {
       /* Construct the name/description line */
-      if (fprintf(fp, ">%s", msa->sqname[i])                                                      < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m msa file write failed");
-      if (msa->sqacc  != NULL && msa->sqacc[i]  != NULL) { if (fprintf(fp, " %s", msa->sqacc[i])  < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m msa file write failed"); }
-      if (msa->sqdesc != NULL && msa->sqdesc[i] != NULL) { if (fprintf(fp, " %s", msa->sqdesc[i]) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m msa file write failed"); }
-      if (fputc('\n', fp)                                                                         < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m msa file write failed"); 
+      if (fprintf(fp, ">%s", msa->sqname[i])                                                      < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m|a3m msa file write failed");
+      if (msa->sqacc  != NULL && msa->sqacc[i]  != NULL) { if (fprintf(fp, " %s", msa->sqacc[i])  < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m|a3m msa file write failed"); }
+      if (msa->sqdesc != NULL && msa->sqdesc[i] != NULL) { if (fprintf(fp, " %s", msa->sqdesc[i]) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m|a3m msa file write failed"); }
+      if (fputc('\n', fp)                                                                         < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m|a3m msa file write failed"); 
 
       if (msa->abc)
 	{
@@ -441,7 +441,7 @@ esl_msafile_a2m_Write(FILE *fp, const ESL_MSA *msa)
 		  else if (! do_dotless) { buf[bpos++] = '.'; }
 		}
 	      buf[bpos] = '\0';
-	      if (bpos) { if (fprintf(fp, "%s\n", buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m msa file write failed");}
+	      if (bpos) { if (fprintf(fp, "%s\n", buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m|a3m msa file write failed");}
 	    }
 	}
 
@@ -465,7 +465,7 @@ esl_msafile_a2m_Write(FILE *fp, const ESL_MSA *msa)
 		  
 		}
 	      buf[bpos] = '\0';
-	      if (bpos) { if (fprintf(fp, "%s\n", buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m msa file write failed"); }
+	      if (bpos) { if (fprintf(fp, "%s\n", buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m|a3m msa file write failed"); }
 	    } 
 	}
     } /* end, loop over sequences in the MSA */
@@ -484,7 +484,7 @@ esl_msafile_a2m_Write(FILE *fp, const ESL_MSA *msa)
  * 2. Internal functions used by the A2M parser
  *****************************************************************/
 
-/* A2M parser has an input phase, followed by an alignment padding phase.
+/* A2M|A3M parser has an input phase, followed by an alignment padding phase.
  * The a2m_padding_{digital,text} functions do the padding phase.
  * 
  * Upon call:
@@ -617,7 +617,7 @@ a2m_padding_text(ESL_MSA *msa, char **csflag, int *nins, int ncons)
 
 #include "esl_random.h"
 
-/* A2M is unable to write O (pyrrolysine) residues, because it uses O
+/* A2M|A3M is unable to write O (pyrrolysine) residues, because it uses O
  * to mean a free insertion module. For unit tests that generate
  * dirty/sampled MSAs, we have to avoid O's in those alignments.
  */
@@ -699,43 +699,43 @@ utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expec
   FILE                *ofp          = NULL;
   int                  status;
 
-  /* A2M must be specified (no format guessing, unless we use .a2m suffix) but guessing the alphabet should work: this is a digital open */
-  if ( (status = esl_msafile_Open(&abc, filename, NULL, eslMSAFILE_A2M, NULL, &afp)) != eslOK) esl_fatal("a2m good file test %d failed: digital open",           testnumber);  
-  if (afp->format != eslMSAFILE_A2M)                                                           esl_fatal("a2m good file test %d failed: bad format",             testnumber);
-  if (abc->type   != expected_alphatype)                                                       esl_fatal("a2m good file test %d failed: alphabet autodetection", testnumber);
+  /* A2M|A3M must be specified (no format guessing; .a2m|.a3m suffix detection) but guessing the alphabet should work: this is a digital open */
+  if ( (status = esl_msafile_Open(&abc, filename, NULL, eslMSAFILE_A2M, NULL, &afp)) != eslOK) esl_fatal("a2m|a3m good file test %d failed: digital open",           testnumber);  
+  if (afp->format != eslMSAFILE_A2M)                                                           esl_fatal("a2m|a3m good file test %d failed: bad format",             testnumber);
+  if (abc->type   != expected_alphatype)                                                       esl_fatal("a2m|a3m good file test %d failed: alphabet autodetection", testnumber);
 
   /* This is a digital read, using <abc>. */
-  if ( (status = esl_msafile_a2m_Read(afp, &msa1))   != eslOK)     esl_fatal("a2m good file test %d failed: msa read, digital", testnumber);  
-  if (msa1->nseq != expected_nseq || msa1->alen != expected_alen)  esl_fatal("a2m good file test %d failed: nseq/alen",         testnumber);
-  if (esl_msa_Validate(msa1, NULL) != eslOK)                       esl_fatal("a2m good file test %d failed: msa invalid",       testnumber);
+  if ( (status = esl_msafile_a2m_Read(afp, &msa1))   != eslOK)     esl_fatal("a2m|a3m good file test %d failed: msa read, digital", testnumber);  
+  if (msa1->nseq != expected_nseq || msa1->alen != expected_alen)  esl_fatal("a2m|a3m good file test %d failed: nseq/alen",         testnumber);
+  if (esl_msa_Validate(msa1, NULL) != eslOK)                       esl_fatal("a2m|a3m good file test %d failed: msa invalid",       testnumber);
   esl_msafile_Close(afp);  
 
   /* write it back out to a new tmpfile (digital write) */
-  if ( (status = esl_tmpfile_named(tmpfile1, &ofp)) != eslOK) esl_fatal("a2m good file test %d failed: tmpfile creation",   testnumber);
-  if ( (status = esl_msafile_a2m_Write(ofp, msa1))  != eslOK) esl_fatal("a2m good file test %d failed: msa write, digital", testnumber);
+  if ( (status = esl_tmpfile_named(tmpfile1, &ofp)) != eslOK) esl_fatal("a2m|a3m good file test %d failed: tmpfile creation",   testnumber);
+  if ( (status = esl_msafile_a2m_Write(ofp, msa1))  != eslOK) esl_fatal("a2m|a3m good file test %d failed: msa write, digital", testnumber);
   fclose(ofp);
 
   /* now open and read it as text mode, in known format. */
-  if ( (status = esl_msafile_Open(NULL, tmpfile1, NULL, eslMSAFILE_A2M, NULL, &afp)) != eslOK) esl_fatal("a2m good file test %d failed: text mode open", testnumber);  
-  if ( (status = esl_msafile_a2m_Read(afp, &msa2))                                   != eslOK) esl_fatal("a2m good file test %d failed: msa read, text", testnumber);  
-  if (msa2->nseq != expected_nseq || msa2->alen != expected_alen)                              esl_fatal("a2m good file test %d failed: nseq/alen",      testnumber);
-  if (esl_msa_Validate(msa2, NULL) != eslOK)                                                   esl_fatal("a2m good file test %d failed: msa invalid",       testnumber);
+  if ( (status = esl_msafile_Open(NULL, tmpfile1, NULL, eslMSAFILE_A2M, NULL, &afp)) != eslOK) esl_fatal("a2m|a3m good file test %d failed: text mode open", testnumber);  
+  if ( (status = esl_msafile_a2m_Read(afp, &msa2))                                   != eslOK) esl_fatal("a2m|a3m good file test %d failed: msa read, text", testnumber);  
+  if (msa2->nseq != expected_nseq || msa2->alen != expected_alen)                              esl_fatal("a2m|a3m good file test %d failed: nseq/alen",      testnumber);
+  if (esl_msa_Validate(msa2, NULL) != eslOK)                                                   esl_fatal("a2m|a3m good file test %d failed: msa invalid",       testnumber);
   esl_msafile_Close(afp);
   
   /* write it back out to a new tmpfile (text write) */
-  if ( (status = esl_tmpfile_named(tmpfile2, &ofp)) != eslOK) esl_fatal("a2m good file test %d failed: tmpfile creation", testnumber);
-  if ( (status = esl_msafile_a2m_Write(ofp, msa2))  != eslOK) esl_fatal("a2m good file test %d failed: msa write, text",  testnumber);
+  if ( (status = esl_tmpfile_named(tmpfile2, &ofp)) != eslOK) esl_fatal("a2m|a3m good file test %d failed: tmpfile creation", testnumber);
+  if ( (status = esl_msafile_a2m_Write(ofp, msa2))  != eslOK) esl_fatal("a2m|a3m good file test %d failed: msa write, text",  testnumber);
   fclose(ofp);
   esl_msa_Destroy(msa2);
 
   /* open and read it in digital mode */
-  if ( (status = esl_msafile_Open(&abc, tmpfile1, NULL, eslMSAFILE_A2M, NULL, &afp)) != eslOK) esl_fatal("a2m good file test %d failed: 2nd digital mode open", testnumber);  
-  if ( (status = esl_msafile_a2m_Read(afp, &msa2))                                   != eslOK) esl_fatal("a2m good file test %d failed: 2nd digital msa read",  testnumber);  
-  if (esl_msa_Validate(msa2, NULL) != eslOK)                                                   esl_fatal("a2m good file test %d failed: msa invalid",           testnumber);
+  if ( (status = esl_msafile_Open(&abc, tmpfile1, NULL, eslMSAFILE_A2M, NULL, &afp)) != eslOK) esl_fatal("a2m|a3m good file test %d failed: 2nd digital mode open", testnumber);  
+  if ( (status = esl_msafile_a2m_Read(afp, &msa2))                                   != eslOK) esl_fatal("a2m|a3m good file test %d failed: 2nd digital msa read",  testnumber);  
+  if (esl_msa_Validate(msa2, NULL) != eslOK)                                                   esl_fatal("a2m|a3m good file test %d failed: msa invalid",           testnumber);
   esl_msafile_Close(afp);
 
   /* this msa <msa2> should be identical to <msa1> */
-  if (esl_msa_Compare(msa1, msa2) != eslOK) esl_fatal("a2m good file test %d failed: msa compare", testnumber);  
+  if (esl_msa_Compare(msa1, msa2) != eslOK) esl_fatal("a2m|a3m good file test %d failed: msa compare", testnumber);  
 
   remove(tmpfile1);
   remove(tmpfile2);
@@ -779,7 +779,7 @@ write_test_msas(FILE *ofp1, FILE *ofp2)
 static void
 read_test_msas_digital(char *a2mfile, char *stkfile)
 {
-  char msg[]         = "A2M msa digital read unit test failed";
+  char msg[]         = "A2M|A3M msa digital read unit test failed";
   ESL_ALPHABET *abc  = NULL;
   ESL_MSAFILE  *afp1 = NULL;
   ESL_MSAFILE  *afp2 = NULL;
@@ -829,7 +829,7 @@ read_test_msas_digital(char *a2mfile, char *stkfile)
 static void
 read_test_msas_text(char *a2mfile, char *stkfile)
 {
-  char msg[]         = "A2M msa text-mode read unit test failed";
+  char msg[]         = "A2M|A3M msa text-mode read unit test failed";
   ESL_MSAFILE  *afp1 = NULL;
   ESL_MSAFILE  *afp2 = NULL;
   ESL_MSA      *msa1, *msa2, *msa3, *msa4;
@@ -884,11 +884,11 @@ utest_gibberish(ESL_RANDOMNESS *rng)
   
   if ( esl_msa_Sample(rng, abc, 100, 100, &msa) != eslOK) esl_fatal(msg);  
   if ( esl_msa_Validate(msa, NULL)              != eslOK) esl_fatal(msg);
-  if ( esl_msa_FlushLeftInserts(msa)            != eslOK) esl_fatal(msg);  // Reading A2M back in will flush inserts left.
-  if ( esl_msa_MinimGaps(msa, TRUE)             != eslOK) esl_fatal(msg);  // Reading A2M back in will minimize gaps.
-  a2m_no_O(msa);                                                           // A2M doesn't allow O residues.
-  ESL_DASSERT1(( !(msa->flags & eslMSA_HASWGTS) ));                        // A2M can't store weights.
-  ESL_DASSERT1(( msa->rf != NULL ));                                       // A2M always implies consensus annotation.
+  if ( esl_msa_FlushLeftInserts(msa)            != eslOK) esl_fatal(msg);  // Reading A2M|A3M back in will flush inserts left.
+  if ( esl_msa_MinimGaps(msa, TRUE)             != eslOK) esl_fatal(msg);  // Reading A2M|A3M back in will minimize gaps.
+  a2m_no_O(msa);                                                           // A2M|A3M doesn't allow O residues.
+  ESL_DASSERT1(( !(msa->flags & eslMSA_HASWGTS) ));                        // A2M|A3M can't store weights.
+  ESL_DASSERT1(( msa->rf != NULL ));                                       // A2M|A3M always implies consensus annotation.
 
   if ( esl_tmpfile_named(a2mfile, &fp)          != eslOK) esl_fatal(msg);
   if ( esl_msafile_a2m_Write(fp, msa)           != eslOK) esl_fatal(msg);
@@ -935,12 +935,12 @@ static ESL_OPTIONS options[] = {
   { 0,0,0,0,0,0,0,0,0,0},
 };
 static char usage[]  = "[-options]";
-static char banner[] = "test driver for A2M MSA format module";
+static char banner[] = "test driver for A2M|A3M MSA format module";
 
 int
 main(int argc, char **argv)
 {
-  char            msg[]        = "a2m MSA i/o module test driver failed";
+  char            msg[]        = "a2m|a3m MSA i/o module test driver failed";
   ESL_GETOPTS    *go           = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   ESL_RANDOMNESS *rng          = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
   char            a2mfile[32]  = "esltmpa2mXXXXXX";
@@ -1000,7 +1000,7 @@ main(int argc, char **argv)
  *****************************************************************/
 
 #ifdef eslMSAFILE_A2M_EXAMPLE
-/* A full-featured example of reading/writing an MSA in A2M format.
+/* A full-featured example of reading/writing an MSA in A2M|A3M format.
    gcc -g -Wall -o esl_msafile_a2m_example -I. -L. -DeslMSAFILE_A2M_EXAMPLE esl_msafile_a2m.c -leasel -lm
    ./esl_msafile_a2m_example <msafile>
  */
@@ -1017,7 +1017,7 @@ main(int argc, char **argv)
 static ESL_OPTIONS options[] = {
   /* name             type          default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",            0 },
-  { "-1",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "override autodetection; force A2M format",        0 },
+  { "-1",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "override autodetection; force A2M|A3M format",    0 },
   { "-q",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "quieter: don't write msa back, just summary",     0 },
   { "-t",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use text mode: no digital alphabet",              0 },
   { "--dna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is DNA",                    0 },
@@ -1074,7 +1074,7 @@ main(int argc, char **argv)
 
 
 #ifdef eslMSAFILE_A2M_EXAMPLE2
-/* A minimal example. Read A2M MSA, in text mode
+/* A minimal example. Read A2M|A3M MSA, in text mode
    gcc -g -Wall -o esl_msafile_a2m_example2 -I. -L. -DeslMSAFILE_A2M_EXAMPLE2 esl_msafile_a2m.c -leasel -lm
    ./esl_msafile_a2m_example <msafile>
  */

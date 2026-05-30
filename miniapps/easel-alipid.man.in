@@ -95,7 +95,7 @@ bypassing format autodetection.
 Choices for 
 .I fmt
 are
-.BR a2m|afa|clustal|clustallike|pfam|phylip|phylips|psiblast|selex|stockholm .
+.BR a2m|a3m|afa|clustal|clustallike|pfam|phylip|phylips|psiblast|selex|stockholm .
 .I fmt
 is case-insensitive (e.g.
 .B afa

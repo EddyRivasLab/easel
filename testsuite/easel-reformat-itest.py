@@ -9,6 +9,7 @@
 # <srcdir>:   path to Easel src dir
 # <tmppfx>:   prefix we're allowed to use to create tmp files in current working dir
 #
+import filecmp
 import glob
 import os
 import re
@@ -67,6 +68,10 @@ if (m := re.match(r'Fatal exception', r.stderr)):                          esl_i
 r  =  esl_itest.run(f'{builddir}/miniapps/easel reformat -o {tmppfx}.a2m  a2m         {srcdir}/testsuite/example-stockholm.sto')
 compare_composition(f'{srcdir}/testsuite/example-stockholm.sto', f'{tmppfx}.a2m')
 
+r  =  esl_itest.run(f'{builddir}/miniapps/easel reformat -o {tmppfx}.a3m  a3m         {srcdir}/testsuite/example-stockholm.sto')
+compare_composition(f'{srcdir}/testsuite/example-stockholm.sto', f'{tmppfx}.a3m')
+if not filecmp.cmp(f'{tmppfx}.a2m', f'{tmppfx}.a3m', shallow=False): esl_itest.fail()   # A3M=(dotless)A2M
+
 r  =  esl_itest.run(f'{builddir}/miniapps/easel reformat -o {tmppfx}.afa  afa         {srcdir}/testsuite/example-stockholm.sto')
 compare_composition(f'{srcdir}/testsuite/example-stockholm.sto', f'{tmppfx}.afa')
 
@@ -98,6 +103,7 @@ compare_composition(f'{srcdir}/testsuite/example-pfam.sto', f'{tmppfx}.sto')
 # Currently, `easel seqstat -` is unable to autodetect MSA file format coming in thru stdin pipe, so we save to a file.
 #
 r  =  esl_itest.run(f'{builddir}/miniapps/easel reformat -o {tmppfx}.2.sto stockholm {tmppfx}.a2m');  compare_composition(f'{srcdir}/testsuite/example-stockholm.sto', f'{tmppfx}.2.sto')
+r  =  esl_itest.run(f'{builddir}/miniapps/easel reformat -o {tmppfx}.2.sto stockholm {tmppfx}.a3m');  compare_composition(f'{srcdir}/testsuite/example-stockholm.sto', f'{tmppfx}.2.sto')
 r  =  esl_itest.run(f'{builddir}/miniapps/easel reformat -o {tmppfx}.2.sto stockholm {tmppfx}.afa');  compare_composition(f'{srcdir}/testsuite/example-stockholm.sto', f'{tmppfx}.2.sto')
 r  =  esl_itest.run(f'{builddir}/miniapps/easel reformat -o {tmppfx}.2.sto stockholm {tmppfx}.clw');  compare_composition(f'{srcdir}/testsuite/example-stockholm.sto', f'{tmppfx}.2.sto')
 r  =  esl_itest.run(f'{builddir}/miniapps/easel reformat -o {tmppfx}.2.sto stockholm {tmppfx}.mus');  compare_composition(f'{srcdir}/testsuite/example-stockholm.sto', f'{tmppfx}.2.sto')
@@ -110,6 +116,7 @@ r  =  esl_itest.run(f'{builddir}/miniapps/easel reformat -o {tmppfx}.2.sto stock
 
 # Multi MSA (stockholm,pfam,phylip,phylips) to single MSA file formats (all others) will fail after the first MSA.
 r  =  esl_itest.run(f'{builddir}/miniapps/easel reformat a2m         {srcdir}/testsuite/example-pfam.sto', expect_success=False)
+r  =  esl_itest.run(f'{builddir}/miniapps/easel reformat a3m         {srcdir}/testsuite/example-pfam.sto', expect_success=False)
 r  =  esl_itest.run(f'{builddir}/miniapps/easel reformat afa         {srcdir}/testsuite/example-pfam.sto', expect_success=False)
 r  =  esl_itest.run(f'{builddir}/miniapps/easel reformat clustal     {srcdir}/testsuite/example-pfam.sto', expect_success=False)
 r  =  esl_itest.run(f'{builddir}/miniapps/easel reformat clustallike {srcdir}/testsuite/example-pfam.sto', expect_success=False)

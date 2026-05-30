@@ -136,6 +136,7 @@ Common choices for
 include:
 .BR stockholm , 
 .BR a2m ,
+.BR a3m ,
 .BR afa ,
 .BR psiblast ,
 .BR clustal ,

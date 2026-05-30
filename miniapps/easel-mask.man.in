@@ -151,6 +151,7 @@ Alignment formats also work;
 common choices include:
 .BR stockholm , 
 .BR a2m ,
+.BR a3m ,
 .BR afa ,
 .BR psiblast ,
 .BR clustal ,

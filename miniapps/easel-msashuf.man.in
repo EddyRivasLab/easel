@@ -90,7 +90,7 @@ is in format
 bypassing format autodetection.
 Valid MSA file formats
 are 
-.B stockholm|pfam|a2m|afa|psiblast|clustal|clustallike|phylip|phylips|selex.
+.B stockholm|pfam|a2m|a3m|afa|psiblast|clustal|clustallike|phylip|phylips|selex.
 See
 .BR "man easel"
 for more detail on formats and autodetection.

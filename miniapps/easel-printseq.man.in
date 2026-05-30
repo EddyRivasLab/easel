@@ -176,6 +176,7 @@ include
 and the aligned formats
 .BR stockholm ,
 .BR a2m ,
+.BR a3m ,
 .BR afa ,
 .BR clustal ,
 .BR phylip ,

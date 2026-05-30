@@ -104,7 +104,7 @@ are
 Multiple sequence alignment files are also accepted
 and read one (unaligned) sequence at a time; MSA formats
 are 
-.B stockholm|pfam|a2m|afa|psiblast|clustal|clustallike|phylip|phylips|selex.
+.B stockholm|pfam|a2m|a3m|afa|psiblast|clustal|clustallike|phylip|phylips|selex.
 See
 .BR "man easel"
 for more detail on formats and autodetection.

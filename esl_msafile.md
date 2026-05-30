@@ -8,6 +8,7 @@ alignment formats. There are five main formats:
 |---------------|--------------------|------------------|
 | `stockholm`   | Stockholm          | .sto, .sth, .stk |
 | `afa`         | aligned FASTA      | .afa, .afasta    |
+| `a3m`         | A2M|A3M            | .a3m             |
 | `clustal`     | CLUSTAL            |                  |
 | `phylip`      | interleaved PHYLIP | .ph, .phy, .phyi |
 | `selex`       | SELEX              | .slx, .selex     |
@@ -17,7 +18,7 @@ and five variants:
 | format        | i.e.              | is like:    |  but:                                                |   suffix  |
 |---------------|-------------------|-------------|------------------------------------------------------|-----------|
 | `pfam`        | Pfam              | `stockholm` | is restricted to one block                           |  .pfam    |
-| `a2m`         | UCSC A2M, dotless | `afa`       | has additional semantics for consensus columns       |  .a2m     |
+| `a2m`         | UCSC A2M          | `a3m`       | UCSC A2M can be dotful or dotless; A3M is dotless    |  .a2m     |
 | `clustallike` | Clustal-like      | `clustal`   | has another program name on first line (e.g. MUSCLE) |           |
 | `phylips`     | sequential Phylip | `phylip`    | "sequential", rather than "interleaved"              |  .phys    |
 | `psiblast`    | NCBI PSI-BLAST    | `selex`     | is just an alignment, has no selex annotation lines  |  .pb      |
@@ -45,21 +46,21 @@ call `phylip` versus `phylips`.  Pathological edge cases do exist,
 though, where the guesser will return an error about not being able to
 distinguish interleaved from sequential.
 
-However, `afa` and `a2m` files are so easily confusable that the
+However, `afa` and `a2m`|`a3m` files are so easily confusable that the
 guesser will not try to distinguish them based on content alone. The
-only way to get the guesser to call `a2m` is on a file with an
-explicit .a2m suffix.
+only way to get the guesser to call `a3m` or `a2m` is on a file with
+an explicit `.a3m` or `.a2m` suffix.
  
 If you are doing scripted high throughput analysis on files in one of
 these formats, consider specifying your input file format and
 disabling the format guesser. The commandline option for this is
 usually something like `--informat <fmtcode>`. Alternatively, use file
-suffixes: `.afa` versus `.a2m`, or `.ph`/`.phy`/`.phyi` versus `.phys`
-to tip off the guesser.
+suffixes: `.afa` versus `.a2m` or `.a3m`, or `.ph`/`.phy`/`.phyi`
+versus `.phys` to tip off the guesser.
 
 The guesser works with the following information:
  * an initial guess based on peeking at the first line of the input
- * if the input is a file with a file name, it uses the suffix as a clue (to distinguish .a2m versus .afa, 
+ * if the input is a file with a file name, it uses the suffix as a clue (to distinguish .a2m|.a3m versus .afa, 
    or .phyi from .phys, for example)
  * in more difficult cases, the guesser looks more deeply into the input
  
@@ -74,14 +75,14 @@ Pfam format is just Stockholm, but restricted to a single alignment
 block. There is no difference in the alignment or annotation, so it is
 harmless to read a Pfam file as Stockholm.
 
-#### `afa`, `a2m` formats
+#### `afa`, `a2m`, `a3m` formats
 
-If the first line starts with `>`: if the file suffix is `.a2m`, guess
-`a2m`. Otherwise, call `afa`.
+If the first line starts with `>`: if the file suffix is `.a2m`|`.a3m`, guess
+`a2m`|`a3m`. Otherwise, call `afa`.
 
-The guesser does not autodetect a2m format unless we have a `.a2m`
+The guesser does not autodetect a2m|a3m format unless we have a `.a2m`|`.a3m`
 suffix on the file, even though it is usually possible to distinguish
-afa from a2m. In afa, the number of aligned characters is always the
+afa from a2m|a3m. In afa, the number of aligned characters is always the
 same but the number of upper case + dash characters can vary, whereas
 the opposite is true for a2m. However, it is common to have an afa
 format alignment that consists of all upper case and dashes:
@@ -93,19 +94,19 @@ GGG-CCC-TT
 GG-GCC-TT-
 ```
 
-which is also valid as a2m. Although the alignment would be the same
-in either format, in a2m we would infer reference consensus
+which is also valid as a2m|a3m. Although the alignment would be the same
+in either format, in a2m|a3m we would infer reference consensus
 annotation, and in afa we wouldn't. The guesser is not allowed to risk
-altering either alignment or annotation. Therefore a2m input requires
-something affirmative like the `.a2m` file suffix or a `--informat
-a2m` option.
+altering either alignment or annotation. Therefore a2m|a3m input requires
+something affirmative like the `.a3m` file suffix or a `--informat
+a3m` option.
 
 It's also worth noting that other ambiguous cases exist that imply
-different alignments in the two formats, as in this singularly
+completely different alignments in the two formats, as in this singularly
 terrifying example:
 
 ```bash
-this input:    means in AFA:    means in A2M:
+this input:    means in AFA:    means in A2M|A3M:
 >seq1          seq1 AAAcAA      seq1 A.AAcAA 
 AAAcAA         seq2 AcAAAA      seq2 AcAA.AA
 >seq2         

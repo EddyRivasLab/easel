@@ -107,7 +107,7 @@ static int msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format
  *             | <eslMSAFILE_CLUSTALLIKE> | Clustal-like  (MUSCLE, PROBCONS...) |
  *             | <eslMSAFILE_PHYLIP>      | PHYLIP interleaved format           |
  *             | <eslMSAFILE_PHYLIPS>     | PHYLIP sequential format            |
- *             | <eslMSAFILE_A2M>         | UCSC SAM A2M (dotless or dotful)    |
+ *             | <eslMSAFILE_A2M>         | A2M or A3M (HHSEARCH, UCSC SAM)     |
  *             | <eslMSAFILE_PSIBLAST>    | NCBI PSI-BLAST                      |
  *             | <eslMSAFILE_SELEX>       | a general alignment block format    |
  *
@@ -577,6 +577,7 @@ esl_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESL_MSAFILE_FMTDAT
 	  else if (esl_memstrcmp(p, n, ".afasta")) fmt_bysuffix = eslMSAFILE_AFA;
 	  else if (esl_memstrcmp(p, n, ".pfam"))   fmt_bysuffix = eslMSAFILE_PFAM;
 	  else if (esl_memstrcmp(p, n, ".a2m"))    fmt_bysuffix = eslMSAFILE_A2M;
+	  else if (esl_memstrcmp(p, n, ".a3m"))    fmt_bysuffix = eslMSAFILE_A2M;
 	  else if (esl_memstrcmp(p, n, ".slx"))    fmt_bysuffix = eslMSAFILE_SELEX;
 	  else if (esl_memstrcmp(p, n, ".selex"))  fmt_bysuffix = eslMSAFILE_SELEX;
 	  else if (esl_memstrcmp(p, n, ".pb"))     fmt_bysuffix = eslMSAFILE_PSIBLAST;
@@ -709,10 +710,6 @@ esl_msafile_IsMultiRecord(int fmt)
  *            
  *            If the format is unrecognized, return
  *            <eslMSAFILE_UNKNOWN>.
- *            
- * Note:      Keep in sync with <esl_sqio_EncodeFormat()>, 
- *            which decodes all possible sequence file formats,
- *            both unaligned and aligned.           
  */
 int
 esl_msafile_EncodeFormat(char *fmtstring)
@@ -720,6 +717,7 @@ esl_msafile_EncodeFormat(char *fmtstring)
   if (strcasecmp(fmtstring, "stockholm")   == 0) return eslMSAFILE_STOCKHOLM;
   if (strcasecmp(fmtstring, "pfam")        == 0) return eslMSAFILE_PFAM;
   if (strcasecmp(fmtstring, "a2m")         == 0) return eslMSAFILE_A2M;
+  if (strcasecmp(fmtstring, "a3m")         == 0) return eslMSAFILE_A2M;
   if (strcasecmp(fmtstring, "psiblast")    == 0) return eslMSAFILE_PSIBLAST;
   if (strcasecmp(fmtstring, "selex")       == 0) return eslMSAFILE_SELEX;
   if (strcasecmp(fmtstring, "afa")         == 0) return eslMSAFILE_AFA;
@@ -756,7 +754,7 @@ esl_msafile_DecodeFormat(int fmt)
   case eslMSAFILE_UNKNOWN:     return "unknown";
   case eslMSAFILE_STOCKHOLM:   return "Stockholm";
   case eslMSAFILE_PFAM:        return "Pfam";
-  case eslMSAFILE_A2M:         return "UCSC_A2M";
+  case eslMSAFILE_A2M:         return "A2M|A3M";
   case eslMSAFILE_PSIBLAST:    return "PSI-BLAST";
   case eslMSAFILE_SELEX:       return "SELEX";
   case eslMSAFILE_AFA:         return "aligned_FASTA";
@@ -1097,10 +1095,10 @@ esl_msafile_ReadFailure(ESL_MSAFILE *afp, int status)
  * Purpose:   Writes alignment <msa> to open stream <fp> in format <fmt>.
  * 
  *            In general, the <msa> is unchanged, but there are some
- *            exceptions. For example, writing an alignment in A2M format
+ *            exceptions. For example, writing an alignment in A2M|A3M format
  *            will alter alignment data (marking missing data
  *            symbols on heuristically defined sequence fragments) and
- *            create an <\#=RF> annotation line, if an <msa->rf>
+ *            create an <#=RF> annotation line, if an <msa->rf>
  *            annotation line isn't already present in the <msa>.
  *
  * Args:      fp   - open stream (such as <stdout>)  
@@ -1320,7 +1318,7 @@ seq2    ACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwyACDEFGHIKLMNPQRSTVWYacdefghiklmn
   if ( esl_msafile_Write(ofp, msa1, fmt1) != eslOK) esl_fatal(msg);
   fclose(ofp);
 
-  /* Read it back from <fmt1> in TEXT mode (verbatim), with format autodetection (except A2M) */
+  /* Read it back from <fmt1> in TEXT mode (verbatim), with format autodetection (except A2M|A3M) */
   if (fmt1 != eslMSAFILE_A2M)
     {
       if ( esl_msafile_Open(NULL, tmpfile1, NULL, eslMSAFILE_UNKNOWN, NULL, &afp) != eslOK) esl_fatal(msg);
@@ -1341,7 +1339,7 @@ seq2    ACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwyACDEFGHIKLMNPQRSTVWYacdefghiklmn
   if ( esl_msafile_Write(ofp, msa2, fmt2) != eslOK) esl_fatal(msg);
   fclose(ofp);
 
-  /* Read it back in TEXT mode, with format autodetection  (except A2M) */
+  /* Read it back in TEXT mode, with format autodetection  (except A2M|A3M) */
   if (fmt2 != eslMSAFILE_A2M)
     {
       if ( esl_msafile_Open(NULL, tmpfile2, NULL, eslMSAFILE_UNKNOWN, NULL, &afp) != eslOK) esl_fatal(msg);

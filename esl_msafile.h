@@ -78,17 +78,17 @@ typedef struct {
  *     - <=100 reserved for unaligned formats
  *     - >100 reserved for aligned formats
  */
-#define eslMSAFILE_UNKNOWN     0    /* unknown format                              */
-#define eslMSAFILE_STOCKHOLM   101  /* Stockholm format, interleaved               */
-#define eslMSAFILE_PFAM        102  /* Pfam/Rfam one-line-per-seq Stockholm format */
-#define eslMSAFILE_A2M         103  /* UCSC SAM's fasta-like a2m format            */
-#define eslMSAFILE_PSIBLAST    104  /* NCBI PSI-BLAST alignment format             */
-#define eslMSAFILE_SELEX       105  /* old SELEX format (largely obsolete)         */
-#define eslMSAFILE_AFA         106  /* aligned FASTA format                        */
-#define eslMSAFILE_CLUSTAL     107  /* CLUSTAL format                              */
-#define eslMSAFILE_CLUSTALLIKE 108  /* CLUSTAL-like formats (MUSCLE, PROBCONS)     */
-#define eslMSAFILE_PHYLIP      109  /* interleaved PHYLIP format                   */
-#define eslMSAFILE_PHYLIPS     110  /* sequential PHYLIP format                    */
+#define eslMSAFILE_UNKNOWN     0    // unknown format
+#define eslMSAFILE_STOCKHOLM   101  // Stockholm format, interleaved
+#define eslMSAFILE_PFAM        102  // Pfam/Rfam one-line-per-seq Stockholm format
+#define eslMSAFILE_A2M         103  // A2M|A3M format (UCSC SAM, HHSEARCH)
+#define eslMSAFILE_PSIBLAST    104  // NCBI PSI-BLAST alignment format
+#define eslMSAFILE_SELEX       105  // old SELEX format (largely obsolete)
+#define eslMSAFILE_AFA         106  // aligned FASTA format
+#define eslMSAFILE_CLUSTAL     107  // CLUSTAL format
+#define eslMSAFILE_CLUSTALLIKE 108  // CLUSTAL-like formats (MUSCLE, PROBCONS)
+#define eslMSAFILE_PHYLIP      109  // interleaved PHYLIP format
+#define eslMSAFILE_PHYLIPS     110  // sequential PHYLIP format
 
 
 /* 1. Opening/closing an ESL_MSAFILE */

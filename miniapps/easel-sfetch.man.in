@@ -263,7 +263,7 @@ sequence indexing; sequences are often not contigous records
 in the file.) 
 MSA formats
 are 
-.B stockholm|pfam|a2m|afa|psiblast|clustal|clustallike|phylip|phylips|selex.
+.B stockholm|pfam|a2m|a3m|afa|psiblast|clustal|clustallike|phylip|phylips|selex.
 See
 .B man easel
 for more detail on formats and autodetection.

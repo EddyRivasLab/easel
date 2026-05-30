@@ -264,7 +264,7 @@ esl_msafile_afa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
  *            exactly as they appear in the data structure. If <msa>
  *            is digital, residues are in uppercase and all gaps are
  *            dots (.). Dots are preferred to dashes because it 
- *            minimizes confusion with A2M format.
+ *            minimizes confusion with A2M|A3M format.
  *
  * Args:      fp  - open stream to write to
  *            msa - MSA to write
