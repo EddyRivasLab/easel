@@ -211,8 +211,11 @@ esl_wuss_IsFull(const char *ss, int n)
  *            alphabetic pair is interpreted as a base pair; any other
  *            WUSS annotation is interpreted as unpaired.
  *            
- * Returns:   <eslOK> on success.
- *            <eslESYNTAX> if the WUSS string isn't valid.
+ * Returns:   <eslOK> on success, and ct[1..len] contains the connectivity
+ *            table.
+ *
+ *            <eslESYNTAX> if the WUSS string isn't valid; now ct[1..len]
+ *            is set to all unpaired (0's).
  *            
  * Throws:    <eslEMEM> on allocation failure.           
  */
@@ -302,6 +305,8 @@ esl_wuss2ct(const char *ss, int len, int *ct)
 	  status = eslESYNTAX;
 	esl_stack_Destroy(pda[i]);
       }
+  if (status != eslOK)
+    esl_vec_ISet(ct, len, 0);
   return status;
 }
 
