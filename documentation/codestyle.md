@@ -6,13 +6,9 @@ conventions used by Eddy lab code, including HMMER, Infernal, and
 Easel. These conventions make it easier for one busy professor to
 maintain our code for a long time.
 
-Not all of our code follows our own current conventions, because older
-code often predates newer conventions. Our conventions apply like
-building ordinances: new construction must comply with current
-ordinances.  Older construction may not immediately conform, but when
-a significant renovation happens, old work needs to be brought up to
-current standards.
-
+Our older code doesn't always follow our own current conventions. Our
+conventions apply like building ordinances.  When a significant
+renovation happens, old work is brought up to current standards.
 
 ------------------------------------
 
@@ -404,6 +400,97 @@ To generate a warning on bad code that is assigning -1 to a `char`
 -Wall -funsigned-char"`.
 
 --------------------------------------------------------------
+
+## writing small Easel-based programs like the Easel miniapps
+
+### Standard Easel option behavior and documentation
+
+Some options recur across many Easel-based programs. We try to enforce
+consistent behavior and documentation. For each option below, two
+suggested texts are given: the terse one-line **brief help** string
+that goes in the `ESL_OPTIONS` table (and shows up on the `-h` help
+page), and the fuller **man page** text for the OPTIONS section of the
+program's `.man.in`. 
+
+#### help and version
+
+- **`-h`** :  `show brief help information and exit`
+    > Help: print a brief reminder of command line usage and a summary
+    of all available options, and exit.
+
+- **`--version`** : `show version information and exit`
+    > Print version information (`<progname> <version>`) and exit.
+
+#### output
+
+- **`-o <f>`** : `send output to file <f>, not stdout`
+   > Output *...* to a file *`<f>`* instead of to stdout.
+
+- **`-f`** : `force; allow -o to overwrite existing outfile`
+   > Force: allow *`-o`* to overwrite an existing outfile. The default is to not allow an existing output file to be clobbered.
+
+#### file formats
+
+- **`--informat <fmt>`** : `assert that input file is in format <s>`
+  MSA files:
+  > Assert that input *`msafile`* is in alignment format *`fmt`*,
+  > bypassing format autodetection. Choices for *`fmt`* are
+  > a2m|a3m|afa|clustal|clustallike|pfam|phylip|phylips|psiblast|selex|stockholm. *`fmt`*
+  > is case-insensitive (e.g. afa or AFA both work).
+
+- **`--outformat <fmt>`** : `write the output MSA in format <s>`
+  MSA files:
+  > Write the output in alignment format *`fmt`*. Choices for *`fmt`*
+  > are
+  > a2m|a3m|afa|clustal|clustallike|pfam|phylip|phylips|psiblast|selex|stockholm. *`fmt`*
+  > is case-insensitive (e.g. afa or AFA both work). Default is to use
+  > the same format as the input MSA file.
+
+#### alphabet
+
+- **`--amino`** :  `assert <msafile> is protein (don't autodetect)`
+    > Assert that the *`msafile`* contains protein sequences,
+    > bypassing alphabet autodetection.
+
+- **`--dna`** : `   ... <msafile> is DNA ...`
+    > Assert that the *`msafile`* contains DNA sequences,
+    > bypassing alphabet autodetection.
+ 
+- **`--rna`** : `   ... <msafile> is RNA ...`
+    > Assert that the *`msafile`* contains RNA sequences,
+    > bypassing alphabet autodetection.
+
+#### randomness
+
+- **`--seed <n>`** : `set random number generator seed to <n>`
+    > Set the random number seed to *`<n>`*, an integer >= 0. The
+    > default is 0, which means to use a randomly selected seed.
+
+### `--gapfrac`|`--symfrac` semantics 
+
+These options are used to select MSA columns by the fraction of gaps
+or residues in them. They need to be used consistently everywhere.
+
+Let *g* be the fraction of gap characters and *s* the fraction of
+residue (symbol) characters, so *g + s = 1*.
+
+- **`--gapfrac x`** keeps a column when *g < x* (removes when *g >=
+  x*). 
+- **`--symfrac x`** keeps a column when *s >= x* (removes when *s <
+  x*). 
+
+The two are not identical: **`--gapfrac x`** keeps when *s > 1-x*, and
+**`--symfrac x`** keeps when *g <= 1-x*. The extremes illustrate the difference:
+
+- **`--gapfrac 1`** keeps any column with at least one residue (equivalent to **`--mingap`**).
+- **`--gapfrac 0`** keeps nothing.
+- **`--symfrac 1`** keeps only all-residue (gap-free) columns (equivalent to **`--nogap`**).
+- **`--symfrac 0`** keeps every column.
+
+--------------------------------------------------------------
+
+
+
 
 ## error handling
 
