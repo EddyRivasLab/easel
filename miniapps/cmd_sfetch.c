@@ -215,8 +215,10 @@ ssi_subseq_fetch(FILE *ofp, ESL_SQFILE *sqfp, char *key, int64_t start, int64_t 
   int     do_rev;
 
   /* reverse complement indicated by coords start>end, but watch out for end=0 case; we don't know sq->n yet */
-  if (end != 0 && start > end) { i = end;   j = start; do_rev = TRUE;  }
-  else                         { i = start; j = end;   do_rev = FALSE; }
+  if      (end   == 0)         { i = start; j = 0;     do_rev = TRUE;  }  // "42:"    => suffix
+  else if (start == 0)         { i = end;   j = 0;     do_rev = TRUE;  }  // ":42"    => suffix rev comp
+  else if (start > end)        { i = end;   j = start; do_rev = TRUE;  }  // "100:42" => rev comp
+  else                         { i = start; j = end;   do_rev = FALSE; }  // "42:"    => normal
 
   /* FetchSubseq() is aware of end=0 special case semantics, but does not handle revcomp start>end convention; fetch i..j */
   if (esl_sqio_FetchSubseq(sqfp, key, i, j, sq) != eslOK) esl_fatal(esl_sqfile_GetErrorBuf(sqfp));
@@ -283,7 +285,8 @@ convert_to_subseq(ESL_SQ *sq, int64_t start, int64_t end)
   ESL_DASSERT1(( sq->dsq == NULL ));   // `easel sfetch` works in text mode
   ESL_DASSERT1(( sq->abc == NULL ));
 
-  if (end == 0) end = sq->n;           // dealing with end=0 special case is easy, we know the sq->n
+  if (end   == 0) end   = sq->n;      // dealing with end=0 special case is easy, we know the sq->n
+  if (start == 0) start = sq->n;      // likewise a suffix rev comp of ":42" meaning "L:42"
 
   /* reverse complement indicated by coords start>end */
   if (start > end) { i = end;   j = start; do_rev = TRUE;  }

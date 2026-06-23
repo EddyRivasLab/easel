@@ -1,4 +1,4 @@
-.TH "easel sfetch" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel sfetch" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
 easel sfetch \- fetch seq by name|accession from seqfile
@@ -156,10 +156,10 @@ Retrieve a subsequence of
 according to the coordinates given by the
 .I coordstring
 argument.
-The format of this string is "<start><dash><end>" where <start> and
-<end> are 1..L coords for a sequence of length L, and <dash> is
-any string of nonnumeric and nonwhitespace characters: for example
-"42-173" or "161..522" or "4:92".
+The format of this string is "<start><sep><end>" where <start> and
+<end> are 1..<L> coords for a sequence of length <L>, and <sep> is
+a separator that can be ':', '-', or any number of '.':
+for example, "42-173" or "161..522" or "4:92".
 
 .IP
 If <start> is greater than <end>, and the sequence is consistent with
@@ -167,22 +167,26 @@ DNA|RNA sequence, the subsequence is reverse complemented (i.e. the
 subsequence runs from <start> to <end> on the other strand).
 
 .IP
-If <end> is not given, the suffix from <start> to L is fetched: for
-example, "42-" fetches the sequence suffix starting at 42.  This is
+If <end> is not given, the suffix from <start> to <L> is fetched: for
+example, "42:" fetches the sequence suffix starting at 42.  This is
 useful when the length of the sequence isn't immediately at hand.
+Similarly if <start> is not given, then the reverse complement
+of the suffix is fetched; for example, ":42" is interpreted
+as "<L>:42" for whatever <L> is. Only ':' or '.' separators
+work for these suffix cases; '-' is not allowed (to avoid
+ambiguities with single negative numbers, like "-42"). 
 
 .IP
-To fetch the reverse complement of a suffix, use the
+Another way to fetch the reverse complement is with the
 .B -r
-option instead of doing it with the
-.I coordstring.
-Example:
+option. For example, 
 .B -rc 42:
 for a sequence of length 200 returns the reverse complement
 from 200 to 42.
-Another use of
+The
 .B -r
-is for the unusual case of fetching the reverse complement
+option allows 
+for the unusual case of fetching the reverse complement
 of a single nucleotide. A weakness of 1..L coords
 when allowing start>end to signify the reverse complement
 is that the strandedness of start==end is ambiguous.

@@ -400,37 +400,90 @@ esl_regexp_SubmatchCoords(ESL_REGEXP *machine, char *origin, int elem,
 
 /* Function:  esl_regexp_ParseCoordString()
  *
- * Purpose:   Given a string <cstring> of the format required for a
- *            range (<from>..<to>, e.g. 10..23  or 39-91) parse out
- *            the start and end, and return them within the variables
- *            <ret_start> and <ret_end>.
+ * Purpose:   Given a string <cstring> of the standard "<pos1>:<pos2>"
+ *            format for specifying a sequence coordinate range, parse
+ *            the string and return <*ret_pos1> and <*ret_pos2>.
  *
- * Returns:   <eslOK> on success, and <ret_start> and <ret_end>
- *            are set to the start/end coordinates of the parse.
+ *            Several different separators are accepted: ':', '-', or
+ *            any number of '.'. Thus, "42:100", "42-100", "42.100",
+ *            "42..100", and "42...100" all work.
  *
- * Throws:    <eslESYNTAX> if a regexp match is not made, and
- *            <eslFAIL> if the start or end values are not parsed.
+ *            Coords are 1-based, and must be <=18 digits long
+ *            (<1e18).
+ *
+ *            A reverse complemented subseq can be specified by a
+ *            <pos2> less than <pos1>: e.g. "100:42". 
+ *
+ *            A suffix can be specified without knowing the sequence
+ *            length L yet by omitting <pos2>: e.g. "42:" means 42..L
+ *            once L is known. <*ret_pos2> is returned as 0 as a flag
+ *            for this case. A reverse complemented suffix can be
+ *            specified by omitting <pos1>: e.g. ":42" means "L:42",
+ *            and <*ret_pos1> is returned as 0 as a flag for this
+ *            case. To use these suffix rules, only the ':' or '.'
+ *            separators are allowed. (With the '-' separator, a
+ *            single negative number like "-42" would be weirdly
+ *            accepted and parsed like ":42" as pos1=0, pos2=42.)
+ *
+ *            If caller doesn't want to allow the syntax for reverse
+ *            complements (pos1 > pos2 || pos1 == 0) or for suffix
+ *            rules (pos1 = 0 || pos2 == 0), it needs to check that
+ *            itself upon return.
+ *
+ *            <cstring> is typically from user input (such as a
+ *            command-line option), so parsing errors are normal ones
+ *            (returned, not thrown).
+ *            
+ *
+ * Returns:   <eslOK> on success, and <*ret_pos1> and <*ret_pos2> are
+ *            set to the endpoints. If <*ret_pos2> is 0, interpret
+ *            coords as the suffix <pos1>..L once length L is known;
+ *            if <*ret_pos1> is 0, interpret as the reverse
+ *            complemented suffix L..<pos2>. (0 <= pos1,pos2 < 1e18,
+ *            and only one of pos1,pos2 can be 0.)
+ *
+ *            <eslESYNTAX> if the format of the <cstring> can't be
+ *            parsed correctly, including <pos1> or <pos2> being
+ *            non-numeric, negative, too large, both omitted, or one
+ *            omitted with the '-' separator. Now <*ret_pos1> and
+ *            <*ret_pos2> are set to -1.
+ *
+ * Throws:    <eslEINCONCEIVABLE> on internal failures in regexp
+ *            <eslEMEM> on allocation failure
  */
 int
-esl_regexp_ParseCoordString(const char *cstring, int64_t *ret_start, int64_t *ret_end)
+esl_regexp_ParseCoordString(const char *cstring, int64_t *ret_pos1, int64_t *ret_pos2)
 {
-  ESL_REGEXP *re = esl_regexp_Create();
-  char        tok1[20];   // max length of int64_t in char = 18 + '-' + '\0' = 20
-  char        tok2[20];
+  ESL_REGEXP *re = NULL;
+  char        tok1[32];  
+  char        tok2[32];
   int         status;
 
-  if (esl_regexp_Match(re, "^(\\d+)\\D+(\\d*)$", cstring) != eslOK) { status = eslESYNTAX; goto ERROR; }
-  if (esl_regexp_SubmatchCopy(re, 1, tok1, 32)            != eslOK) { status = eslFAIL;    goto ERROR; }
-  if (esl_regexp_SubmatchCopy(re, 2, tok2, 32)            != eslOK) { status = eslFAIL;    goto ERROR; }
+  if ((re = esl_regexp_Create()) == NULL)  { status = eslEMEM; goto ERROR; }
 
-  *ret_start = atol(tok1);
-  *ret_end   = (tok2[0] == '\0') ? 0 : atol(tok2);
+  if ( (esl_regexp_Match(re, "^(\\d*):(\\d*)$",    cstring) != eslOK) && 
+       (esl_regexp_Match(re, "^(\\d+)-(\\d+)$",    cstring) != eslOK) &&   // note that with - separator, pos1 and pos2 must both be present
+       (esl_regexp_Match(re, "^(\\d*)\\.+(\\d*)$", cstring) != eslOK))
+    {
+      status = eslESYNTAX;
+      goto ERROR;
+    }
+
+  if (esl_regexp_SubmatchCopy(re, 1, tok1, sizeof(tok1))  != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; }
+  if (esl_regexp_SubmatchCopy(re, 2, tok2, sizeof(tok2))  != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; }
+  if (strlen(tok1) > 18 || strlen(tok2) > 18)                       { status = eslESYNTAX;        goto ERROR; }
+  if (tok1[0] == '\0' && tok2[0] == '\0')                           { status = eslESYNTAX;        goto ERROR; }
+
+  *ret_pos1  = (tok1[0] == '\0') ? 0 : strtoll(tok1, NULL, 10);
+  *ret_pos2  = (tok2[0] == '\0') ? 0 : strtoll(tok2, NULL, 10);
 
   esl_regexp_Destroy(re);
   return eslOK;
 
  ERROR:
   esl_regexp_Destroy(re);
+  *ret_pos1 = -1;
+  *ret_pos2 = -1;
   return status;
 }
 /*=================== end of the exposed API ==========================================*/
@@ -1806,6 +1859,69 @@ utest_basic_ops(void)
   if (n != 5) esl_fatal(msg);
   esl_regexp_Destroy(m);
 }
+
+
+/* utest_coordstring()
+ * Tests esl_regexp_ParseCoordString()
+ */
+static void
+utest_coordstring(void)
+{
+  char    msg[] = "esl_regexp coordstring test failed";
+  int64_t pos1, pos2;
+  int     i;
+  /* Table of valid inputs and their expected (pos1,pos2) parses. */
+  struct { char *s; int64_t pos1; int64_t pos2; } ok[] = {
+    { "42:100",                 42,           100 },   // canonical ':' form
+    { "42-100",                 42,           100 },   // '-' separator
+    { "42.100",                 42,           100 },   // single '.' separator
+    { "42..100",                42,           100 },   // multiple '.' separators
+    { "42...100",               42,           100 },   //  ... all collapse
+    { "100:42",                100,            42 },   // revcomp: pos2 < pos1
+    { "42:42",                  42,            42 },   // single residue
+    { "1:1",                     1,             1 },
+    { "42:",                    42,             0 },   // suffix:        42..L
+    { "42..",                   42,             0 },   //  ... with '.' separator
+    { ":42",                     0,            42 },   // revcomp suffix: L..42
+    { "..42",                    0,            42 },   //  ... with '.' separator
+    { "999999999999999999:1",   999999999999999999LL, 1 }, // 18 digits, the max allowed
+    { "1:999999999999999999",    1, 999999999999999999LL },
+  };
+  int nok = sizeof(ok) / sizeof(ok[0]);
+  /* Inputs that must fail to parse, returning <eslESYNTAX>. */
+  char *bad[] = {
+    "",                            // empty string
+    ":",                           // separator only, both coords omitted
+    "-",
+    "..",
+    "42",                          // no separator at all
+    "42:100:200",                  // too many fields
+    "42abc100",                    // letters aren't a valid separator
+    "42_100",                      // underscore isn't a valid separator
+    "42 100",                      // whitespace isn't a valid separator
+    " 42:100",                     // leading whitespace
+    "42:100 ",                     // trailing whitespace
+    "42-",                         // '-' separator forbids omitted coords (would look like a negative number)
+    "-42",                         //  ... so "-42" is rejected, not read as the suffix ":42"
+    "-42:100",                     // a true '-' sign is not accepted (no negatives)
+    "1234567890123456789:1",       // 19 digits in pos1: too large (>=1e18)
+    "1:1234567890123456789",       // 19 digits in pos2
+  };
+  int nbad = sizeof(bad) / sizeof(bad[0]);
+
+
+  for (i = 0; i < nok; i++)
+    {
+      if (esl_regexp_ParseCoordString(ok[i].s, &pos1, &pos2) != eslOK) esl_fatal(msg);
+      if (pos1 != ok[i].pos1 || pos2 != ok[i].pos2)                    esl_fatal(msg);
+    }
+
+  for (i = 0; i < nbad; i++)
+    {
+      if (esl_regexp_ParseCoordString(bad[i], &pos1, &pos2) != eslESYNTAX) esl_fatal(msg);
+      if (pos1 != -1 || pos2 != -1)                                        esl_fatal(msg);  // failure sets both to -1
+    }
+}
 #endif /*eslREGEXP_TESTDRIVE*/
 
 /*****************************************************************
@@ -1836,6 +1952,7 @@ main(int argc, char **argv)
   fprintf(stderr, "## %s\n", argv[0]);
 
   utest_basic_ops();
+  utest_coordstring();
 
   fprintf(stderr, "#  status = ok\n");
 
