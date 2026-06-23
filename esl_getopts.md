@@ -92,8 +92,8 @@ main(int argc, char **argv)
   printf("Option -n:      %d\n", esl_opt_GetInteger(go, "-n"));
   printf("Option -s:      %s\n", esl_opt_GetString( go, "-s"));
   printf("Option -x:      %f\n", esl_opt_GetReal(   go, "-x"));
-  if (esl_opt_IsUsed(go, "--file")) printf("Option --file:  %s\n", esl_opt_GetString(go, "--file"));
-  else                              printf("Option --file:  (not set)\n");
+  if (esl_opt_IsOn(go, "--file")) printf("Option --file:  %s\n", esl_opt_GetString(go, "--file"));
+  else                            printf("Option --file:  (not set)\n");
   printf("Option --char:  %c\n", esl_opt_GetChar(go, "--char"));
   printf("Cmdline arg:    %s\n", arg);
 
