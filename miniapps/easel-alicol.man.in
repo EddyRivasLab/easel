@@ -1,0 +1,642 @@
+.TH "easel alicol" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+
+.SH NAME
+
+easel alicol \- select subset of columns from a multiple alignment 
+
+.SH SYNOPSIS
+
+.B easel alicol
+[\fIoptions\fR]
+.I msafile
+
+
+.SH DESCRIPTION
+
+.PP
+.B easel alicol
+selects a subset of the columns in the multiple sequence alignment(s) in the input
+.I msafile,
+and outputs new, smaller MSA(s) that contain only the selected columns.
+
+.PP
+Columns are selected with any of several different options:
+
+.IP - 3
+by specifying a "mask" of exactly which columns to keep
+.B (\-\-mask),
+
+.IP -
+by keeping only consensus columns
+.B (\-\-rfonly),
+
+.IP -
+by specifying a span of columns by start and end coord
+.B (\-\-span),
+
+.IP -
+by the fraction of gaps/residues in each column
+.B (\-\-gapfrac, \-\-symfrac, \-\-mingap, \-\-nogap),
+
+.IP -
+by posterior probability (alignment accuracy) annotation on each column
+.B (\-\-ppcons, \-\-ppfrac, \-\-ppavg).
+
+.PP
+These options are called the "selection options".  At least one selection
+option must be used. Any given selection option can only be used once.
+Selection options can be combined, and the final selection mask is the
+logical AND of all selections.
+
+.PP
+The
+.I msafile
+would typically contain just one MSA, but it may
+contain 
+multiple MSAs (for MSA file formats that allow that, like Stockholm)
+except when the
+.B \-\-mask
+or
+.B \-\-span
+selection options are used.
+The 
+.B \-\-mask
+selection option requires specifying a mask for a
+particular MSA,
+and the 
+.B \-\-span
+selection option requires specifying start/end coordinates for a
+particular
+MSA length.
+
+.PP
+The
+.B \-\-rfonly
+selection option requires consensus column annotation to be present.
+Consensus columns can only be defined in certain MSA file formats.
+In Stockholm format, 
+consensus 
+columns are annotated by any non-gap character in a
+.B #=GC RF
+annotation line.
+In A2M|A3M format, consensus columns are indicated by upper case
+residues.
+
+.PP
+The
+.B \-\-span
+selection option requires specifying start/end column numbering.
+Columns in the input MSA are numbered
+.IR 1..alen .
+This default all-columns coordinate system can be changed to a
+consensus-only coordinate system by using
+the
+.B \-c
+option, if consensus annotation is present.
+With
+.BR \-c ,
+the
+.I C
+annotated consensus columns
+are numbered
+.IR 1..C .
+One example of when it is 
+useful to work in consensus coordinates
+is when they correspond to a standard reference
+coordinate system (hence the "RF" name in Stockholm); the E. coli
+reference coordinate system used for SSU rRNA alignment positions, for
+example.
+
+.PP
+The
+.B \-\-mask
+option reads a mask string from an input file.
+A mask string is a string of binary 1|0 characters of the same length
+.I alen
+(or consensus length
+.I C,
+if the
+.B \-c
+option is used).
+1 means "keep", 0 means "discard" the corresponding column.
+
+.PP
+For selection options that select by posterior probability (estimated
+alignment accuracy), the MSA must be in Stockholm format, and it must
+have the relevant posterior probability annotation(s): #=GC PP_cons
+for consensus postprobs, #=GR PP for individual residue postprobs.
+Stockholm PP and PP_cons annotation is coarse-grained in 11 bins
+represented by characters 0-9* (and a 12th character '.' for
+nonconsensus columns), with 0 = 0.0 <= p < 0.05, 1 = 0.05 <= p <
+0.15, ... , 9 = 0.85 <= p < 0.95, and * = 0.95 <= p <= 1.0.  For the
+.B \-\-ppcons
+and
+.B \-\-ppfrac
+options that enforce a minimum probability threshold,
+a PP annotation character is interpreted as the minimum of its
+bin's range.
+For 
+.BR \-\-ppavg ,
+a PP annotation character is interpreted as the mean of its bin's range.
+Consensus PP annotation is on consensus columns only:
+each consensus column (defined by non-gap symbols in #=GC RF
+annotation) has a PP_cons symbol 0-9*, and each nonconsensus (insert)
+column has a PP_cons symbol of '.'. Individual PP annotation
+corresponds to the residues in an individual aligned sequence.
+
+.PP
+The input MSA(s) are read in Easel's "text mode", which means that all
+sequence characters are preserved verbatim, as opposed to being parsed
+as amino acids or RNA|DNA nucleotides. However,
+.B easel alicol
+does need to know whether the input MSA has RNA secondary structure
+annotation.  Removing columns can break base pair annotation, by
+removing only one side of an annotated pair. Therefore 
+standard Easel alphabet autodetection is performed, and the
+standard Easel alphabet assertion options
+.B \-\-amino | \-\-dna | \-\-rna
+are present, but alphabet type is solely used to decide whether to
+trigger editing of secondary structure annotation lines.  For RNA MSAs
+with secondary structure annotation, when removal of a column would
+remove the annotation for only one side of a base pair, the base
+pairing annotation on the remaining column is converted to unpaired.
+
+.PP
+By default, the resulting new MSA(s) are written to standard output.
+With the
+.B \-o
+option, the MSA(s) are written to a specified file instead,
+and now the standard output is instead some verbose information
+about the column selection process.
+If the
+.B \-q
+(be quiet) option is added,
+this verbose information is suppressed, and there is no
+standard output.
+
+.PP
+If
+.I msafile
+is
+.B \-
+(a single dash) input is read from a stdin pipe.
+If
+.I msafile
+ends in .gz it is assumed to be gzip-compressed, and is
+read through a
+.B gzip \-dc
+pipe.
+See
+.B man easel
+for more detail.
+
+
+
+
+.SH SELECTION OPTIONS
+
+.TP
+.BI \-\-gapfrac " x"
+Keep columns where the
+fraction of gap characters is <
+.IR x .
+(Equivalently: remove columns where the
+fraction is >=
+.IR x .)
+.I x
+is > 0 and <= 1. 0 isn't allowed because
+it would delete all columns. 
+.B \-\-gapfrac 1
+keeps only columns with at least one residue and
+is equivalent to
+.BR \-\-mingap .
+With the
+.B \-\-keeprf
+option, consensus columns are always kept,
+and this selection is only applied to nonconsensus (insert) columns.
+
+.TP
+.BI \-\-mask " maskfile"
+Specify exactly which columns to keep, using a binary "mask"
+of 1|0's. The
+.I maskfile
+contains a mask string of 1|0 characters of length
+.I alen
+(or consensus length
+.IR C ,
+if the
+.B \-c
+option is used).
+1 means "keep", 0 means "discard".
+Lines in
+.I maskfile
+that start with `#` are comments and are ignored;
+whitespace in the file is ignored.
+
+.TP
+.B \-\-mingap
+Only keep columns with at least one residue;
+remove columns that consist entirely of gap characters.
+Minimizes the overall length of the alignment without losing
+sequence information.
+Useful if you've extracted a subset of aligned sequences from a
+larger alignment.
+Equivalent to
+.BR "\-\-gapfrac 1" .
+Consensus columns that happen to be all gaps in this MSA
+will be discarded. 
+With the
+.B \-\-keeprf
+option, consensus columns are always kept,
+and this selection is only applied to nonconsensus (insert) columns.
+
+.TP
+.B \-\-nogap
+Only keep columns that consist entirely of residues:
+remove columns that contain any gap characters.
+Equivalent to
+.BR "\-\-symfrac 1" .
+With the
+.B \-\-keeprf
+option, consensus columns are always kept,
+and this selection is only applied to nonconsensus (insert) columns.
+
+.TP
+.BI \-\-ppavg " x"
+Calculate the mean posterior probability for all
+individual aligned residues in each column; select columns
+with mean >=
+.IR x .
+All sequences must have individual posterior probability
+annotation (#=GR PP, in Stockholm).
+Columns with no residues (all gaps) are considered to have
+a mean posterior probability of 0 and are removed.
+With the
+.B \-\-keeprf
+option, consensus columns are always kept,
+and this selection criterion is only applied to nonconsensus (insert) columns.
+
+.TP
+.BI \-\-ppcons " x"
+Keep columns with consensus posterior probability >=
+.I x,
+where 0 <= x <= 1.
+The input
+.I msafile
+must be in Stockholm format, and must
+have #=GC PP_cons annotation.
+Nonconsensus (insert) columns have no consensus posterior probability
+annotation,
+so they are removed, unless
+.B \-\-keepins
+is also set.
+
+.TP
+.BI \-\-ppfrac " x"
+Keep columns with a fraction >=
+.I x
+of confidently aligned residues (relative to all residues in the
+column), where "confidently aligned" is
+defined as a posterior probability of >=
+.IR t ,
+set by 
+.BI \-\-ppfracthresh " t"
+(t=0.95 by default).
+All sequences must have individual posterior probability
+annotation (#=GR PP, in Stockholm).
+With the
+.B \-\-keeprf
+option, consensus columns are always kept,
+and this selection is only applied to nonconsensus (insert) columns.
+
+.TP
+.B \-\-rfonly
+Keep consensus columns, discard nonconsensus (insert) columns.
+MSA must have consensus column annotation, so it must be in
+Stockholm format with a #=GC RF annotation line, or in A2M|A3M format.
+
+.TP
+.BI \-\-span " pos1:pos2"
+Keep columns from position
+.I pos1
+to position
+.I pos2,
+numbering all the columns 1..alen by default.
+With the
+.B \-c
+option,
+these position coordinates are in consensus column coordinates 1..C
+instead; keep all columns (including nonconsensus inserts) between consensus columns
+.I pos1
+and
+.IR pos2 ,
+inclusive.
+.I pos1
+and
+.I pos2
+can be separated by any non-numeric and non-whitespace character:
+"42:100", "42-100", and "42..100" all work.
+Coordinates must be 1 <= pos1 <= pos2 <= alen.
+As a special case, leaving out
+.I pos2
+is interpreted as requesting a suffix: for example, 
+"42:" means from column 42 to the end of the MSA.
+
+.TP
+.BI \-\-symfrac " x"
+Keep columns where the fraction of residue characters is >=
+.IR x.
+(Equivalently, remove columns where the fraction is <
+.IR x .)
+.I x
+is > 0 and <= 1. 0 isn't allowed because it would do nothing; all columns
+would be kept, even all-gap ones. 
+.B \-\-symfrac 1
+keeps only columns that are all residues, with no gaps at all, and
+is equivalent to
+.BR \-\-nogap .
+With the
+.B \-\-keeprf
+option, consensus columns are always kept,
+meaning that the selection action is only applied to nonconsensus (insert) columns.
+
+
+
+.SH OTHER OPTIONS
+
+.TP
+.B \-c
+Instead of 1..alen, column coordinates are with respect to the annotated consensus
+columns 1..C. Nonconsensus (insert)
+columns are unnumbered. The MSA must have consensus column annotation.
+This affects the start/end coordinates used by
+.B \-\-span
+and the length of the mask string expected by
+.BR \-\-mask .
+It does not affect the length of the mask string written
+by
+.BR \-\-outmask ,
+which is always the full mask for all columns (length alen);
+use
+.BR \-\-outrfmask
+to save the final mask in 1..C consensus coordinates.
+
+.TP
+.B \-w
+Calculate weighted frequencies or averages for columns, using sequence
+weights annotated in the MSA. (The default is to calculate unweighted
+frequencies/averages.)  The input
+.I msafile
+must be in a format that allows weight annotation; currently this is
+only Stockholm format. If weights are not present, they are
+treated as 1.0.
+Requires using a relevant selection option:
+.BR \-\-gapfrac ,
+.BR \-\-ppfrac ,
+.BR \-\-ppavg ,
+.BR \-\-symfrac.
+For calculating MSA weights, see
+.BR "easel weight" .
+
+.TP
+.B \-\-keepins
+When applying a
+.B \-\-ppcons 
+selection, keep all nonconsensus (insert) columns and only apply the
+selection rule to consensus columns.
+Otherwise, by default
+.B  \-\-ppcons
+would discard nonconsensus columns because they have no consensus posterior
+probability.
+This can be useful if all you're trying to do is remove uncertainly
+aligned consensus columns, and maybe you're going to apply some other selection rule to
+insertions. (Requires
+.BR \-\-ppcons .)
+
+.TP
+.B \-\-keeprf
+With thresholded selection options that could delete a consensus column and thus alter and break a
+reference coordinate system that we want to preserve (
+.BR \-\-gapfrac ,
+.BR \-\-mingap ,
+.BR \-\-nogap ,
+.BR \-\-symfrac ,
+.BR \-\-ppfrac ,
+.BR \-\-ppavg ),
+keep all consensus columns even if they don't satisfy the selection
+criterion. That is, only apply these selection criterion to nonconsensus
+(insert) positions.
+Note that
+.B \-\-ppcons
+is not on this list; since
+.B \-\-ppcons
+only affects consensus columns in the first place,
+it doesn't make sense to combine it with
+.B \-\-keeprf.
+
+
+.TP
+.BI \-\-outmask " outfile"
+Write the final mask (the logical AND of all the selection
+options that were used) to 
+.I outfile
+as a mask string of length alen.
+The
+.I msafile
+may only have one MSA in it, because mask files
+can only contain one mask.
+
+
+.TP
+.BI \-\-outrfmask " outfile"
+Write the final mask (the logical AND of all the selection
+options that were used), for consensus columns only, to 
+.I outfile
+as a mask string of length C. The MSA must have consensus
+column annotation.
+The
+.I msafile
+may only have one MSA in it, because mask files
+can only contain one mask.
+
+.TP
+.BI \-\-ppfracthresh " t"
+With (and requiring) the
+.B \-\-ppfrac
+option, sets the threshold posterior probability
+for the 
+.BI \-\-ppfrac " x"
+selection, which selects columns that
+have a fraction >=
+.I x
+of individual postprob annotations of >=
+.I t.
+The default is 0.95, which means
+that
+.BI \-\-ppfrac " x"
+selects columns where a fraction of at least
+.I x
+of the residues are annotated with a '*' (the highest
+bin of alignment accuracy in PP annotations).
+
+.TP
+.B \-\-small
+Small memory mode.
+The input 
+.I msafile
+and the output 
+must both be in Pfam format (non-interleaved, 1 line/sequence Stockholm
+format),
+and the alphabet for the MSA file must be asserted with one
+of the
+.BR \-\-amino |
+.BR \-\-dna   |
+.B  \-\-rna
+options.
+The
+.B \-w
+option can't be used; 
+frequency-based selections use only unweighted frequencies,
+because the legacy small-memory parser does not parse sequence weights.
+The
+.I msafile
+will be processed without ever reading a complete MSA into memory,
+which can be useful for some extremely large MSAs (such as SSU/LSU
+rRNA alignments). Because small memory mode requires two
+read passes over the file, the input
+.I msafile
+must actually be a file; it cannot be `-` (a stdin stream).
+
+
+.SH STANDARD EASEL OPTIONS
+
+.TP
+.B \-h
+Help: print a brief reminder of command line usage and a summary of
+all available options, and exit.
+
+.TP
+.BI \-o " outfile"
+Write the new smaller MSA(s) to
+.IR outfile ,
+rather than to standard output.
+Some verbose diagnostic information about the selection process
+is written to stdout instead (unless
+.B \-q
+is also used).
+
+.TP
+.B \-q
+With (and requiring) the
+.B \-o
+option, silences the verbose diagnostic output;
+the MSA is written to the file requested by
+.BR \-o ,
+and no output is written to stdout.
+
+.TP
+.B \-\-amino
+Assert that the 
+.I msafile 
+contains protein sequences.
+
+.TP
+.B \-\-dna
+Assert that the 
+.I msafile 
+contains DNA sequences. 
+
+.TP
+.BI \-\-informat " fmt"
+Assert that input
+.I msafile
+is in alignment format
+.IR fmt ,
+bypassing format autodetection.
+Choices for 
+.I fmt
+are
+.BR a2m|a3m|afa|clustal|clustallike|pfam|phylip|phylips|psiblast|selex|stockholm .
+.I fmt
+is case-insensitive (e.g.
+.B afa
+or
+.B AFA
+both work).
+
+
+.TP
+.BI \-\-outformat " fmt"
+Write the new smaller alignment in alignment format
+.IR fmt .
+Choices for
+.I fmt
+are
+.BR a2m|a3m|afa|clustal|clustallike|pfam|phylip|phylips|psiblast|selex|stockholm .
+.I fmt
+is case-insensitive (e.g.
+.B afa
+or
+.BR AFA
+both work). Default is to use the same format as the input MSA file.
+If the input
+.I msafile
+contains multiple MSAs,
+the output format must allow multiple MSAs: this typically means
+using Stockholm,
+though phylip and phylips format also allow multiple MSAs per file.
+Incompatible with
+.BR \-\-small ,
+because
+.BR \-\-small
+requires the input and output MSA file to both be in one-block
+Stockholm ("Pfam") format.
+
+
+.TP 
+.B \-\-rna
+Assert that the 
+.I msafile 
+contains RNA sequences. 
+
+
+
+
+.SH SEE ALSO
+
+.B man easel
+for more information about 
+Easel miniapps, their shared behaviors, and 
+some standardized options.
+
+.nf
+@EASEL_URL@
+.fi
+
+.SH COPYRIGHT
+
+.nf 
+@EASEL_COPYRIGHT@
+@EASEL_LICENSE@
+.fi 
+
+.SH AUTHOR
+
+.nf
+http://eddylab.org
+.fi
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

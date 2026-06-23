@@ -118,6 +118,7 @@
 1 exercise easel-afetch       !testsuite/easel-afetch-itest.py!     @@ !! %TESTPFX%
 1 exercise easel-afetchn      !testsuite/easel-afetchn-itest.py!    @@ !! %TESTPFX%
 1 exercise easel-aindex       !testsuite/easel-aindex-itest.py!     @@ !! %TESTPFX%
+1 exercise easel-alicol       !testsuite/easel-alicol-itest.py!     @@ !! %TESTPFX%
 1 exercise easel-alimanip     !testsuite/easel-alimanip-itest.py!   @@ !! %TESTPFX%
 1 exercise easel-alimap       !testsuite/easel-alimap-itest.py!     @@ !! %TESTPFX%
 1 exercise easel-alimerge     !testsuite/easel-alimerge-itest.py!   @@ !! %TESTPFX%

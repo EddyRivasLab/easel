@@ -93,10 +93,9 @@ ESL_SUBCMD subcommands[] = {
  */
 static ESL_OPTIONS top_options[] = {
    /* name         type          default  env  range tog's   reqs incomp  help                       docgroup*/
-  { "-h",         eslARG_NONE,   FALSE, NULL, NULL,  NULL, NULL,   NULL, "show overall brief help summary", 1  },
-  { "-v",         eslARG_NONE,   FALSE, NULL, NULL,  NULL, NULL,   NULL, "show version number",             1  },
-  { "--version",  eslARG_NONE,   FALSE, NULL, NULL,  NULL, NULL,   NULL, "show version number",             99 },  // 99 = don't show in brief help
-  { "--help",     eslARG_NONE,   FALSE, NULL, NULL,  NULL, NULL,   NULL, "show overall brief help summary", 99 },  
+  { "-h",         eslARG_NONE,   FALSE, NULL, NULL,  NULL, NULL,   NULL, "show brief help information and exit",  1  },
+  { "--version",  eslARG_NONE,   FALSE, NULL, NULL,  NULL, NULL,   NULL, "show version information and exit",     1  },  
+  { "--help",     eslARG_NONE,   FALSE, NULL, NULL,  NULL, NULL,   NULL, "show overall brief help summary",      99  },  
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
@@ -109,7 +108,7 @@ top_usage(const char *topcmd)
 
   esl_printf("Usage:\n");
   esl_printf("  %s [-h | --help]     : show overall brief help summary\n",      topcmd);
-  esl_printf("  %s [-v | --version]  : show version number\n",                  topcmd);
+  esl_printf("  %s --version]        : show version number\n",                  topcmd);
   esl_printf("  %s <cmd> -h          : show brief help for an Easel command\n", topcmd);
   esl_printf("  %s <cmd> [<args>...] : run an Easel command\n",                 topcmd);
   return eslOK;
@@ -142,7 +141,7 @@ main(int argc, char **argv)
   if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) esl_fatal("Failed to parse command line: %s\n\n",  go->errbuf);
   if (esl_opt_VerifyConfig(go)               != eslOK) esl_fatal("Failed to parse command line: %s\n\n",  go->errbuf);
   
-  if (esl_opt_GetBoolean(go, "-v") || esl_opt_GetBoolean(go, "--version")) { printf("%s\n", EASEL_VERSION); status = eslOK; goto DONE; }
+  if (esl_opt_GetBoolean(go, "--version"))                                 { printf("easel %s\n", EASEL_VERSION); status = eslOK; goto DONE; }
   if (esl_opt_GetBoolean(go, "-h") || esl_opt_GetBoolean(go, "--help"))    { status = top_help(argv[0]);    goto DONE; }
   if (argc - go->optind == 0)                                              { status = top_help(argv[0]);    goto DONE; }
 
