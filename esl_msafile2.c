@@ -56,7 +56,7 @@ static int msafile2_open(const char *filename, const char *env, ESL_MSAFILE2 **r
  * Purpose:  Open an alignment database file <filename>, which must be
  *           in Pfam format (<eslMSAFILE_PFAM>), and prepare for
  *           reading information through the legacy small-memory 
- *           interface. Return  the opened file pointer in <ret_msafp>.
+ *           interface. Return the opened file pointer in <ret_msafp>.
  *          
  *           There are one or two special cases for <filename>. If
  *           <filename> is "-", then the alignment is read from

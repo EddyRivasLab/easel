@@ -1,4 +1,4 @@
-.TH "easel sfetchn" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel sfetchn" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
 easel sfetchn \- fetch a list of sequences from seqfile

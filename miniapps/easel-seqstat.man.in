@@ -1,4 +1,4 @@
-.TH "easel seqstat" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel seqstat" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
 easel seqstat \- summary statistics for a sequence file

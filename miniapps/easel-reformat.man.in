@@ -1,4 +1,4 @@
-.TH "easel reformat" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel reformat" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
 easel reformat \- convert sequence file formats

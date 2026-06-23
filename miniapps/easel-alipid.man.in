@@ -1,4 +1,4 @@
-.TH "easel alipid" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel alipid" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
 easel alipid \- calculate pairwise %id for all aligned seq pairs in MSA

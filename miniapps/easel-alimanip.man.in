@@ -1,4 +1,4 @@
-.TH "easel alimanip" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel alimanip" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
 easel alimanip \- manipulate a multiple sequence alignment in various ways

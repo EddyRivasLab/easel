@@ -39,7 +39,7 @@
  *            that need different subheadings for example - pass your
  *            own show-options-help function in <*opthelp_f>.
  *            Otherwise to use the default pass NULL.
-
+ *
  *            If <topcmd> is a path, e.g. "/foo/bar/easel", only the
  *            `easel` part is used in any output formatting.  (Using
  *            the actual argv[0] allows for the possibility that

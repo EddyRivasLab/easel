@@ -1,4 +1,4 @@
-.TH "easel msashuf" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel msashuf" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
 easel msashuf \- shuffle, randomize, or bootstrap a multiple sequence alignment
@@ -25,11 +25,11 @@ was in.
 The default is to shuffle the columns of the MSA independently
 ("horizontal" columnwise shuffling).
 Alternatively, with the 
-.I -v
+.B -v
 option we shuffle residues
 within each column ("vertical" shuffling: within columns), 
 or with the
-.I -b
+.B -b
 option, we do 
 classic bootstrapping (resample columns with replacement).
 

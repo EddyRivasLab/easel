@@ -1,4 +1,4 @@
-.TH "easel ssdraw" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel ssdraw" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
 easel ssdraw \- draw secondary structure diagrams using postscript template

@@ -1,4 +1,4 @@
-.TH "easel afetch" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel afetch" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
 easel afetch \- fetch MSA from multi-MSA datafile (such as Pfam, Rfam)

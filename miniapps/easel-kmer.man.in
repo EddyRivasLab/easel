@@ -1,4 +1,4 @@
-.TH "easel kmer" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel kmer" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
 easel kmer \- collect kmer statistics for a sequence file

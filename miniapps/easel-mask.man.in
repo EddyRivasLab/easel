@@ -1,4 +1,4 @@
-.TH "easel mask" 1 "@EASEL_DATE@" "Easel @EASELVERSION@" "Easel Manual"
+.TH "easel mask" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
 easel mask \- mask specified segments of sequences

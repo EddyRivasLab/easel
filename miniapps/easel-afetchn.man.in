@@ -1,4 +1,4 @@
-.TH "easel afetchn" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel afetchn" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
 easel afetchn \- fetch a list of MSAs from multi-MSA file

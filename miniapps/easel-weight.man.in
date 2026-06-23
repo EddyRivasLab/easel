@@ -1,4 +1,4 @@
-.TH "easel weight" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel weight" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
 easel weight \- assign sequence weights to an MSA

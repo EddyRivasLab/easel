@@ -1,4 +1,4 @@
-.TH "easel shuffle" 1  "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel shuffle" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
 easel shuffle \- shuffling or randomizing sequences 
