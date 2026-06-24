@@ -1206,7 +1206,7 @@ static int prune_msa_based_on_posteriors(ESL_MSA *msa, float min_pp, char *errbu
     /* rename the sequence */
     if(msa->pp[i] != NULL) {
       for(apos = 1; apos <= msa->alen; apos++) { 
-	/* be wary off the off-by-one b/t msa->ax and msa->pp */
+	/* be wary of the off-by-one b/t msa->ax and msa->pp */
 	if(! esl_abc_CIsGap(msa->abc, msa->pp[i][apos-1])) { 
 	  ppidx = get_pp_idx(msa->abc, msa->pp[i][apos-1]);
 	  if(ppidx < min_ppidx) { /* not a gap, and less than our minimum */
@@ -1822,7 +1822,7 @@ number_columns(ESL_MSA *msa, int do_all, int *i_am_rf, char *errbuf)
       else numstring[(apos-1)] = get_char_digit_x_from_int(pos2print++, (alen_ndigits-a));
 	/*printf("called get_char_digit_x_from_int(%d, %d)\n",apos, (alen_ndigits-a));*/
     }
-    /* If the tag already exists, free it's associated markup string. This is an awful hack. */
+    /* If the tag already exists, free its associated markup string. This is an awful hack. */
     for (tagidx = 0; tagidx < msa->ngc; tagidx++) 
       if (strcmp(msa->gc_tag[tagidx], tag) == 0) break;
     if(tagidx != msa->ngc) { /* tag exists */
@@ -1849,7 +1849,7 @@ number_columns(ESL_MSA *msa, int do_all, int *i_am_rf, char *errbuf)
 
 /* digit_to_char
  *                   
- * Given a digit (0-9) return the character reprentation of it.
+ * Given a digit (0-9) return the character representation of it.
  * There must be a better way to do this; oh well.
  */
 static char
@@ -2020,11 +2020,11 @@ msa_keep_or_remove_seqs(ESL_MSA *msa, char *errbuf, char **seqlist, int seqlist_
  * Args:      msa          - MSA, digitized, with RF annotation
  *            i_am_rf      - [0..msa->alen-1], TRUE if apos is a nongap RF column, FALSE if not 
  *            i            - index of seq 1
- *            j            - indes of seq 2
+ *            j            - index of seq 2
  *            cfirst       - first consensus position to consider
  *            clast        - last consensus position to consider
  *            opt_pshared  - optRETURN: pairwise insert identity, 0<=x<=1
-  *            opt_nshared  - optRETURN: # of inserts shared
+ *            opt_nshared  - optRETURN: # of inserts shared
  *            opt_nins     - optRETURN: nins
  *
  * Returns:   <eslOK> on success. <opt_distance>, <opt_nid>, <opt_n>
@@ -2078,7 +2078,7 @@ insert_x_pair_shared(ESL_MSA *msa, int *i_am_rf, int i, int j, int cfirst, int c
  *            
  * Args:      msa          - MSA, digitized, with RF annotation
  *            i            - index of seq 1
- *            j            - indes of seq 2
+ *            j            - index of seq 2
  *            cfirst       - first consensus position to consider
  *            clast        - last consensus position to consider
  *            opt_pshared  - optRETURN: pairwise insert identity, 0<=x<=1

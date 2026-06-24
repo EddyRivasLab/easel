@@ -96,7 +96,7 @@ are:
 (case insensitive).
 See
 .B man easel
-for more detal on formats and autodetection.
+for more detail on formats and autodetection.
 
 .TP
 .B \-\-noacc

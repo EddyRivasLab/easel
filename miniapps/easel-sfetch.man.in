@@ -263,7 +263,7 @@ are
 (case insensitive).
 Multiple sequence alignment files are also accepted but only
 for unindexed retrieval. (MSA formats are not conducive to
-sequence indexing; sequences are often not contigous records
+sequence indexing; sequences are often not contiguous records
 in the file.) 
 MSA formats
 are 

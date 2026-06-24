@@ -22,6 +22,8 @@ extern int esl_cmd_alimerge  (const char *topcmd, const ESL_SUBCMD *sub, int arg
 extern int esl_cmd_alimap    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
 extern int esl_cmd_alipid    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
 extern int esl_cmd_alirev    (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
+extern int esl_cmd_alishuf   (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
+extern int esl_cmd_alistat   (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_compalign (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
 extern int esl_cmd_compstruct(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
 extern int esl_cmd_construct (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);
@@ -30,8 +32,6 @@ extern int esl_cmd_filter    (const char *topcmd, const ESL_SUBCMD *sub, int arg
 extern int esl_cmd_histplot  (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_kmer      (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_mask      (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
-extern int esl_cmd_msashuf   (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
-extern int esl_cmd_msastat   (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_printseq  (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_reformat  (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
 extern int esl_cmd_seqrange  (const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv);  
@@ -63,6 +63,8 @@ ESL_SUBCMD subcommands[] = {
   { esl_cmd_alimerge,   "alimerge",     -1, "[-options] <msafile1> [<msafile2>...]",         "merge MSAs into one, via reference (RF) annotation"       },
   { esl_cmd_alipid,     "alipid",        1, "[-options] <msafile>",                          "calculate pairwise %id for all aligned seq pairs in MSA"  },
   { esl_cmd_alirev,     "alirev",        1, "[-options] <msafile>",                          "reverse complement multiple sequence alignment(s)"        },
+  { esl_cmd_alishuf,    "alishuf",       1, "[-options] <msafile>",                          "shuffle a multiple sequence alignment by columns"         },
+  { esl_cmd_alistat,    "alistat",       1, "[-options] <msafile>",                          "summary statistics for a multiple seq alignment file"     },
   { esl_cmd_compalign,  "compalign",     2, "[-options] <trusted_msa> <test_msa>",           "compare trusted vs. test multiple sequence alignments"    },
   { esl_cmd_compstruct, "compstruct",    2, "[-options] <trusted_msa> <test_msa>",           "compare trusted vs. test RNA secondary structures"        },
   { esl_cmd_construct,  "construct",     1, "[-options] <msafile>",                          "describe or create consensus secondary structure"         },
@@ -71,8 +73,6 @@ ESL_SUBCMD subcommands[] = {
   { esl_cmd_histplot,   "histplot",      1, "[-options] <datafile>",                         "collate a histogram as an xmgrace datafile"               },
   { esl_cmd_kmer,       "kmer",          2, "[-options] <K> <seqfile>",                      "collect kmer statistics for a sequence file"              },
   { esl_cmd_mask,       "mask",          2, "[-options] <seqfile> <maskfile>",               "mask specified segments of sequences"                     },
-  { esl_cmd_msashuf,    "msashuf",       1, "[-options] <msafile>",                          "shuffle a multiple sequence alignment by columns"         },
-  { esl_cmd_msastat,    "msastat",       1, "[-options] <msafile>",                          "summary statistics for a multiple seq alignment file"     },
   { esl_cmd_printseq,   "printseq",      1, "[-options] <seqfile>",                          "format and print a DNA|RNA sequence"                      },
   { esl_cmd_reformat,   "reformat",      2, "[-options] <format> <seqfile>",                 "convert between sequence file formats"                    },
   { esl_cmd_seqrange,   "seqrange",      3, "[-options] <sqfile> <procidx> <nproc>",         "determine range of seqs for chunk of a parallel job"      },

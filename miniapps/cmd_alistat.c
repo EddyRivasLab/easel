@@ -1,7 +1,7 @@
-/* `easel msastat`: summary statistics for a multiple sequence alignment file
+/* `easel alistat`: summary statistics for a multiple sequence alignment file
  *
  * Usage:
- *    easel msastat <msafile>
+ *    easel alistat <msafile>
  */
 #include <esl_config.h>
 
@@ -32,11 +32,11 @@ static ESL_OPTIONS cmd_options[] = {
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
-static void msastat_default(const char *msafile, ESL_MSAFILE *afp);
-static void msastat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_header, int with_recsize);
+static void alistat_default(const char *msafile, ESL_MSAFILE *afp);
+static void alistat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_header, int with_recsize);
 
 int
-esl_cmd_msastat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
+esl_cmd_alistat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
   ESL_GETOPTS    *go           = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, /*custom opthelp_f=*/NULL);
   ESL_ALPHABET   *abc          = NULL;
@@ -62,8 +62,8 @@ esl_cmd_msastat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
       (afp->bf->mode_is != eslBUFFER_FILE && afp->bf->mode_is != eslBUFFER_ALLFILE && afp->bf->mode_is != eslBUFFER_MMAP))
     esl_fatal("--recsize requires that <msafile> is an actual file, not a stdin or gunzip stream"); 
 
-  if (esl_opt_GetBoolean(go, "-1")) msastat_oneline(msafile, afp, with_header, with_recsize);
-  else                              msastat_default(msafile, afp);
+  if (esl_opt_GetBoolean(go, "-1")) alistat_oneline(msafile, afp, with_header, with_recsize);
+  else                              alistat_default(msafile, afp);
   
   esl_msafile_Close(afp);
   esl_alphabet_Destroy(abc);
@@ -73,7 +73,7 @@ esl_cmd_msastat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
 
 
 static void
-msastat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_header, int with_recsize)
+alistat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_header, int with_recsize)
 {
   ESL_MSA    *msa         = NULL;
   FILE       *fp          = NULL;
@@ -172,7 +172,7 @@ msastat_oneline(const char *msafile, ESL_MSAFILE *afp, int with_header, int with
 
 
 static void
-msastat_default(const char *msafile, ESL_MSAFILE *afp)
+alistat_default(const char *msafile, ESL_MSAFILE *afp)
 {
   ESL_MSA    *msa             = NULL;
   int         nali            = 0;

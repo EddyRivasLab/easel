@@ -586,45 +586,8 @@ AC_CONFIG_FILES([ \
  testsuite/Makefile     \
  documentation/Makefile \
  ])
-
-# Substitutions in Easel miniapp man pages:
-# EASEL_VERSION, EASEL_DATE, EASEL_COPYRIGHT, EASEL_LICENSE, EASEL_URL
-AC_CONFIG_FILES([ \
-  miniapps/easel.man             \
-  miniapps/easel-afetch.man      \
-  miniapps/easel-afetchn.man     \
-  miniapps/easel-aindex.man      \
-  miniapps/easel-alimanip.man    \
-  miniapps/easel-alimap.man      \
-  miniapps/easel-alipid.man      \
-  miniapps/easel-alirev.man      \
-  miniapps/easel-compalign.man   \
-  miniapps/easel-compstruct.man  \
-  miniapps/easel-construct.man   \
-  miniapps/easel-downsample.man  \
-  miniapps/easel-filter.man      \
-  miniapps/easel-histplot.man    \
-  miniapps/easel-kmer.man        \
-  miniapps/easel-mask.man        \
-  miniapps/easel-msashuf.man     \
-  miniapps/easel-msastat.man     \
-  miniapps/easel-printseq.man    \
-  miniapps/easel-reformat.man    \
-  miniapps/easel-seqrange.man    \
-  miniapps/easel-seqstat.man     \
-  miniapps/easel-sfetch.man      \
-  miniapps/easel-sfetchn.man     \
-  miniapps/easel-shuffle.man     \
-  miniapps/easel-sindex.man      \
-  miniapps/easel-ssdraw.man      \
-  miniapps/easel-synth.man       \
-  miniapps/easel-translate.man   \
-  miniapps/easel-weight.man      \
- ])
-
 AC_CONFIG_HEADERS([decoy_config.h])   # This keeps gnu 'autoheader' from overwriting our esl_config.h.in
 AC_CONFIG_HEADERS([esl_config.h])
-
 
 
 #################################################################

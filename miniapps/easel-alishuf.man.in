@@ -1,11 +1,11 @@
-.TH "easel msashuf" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel alishuf" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
-easel msashuf \- shuffle, randomize, or bootstrap a multiple sequence alignment
+easel alishuf \- shuffle, randomize, or bootstrap a multiple sequence alignment
 
 .SH SYNOPSIS
 
-.B easel msashuf 
+.B easel alishuf 
 .I [options]
 .I msafile
 
@@ -13,7 +13,7 @@ easel msashuf \- shuffle, randomize, or bootstrap a multiple sequence alignment
 .SH DESCRIPTION
 
 .PP
-.B easel msashuf
+.B easel alishuf
 reads multiple sequence alignments (MSAs) from
 .I msafile;
 shuffles them, and outputs the shuffled MSAs in
@@ -39,7 +39,7 @@ classic bootstrapping (resample columns with replacement).
 
 .TP
 .B \-b
-Boostrapping: sample columns with replacement, in order to generate a
+Bootstrapping: sample columns with replacement, in order to generate a
 bootstrap-resampled alignment dataset. 
 
 .TP

@@ -257,7 +257,7 @@ reentrancy for thread safety.
 Some miniapps, including
 .B easel filter
 and
-.B easel msastat,
+.B easel alistat,
 either use or report pairwise % (or fractional) alignment identity.
 
 .PP

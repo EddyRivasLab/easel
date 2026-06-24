@@ -97,7 +97,7 @@ esl_cmd_alimap(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
     free(msa1_to_msa2_map);
   }
 
-  /* --submap: if nec, map <msafile1> to a subset of it's own columns in <msafile2>  */
+  /* --submap: if nec, map <msafile1> to a subset of its own columns in <msafile2>  */
   else { /* --submap was enabled */
     if ((subfp = fopen(esl_opt_GetString(go, "--submap"), "w")) == NULL) 
       ESL_FAIL(eslFAIL, errbuf, "Failed to open --submap output file %s\n", esl_opt_GetString(go, "--submap"));

@@ -199,7 +199,7 @@ esl_cmd_compstruct(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **a
 	 * (i,j+1), or (i,j-1), for the purposes of PPV.  That is, we
 	 * do not worry at all about establishing an optimal
 	 * one-to-one mapping between known and predicted pairs. I
-	 * think that this is likelyto reflect Mathews' own
+	 * think that this is likely to reflect Mathews' own
 	 * implementation, but have not verified this.  
 	 */
 	tpairs = tcorrect = 0; /* predicted "test" structure */

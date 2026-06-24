@@ -112,7 +112,7 @@ The
 .I seqfile
 must be an unaligned sequence file format, not a multiple sequence
 alignment format, because MSA formats are not conducive to sequence
-indexing (sequences are often not contigous records in an MSA file).
+indexing (sequences are often not contiguous records in an MSA file).
 
 
 .SH OPTIONS

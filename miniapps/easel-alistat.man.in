@@ -1,19 +1,19 @@
-.TH "easel msastat" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
+.TH "easel alistat" 1 "@EASEL_DATE@" "Easel @EASEL_VERSION@" "Easel Manual"
 
 .SH NAME
 
-easel msastat \- summarize a multiple sequence alignment file
+easel alistat \- summarize a multiple sequence alignment file
 
 .SH SYNOPSIS
 
-.B easel msastat
+.B easel alistat
 [\fIoptions\fR]
 .I msafile
 
 .SH DESCRIPTION
 
 .PP
-.B easel msastat
+.B easel alistat
 summarizes the contents of the multiple sequence alignment(s) in 
 .I msafile. 
 

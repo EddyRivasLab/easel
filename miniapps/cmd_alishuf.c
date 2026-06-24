@@ -1,7 +1,7 @@
-/* `easel msashuf` : shuffle, randomize, or bootstrap a multiple sequence alignment
+/* `easel alishuf` : shuffle, randomize, or bootstrap a multiple sequence alignment
  *
  * Usage:
- *    easel msashuf <msafile> 
+ *    easel alishuf <msafile> 
  */
 #include <esl_config.h>
 
@@ -138,7 +138,7 @@ assign_shufmsa_name(ESL_MSA *shuf, char *basename, int i, int N)
 
 
 int
-esl_cmd_msashuf(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
+esl_cmd_alishuf(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 {
   ESL_GETOPTS    *go      = esl_subcmd_CreateDefaultApp(topcmd, sub, cmd_options, argc, argv, &show_opthelp);
   char           *msafile = esl_opt_GetArg(go, 1);

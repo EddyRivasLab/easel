@@ -3,16 +3,13 @@ srcdir     = @srcdir@
 VPATH      = @srcdir@ 
 SHELL      = /bin/sh
 
-# Package information
+## Man page substitutions 
 #
-PACKAGE         = @PACKAGE_NAME@
-PACKAGE_VERSION = @PACKAGE_VERSION@
-PACKAGE_TARNAME = @PACKAGE_TARNAME@
-BASENAME        = @PACKAGE_TARNAME@
-RELEASE         = @EASEL_VERSION@
-RELEASEDATE     = "@EASEL_DATE@"
-COPYRIGHT       = "@EASEL_COPYRIGHT@"
-LICENSELINE     = "@EASEL_LICENSE@"
+EASEL_VERSION   = @EASEL_VERSION@
+EASEL_DATE      = @EASEL_DATE@
+EASEL_COPYRIGHT = @EASEL_COPYRIGHT@
+EASEL_LICENSE   = @EASEL_LICENSE@
+EASEL_URL       = @EASEL_URL@
 
 ## Installation targets
 #
@@ -31,7 +28,7 @@ man1ext     = .1
 
 INSTALL     = @INSTALL@
 
-## your compiler and compiler flags.
+## Compiler and compiler flags
 #
 CC             = @CC@
 CFLAGS         = @CFLAGS@
@@ -41,42 +38,46 @@ LDFLAGS        = @LDFLAGS@
 DEFS           = @DEFS@
 LIBS           = -leasel @LIBGSL@ @LIBS@ @PTHREAD_LIBS@ -lm
 
-## list of the miniapp commands to compile.
+## List of the miniapp subcommands 
 #
-SUBCMDOBJS = \
-	cmd_afetch.o     \
-	cmd_afetchn.o    \
-	cmd_aindex.o     \
-	cmd_alicol.o     \
-	cmd_alimanip.o   \
-	cmd_alimap.o     \
-	cmd_alimerge.o   \
-	cmd_alipid.o     \
-	cmd_alirev.o     \
-	cmd_compalign.o  \
-	cmd_compstruct.o \
-	cmd_construct.o  \
-	cmd_downsample.o \
-	cmd_filter.o     \
-	cmd_histplot.o   \
-	cmd_kmer.o       \
-	cmd_mask.o       \
-	cmd_msashuf.o    \
-	cmd_msastat.o    \
-	cmd_printseq.o   \
-	cmd_reformat.o   \
-	cmd_seqrange.o   \
-	cmd_seqstat.o    \
-	cmd_sfetch.o     \
-	cmd_sfetchn.o    \
-	cmd_sindex.o     \
-	cmd_shuffle.o    \
-	cmd_ssdraw.o     \
-	cmd_synth.o      \
-	cmd_translate.o  \
-	cmd_weight.o
+SUBCMDS = \
+	afetch     \
+	afetchn    \
+	aindex     \
+	alicol     \
+	alimanip   \
+	alimap     \
+	alimerge   \
+	alipid     \
+	alirev     \
+	alishuf    \
+	alistat    \
+	compalign  \
+	compstruct \
+	construct  \
+	downsample \
+	filter     \
+	histplot   \
+	kmer       \
+	mask       \
+	printseq   \
+	reformat   \
+	seqrange   \
+	seqstat    \
+	sfetch     \
+	sfetchn    \
+	sindex     \
+	shuffle    \
+	ssdraw     \
+	synth      \
+	translate  \
+	weight
 
-# beautification magic stolen from git 
+SUBCMDOBJS = $(SUBCMDS:%=cmd_%.o)                
+MANPAGES   = easel.man $(SUBCMDS:%=easel-%.man)  
+
+
+## Beautification magic stolen from git 
 #
 QUIET_SUBDIR0 = +${MAKE} -C #space separator after -c
 QUIET_SUBDIR1 = 
@@ -92,10 +93,10 @@ endif
 
 .PHONY: all dev tests check install uninstall clean distclean 
 
-all: 	${PROGS} easel
-dev:    ${PROGS} easel
-tests:  ${PROGS} easel
-check:  ${PROGS} easel
+all: 	easel ${MANPAGES}
+dev:    all
+tests:  all
+check:  all
 
 easel:  % : %.c ../libeasel.a ${SUBCMDOBJS}
 	${QUIET_GEN}${CC} ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ $< ${SUBCMDOBJS} ${LIBS}
@@ -103,40 +104,39 @@ easel:  % : %.c ../libeasel.a ${SUBCMDOBJS}
 ${SUBCMDOBJS}: %.o : %.c ../libeasel.a
 	${QUIET_CC}${CC} -I. -I.. -I${srcdir} -I${srcdir}/.. ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} -c $<
 
-install: ${PROGS} 
-	${INSTALL} -m 0755 easel ${DESTDIR}${bindir}/
-	for file in ${PROGS}; do \
-	   ${INSTALL} -m 0755 $$file ${DESTDIR}${bindir}/ ;\
-	done
-	for file in ${PROGS}; do \
-	   ${INSTALL} -m 0644 $$file.man ${DESTDIR}${man1dir}/$${file}${man1ext} ;\
+# [@] in the sed patterns protects these from configure's output
+# variable substitution; we need these target patterns to be literally
+# @EASEL_VERSION@, etc.
+# 
+${MANPAGES}: %.man: %.man.in
+	${QUIET_GEN}sed \
+	   -e 's|[@]EASEL_VERSION[@]|${EASEL_VERSION}|g'     \
+	   -e 's|[@]EASEL_DATE[@]|${EASEL_DATE}|g'           \
+	   -e 's|[@]EASEL_COPYRIGHT[@]|${EASEL_COPYRIGHT}|g' \
+	   -e 's|[@]EASEL_LICENSE[@]|${EASEL_LICENSE}|g'     \
+	   -e 's|[@]EASEL_URL[@]|${EASEL_URL}|g'             \
+	   $< > $@
+
+install: easel ${MANPAGES}
+	${INSTALL} -d ${DESTDIR}${bindir}
+	${INSTALL} -d ${DESTDIR}${man1dir}
+	${INSTALL} -m 0755 easel ${DESTDIR}${bindir}
+	for p in easel $(SUBCMDS:%=easel-%); do \
+	   ${INSTALL} -m 0644 $$p.man ${DESTDIR}${man1dir}/$$p${man1ext} ;\
 	done
 
 uninstall:
-	rm ${DESTDIR}${bindir}/easel
-	for file in $(PROGS); do \
-	   rm ${DESTDIR}${bindir}/$$file ;\
-	done
-	for file in ${PROGS}; do \
-	   rm ${DESTDIR}${man1dir}/$${file}${man1ext} ;\
+	-rm -f ${DESTDIR}${bindir}/easel
+	for p in easel $(SUBCMDS:%=easel-%); do \
+	   rm ${DESTDIR}${man1dir}/$$p${man1ext} ;\
 	done
 
 clean:
-	-rm -f ${PROGS} easel
-	-rm -f *.o *~
-	-rm -f *.gcno *.gcda *.gcov
-	-rm -f TAGS
-	for prog in ${PROGS}; do\
-	   if test -d $$prog.dSYM; then rm -rf $$prog.dSYM; fi;\
-	done
-ifndef V
-	@echo '     ' CLEAN miniapps
-endif
-
+	-rm -f easel *.o *~ *.man
+	-rm -f *.gcno *.gcda *.gcov TAGS
+	-rm -rf easel.dSYM
 
 distclean: clean
-	-rm -f ${PROGS}
-	-rm -f *.man
 	-rm -f Makefile
 
 

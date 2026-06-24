@@ -58,7 +58,7 @@ time and output in FASTA format.  Multiple sequence alignment file
 formats of course allow a set of gap characters in addition to
 "[a-zA-Z]+" characters, depending on the file format; these are
 ignored and sequences are treated as unaligned. See
-.B easel msashuf
+.B easel alishuf
 for shuffling and randomizing MSAs specifically.
 
 

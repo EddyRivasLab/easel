@@ -2989,7 +2989,7 @@ parse_scale_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
  * tokens until we see the "% end ignore" line signalling
  * the end of the ignore section.
  * 
- * As a special case, if any line iss a single token, 'showpage', we 
+ * As a special case, if any line is a single token, 'showpage', we
  * set *ret_read_showpage as TRUE upon return. This signals to caller
  * that the current page is finished.
  * 
@@ -3354,7 +3354,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   int ppidx;
   int do_prob_res = FALSE; /* set to TRUE if --no-ntpp is NOT enabled */
   int do_outline  = FALSE; /* set to TRUE if --no-nt is NOT enabled */
-  int noccl; /* number of one-cell color legends depends on value of do_prob_res and do_ouline */
+  int noccl; /* number of one-cell color legends depends on value of do_prob_res and do_outline */
 
   /* contract check */
   if(do_prob) { 
@@ -3693,7 +3693,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
 
     /* if nec, add one page cell legend for the two outline types */
     if(do_outline) { 
-      /* add a psuedo-one-cell color legends, the explanatory text for outlines: */
+      /* add a pseudo-one-cell color legends, the explanatory text for outlines: */
       ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], OCCL_BLANK_COUNT, OCCL_BLANK_COUNT, FALSE, FALSE);
       if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "Positions != to most common nt x:", ps->legx_max_chars, errbuf)) != eslOK) return status;
       if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK) return status;
@@ -3725,7 +3725,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
       }
       ps->nocclA[pp]++;
 
-      /* add a psuedo-one-cell color legends, the explanatory text for outline basepairs: */
+      /* add a pseudo-one-cell color legends, the explanatory text for outline basepairs: */
       ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], OCCL_BLANK_COUNT, OCCL_BLANK_COUNT, FALSE, TRUE);
       if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "Number of bps != most common bp a:b", ps->legx_max_chars, errbuf)) != eslOK){
         free(stack);
@@ -3737,7 +3737,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
       }
       ps->nocclA[pp]++;
 
-      /* add a psuedo-one-cell color legends, the explanatory text for outline basepairs: */
+      /* add a pseudo-one-cell color legends, the explanatory text for outline basepairs: */
       ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], OCCL_BLANK_COUNT, OCCL_BLANK_COUNT, FALSE, FALSE);
       if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "and a:b is Watson-Crick, GU or UG:", ps->legx_max_chars, errbuf)) != eslOK){
         free(stack);
