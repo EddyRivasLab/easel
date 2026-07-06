@@ -695,11 +695,6 @@ esl_mixgev_FitComplete(double *x, int n, ESL_MIXGEV *mg)
  ****************************************************************************/ 
 
 #ifdef eslMIXGEV_EXAMPLE
-/*::cexcerpt::mixgev_example::begin::*/
-/* compile: 
-   gcc -g -Wall -I. -L. -o example -DeslMIXGEV_EXAMPLE esl_mixgev.c -leasel -lm 
- * run:     ./example
- */
 #include <stdio.h>
 #include <stdlib.h>
 #include "easel.h"
@@ -800,6 +795,5 @@ main(int argc, char **argv)
   free(x);
   return 0;
 }
-/*::cexcerpt::mixgev_example::end::*/
 #endif /*eslMIXGEV_EXAMPLE*/
 

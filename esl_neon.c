@@ -664,9 +664,6 @@ main(int argc, char **argv)
  *****************************************************************/
 
 #ifdef eslNEON_EXAMPLE
-/*::cexcerpt::neon_example::begin::*/
-/* gcc -mfpu=neon -g -Wall -o example -I. -L. -DeslNEON_EXAMPLE esl_neon.c -leasel -lm
- */
 #include <esl_config.h>
 
 #include <stdio.h>
@@ -691,7 +688,6 @@ main(int argc, char **argv)
 
   return 0;
 }
-/*::cexcerpt::neon_example::end::*/
 #endif /* eslNEON_EXAMPLE */
 
 #else // ! eslENABLE_NEON

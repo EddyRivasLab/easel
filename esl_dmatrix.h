@@ -10,12 +10,10 @@
 
 typedef struct {
   /*mx, mx[0] are allocated. */
-/*::cexcerpt::dmatrix_obj::begin::*/
   double **mx;                  /* mx[i][j] is i'th row, j'th col */
   int      n;                   /* rows    */
   int      m;                   /* columns */
   enum { eslGENERAL, eslUPPER } type;
-/*::cexcerpt::dmatrix_obj::end::*/
   int      ncells;		/* number of valid cells (nxm in standard matrix) */
 } ESL_DMATRIX;
 

@@ -377,10 +377,6 @@ stopwatch_getRealTime(void)
  * Example of using the stopwatch module
  *****************************************************************/
 #ifdef eslSTOPWATCH_EXAMPLE
-/*::cexcerpt::stopwatch_example::begin::*/
-/* compile: gcc -g -Wall -I. -o example -DeslSTOPWATCH_EXAMPLE esl_stopwatch.c easel.c -lm
- * run:     ./example
- */
 #include "easel.h"
 #include "esl_stopwatch.h"
 
@@ -409,7 +405,6 @@ main(void)
   esl_stopwatch_Destroy(w);
   return 0;
 }
-/*::cexcerpt::stopwatch_example::end::*/
 #endif /*ESL_STOPWATCH_EXAMPLE*/
 
 

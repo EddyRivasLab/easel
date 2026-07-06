@@ -28,7 +28,7 @@ static int          key_upsize(ESL_KEYHASH *kh);
 
 
 /*****************************************************************
- *# 1. The <ESL_KEYHASH> object
+ *  1. The <ESL_KEYHASH> object
  *****************************************************************/ 
 
 /* Function:  esl_keyhash_Create()
@@ -238,7 +238,7 @@ esl_keyhash_Dump(FILE *fp, const ESL_KEYHASH *kh)
 
 
 /*****************************************************************
- *# 2. Storing and retrieving keys 
+ *  2. Storing and retrieving keys 
  *****************************************************************/ 
 
 /* Function: esl_keyhash_Store()
@@ -889,10 +889,6 @@ main(int argc, char **argv)
  * 7. Example
  *****************************************************************/
 #ifdef eslKEYHASH_EXAMPLE
-/*::cexcerpt::keyhash_example::begin::*/
-/* gcc -g -Wall -o keyhash_example -I. -DeslKEYHASH_EXAMPLE esl_keyhash.c easel.c 
- * ./example /usr/share/dict/words /usr/share/dict/words
- */
 #include <stdio.h>
 #include "easel.h"
 #include "esl_keyhash.h"
@@ -936,6 +932,5 @@ main(int argc, char **argv)
   esl_keyhash_Destroy(h);
   return 0;
 }
-/*::cexcerpt::keyhash_example::end::*/
 #endif /*eslKEYHASH_EXAMPLE*/
 /*----------------------- end, example --------------------------*/

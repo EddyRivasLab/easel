@@ -2298,11 +2298,6 @@ main(int argc, char **argv)
  * 12. Example.
  *****************************************************************/ 
 #ifdef eslRANDOMSEQ_EXAMPLE
-/*::cexcerpt::randomseq_example::begin::*/
-/* compile: gcc -g -Wall -I. -o example -DeslRANDOMSEQ_EXAMPLE esl_randomseq.c\
-            esl_random.c esl_sqio.c esl_sq.c easel.c -lm
- * run:     ./example <FASTA file>
- */
 #include "easel.h"
 #include "esl_sq.h"
 #include "esl_sqio.h"
@@ -2340,6 +2335,5 @@ main(int argc, char **argv)
   esl_randomness_Destroy(r);
   return 0;
 }
-/*::cexcerpt::randomseq_example::end::*/
 #endif /*eslRANDOMSEQ_EXAMPLE*/
 /*--------------------- end, example ----------------------------*/

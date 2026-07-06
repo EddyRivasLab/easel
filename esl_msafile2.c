@@ -45,7 +45,7 @@ static int     parse_gc(ESL_MSA *msa, char *buf);
 static int     parse_comment(ESL_MSA *msa, char *buf);
 
 /*****************************************************************
- *# 1. The ESL_MSAFILE2 object
+ *  1. The ESL_MSAFILE2 object
  *****************************************************************/
 
 static int msafile2_open(const char *filename, const char *env, ESL_MSAFILE2 **ret_afp);

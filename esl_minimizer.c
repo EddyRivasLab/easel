@@ -899,10 +899,6 @@ main(int argc, char **argv)
  * 7. Example
  *****************************************************************/
 #ifdef eslMINIMIZER_EXAMPLE
-/*::cexcerpt::minimizer_example::begin::*/
-/* compile: gcc -g -Wall -I. -o example -DeslMINIMIZER_EXAMPLE esl_minimizer.c esl_vectorops.c easel.c -lm
- * run:     ./example 
- */
 #include <stdio.h>
 
 #include "easel.h"
@@ -960,5 +956,4 @@ main(int argc, char **argv)
   esl_min_dat_Destroy(dat);
   return 0;
 }
-/*::cexcerpt::minimizer_example::end::*/
 #endif /*eslMINIMIZER_EXAMPLE*/

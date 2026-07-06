@@ -15,14 +15,12 @@
  * parameters).
  */
 typedef struct {
-  /*::cexcerpt::dirichlet_mixdchlet::begin::*/
   double  *q;			/* mixture coefficients q[0..Q-1]           */
   double **alpha;               /* Dirichlet params alpha[0..Q-1][0..K-1]   */
   int      Q;			/* number of mixtures, e.g. 9 for Sjolander */
   int      K;			/* alphabet size, e.g. 20                   */
 
   double  *postq;                /* temp space 0..Q-1: for posterior P(k|c) for example */
-  /*::cexcerpt::dirichlet_mixdchlet::end::*/
 } ESL_MIXDCHLET;
 
 

@@ -21,7 +21,6 @@
 #include "esl_sqio_ascii.h"
 #include "esl_sqio_ncbi.h"
 
-/*::cexcerpt::sq_sqio_data::begin::*/
 /* ESL_SQDATA:
  * Data for different sequence formats.
  */
@@ -29,7 +28,6 @@ typedef union {
   ESL_SQASCII_DATA ascii;
   ESL_SQNCBI_DATA  ncbi;
 } ESL_SQDATA;
-/*::cexcerpt::sq_sqio_data::end::*/
 
 /* ESL_SQFILE:
  * An open sequence file for reading.
@@ -96,7 +94,6 @@ typedef struct esl_sqcache_s {
   uint64_t            hdr_size;    /* size of header memory allocation            */
 } ESL_SQCACHE;
 
-/*::cexcerpt::sq_sqio_format::begin::*/
 /* Unaligned file format codes
  * These codes are coordinated with the msa module.
  *   - 0 is an unknown/unassigned format (eslSQFILE_UNKNOWN, eslMSAFILE_UNKNOWN)
@@ -113,7 +110,6 @@ typedef struct esl_sqcache_s {
 #define eslSQFILE_DAEMON       7   // Farrar format, hmmpgmd queries: fasta + // terminator 
 #define eslSQFILE_HMMPGMD      8   // Farrar hmmpgmd database format: fasta + # header 
 #define eslSQFILE_FMINDEX      9   // Pressed FM-index format used in HMMER
-/*::cexcerpt::sq_sqio_format::end::*/
 
 
 /* eslREADBUFSIZE is the fixed size of a block to bring in at one time,

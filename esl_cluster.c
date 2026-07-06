@@ -283,9 +283,8 @@ main(int argc, char **argv)
 /*****************************************************************
  * 4. Example
  *****************************************************************/
+
 #ifdef eslCLUSTER_EXAMPLE
-/*::cexcerpt::cluster_example::begin::*/
-/* gcc -g -Wall -o example -I. -L. -DeslCLUSTER_EXAMPLE esl_cluster.c easel.c -lm  */
 #include <esl_config.h>
 
 #include <stdio.h>
@@ -331,7 +330,6 @@ main(int argc, char **argv)
   free(assignment);
   return 0;
 }
-/*::cexcerpt::cluster_example::end::*/
 #endif /*eslCLUSTER_EXAMPLE*/
 
 

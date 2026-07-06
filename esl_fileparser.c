@@ -716,12 +716,8 @@ main(int argc, char **argv)
 
 /* The first example shows the simplest interface: get all tokens
  * in the file, one at a time.
- *
-     gcc -g -Wall -I. -o example -DeslFILEPARSER_EXAMPLE esl_fileparser.c easel.c
-     ./example <any file>
  */
 #ifdef eslFILEPARSER_EXAMPLE
-/*::cexcerpt::fileparser_example::begin::*/
 #include <stdio.h>
 #include "easel.h"
 #include "esl_fileparser.h"
@@ -745,16 +741,12 @@ main(int argc, char **argv)
   esl_fileparser_Close(efp);
   return 0;
 }
-/*::cexcerpt::fileparser_example::end::*/
 #endif /*eslFILEPARSER_EXAMPLE*/
 
 /* The second example shows the more line-oriented interface
  * of NextLine(), GetTokenOnLine().
-     gcc -g -Wall -I. -o example -DeslFILEPARSER_EXAMPLE2 esl_fileparser.c easel.c
-     ./example <any file>
  */
 #ifdef eslFILEPARSER_EXAMPLE2
-/*::cexcerpt::fileparser_example2::begin::*/
 #include <stdio.h>
 #include "easel.h"
 #include "esl_fileparser.h"
@@ -784,7 +776,6 @@ main(int argc, char **argv)
   esl_fileparser_Close(efp);
   return 0;
 }
-/*::cexcerpt::fileparser_example2::end::*/
 #endif /*eslFILEPARSER_EXAMPLE*/
 
 

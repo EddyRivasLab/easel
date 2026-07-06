@@ -17,7 +17,6 @@ extern "C" {
  * terminated by a structure containing { NULL, NULL, NULL, 0, NULL,
  * NULL, NULL, NULL} (or more simply, just 0 in all 8 fields.)
  */
-/*::cexcerpt::options_object::begin::*/
 typedef struct {
   char *name;           /* either short "-a" or long "--foo" style               */
   int   type;           /* arg type, for type checking: (eslARG_INT, etc.)       */
@@ -30,7 +29,6 @@ typedef struct {
   char *help;           /* help/usage string                                     */
   int   docgrouptag;    /* integer tag for documentation groups                  */
 } ESL_OPTIONS;
-/*::cexcerpt::options_object::end::*/
 
 /* Argument types: the "type" variable in <ESL_OPTIONS>.
  */

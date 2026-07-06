@@ -32,7 +32,7 @@
 #include "esl_scorematrix.h"
 
 /*****************************************************************
- *# 1. The ESL_SCOREMATRIX object
+ *  1. The ESL_SCOREMATRIX object
  *****************************************************************/
 
 /* Function:  esl_scorematrix_Create()
@@ -412,7 +412,7 @@ esl_scorematrix_Destroy(ESL_SCOREMATRIX *S)
 
 
 /*****************************************************************
- *# 2. Some classic score matrices.
+ *  2. Some classic score matrices.
  *****************************************************************/
 /* PAM30, PAM70, PAM120, PAM240, BLOSUM45, BLOSUM50, BLOSUM62, BLOSUM80, BLOSUM90 */
 /* Standard matrices are reformatted to Easel static data by the UTILITY1 program; see below */
@@ -903,7 +903,7 @@ esl_scorematrix_SetIdentity(ESL_SCOREMATRIX *S)
 
 
 /*****************************************************************
- *# 3. Deriving a score matrix probabilistically.
+ *  3. Deriving a score matrix probabilistically.
  *****************************************************************/
 
 /* Function:  esl_scorematrix_SetFromProbs()
@@ -1008,7 +1008,7 @@ esl_scorematrix_SetWAG(ESL_SCOREMATRIX *S, double lambda, double t)
 
 
 /*****************************************************************
- *# 4. Reading/writing matrices from/to files
+ *  4. Reading/writing matrices from/to files
  *****************************************************************/
 
 /* Function:  esl_scorematrix_Read()
@@ -1177,7 +1177,7 @@ esl_scorematrix_Write(FILE *fp, const ESL_SCOREMATRIX *S)
 
 
 /*****************************************************************
- *# 5. Implicit probabilistic basis, I: given bg.
+ *  5. Implicit probabilistic basis, I: given bg.
  *****************************************************************/ 
 
 static int set_degenerate_probs(const ESL_ALPHABET *abc, ESL_DMATRIX *P, double *fi, double *fj);
@@ -1409,7 +1409,7 @@ set_degenerate_probs(const ESL_ALPHABET *abc, ESL_DMATRIX *P, double *fi, double
 
 
 /*****************************************************************
- *# 6. Implicit probabilistic basis, II: bg unknown 
+ *  6. Implicit probabilistic basis, II: bg unknown 
  *****************************************************************/
 
 /* This section implements one of the key ideas in Yu and Altschul,
@@ -2230,7 +2230,6 @@ main(int argc, char **argv)
  *****************************************************************/
 
 #ifdef eslSCOREMATRIX_EXAMPLE
-/*::cexcerpt::scorematrix_example::begin::*/
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_fileparser.h"
@@ -2334,5 +2333,4 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   return 0;
 }
-/*::cexcerpt::scorematrix_example::end::*/
 #endif /*eslSCOREMATRIX_EXAMPLE*/

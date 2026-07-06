@@ -30,7 +30,7 @@
 
 
 /*****************************************************************
- *# 1. Dirichlet likelihood functions
+ *  1. Dirichlet likelihood functions
  *****************************************************************/
 
 /* Function:  esl_dirichlet_logpdf()
@@ -114,7 +114,7 @@ esl_dirichlet_logpdf_c(double *c, double *alpha, int K)
 
 
 /*****************************************************************
- *# 2. Sampling from Dirichlets
+ *  2. Sampling from Dirichlets
  *****************************************************************/
 
 /* Function:  esl_dirichlet_DSample()

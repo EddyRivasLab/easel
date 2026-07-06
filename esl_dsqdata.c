@@ -68,7 +68,7 @@ static uint32_t eslDSQDATA_MAGIC_V1     = 0xc4d3d1b1; // "dsq1" + 0x80808080
 static uint32_t eslDSQDATA_MAGIC_V1SWAP = 0xb1d1d3c4; //  ... as above, but byteswapped. 
 
 /*****************************************************************
- *# 1. <ESL_DSQDATA>: reading dsqdata format
+ *  1. <ESL_DSQDATA>: reading dsqdata format
  *****************************************************************/
 
 /* Function:  esl_dsqdata_Open()
@@ -542,7 +542,7 @@ esl_dsqdata_Close(ESL_DSQDATA *dd)
 
 
 /*****************************************************************
- *# 2. Creating dsqdata format from a sequence file
+ *  2. Creating dsqdata format from a sequence file
  *****************************************************************/
 
 /* Function:  esl_dsqdata_Write()

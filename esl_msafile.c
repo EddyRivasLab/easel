@@ -30,7 +30,7 @@
 #include "esl_msafile.h"
 
 /*****************************************************************
- *# 1. Opening/closing an ESL_MSAFILE
+ *  1. Opening/closing an ESL_MSAFILE
  *****************************************************************/
 
 static int msafile_Create    (ESL_MSAFILE **ret_afp);
@@ -467,7 +467,7 @@ msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESL_MSAFI
 
 
 /*****************************************************************
- *# 2. ESL_MSAFILE_FMTDATA: optional extra constraints on formats.
+ *  2. ESL_MSAFILE_FMTDATA: optional extra constraints on formats.
  *****************************************************************/
 
 /* Function:  esl_msafile_fmtdata_Init()
@@ -496,7 +496,7 @@ esl_msafile_fmtdata_Copy(ESL_MSAFILE_FMTDATA *src, ESL_MSAFILE_FMTDATA *dst)
 
 
 /*****************************************************************
- *# 3. Guessing file format.
+ *  3. Guessing file format.
  *****************************************************************/
 
 static int msafile_check_selex  (ESL_BUFFER *bf);
@@ -866,7 +866,7 @@ msafile_check_selex(ESL_BUFFER *bf)
 
 
 /*****************************************************************
- *# 4. Guessing alphabet
+ *  4. Guessing alphabet
  *****************************************************************/
 
 /* Function:  esl_msafile_GuessAlphabet()
@@ -913,7 +913,7 @@ esl_msafile_GuessAlphabet(ESL_MSAFILE *afp, int *ret_type)
 
 
 /*****************************************************************
- *# 5. Random msa flatfile database access (with SSI)
+ *  5. Random msa flatfile database access (with SSI)
  *****************************************************************/
 
 /* Function:  esl_msafile_PositionByKey()
@@ -965,7 +965,7 @@ esl_msafile_PositionByKey(ESL_MSAFILE *afp, const char *key)
 
 
 /*****************************************************************
- *# 6. Reading MSAs from input
+ *  6. Reading MSAs from input
  *****************************************************************/
 
 /* Function:  esl_msafile_Read()
@@ -1086,7 +1086,7 @@ esl_msafile_ReadFailure(ESL_MSAFILE *afp, int status)
 
 
 /*****************************************************************
- *# 7. Writing an MSA to a stream.
+ *  7. Writing an MSA to a stream.
  *****************************************************************/
 
 /* Function:  esl_msafile_Write()
@@ -1135,7 +1135,7 @@ esl_msafile_Write(FILE *fp, ESL_MSA *msa, int fmt)
 
 
 /*****************************************************************
- *# 8. MSA functions that depend on MSAFILE
+ *  8. MSA functions that depend on MSAFILE
  *****************************************************************/
 
 /* Function:  esl_msa_CreateFromString()
@@ -1183,7 +1183,7 @@ esl_msa_CreateFromString(const char *s, int fmt)
 }
 
 /*****************************************************************
- *# 9. Utilities used by specific format parsers.
+ *  9. Utilities used by specific format parsers.
  *****************************************************************/
 
 /* Function:  esl_msafile_GetLine()
@@ -1449,7 +1449,6 @@ main(int argc, char **argv)
  *****************************************************************/
 
 #ifdef eslMSAFILE_EXAMPLE
-/*::cexcerpt::msafile_example::begin::*/
 #include <stdio.h>
 #include "easel.h"
 #include "esl_alphabet.h"
@@ -1535,7 +1534,6 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   exit(0);
 }
-/*::cexcerpt::msafile_example::end::*/
 #endif /*eslMSAFILE_EXAMPLE*/
 /*------------------------ end of examples -----------------------*/
 

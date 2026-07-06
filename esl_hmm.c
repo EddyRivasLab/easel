@@ -631,10 +631,6 @@ main(int argc, char **argv)
  * x. Example
  *****************************************************************/
 #ifdef eslHMM_EXAMPLE
-/*::cexcerpt::hmm_example::begin::*/
-/* compile: gcc -g -Wall -I. -L. -o hmm_example -DeslHMM_EXAMPLE esl_hmm.c -leasel -lm
- * run:     ./hmm_example <sequence file>
- */
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_getopts.h"
@@ -807,5 +803,4 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   return 0;
 }
-/*::cexcerpt::hmm_example::end::*/
 #endif /*eslHMM_EXAMPLE*/

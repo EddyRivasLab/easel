@@ -895,7 +895,6 @@ main(int argc, char **argv)
  * Example main()
  ****************************************************************************/ 
 #ifdef eslGAMMA_EXAMPLE
-/*::cexcerpt::gam_example::begin::*/
 #include <stdio.h>
 #include "easel.h"
 #include "esl_random.h"
@@ -939,7 +938,6 @@ main(int argc, char **argv)
   esl_histogram_Destroy(h);
   return 0;
 }
-/*::cexcerpt::gam_example::end::*/
 #endif /*eslGAMMA_EXAMPLE*/
 
 

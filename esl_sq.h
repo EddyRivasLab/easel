@@ -91,7 +91,6 @@
  * sort of patchy workaround. 
  */
 typedef struct {
-  /*::cexcerpt::sq_sq::begin::*/
   char    *name;           /* name; one word, no whitespace ("\0" if no name)  */
   char    *acc;            /* optional accession (1 word) ("\0" if none)       */
   char    *desc;           /* description line ("\0" if no description)        */
@@ -100,7 +99,6 @@ typedef struct {
   ESL_DSQ *dsq;            /* digitized sequence [1..n], or NULL if text       */
   char    *ss;             /* optional sec structure [0..n-1], [1..n], or NULL */
   int64_t  n;              /* length of seq (or dsq) and ss                    */
-  /*::cexcerpt::sq_sq::end::*/
 
   /* Source-tracking coordinate info for:                       seq       subseq     window     info   orf         */
   /*                                                           ----       ------     ------    -----   -----       */

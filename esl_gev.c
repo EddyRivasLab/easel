@@ -916,7 +916,6 @@ stats_fittest(FILE *fp, int ntrials, int n, double mu, double lambda, double alp
  * 7. Example
  *****************************************************************/
 #ifdef eslGEV_EXAMPLE
-/*::cexcerpt::gev_example::begin::*/
 #include <stdio.h>
 #include "easel.h"
 #include "esl_random.h"
@@ -965,6 +964,5 @@ main(int argc, char **argv)
   esl_randomness_Destroy(r);
   return 0;
 }
-/*::cexcerpt::gev_example::end::*/
 #endif /*eslGEV_EXAMPLE*/
 

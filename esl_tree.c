@@ -27,7 +27,7 @@
 #include "esl_tree.h"
 
 /*****************************************************************
- *# 1. The ESL_TREE object.
+ *  1. The ESL_TREE object.
  *****************************************************************/
 
 /* Function:  esl_tree_Create()
@@ -636,7 +636,7 @@ esl_tree_Destroy(ESL_TREE *T)
 
 
 /*****************************************************************
- *# 2. Newick format i/o
+ *  2. Newick format i/o
  *****************************************************************/
 
 /* newick_validate_unquoted():
@@ -2124,11 +2124,6 @@ main(int argc, char **argv)
  * UPGMA algorithm, starting from a multiple sequence alignment.
  */
 #ifdef eslTREE_EXAMPLE
-/*::cexcerpt::tree_example::begin::*/
-/* To compile: gcc -g -Wall -o example -I. -DeslTREE_EXAMPLE esl_tree.c esl_dmatrix.c esl_msa.c easel.c -lm
- *         or: gcc -g -Wall -o example -I. -L. -DeslTREE_EXAMPLE esl_tree.c -leasel -lm
- *     To run: ./example <MSA file>
- */
 #include "easel.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
@@ -2154,18 +2149,12 @@ int main(int argc, char **argv)
   esl_dmatrix_Destroy(D);
   return eslOK;
 }
-/*::cexcerpt::tree_example::end::*/
 #endif /*eslTREE_EXAMPLE*/
 
 
 /* The second example is an example of reading in a Newick format tree.
  */
 #ifdef eslTREE_EXAMPLE2
-/*::cexcerpt::tree_example2::begin::*/
-/* To compile: gcc -g -Wall -o example -I. -DeslTREE_EXAMPLE2 esl_tree.c esl_dmatrix.c esl_msa.c easel.c -lm
- *         or: gcc -g -Wall -o example -I. -L. -DeslTREE_EXAMPLE2 esl_tree.c -leasel -lm
- *     To run: ./example <Newick file>
- */
 #include "easel.h"
 #include "esl_msa.h"
 #include "esl_distance.h"
@@ -2185,5 +2174,4 @@ int main(int argc, char **argv)
   fclose(fp);
   return eslOK;
 }
-/*::cexcerpt::tree_example2::end::*/
 #endif /*eslTREE_EXAMPLE*/

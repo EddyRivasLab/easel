@@ -1,4 +1,3 @@
-/*::cexcerpt::header_example::begin::*/
 /* An input parsing abstraction.
  *
  * Table of contents:
@@ -14,9 +13,6 @@
  *  10. Test driver.
  *  11. Examples.
  */
-/*::cexcerpt::header_example::end::*/
-
-/*::cexcerpt::include_example::begin::*/
 #include <esl_config.h>
 
 #include <stdio.h>
@@ -37,11 +33,7 @@
 #include "esl_mem.h"
 
 #include "esl_buffer.h"
-/*::cexcerpt::include_example::end::*/
 
-
-
-/*::cexcerpt::statics_example::begin::*/
 static int buffer_create           (ESL_BUFFER **ret_bf);
 static int buffer_init_file_mmap   (ESL_BUFFER *bf, esl_pos_t filesize);
 static int buffer_init_file_slurped(ESL_BUFFER *bf, esl_pos_t filesize);
@@ -52,12 +44,10 @@ static int buffer_countline(ESL_BUFFER *bf, esl_pos_t *opt_nc, esl_pos_t *opt_ns
 static int buffer_skipsep  (ESL_BUFFER *bf, const char *sep);
 static int buffer_newline  (ESL_BUFFER *bf);
 static int buffer_counttok (ESL_BUFFER *bf, const char *sep, esl_pos_t *ret_nc);
-/*::cexcerpt::statics_example::end::*/
-
 
 
 /*****************************************************************
- *# 1. ESL_BUFFER object: opening/closing.
+ *  1. ESL_BUFFER object: opening/closing.
  *****************************************************************/
 
 /* Function:  esl_buffer_Open()
@@ -548,7 +538,7 @@ esl_buffer_Close(ESL_BUFFER *bf)
 
 
 /*****************************************************************
- *# 2. Positioning and anchoring an ESL_BUFFER
+ *  2. Positioning and anchoring an ESL_BUFFER
  *****************************************************************/
 
 /* Function:  esl_buffer_GetOffset()
@@ -826,7 +816,7 @@ esl_buffer_RaiseAnchor(ESL_BUFFER *bf, esl_pos_t offset)
 
 
 /*****************************************************************
- *# 3. Raw access to the buffer
+ *  3. Raw access to the buffer
  *****************************************************************/
 
 /* Function:  esl_buffer_Get()
@@ -944,7 +934,7 @@ esl_buffer_Set(ESL_BUFFER *bf, char *p, esl_pos_t nused)
 
 
 /*****************************************************************
- *# 4. Line-based parsing
+ *  4. Line-based parsing
  *****************************************************************/
 
 /* Function:  esl_buffer_GetLine()
@@ -1170,7 +1160,7 @@ esl_buffer_FetchLineAsStr(ESL_BUFFER *bf, char **opt_s, esl_pos_t *opt_n)
 /*------------------ end, line-based parsing --------------------*/
 
 /*****************************************************************
- *# 5. Token-based parsing
+ *  5. Token-based parsing
  *****************************************************************/
 
 /* Function:  esl_buffer_GetToken()
@@ -1453,7 +1443,7 @@ esl_buffer_FetchTokenAsStr(ESL_BUFFER *bf, const char *sep, char **opt_tok, esl_
 
 
 /*****************************************************************
- *# 6. Binary (fread-like) parsing
+ *  6. Binary (fread-like) parsing
  *****************************************************************/
 
 /* Function:  esl_buffer_Read()
@@ -2902,11 +2892,15 @@ main(int argc, char **argv)
  * 11. Examples.
  *****************************************************************/
 
-/* compile: gcc -g -Wall -I. -L. -o esl_buffer_example -DeslBUFFER_EXAMPLE esl_buffer.c -leasel -lm
- * run:     ./esl_buffer_example <file>
+/* Example 1:  line-by-line
+ * 
+ * Open a file, stdin stream, or .gz-compressed file as a ESL_BUFFER;
+ * read it line by line with esl_buffer_GetLine();
+ * count 'x' characters in it.
+ *
+ * See esl_buffer.md for more explanation.
  */
 #ifdef eslBUFFER_EXAMPLE
-/*::cexcerpt::buffer_example::begin::*/
 #include "easel.h"
 #include "esl_buffer.h"
 
@@ -2939,13 +2933,18 @@ int main(int argc, char **argv)
   printf("Counted %d x's in %d lines.\n", xcount, linecount);
   return 0;
 }
-/*::cexcerpt::buffer_example::end::*/
 #endif /*eslBUFFER_EXAMPLE*/
   
 
 
+/* Example 2:  token-by-token
+ *
+ * Same as above but reading by whitespace-delimited tokens instead of
+ * lines, using esl_buffer_GetToken().
+ *
+ * See esl_buffer.md for more explanation.
+ */
 #ifdef eslBUFFER_EXAMPLE2
-/*::cexcerpt::buffer_example2::begin::*/
 #include "easel.h"
 #include "esl_buffer.h"
 
@@ -2977,16 +2976,17 @@ int main(int argc, char **argv)
   printf("Counted %d x's in %d words\n", xcount, tokcount);
   return 0;
 }
-/*::cexcerpt::buffer_example2::end::*/
 #endif /*eslBUFFER_EXAMPLE2*/
 
 
-
-/* compile: gcc -g -Wall -I. -L. -o esl_buffer_example3 -DeslBUFFER_EXAMPLE3 esl_buffer.c -leasel -lm
- * run:     ./esl_buffer_example3 <file>
+/* Example 3:  tokens and lines at the same time
+ *
+ * Same as above, but using esl_buffer_GetToken() to distinguish
+ * final tokens, at the end of a line.
+ *
+ * See esl_buffer.md for more explanation.
  */
 #ifdef eslBUFFER_EXAMPLE3
-/*::cexcerpt::buffer_example3::begin::*/
 #include "easel.h"
 #include "esl_buffer.h"
 
@@ -3024,17 +3024,14 @@ int main(int argc, char **argv)
   printf("Counted %d x's in %d words on %d lines\n", xcount, tokcount, linecount);
   return 0;
 }
-/*::cexcerpt::buffer_example3::end::*/
 #endif /*eslBUFFER_EXAMPLE3*/
 
 
-
-
-/* compile: gcc -g -Wall -I. -L. -o esl_buffer_example4 -DeslBUFFER_EXAMPLE4 esl_buffer.c -leasel -lm
- * run:     ./esl_buffer_example4 <file>
+/* Example 4:  binary reads
+ *
+ * See esl_buffer.md for more explanation.
  */
 #ifdef eslBUFFER_EXAMPLE4
-/*::cexcerpt::buffer_example4::begin::*/
 #include "easel.h"
 #include "esl_buffer.h"
 
@@ -3073,17 +3070,20 @@ int main(void)
   esl_buffer_Close(bf);
   return 0;
 }
-/*::cexcerpt::buffer_example4::end::*/
 #endif /*eslBUFFER_EXAMPLE4*/
 
 
-
-
-/* compile: gcc -g -Wall -I. -L. -o esl_buffer_example5 -DeslBUFFER_EXAMPLE5 esl_buffer.c -leasel -lm
- * run:     ./esl_buffer_example5 <fastafile>
+/* Example 5:  a FASTA file parser
+ *
+ * Showing the use of esl_buffer_Get()/esl_buffer_Set() pairs
+ * to peek ahead in the input.
+ *
+ * Also shows use of esl_buffer_Fetch* calls to read input into
+ * appropriately allocated strings.
+ *
+ * See esl_buffer.md for more explanation.
  */
 #ifdef eslBUFFER_EXAMPLE5
-/*::cexcerpt::buffer_example5a::begin::*/
 #include "easel.h"
 #include "esl_buffer.h"
 
@@ -3149,9 +3149,7 @@ example_read_fasta(ESL_BUFFER *bf, char **ret_name, char **ret_desc, char **ret_
   *ret_seqlen = 0;
   return status;
 }
-/*::cexcerpt::buffer_example5a::end::*/
 
-/*::cexcerpt::buffer_example5b::begin::*/
 int
 main(int argc, char **argv)
 {
@@ -3177,16 +3175,14 @@ main(int argc, char **argv)
   esl_buffer_Close(bf);
   return 0;
 }
-/*::cexcerpt::buffer_example5b::end::*/
 #endif /*eslBUFFER_EXAMPLE5*/
 
 
-
-/* compile: gcc -g -Wall -I. -L. -o esl_buffer_example6 -DeslBUFFER_EXAMPLE6 esl_buffer.c -leasel -lm
- * run:     ./esl_buffer_example6 <alifile>
+/* Example 6:  using an anchor
+ *
+ * See esl_buffer.md for more explanation.
  */
 #ifdef eslBUFFER_EXAMPLE6
-/*::cexcerpt::buffer_example6a::begin::*/
 #include "easel.h"
 #include "esl_buffer.h"
 
@@ -3246,9 +3242,7 @@ example_read_lineblock(ESL_BUFFER *bf, char ***ret_lines, esl_pos_t **ret_lens, 
   *ret_nlines = 0;
   return status;
 }
-/*::cexcerpt::buffer_example6a::end::*/
 
-/*::cexcerpt::buffer_example6b::begin::*/
 int
 main(int argc, char **argv)
 {
@@ -3284,5 +3278,4 @@ main(int argc, char **argv)
   printf("Counted %d x's in %d blocks of %d total lines\n", xcount, blockcount, linecount);
   return 0;
 }
-/*::cexcerpt::buffer_example6b::end::*/
 #endif /*eslBUFFER_EXAMPLE6*/

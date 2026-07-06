@@ -622,7 +622,6 @@ main(int argc, char **argv)
  *****************************************************************/
 
 #ifdef eslSSE_EXAMPLE
-/*::cexcerpt::sse_example::begin::*/
 #include <esl_config.h>
 
 #include <stdio.h>
@@ -648,7 +647,6 @@ main(int argc, char **argv)
 
   return 0;
 }
-/*::cexcerpt::sse_example::end::*/
 #endif /*eslSSE_EXAMPLE*/
 
 

@@ -44,7 +44,7 @@ static int      msa_set_seq_pp(ESL_MSA *msa, int seqidx, const char *pp);
 static int64_t  msa_get_rlen(const ESL_MSA *msa, int seqidx);
 
 /******************************************************************************
- *# 1. The <ESL_MSA> object                                           
+ *  1. The <ESL_MSA> object                                           
  *****************************************************************************/
 
 
@@ -564,7 +564,7 @@ esl_msa_Destroy(ESL_MSA *msa)
 
 
 /*****************************************************************
- *# 2. Digital mode MSA's
+ *  2. Digital mode MSA's
  *****************************************************************/
 
 /* Function:  esl_msa_GuessAlphabet()
@@ -889,7 +889,7 @@ esl_msa_ConvertDegen2X(ESL_MSA *msa)
 
 
 /*****************************************************************
- *# 3. Setting, checking data fields in an ESL_MSA
+ *  3. Setting, checking data fields in an ESL_MSA
  *****************************************************************/
 
 /* These get used by parsers, which might be using an ESL_BUFFER.
@@ -1835,7 +1835,7 @@ esl_msa_CheckUniqueNames(const ESL_MSA *msa)
 
 
 /*****************************************************************
- *# 4. Miscellaneous functions for manipulating MSAs
+ *  4. Miscellaneous functions for manipulating MSAs
  *****************************************************************/
 
 

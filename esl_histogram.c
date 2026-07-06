@@ -1795,12 +1795,12 @@ main(int argc, char **argv)
  *
  * (These same five cases are tested by ./test -t1 through ./test -t5.)
  *****************************************************************/
+
 /* Case 1. Complete data fit to complete Gumbel.
- * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE esl_histogram.c -leasel -lm
- * run:     ./example 
+ *
+ * See esl_histogram.md for some notes.
  */
 #ifdef eslHISTOGRAM_EXAMPLE
-/*::cexcerpt::histogram_example::begin::*/
 #include "easel.h"
 #include "esl_random.h"
 #include "esl_histogram.h"
@@ -1845,17 +1845,15 @@ main(int argc, char **argv)
   esl_randomness_Destroy(r);
   return 0;
 }
-/*::cexcerpt::histogram_example::end::*/
 #endif /*eslHISTOGRAM_EXAMPLE*/
 
 
 
 /* Case 2. complete data, high scores fit as censored Gumbel 
- * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE2 esl_histogram.c -leasel -lm
- * run:     ./example 
+ *
+ * See esl_histogram.md for some notes.
  */
 #ifdef eslHISTOGRAM_EXAMPLE2
-/*::cexcerpt::histogram_example2::begin::*/
 #include "easel.h"
 #include "esl_random.h"
 #include "esl_histogram.h"
@@ -1900,16 +1898,14 @@ main(int argc, char **argv)
   esl_randomness_Destroy(r);
   return 0;
 }
-/*::cexcerpt::histogram_example2::end::*/
 #endif /*eslHISTOGRAM_EXAMPLE2*/
 
 
 /* Case 3. complete data, high scores fit to exponential tail
- * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE3 esl_histogram.c -leasel -lm
- * run:     ./example 
+ *
+ * See esl_histogram.md for some notes.
  */
 #ifdef eslHISTOGRAM_EXAMPLE3
-/*::cexcerpt::histogram_example3::begin::*/
 #include "easel.h"
 #include "esl_random.h"
 #include "esl_histogram.h"
@@ -1954,16 +1950,13 @@ main(int argc, char **argv)
   esl_randomness_Destroy(r);
   return 0;
 }
-/*::cexcerpt::histogram_example3::end::*/
 #endif /*eslHISTOGRAM_EXAMPLE3*/
 
 /* Case 4. censored data, high scores fit as a censored Gumbel tail
- * compile: 
-     gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE4 esl_histogram.c -leasel -lm
- * run:     ./example 
+ *
+ * See esl_histogram.md for some notes.
  */
 #ifdef eslHISTOGRAM_EXAMPLE4
-/*::cexcerpt::histogram_example4::begin::*/
 #include "easel.h"
 #include "esl_random.h"
 #include "esl_histogram.h"
@@ -2011,16 +2004,14 @@ main(int argc, char **argv)
   esl_randomness_Destroy(r);
   return 0;
 }
-/*::cexcerpt::histogram_example4::end::*/
 #endif /*eslHISTOGRAM_EXAMPLE4*/
 
+
 /* Case 5. complete data, binned high scores fit to exponential tail
- * compile:
-     gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE5 esl_histogram.c -leasel -lm
- * run:     ./example 
+ *
+ * See esl_histogram.md for some notes
  */
 #ifdef eslHISTOGRAM_EXAMPLE5
-/*::cexcerpt::histogram_example5::begin::*/
 #include "easel.h"
 #include "esl_random.h"
 #include "esl_histogram.h"
@@ -2067,7 +2058,6 @@ main(int argc, char **argv)
   esl_randomness_Destroy(r);
   return 0;
 }
-/*::cexcerpt::histogram_example5::end::*/
 #endif /*eslHISTOGRAM_EXAMPLE5*/
 
 

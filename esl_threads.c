@@ -35,7 +35,7 @@
 
 
 /*****************************************************************
- *# 1. The <ESL_THREADS> object: a gang of workers.
+ *  1. The <ESL_THREADS> object: a gang of workers.
  *****************************************************************/ 
 
 /* Function:  esl_threads_Create()

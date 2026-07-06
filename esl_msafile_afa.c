@@ -23,7 +23,7 @@
 #include "esl_msafile_afa.h"
 
 /*****************************************************************
- *# 1. API for reading/writing AFA format
+ *  1. API for reading/writing AFA format
  *****************************************************************/
 
 /* Function:  esl_msafile_afa_SetInmap()
@@ -608,12 +608,11 @@ main(int argc, char **argv)
  * 4. Examples.
  *****************************************************************/
 
-#ifdef eslMSAFILE_AFA_EXAMPLE
-/* A full-featured example of reading/writing an MSA in aligned FASTA (AFA) format.
-   gcc -g -Wall -o esl_msafile_afa_example -I. -L. -DeslMSAFILE_afa_EXAMPLE esl_msafile_afa.c -leasel -lm
-   ./esl_msafile_afa_example <msafile>
+/* A full-featured example of reading/writing an MSA in aligned FASTA
+ * (AFA) format.
  */
-/*::cexcerpt::msafile_afa_example::begin::*/
+#ifdef eslMSAFILE_AFA_EXAMPLE
+
 #include <stdio.h>
 
 #include "easel.h"
@@ -678,15 +677,11 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   exit(0);
 }
-/*::cexcerpt::msafile_afa_example::end::*/
 #endif /*eslMSAFILE_AFA_EXAMPLE*/
 
-#ifdef eslMSAFILE_AFA_EXAMPLE2
 /* A minimal example. Read AFA format MSA, in text mode.
-   gcc -g -Wall -o esl_msafile_afa_example2 -I. -L. -DeslMSAFILE_AFA_EXAMPLE2 esl_msafile_afa.c -leasel -lm
-   ./esl_msafile_afa_example2 <msafile>
 */
-/*::cexcerpt::msafile_afa_example2::begin::*/
+#ifdef eslMSAFILE_AFA_EXAMPLE2
 #include <stdio.h>
 
 #include "easel.h"
@@ -713,6 +708,5 @@ main(int argc, char **argv)
   esl_msafile_Close(afp);
   exit(0);
 }
-/*::cexcerpt::msafile_afa_example2::end::*/
 #endif /*eslMSAFILE_AFA_EXAMPLE2*/
 /*--------------------- end of examples -------------------------*/

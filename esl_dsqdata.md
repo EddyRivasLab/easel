@@ -34,15 +34,6 @@ flatfile parsers in `sqio`:
   sweep, and metadata can be loaded later by random access for a small
   number of targets of interest.
 
-The following table lists the functions in the `dsqdata` API.
-
-| Function                       | Synopsis                                                     |
-|--------------------------------|--------------------------------------------------------------|
-| `esl_dsqdata_Open()`           | Open a digital sequence database for reading                 |
-| `esl_dsqdata_Read()`           | Read next chunk of sequence data.                            |
-| `esl_dsqdata_Recycle()`        | Give a chunk back to the reader.                             |
-| `esl_dsqdata_Close()`          | Close a dsqdata reader.                                      |
-| `esl_dsqdata_Write()`          | Create a dsqdata database                                    |
 
 
 ## dsqdata format's four files 

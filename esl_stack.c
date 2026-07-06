@@ -28,7 +28,7 @@
 
 
 /*****************************************************************
- *# 1. The <ESL_STACK> object.
+ *  1. The <ESL_STACK> object.
  *****************************************************************/
 
 /* Function:  esl_stack_ICreate()
@@ -186,7 +186,7 @@ esl_stack_Destroy(ESL_STACK *s)
 
 
 /*****************************************************************
- *# 2. The main API, including pushing/popping.
+ *  2. The main API, including pushing/popping.
  *****************************************************************/
 
 /* Function:  esl_stack_IPush()
@@ -592,7 +592,7 @@ esl_stack_DiscardSelected(ESL_STACK *s, int (*discard_func)(void *, void *), voi
 
 
 /*****************************************************************
- *# 3. Shuffling stacks 
+ *  3. Shuffling stacks 
  *****************************************************************/
 
 /* Function:  esl_stack_Shuffle()
@@ -632,7 +632,7 @@ esl_stack_Shuffle(ESL_RANDOMNESS *r, ESL_STACK *s)
 
 
 /*****************************************************************
- *# 4. Using stacks for thread communication.
+ *  4. Using stacks for thread communication.
  *****************************************************************/
 
 #if defined HAVE_PTHREAD
@@ -1124,10 +1124,6 @@ main(int argc, char **argv)
  * 7. Example.
  *****************************************************************/
 #ifdef eslSTACK_EXAMPLE
-/*::cexcerpt::stack_example::begin::*/
-/* compile: gcc -g -Wall -I. -o example -DeslSTACK_EXAMPLE esl_stack.c easel.c -lm
- * run:     ./example
- */
 #include "easel.h"
 #include "esl_stack.h"
 
@@ -1146,7 +1142,6 @@ main(void)
   esl_stack_Destroy(ns);   
   return 0;
 }
-/*::cexcerpt::stack_example::end::*/
 #endif /*eslSTACK_EXAMPLE*/
 /*------------------------ end of example -----------------------*/
 

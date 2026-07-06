@@ -42,7 +42,7 @@ static int process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti);
 
 
 /*****************************************************************
- *# 1. The <ESL_GETOPTS> object
+ *  1. The <ESL_GETOPTS> object
  *****************************************************************/ 
 
 /* Function:  esl_getopts_Create()
@@ -425,7 +425,7 @@ esl_getopts_CreateOptsLine(ESL_GETOPTS *g)
 }
 
 /*****************************************************************
- *# 2. Setting and testing a configuration
+ *  2. Setting and testing a configuration
  *****************************************************************/ 
 
 /* Function:  esl_opt_ProcessConfigfile()
@@ -878,7 +878,7 @@ esl_opt_SpoofCmdline(const ESL_GETOPTS *g, char **ret_cmdline)
 }
 
 /*****************************************************************
- *# 3. Retrieving option settings and command line args
+ *  3. Retrieving option settings and command line args
  *****************************************************************/ 
 
 /* Function:  esl_opt_IsDefault()
@@ -1993,15 +1993,12 @@ process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti)
  *****************************************************************/
 
 #ifdef eslGETOPTS_TESTDRIVE 
-/* gcc -g -Wall -o getopts_utest -I. -DeslGETOPTS_TESTDRIVE esl_getopts.c easel.c
- */
 #include <stdlib.h>
 #include <stdio.h>
 
 #include "easel.h"
 #include "esl_getopts.h"
 
-/*::cexcerpt::getopts_bigarray::begin::*/
 #define BGROUP "-b,--no-b"
 static ESL_OPTIONS options[] = {
   /* name    type        default env_var  range toggles req  incompat help                  docgroup */
@@ -2022,7 +2019,6 @@ static ESL_OPTIONS options[] = {
  { "--mul",  eslARG_NONE, FALSE,  NULL,   NULL,  NULL,  NULL,  NULL,  "test long opt abbreviation",3 }, /* xref bug #e4 */
  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
-/*::cexcerpt::getopts_bigarray::end::*/
 
 int
 main(void)
@@ -2214,11 +2210,8 @@ main(void)
 
 /* The starting example of "standard" getopts behavior, without
  * any of the bells and whistles.
- * Compile:
-     gcc -g -Wall -o getopts_example -I. -DeslGETOPTS_EXAMPLE esl_getopts.c easel.c
  */
 #ifdef eslGETOPTS_EXAMPLE
-/*::cexcerpt::getopts_example::begin::*/
 #include <stdio.h>
 #include "easel.h"
 #include "esl_getopts.h"
@@ -2269,16 +2262,12 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   return 0;
 }
-/*::cexcerpt::getopts_example::end::*/
 #endif /*eslGETOPTS_EXAMPLE*/
 
 /* Using <esl_getopts_CreateDefaultApp()> implements a standard series
  * of events, including how the -h (help) option is handled.
- * Compile:
-     gcc -g -Wall -o getopts_example2 -I. -DeslGETOPTS_EXAMPLE2 esl_getopts.c easel.c
  */
 #ifdef eslGETOPTS_EXAMPLE2
-/*::cexcerpt::getopts_example2::begin::*/
 #include <stdio.h>
 #include "easel.h"
 #include "esl_getopts.h"
@@ -2310,7 +2299,6 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   return 0;
 }
-/*::cexcerpt::getopts_example2::end::*/
 #endif /*eslGETOPTS_EXAMPLE2*/
 /*-------------- end of examples ---------------------*/
 

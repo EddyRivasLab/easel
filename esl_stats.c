@@ -1235,12 +1235,7 @@ main(int argc, char **argv)
  * 7. Examples.
  *****************************************************************/
 
-/* Compile:  gcc -g -Wall -o example -I. -DeslSTATS_EXAMPLE esl_stats.c esl_random.c easel.c -lm  
- * or        gcc -g -Wall -o example -I. -L. -DeslSTATS_EXAMPLE esl_stats.c -leasel -lm  
- */
 #ifdef eslSTATS_EXAMPLE
-/*::cexcerpt::stats_example::begin::*/
-/* gcc -g -Wall -o example -I. -DeslSTATS_EXAMPLE esl_stats.c esl_random.c easel.c -lm  */
 #include <stdio.h>
 #include "easel.h"
 #include "esl_random.h"
@@ -1287,12 +1282,10 @@ int main(void)
   esl_randomness_Destroy(r);
   exit(0);
 }
-/*::cexcerpt::stats_example::end::*/
 #endif /* eslSTATS_EXAMPLE */
 
 
 #ifdef eslSTATS_EXAMPLE2
-
 #include <stdlib.h>
 
 #include "easel.h"
@@ -1324,6 +1317,5 @@ main(int argc, char **argv)
   printf("%-10.3g %12.2f\n", P, G);
   exit(0);
 }
-#endif /* eslSTATS_EXAMPLE2 */
 /*--------------------- end of examples -------------------------*/
 

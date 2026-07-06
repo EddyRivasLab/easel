@@ -474,7 +474,6 @@ main(int argc, char **argv)
  *****************************************************************/
 
 #ifdef eslVMX_EXAMPLE
-/*::cexcerpt::vmx_example::begin::*/
 #include <esl_config.h>
 
 #include <stdio.h>
@@ -500,7 +499,6 @@ main(int argc, char **argv)
 
   return 0;
 }
-/*::cexcerpt::vmx_example::end::*/
 #endif /*eslVMX_EXAMPLE*/
 
 

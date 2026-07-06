@@ -1127,12 +1127,9 @@ main(int argc, char **argv)
  * 6. Examples.
  *****************************************************************/
 
-#ifdef eslMSAFILE_SELEX_EXAMPLE
 /* A full-featured example of reading/writing an MSA in SELEX format(s).
-   gcc -g -Wall -o esl_msafile_selex_example -I. -L. -DeslMSAFILE_SELEX_EXAMPLE esl_msafile_selex.c -leasel -lm
-   ./esl_msafile_selex_example <msafile>
  */
-/*::cexcerpt::msafile_selex_example::begin::*/
+#ifdef eslMSAFILE_SELEX_EXAMPLE
 #include <stdio.h>
 
 #include "easel.h"
@@ -1197,16 +1194,11 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   exit(0);
 }
-/*::cexcerpt::msafile_selex_example::end::*/
 #endif /*eslMSAFILE_SELEX_EXAMPLE*/
 
-#ifdef eslMSAFILE_SELEX_EXAMPLE2
 /* A minimal example. Read SELEX MSA, in text mode.
-   gcc -g -Wall -o esl_msafile_selex_example2 -I. -L. -DeslMSAFILE_SELEX_EXAMPLE2 esl_msafile_selex.c -leasel -lm
-   ./esl_msafile_selex_example2 <msafile>
  */
-
-/*::cexcerpt::msafile_selex_example2::begin::*/
+#ifdef eslMSAFILE_SELEX_EXAMPLE2
 #include <stdio.h>
 
 #include "easel.h"
@@ -1234,6 +1226,5 @@ main(int argc, char **argv)
   esl_msafile_Close(afp);
   exit(0);
 }
-/*::cexcerpt::msafile_selex_example2::end::*/
 #endif /*eslMSAFILE_SELEX_EXAMPLE2*/
 /*--------------------- end of example --------------------------*/

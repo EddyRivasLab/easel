@@ -32,7 +32,7 @@
 
 
 /*****************************************************************
- *# 1. <ESL_MIXDCHLET> object 
+ *  1. <ESL_MIXDCHLET> object 
  *****************************************************************/
 
 /* Function:  esl_mixdchlet_Create()
@@ -428,7 +428,7 @@ esl_mixdchlet_Sample(ESL_RANDOMNESS *rng, ESL_MIXDCHLET *dchl)
   
 
 /*****************************************************************
- *# 4. Reading/writing mixture Dirichlet files
+ *  4. Reading/writing mixture Dirichlet files
  *****************************************************************/
 
 /* Function:  esl_mixdchlet_Read()
@@ -575,7 +575,7 @@ esl_mixdchlet_WriteJSON(FILE *fp, const ESL_MIXDCHLET *dchl)
 
 
 /*****************************************************************
- *# 5. Debugging and development tools
+ *  5. Debugging and development tools
  *****************************************************************/
 
 

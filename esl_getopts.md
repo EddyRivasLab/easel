@@ -49,64 +49,11 @@ it will allow.
 
 ## example
 
-```
-#include <stdio.h>
-#include "easel.h"
-#include "esl_getopts.h"
-
-static ESL_OPTIONS options[] = {
-  /* name        type          def   env  range toggles reqs incomp help                       docgroup*/
-  { "-h",     eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",       0},
-  { "-a",     eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "a boolean switch",          0},
-  { "-b",     eslARG_NONE,"default", NULL, NULL, NULL, NULL, NULL, "another boolean switch",    0},
-  { "-n",     eslARG_INT,       "0", NULL, NULL, NULL, NULL, NULL, "an integer argument",       0},
-  { "-s",     eslARG_STRING,  "hi!", NULL, NULL, NULL, NULL, NULL, "a string argument",         0},
-  { "-x",     eslARG_REAL,    "1.0", NULL, NULL, NULL, NULL, NULL, "a real-valued argument",    0},
-  { "--file", eslARG_STRING,   NULL, NULL, NULL, NULL, NULL, NULL, "long option, filename arg", 0},
-  { "--char", eslARG_CHAR,       "", NULL, NULL, NULL, NULL, NULL, "long option, char arg",     0},
-  { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, 
-};
-static char usage[] = "Usage: ./example [-options] <arg>";
-
-int
-main(int argc, char **argv)
-{
-  ESL_GETOPTS *go;
-  char        *arg;
-
-  if ((go = esl_getopts_Create(options))     == NULL)  esl_fatal("Bad options structure\n");  
-  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) esl_fatal("Failed to parse command line: %s\n", go->errbuf);
-  if (esl_opt_VerifyConfig(go)               != eslOK) esl_fatal("Failed to parse command line: %s\n", go->errbuf);
-
-  if (esl_opt_GetBoolean(go, "-h") == TRUE) {
-    printf("%s\n  where options are:", usage);
-    esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0=all docgroups; 2=indentation; 80=width */
-    return 0;
-  }
-
-  if (esl_opt_ArgNumber(go) != 1) esl_fatal("Incorrect number of command line arguments.\n%s\n", usage);
-  arg = esl_opt_GetArg(go, 1);
-
-  printf("Option -a:      %s\n", esl_opt_GetBoolean(go, "-a") ? "on" : "off");
-  printf("Option -b:      %s\n", esl_opt_GetBoolean(go, "-b") ? "on" : "off");
-  printf("Option -n:      %d\n", esl_opt_GetInteger(go, "-n"));
-  printf("Option -s:      %s\n", esl_opt_GetString( go, "-s"));
-  printf("Option -x:      %f\n", esl_opt_GetReal(   go, "-x"));
-  if (esl_opt_IsOn(go, "--file")) printf("Option --file:  %s\n", esl_opt_GetString(go, "--file"));
-  else                            printf("Option --file:  (not set)\n");
-  printf("Option --char:  %c\n", esl_opt_GetChar(go, "--char"));
-  printf("Cmdline arg:    %s\n", arg);
-
-  esl_getopts_Destroy(go);
-  return 0;
-}
-```
-
-The code above shows an example of using five short options (including
-help) and two long options, without any of getopts' optional
-validation or configuration mechanisms (hence all the `NULL` in the
-`env` through `incomp` fields of the `ESL_OPTIONS` array). The steps
-are:
+The `eslGETOPTS_EXAMPLE` example in `esl_getopts.c` uses five short
+options (including help) and two long options, without any of getopts'
+optional validation or configuration mechanisms (hence all the `NULL`
+in the `env` through `incomp` fields of the `ESL_OPTIONS` array). The
+steps are:
 
 * The application defines an array of `ESL_OPTIONS` structures, one
   per option. Name, type, and default value fields are required. The
@@ -150,8 +97,7 @@ are:
   to free the object until you know you're not accessing any pointers
   it's returned to you, unless you've made copies.  
   
-  
-An example of running this program:
+An example of running this example program:
 
 ```
    % ./getopts_example -ax 0.3 -n 42 --file foo --char x baz
@@ -174,24 +120,9 @@ not.
 Since you define your options in a static array of
 `ESL_OPTIONS` structures, you need to know what an
 `ESL_OPTIONS` structure contains.  The `ESL_OPTIONS`
-structure is declared in `getopts.h` as:
+structure is declared in `getopts.h`.
 
-```
-typedef struct {
-  char *name;           /* either short "-a" or long "--foo" style               */
-  int   type;           /* arg type, for type checking: (eslARG_INT, etc.)       */
-  char *defval;         /* default setting, or NULL ("default" is a C keyword)   */
-  char *envvar;         /* associated environ var ("BLASTDB"), or NULL           */
-  char *range;          /* for range checking arg: ("0<=x<=1", etc.)             */
-  char *toggle_opts;    /* comma-sep'd optlist: turn these off if this opt is on */
-  char *required_opts;  /* comma-sep'd optlist: these must also be set           */
-  char *incompat_opts;  /* comma-sep'd optlist: these must not be set            */
-  char *help;           /* help/usage string                                     */
-  int   docgrouptag;    /* integer tag for documentation groups                  */
-} ESL_OPTIONS;
-```
-
-Each of these fields in the options array is described in detail below:
+Each of the fields in the options array is described in detail below:
 
 ### option name
 
@@ -464,30 +395,7 @@ that may _not_ also be on if option X is on.
 ## more complex `ESL_OPTIONS` example 
 
 The test driver in `getopts.c` uses an options array that
-exercises all the optional features at least once:
-
-```
-#define BGROUP "-b,--no-b"
-static ESL_OPTIONS options[] = {
-  /* name    type        default env_var  range toggles req  incompat help                  docgroup */
- { "-a",     eslARG_NONE, FALSE,"FOOTEST",NULL,  NULL,  NULL,  NULL,  "toggle a on",               1 },
- { "-b",     eslARG_NONE, FALSE,  NULL,   NULL, BGROUP, NULL,  NULL,  "toggle b on",               1 },
- { "--no-b", eslARG_NONE,"TRUE",  NULL,   NULL, BGROUP, NULL,  NULL,  "toggle b off",              1 },
- { "-c",     eslARG_CHAR,   "x",  NULL,"a<=c<=z",NULL,  NULL,  NULL,  "character arg",             2 },
- { "--d1",   eslARG_NONE,"TRUE",  NULL,   NULL, "--d2", NULL,  NULL,  "toggle d1 on, d2 off",      2 },
- { "--d2",   eslARG_NONE, FALSE,  NULL,   NULL, "--d1", NULL,  NULL,  "toggle d2 on, d1 off",      2 },
- { "-n",     eslARG_INT,    "0",  NULL,"0<=n<10",NULL,  NULL,  NULL,  "integer arg",               2 },
- { "-x",     eslARG_REAL, "0.8",  NULL, "0<x<1", NULL,  NULL,  NULL,  "real-value arg",            2 },
- { "--lowx", eslARG_REAL, "1.0",  NULL,   "x>0", NULL,  NULL,  NULL,  "real arg with lower bound", 2 },
- { "--hix",  eslARG_REAL, "0.9",  NULL,   "x<1", NULL,  NULL,  NULL,  "real arg with upper bound", 2 },
- { "--lown", eslARG_INT,   "42",  NULL,   "n>0", NULL,"-a,-b", NULL,  "int arg with lower bound",  2 },
- { "--hin",  eslARG_INT,   "-1",  NULL,   "n<0", NULL,  NULL,"--no-b","int arg with upper bound",  2 },
- { "--host", eslARG_STRING, "","HOSTTEST",NULL,  NULL,  NULL,  NULL,  "string arg with env var",   3 },
- { "--multi",eslARG_STRING,NULL,  NULL,   NULL,  NULL,  NULL,  NULL,  "test quoted configfile arg",3 },
- { "--mul",  eslARG_NONE, FALSE,  NULL,   NULL,  NULL,  NULL,  NULL,  "test long opt abbreviation",3 }, /* xref bug #e4 */
- {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-};
-```
+exercises all the optional features at least once.
 
 
 ## formatting help/usage messages
@@ -719,31 +627,4 @@ example:
    --multi "one two three"   # Multiword args can be quoted.
 ```
 
-
-## available functions
-
-| Function                       | Synopsis                                                     |
-|--------------------------------|--------------------------------------------------------------|
-| esl_getopts_Create()           | Create a new `ESL_GETOPTS` object.                           |
-| esl_getopts_CreateDefaultApp() | Initialize a standard Easel application.                     |
-| esl_getopts_Reuse()            | Reset application state to default.                          |
-| esl_getopts_Destroy()          | Destroys an `ESL_GETOPTS` object.                            |
-| esl_getopts_Dump()             | Dumps a summary of a `ESL_GETOPTS` configuration.            |
-| esl_opt_ProcessConfigfile()    | Parses options in a config file.                             |
-| esl_opt_ProcessEnvironment()   | Parses options in the environment.                           |
-| esl_opt_ProcessCmdline()       | Parses options from the command line.                        |
-| esl_opt_ProcessSpoof()         | Parses a string as if it were a command line.                |
-| esl_opt_VerifyConfig()         | Validates configuration after options are set.               |
-| esl_opt_ArgNumber()            | Returns number of command line arguments.                    |
-| esl_opt_SpoofCmdline()         | Create faux command line from current option configuration.  |
-| esl_opt_IsDefault()            | Returns `TRUE` if option remained at default setting.        |
-| esl_opt_IsOn()                 | Returns `TRUE` if option is set to a non-`NULL` value.       |
-| esl_opt_IsUsed()               | Returns `TRUE` if option is on, and this is not the default. |
-| esl_opt_GetSetter()            | Returns code for who set this option.                        |
-| esl_opt_GetBoolean()           | Retrieve `TRUE`/`FALSE` for a boolean option.                |
-| esl_opt_GetInteger()           | Retrieve value of an integer option.                         |
-| esl_opt_GetChar()              | Retrieve value of a character option.                        |
-| esl_opt_GetString()            | Retrieve value of a string option.                           |
-| esl_opt_GetArg()               | Retrieve numbered command line argument.                     |
-| esl_opt_DisplayHelp()          | Formats one-line help for each option.                       |
 

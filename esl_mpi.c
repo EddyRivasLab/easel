@@ -23,7 +23,7 @@
 
 
 /*****************************************************************
- *# 1. Communicating optional arrays.
+ *  1. Communicating optional arrays.
  *****************************************************************/
 
 /* Function:  esl_mpi_PackOpt()
@@ -189,7 +189,7 @@ esl_mpi_UnpackOpt(void *pack_buf, int pack_buf_size, int *pos, void **outbuf, in
 
 
 /*****************************************************************
- *# 2. Communicating ESL_SQ (single biosequences)
+ *  2. Communicating ESL_SQ (single biosequences)
  *****************************************************************/
 
 /* Function:  esl_sq_MPISend()
@@ -601,7 +601,7 @@ esl_sq_MPIRecv(int source, int tag, MPI_Comm comm, const ESL_ALPHABET *abc, char
 
 
 /*****************************************************************
- *# 3. Communicating ESL_MSA (multiple sequence alignments).
+ *  3. Communicating ESL_MSA (multiple sequence alignments).
  *****************************************************************/
 
 /* Function:  esl_msa_MPISend()
@@ -987,7 +987,7 @@ esl_msa_MPIRecv(int source, int tag, MPI_Comm comm, const ESL_ALPHABET *abc, cha
 
 
 /*****************************************************************
- *# 4. Communicating ESL_STOPWATCH (process timing)
+ *  4. Communicating ESL_STOPWATCH (process timing)
  *****************************************************************/
 
 /* Function:  esl_stopwatch_MPIReduce()

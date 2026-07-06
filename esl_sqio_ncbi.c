@@ -93,7 +93,7 @@ static int  ignore_sequence_of_integer(ESL_SQNCBI_DATA *ncbi);
 #define NCBI_AMINO_DB              1
 
 /*****************************************************************
- *# 1. An <ESL_SQFILE> object, in text mode.
+ *  1. An <ESL_SQFILE> object, in text mode.
  *****************************************************************/ 
 
 /* Function:  esl_sqncbi_Open()
@@ -645,7 +645,7 @@ sqncbi_Close(ESL_SQFILE *sqfp)
 
 
 /*****************************************************************
- *# 2. An <ESL_SQFILE> object, in digital mode [with <alphabet>]
+ *  2. An <ESL_SQFILE> object, in digital mode [with <alphabet>]
  *****************************************************************/
 
 /* Function:  sqncbi_SetDigital()
@@ -692,7 +692,7 @@ sqncbi_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
 
 
 /*****************************************************************
- *# 3. Miscellaneous routines 
+ *  3. Miscellaneous routines 
  *****************************************************************/ 
 
 /* Function:  sqncbi_IsRewindable()
@@ -723,7 +723,7 @@ sqncbi_GetError(const ESL_SQFILE *sqfp)
 
 
 /*****************************************************************
- *# 4. Sequence reading (sequential)
+ *  4. Sequence reading (sequential)
  *****************************************************************/ 
 
 /* Function:  sqncbi_Read()
@@ -2246,7 +2246,7 @@ inmap_ncbi_amino(ESL_SQFILE *sqfp)
 
 
 /*****************************************************************
- *# 5. Parsing routines
+ *  5. Parsing routines
  *****************************************************************/ 
 
 /* Function:  parse_expect()

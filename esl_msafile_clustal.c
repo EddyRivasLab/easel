@@ -30,7 +30,7 @@ static int make_text_consensus_line(const ESL_MSA *msa, char **ret_consline);
 static int make_digital_consensus_line(const ESL_MSA *msa, char **ret_consline);
 
 /*****************************************************************
- *# 1. API for reading/writing Clustal and Clustal-like formats
+ *  1. API for reading/writing Clustal and Clustal-like formats
  *****************************************************************/
 
 /* Function:  esl_msafile_clustal_SetInmap()
@@ -948,12 +948,9 @@ main(int argc, char **argv)
  *****************************************************************/
 
 
-#ifdef eslMSAFILE_CLUSTAL_EXAMPLE
 /* A full-featured example of reading/writing an MSA in Clustal format(s).
-   gcc -g -Wall -o esl_msafile_clustal_example -I. -L. -DeslMSAFILE_CLUSTAL_EXAMPLE esl_msafile_clustal.c -leasel -lm
-   ./esl_msafile_clustal_example <msafile>
  */
-/*::cexcerpt::msafile_clustal_example::begin::*/
+#ifdef eslMSAFILE_CLUSTAL_EXAMPLE
 #include <stdio.h>
 
 #include "easel.h"
@@ -1021,16 +1018,11 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   exit(0);
 }
-/*::cexcerpt::msafile_clustal_example::end::*/
 #endif /*eslMSAFILE_CLUSTAL_EXAMPLE*/
 
-#ifdef eslMSAFILE_CLUSTAL_EXAMPLE2
 /* A minimal example. Read Clustal MSA, in text mode.
-   gcc -g -Wall -o esl_msafile_clustal_example2 -I. -L. -DeslMSAFILE_CLUSTAL_EXAMPLE2 esl_msafile_clustal.c -leasel -lm
-   ./esl_msafile_clustal_example2 <msafile>
  */
-
-/*::cexcerpt::msafile_clustal_example2::begin::*/
+#ifdef eslMSAFILE_CLUSTAL_EXAMPLE2
 #include <stdio.h>
 
 #include "easel.h"
@@ -1058,7 +1050,6 @@ main(int argc, char **argv)
   esl_msafile_Close(afp);
   exit(0);
 }
-/*::cexcerpt::msafile_clustal_example2::end::*/
 #endif /*eslMSAFILE_CLUSTAL_EXAMPLE2*/
 /*--------------------- end of example --------------------------*/
 

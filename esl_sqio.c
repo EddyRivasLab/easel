@@ -44,7 +44,7 @@ static int convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa);
 
 
 /*****************************************************************
- *# 1. An <ESL_SQFILE> object, in text mode.
+ * 1. An <ESL_SQFILE> object, in text mode.
  *****************************************************************/ 
 
 static int  sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_sqfp);
@@ -232,7 +232,7 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
 
 
 /*****************************************************************
- *# 2. An <ESL_SQFILE> object, in digital mode [with <alphabet>]
+ * 2. An <ESL_SQFILE> object, in digital mode [with <alphabet>]
  *****************************************************************/
 
 /* Function:  esl_sqfile_OpenDigital()
@@ -330,7 +330,7 @@ esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
 
 
 /*****************************************************************
- *# 3. Sequence reading (sequential)
+ * 3. Sequence reading (sequential)
  *****************************************************************/ 
 
 /* Function:  esl_sqio_Read()
@@ -565,7 +565,7 @@ esl_sqio_Parse(char *buf, int size, ESL_SQ *s, int format)
 
 
 /*****************************************************************
- *# 4. Writing sequences.
+ * 4. Writing sequences.
  *****************************************************************/
 
 /* Function:  esl_sqio_Write()
@@ -644,7 +644,7 @@ esl_sqio_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
 
 
 /*****************************************************************
- *# 5. Miscellaneous routines 
+ * 5. Miscellaneous routines 
  *****************************************************************/ 
 
 /* Function:  esl_sqfile_GetErrorBuf()
@@ -892,7 +892,7 @@ esl_sqio_AcceptAs(ESL_SQFILE *sqfp, const char *accepted, char readas)
 
 
 /*****************************************************************
- *# 6. Sequence/subsequence fetching, random access [with <ssi>]
+ * 6. Sequence/subsequence fetching, random access [with <ssi>]
  *****************************************************************/
 
 
@@ -1111,7 +1111,7 @@ esl_sqio_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t start, int64_
 
 
 /*****************************************************************
- *# 7. Sequence database caching.
+ * 7. Sequence database caching.
  *****************************************************************/ 
 
 /* Function:  esl_sqfile_Cache()
@@ -1481,7 +1481,7 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
 
 
 /*****************************************************************
- *#  9. Benchmark driver
+ *  9. Benchmark driver
  *****************************************************************/ 
 /* Some current results:
  *
@@ -1731,7 +1731,7 @@ benchmark_mmap(char *filename, int bufsize, int64_t *ret_magic)
 
 
 /*****************************************************************
- *#  10. Unit tests
+ *  10. Unit tests
  *****************************************************************/ 
 #ifdef eslSQIO_TESTDRIVE
 
@@ -2254,12 +2254,9 @@ utest_guess_empty_seq()
 
 
 /*****************************************************************
- *# 11. Test driver.
+ * 11. Test driver.
  *****************************************************************/
 
-/* gcc -g -Wall -I. -L. -o sqio_utest -DeslSQIO_TESTDRIVE esl_sqio.c -leasel -lm
- * ./sqio_utest
- */
 #ifdef eslSQIO_TESTDRIVE
 #include <esl_config.h>
 
@@ -2355,22 +2352,13 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- *# 12. Examples
+ * 12. Examples
  *****************************************************************/
-/* The last example in a file is always the most useful example;
- * so you can M-> to it immediately.
- *    example3 = using esl_sqio_Parse()
- *    example2 = simplest, text mode
- *    example  = standard idiom for digital seqfile reading
+
+
+/* Example 3: using esl_sqio_Parse()
  */
-
-
 #ifdef eslSQIO_EXAMPLE3
-/*::cexcerpt::sqio_example_parse::begin::*/
-/* Example of using esl_sqio_Parse() to parse a buffer
- *  cc -g -Wall -I. -L. -o esl_sqio_example3 -DeslSQIO_EXAMPLE3 esl_sqio.c -leasel -lm
- *  ./esl_sqio_example3
- */
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_sq.h"
@@ -2401,15 +2389,11 @@ main(void)
   esl_alphabet_Destroy(abc);
   return 0;
 }
-/*::cexcerpt::sqio_example_parse::end::*/
 #endif /*eslSQIO_EXAMPLE3*/
 
-
-#ifdef eslSQIO_EXAMPLE2
-/*::cexcerpt::sqio_example_text::begin::*/
-/* cc -g -Wall -I. -L. -o esl_sqio_example2 -DeslSQIO_EXAMPLE2 esl_sqio.c -leasel -lm
- * ./esl_sqio_example2 <FASTA file>
+/* Example 2: simplest, text mode
  */
+#ifdef eslSQIO_EXAMPLE2
 #include "easel.h"
 #include "esl_sq.h"
 #include "esl_sqio.h"
@@ -2440,18 +2424,12 @@ main(int argc, char **argv)
   esl_sqfile_Close(sqfp);
   return 0;
 }
-/*::cexcerpt::sqio_example_text::end::*/
 #endif /*eslSQIO_EXAMPLE2*/
 
 
-
-
-#ifdef eslSQIO_EXAMPLE
-/*::cexcerpt::sqio_example_digital::begin::*/
-/* Example showing standard idiom for opening sequence file, digital mode.
- *  cc -g -Wall -I. -L. -o esl_sqio_example -DeslSQIO_EXAMPLE esl_sqio.c -leasel -lm
- *  ./esl_sqio_example <sequence file>
+/* Example 1: standard idiom for digital seqfile reading
  */
+#ifdef eslSQIO_EXAMPLE
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_getopts.h"
@@ -2520,7 +2498,6 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   return 0;
 }
-/*::cexcerpt::sqio_example_digital::end::*/
 #endif /*eslSQIO_EXAMPLE*/
 
 

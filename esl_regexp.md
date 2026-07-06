@@ -12,20 +12,6 @@ Toronto. Easel's regular expressions are not as powerful as the
 regular expression syntax in the Perl language, for example, but
 they're sufficient for many useful parsing needs in a C application.
 
-## functions
-
-| Function                       | Synopsis                                             |
-|--------------------------------|------------------------------------------------------|
-| `esl_regexp_Create()`          | Create a new `ESL_REGEXP`                            |
-| `esl_regexp_Destroy()`         | Destroy an `ESL_REGEXP`                              |
-| `esl_regexp_Match()`           | Find first match of a pattern in a string            |
-| `esl_regexp_Compile()`         | Precompile a pattern                                 |
-| `esl_regexp_MultipleMatches()` | Find next match of a precompiled pattern in a string |
-| `esl_regexp_SubmatchDup()`     | Extract a (sub)match as newly allocated string       |
-| `esl_regexp_SubmatchCopy()`    | Extract a (sub)match string, copy to allocated space |
-| `esl_regexp_SubmatchCoords()`  | Extract start/end coords of a (sub)match             |
-
-
 ## examples
 
 The trickiest bit of using `esl_regexp` is writing your pattern,

@@ -403,11 +403,6 @@ seq11 MMMMMMMMMM\n\
  *****************************************************************/
 
 #ifdef eslMSACLUSTER_EXAMPLE
-/*::cexcerpt::msacluster_example::begin::*/
-/*
-   gcc -g -Wall -o msacluster_example -I. -L. -DeslMSACLUSTER_EXAMPLE esl_msacluster.c -leasel -lm
-   ./msacluster_example <MSA file>
- */
 #include <stdio.h>
 #include "easel.h"
 #include "esl_msa.h"
@@ -453,6 +448,5 @@ main(int argc, char **argv)
   free(nin);
   return 0;
 }
-/*::cexcerpt::msacluster_example::end::*/
 #endif /*eslMSACLUSTER_EXAMPLE*/
 /*------------------------ end of example -----------------------*/

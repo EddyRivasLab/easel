@@ -1764,12 +1764,9 @@ main(int argc, char **argv)
  * 8. Example.
  *****************************************************************/
 
-#ifdef eslMSAFILE_PHYLIP_EXAMPLE
 /* A full-featured example of reading/writing an MSA in Phylip format(s).
-   gcc -g -Wall -o esl_msafile_phylip_example -I. -L. -DeslMSAFILE_PHYLIP_EXAMPLE esl_msafile_phylip.c -leasel -lm
-   ./esl_msafile_phylip_example <msafile>
  */
-/*::cexcerpt::msafile_phylip_example::begin::*/
+#ifdef eslMSAFILE_PHYLIP_EXAMPLE
 #include <stdio.h>
 
 #include "easel.h"
@@ -1850,17 +1847,13 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   exit(0);
 }
-/*::cexcerpt::msafile_phylip_example::end::*/
 #endif /*eslMSAFILE_PHYLIP_EXAMPLE*/
 
 
 
-#ifdef eslMSAFILE_PHYLIP_EXAMPLE2
 /* A minimal example. Reading a strict interleaved PHYLIP MSA in text mode. 
-   gcc -g -Wall -o esl_msafile_phylip_example2 -I. -L. -DeslMSAFILE_PHYLIP_EXAMPLE2 esl_msafile_phylip.c -leasel -lm
-   ./esl_msafile_phylip_example2 <msafile>
  */
-/*::cexcerpt::msafile_phylip_example2::begin::*/
+#ifdef eslMSAFILE_PHYLIP_EXAMPLE2
 #include <stdio.h>
 
 #include "easel.h"
@@ -1890,6 +1883,5 @@ main(int argc, char **argv)
   esl_msafile_Close(afp);
   exit(0);
 }
-/*::cexcerpt::msafile_phylip_example::end::*/
 #endif /*eslMSAFILE_PHYLIP_EXAMPLE*/
 /*--------------------- end of examples -------------------------*/

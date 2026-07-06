@@ -39,7 +39,7 @@
 #include "esl_hyperexp.h"
 
 /****************************************************************************
- *# 1. The ESL_HYPEREXP object
+ *  1. The ESL_HYPEREXP object
  ****************************************************************************/ 
 
 /* Function:  esl_hyperexp_Create()
@@ -1287,7 +1287,6 @@ main(int argc, char **argv)
  * Example main()
  ****************************************************************************/ 
 #ifdef eslHYPEREXP_EXAMPLE
-/*::cexcerpt::hyperexp_example::begin::*/
 #include <stdio.h>
 #include "easel.h"
 #include "esl_random.h"
@@ -1343,7 +1342,6 @@ main(int argc, char **argv)
   esl_hyperexp_Destroy(ehxp);
   return 0;
 }
-/*::cexcerpt::hyperexp_example::end::*/
 #endif /*eslHYPEREXP_EXAMPLE*/
 
 

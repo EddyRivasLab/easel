@@ -100,7 +100,7 @@ static int  fileheader_hmmpgmd(ESL_SQFILE *sqfp);
 
 
 /*****************************************************************
- *# 1. An <ESL_SQFILE> object, in text mode.
+ *  1. An <ESL_SQFILE> object, in text mode.
  *****************************************************************/ 
 
 /* Function:  esl_sqascii_Open()
@@ -573,7 +573,7 @@ sqascii_Close(ESL_SQFILE *sqfp)
 
 
 /*****************************************************************
- *# 2. An <ESL_SQFILE> object, in digital mode [with <alphabet>]
+ *  2. An <ESL_SQFILE> object, in digital mode [with <alphabet>]
  *****************************************************************/
 
 /* Function:  sqascii_SetDigital()
@@ -688,7 +688,7 @@ sqascii_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
 
 
 /*****************************************************************
- *# 3. Miscellaneous routines 
+ *  3. Miscellaneous routines 
  *****************************************************************/ 
 
 /* Function:  sqascii_IsRewindable()
@@ -721,7 +721,7 @@ sqascii_GetError(const ESL_SQFILE *sqfp)
 
 
 /*****************************************************************
- *# 4. Sequence reading (sequential)
+ *  4. Sequence reading (sequential)
  *****************************************************************/ 
 
 /* Function:  sqascii_Read()
@@ -1696,7 +1696,7 @@ sqascii_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
 
 
 /*****************************************************************
- *# 5. Sequence/subsequence fetching, random access [with <ssi>]
+ *  5. Sequence/subsequence fetching, random access [with <ssi>]
  *****************************************************************/
 
 /* Function:  sqascii_OpenSSI()
@@ -2522,7 +2522,7 @@ read_nres(ESL_SQFILE *sqfp, ESL_SQ *sq, int64_t nskip, int64_t nres, int64_t *op
 
 
 /*****************************************************************
- *#  7. Internal routines for EMBL format (including UniProt, TrEMBL)
+ *   7. Internal routines for EMBL format (including UniProt, TrEMBL)
  *****************************************************************/ 
 /* EMBL and UniProt protein sequence database format.
  *   See: http://us.expasy.org/sprot/userman.html
@@ -2773,7 +2773,7 @@ end_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
 
 /*****************************************************************
- *#  8. Internal routines for GenBank format 
+ *   8. Internal routines for GenBank format 
  *****************************************************************/ 
 /* NCBI GenBank sequence database format.
  * See GenBank release notes; for example,
@@ -2951,7 +2951,7 @@ end_genbank(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
 
 /*****************************************************************
- *#  9. Internal routines for FASTA format
+ *   9. Internal routines for FASTA format
  *****************************************************************/
 
 static void
@@ -3186,7 +3186,7 @@ esl_sqascii_WriteFasta(FILE *fp, ESL_SQ *sq, int save_offsets)
 /*------------------- end of FASTA i/o ---------------------------*/
 
 /*****************************************************************
- *#  10. Internal routines for daemon format
+ *   10. Internal routines for daemon format
  *****************************************************************/
 
 /* Special case FASTA format where each sequence is terminated with "//".
@@ -3379,7 +3379,7 @@ esl_sqascii_Parse(char *buf, int size, ESL_SQ *sq, int format)
 /*-------------------- end of daemon ----------------------------*/
 
 /*****************************************************************
- *# 11. Internal routines for HMMPGMD format
+ *  11. Internal routines for HMMPGMD format
  *****************************************************************/
 
 static int

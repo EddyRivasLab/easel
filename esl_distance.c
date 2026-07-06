@@ -1740,7 +1740,6 @@ main(int argc, char **argv)
  *****************************************************************/ 
 
 #ifdef eslDISTANCE_EXAMPLE
-/*::cexcerpt::distance_example::begin::*/
 
 #include "easel.h"
 #include "esl_msa.h"
@@ -1778,7 +1777,6 @@ main(int argc, char **argv)
   esl_alphabet_Destroy(abc);
   return eslOK;
 }
-/*::cexcerpt::distance_example::end::*/
 #endif /*eslDISTANCE_EXAMPLE*/
 
 

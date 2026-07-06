@@ -46,7 +46,7 @@ static void     mersenne_seed_table(ESL_RANDOMNESS *rng, uint32_t seed);
 static void     mersenne_fill_table(ESL_RANDOMNESS *rng);
 
 /*****************************************************************
- *# 1. The <ESL_RANDOMNESS> object.
+ *  1. The <ESL_RANDOMNESS> object.
  *****************************************************************/
 
 /* Function:  esl_randomness_Create()
@@ -257,7 +257,7 @@ esl_randomness_Destroy(ESL_RANDOMNESS *rng)
 
 
 /*****************************************************************
- *# 2. The generators and <esl_random()>
+ *  2. The generators and <esl_random()>
  *****************************************************************/  
 
 /* Function: esl_random()  
@@ -472,7 +472,7 @@ choose_arbitrary_seed(void)
 
 
 /*****************************************************************
- *# 3. Debugging and development tools
+ *  3. Debugging and development tools
  *****************************************************************/ 
 
 /* Function:  esl_randomness_Dump()
@@ -509,7 +509,7 @@ esl_randomness_Dump(FILE *fp, ESL_RANDOMNESS *rng)
 
 
 /*****************************************************************
- *# 4. Other fundamental sampling (including Gaussian, gamma)
+ *  4. Other fundamental sampling (including Gaussian, gamma)
  *****************************************************************/ 
 
 /* Function: esl_rnd_UniformPositive()
@@ -843,7 +843,7 @@ esl_rnd_Deal(ESL_RANDOMNESS *rng, int m, int n, int *deal)
 
 
 /*****************************************************************
- *# 5. Multinomial sampling from discrete probability n-vectors
+ *  5. Multinomial sampling from discrete probability n-vectors
  *****************************************************************/ 
 
 /* Function:  esl_rnd_DChoose()
@@ -1517,10 +1517,6 @@ save_bitfile(char *bitfile, ESL_RANDOMNESS *rng, int n)
  * 10. Example.
  *****************************************************************/
 #ifdef eslRANDOM_EXAMPLE
-/*::cexcerpt::random_example::begin::*/
-/* compile: cc -I. -o esl_random_example -DeslRANDOM_EXAMPLE esl_random.c esl_getopts.c easel.c -lm
- * run:     ./random_example 42
- */
 #include <stdio.h>
 #include "easel.h"
 #include "esl_getopts.h"
@@ -1565,7 +1561,6 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   return 0;
 }
-/*::cexcerpt::random_example::end::*/
 #endif /*eslRANDOM_EXAMPLE*/
 
 

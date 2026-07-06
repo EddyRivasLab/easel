@@ -22,7 +22,7 @@
 #include "esl_msafile_psiblast.h"
 
 /*****************************************************************
- *# 1. API for reading/writing PSI-BLAST format
+ *  1. API for reading/writing PSI-BLAST format
  *****************************************************************/
 
 /* Function:  esl_msafile_psiblast_SetInmap()
@@ -698,12 +698,9 @@ main(int argc, char **argv)
  * 4. Examples.
  *****************************************************************/
 
-#ifdef eslMSAFILE_PSIBLAST_EXAMPLE
 /* A full-featured example of reading/writing an MSA in PSIBLAST format.
-   gcc -g -Wall -o esl_msafile_psiblast_example -I. -L. -DeslMSAFILE_PSIBLAST_EXAMPLE esl_msafile_psiblast.c -leasel -lm
-   ./esl_msafile_psiblast_example <msafile>
  */
-/*::cexcerpt::msafile_psiblast_example::begin::*/
+#ifdef eslMSAFILE_PSIBLAST_EXAMPLE
 #include <stdio.h>
 
 #include "easel.h"
@@ -768,17 +765,12 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   exit(0);
 }
-/*::cexcerpt::msafile_psiblast_example::end::*/
 #endif /*eslMSAFILE_PSIBLAST_EXAMPLE*/
 
 
-#ifdef eslMSAFILE_PSIBLAST_EXAMPLE2
 /* A minimal example. Read PSIBLAST format MSA, in text mode.
-   gcc -g -Wall -o esl_msafile_psiblast_example2 -I. -L. -DeslMSAFILE_PSIBLAST_EXAMPLE2 esl_msafile_psiblast.c -leasel -lm
-   ./esl_msafile_psiblast_example2 <msafile>
  */
-
-/*::cexcerpt::msafile_psiblast_example2::begin::*/
+#ifdef eslMSAFILE_PSIBLAST_EXAMPLE2
 #include <stdio.h>
 
 #include "easel.h"
@@ -806,6 +798,5 @@ main(int argc, char **argv)
   esl_msafile_Close(afp);
   exit(0);
 }
-/*::cexcerpt::msafile_psiblast_example2::end::*/
 #endif /*eslMSAFILE_PSIBLAST_EXAMPLE2*/
 /*--------------------- end of examples -------------------------*/

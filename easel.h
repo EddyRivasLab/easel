@@ -58,7 +58,6 @@
  * a debugging breakpoint in esl_fail(), so we can break execution at
  * a normal failure.
  */
-/*::cexcerpt::error_macros::begin::*/
 #define ESL_FAIL(code, errbuf, ...) do {				\
     esl_fail(errbuf, __VA_ARGS__);                                      \
     return code; }							\
@@ -91,14 +90,12 @@
     esl_exception(code, TRUE, __FILE__, __LINE__, __VA_ARGS__);	\
     goto ERROR; }							\
   while (0)
-/*::cexcerpt::error_macros::end::*/
 
 
 
 
 /* Return codes for error handler
  */
-/*::cexcerpt::statuscodes::begin::*/
 #define eslOK              0    /* no error/success             */
 #define eslFAIL            1    /* failure                      */
 #define eslEOL             2    /* end-of-line (often normal)   */
@@ -133,7 +130,6 @@
 				   for functions that require a SIMD
 				   ISA that the compiler doesn't 
 				   support. */
-/*::cexcerpt::statuscodes::end::*/
 
 
 
@@ -175,7 +171,6 @@
  * `(ptrdiff_t) sizeof(foo) * n`.
  * [2023/0804-h3-gcc-malloc-warning]
  */
-/*::cexcerpt::alloc_macros::begin::*/
 #define ESL_ALLOC(p, size) do {\
     if ( size <= 0 ) { \
        p = NULL; \
@@ -209,7 +204,6 @@
        esl_exception(status, FALSE, __FILE__, __LINE__, "realloc for size %llu failed", (unsigned long long) newsize); \
        goto ERROR;\
      }} while (0)
-/*::cexcerpt::alloc_macros::end::*/
 
 /* Convert MiB,GiB,TiB to bytes, using binary definitions (2^20, 2^30, 2^40):
  * Pedantically speaking, that's: mebibytes (MiB), gibibytes (GiB), tebibytes (TiB).

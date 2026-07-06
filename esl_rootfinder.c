@@ -448,10 +448,8 @@ main(int argc, char **argv)
  *****************************************************************/
 
 /* An example of bisection.
- *   gcc -g -Wall -o example -I. -DeslROOTFINDER_EXAMPLE esl_rootfinder.c easel.c -lm
  */
 #ifdef eslROOTFINDER_EXAMPLE
-/*::cexcerpt::rootfinder_example::begin::*/
 #include "easel.h"
 #include "esl_rootfinder.h"
 
@@ -484,15 +482,12 @@ int main(void)
   esl_rootfinder_Destroy(R);
   return 0;
 }
-/*::cexcerpt::rootfinder_example::end::*/
 #endif /*eslROOTFINDER_EXAMPLE*/
 
 
 /* An example of Newton/Raphson.
- *   gcc -g -Wall -o example -I. -DeslROOTFINDER_EXAMPLE2 esl_rootfinder.c easel.c -lm
  */
 #ifdef eslROOTFINDER_EXAMPLE2
-/*::cexcerpt::rootfinder_example2::begin::*/
 #include "easel.h"
 #include "esl_rootfinder.h"
 
@@ -526,6 +521,5 @@ int main(void)
   esl_rootfinder_Destroy(R);
   return 0;
 }
-/*::cexcerpt::rootfinder_example2::end::*/
 #endif /*eslROOTFINDER_EXAMPLE2*/
 

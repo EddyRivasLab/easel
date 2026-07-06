@@ -36,7 +36,7 @@ static int           sq_init(ESL_SQ *sq, int do_digital);
 
 
 /*****************************************************************
- *# 1. Text version of the <ESL_SQ> object.
+ *  1. Text version of the <ESL_SQ> object.
  *****************************************************************/
 
 /* Function:  esl_sq_Create()
@@ -727,7 +727,7 @@ esl_sq_CreateDigitalBlock(int count, const ESL_ALPHABET *abc)
 
 
 /*****************************************************************
- *# 2. Digitized version of the <ESL_SQ> object. (Requires <alphabet>)
+ *  2. Digitized version of the <ESL_SQ> object. (Requires <alphabet>)
  *****************************************************************/
 
 /* Function:  esl_sq_CreateDigital()
@@ -1090,7 +1090,7 @@ esl_sq_ConvertDegen2X(ESL_SQ *sq)
 
 
 /*****************************************************************
- *# 3. Other functions that operate on sequences.
+ *  3. Other functions that operate on sequences.
  *****************************************************************/
 
 /* Function:  esl_sq_SetName()
@@ -2275,7 +2275,7 @@ ERROR:  // Free any structures we created before we go
 
 
 /*****************************************************************
- *# 4. Getting single sequences from MSAs  (requires <msa>)
+ *  4. Getting single sequences from MSAs  (requires <msa>)
  *****************************************************************/
 
 /* Function:  esl_sq_GetFromMSA()
@@ -2563,7 +2563,7 @@ esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq)
 
 
 /*****************************************************************
- *# 5. Debugging/development tools 
+ *  5. Debugging/development tools 
  *****************************************************************/
 
 /* Function:  esl_sq_Validate()
@@ -3342,11 +3342,12 @@ main(int argc, char **argv)
  * 9. Examples.
  *****************************************************************/
 
-#ifdef eslSQ_EXAMPLE
-/*::cexcerpt::sq_example::begin::*/
-/* compile: gcc -g -Wall -I. -o example -DeslSQ_EXAMPLE esl_sq.c easel.c
- * run:     ./example
+/* Example of using esl_sq_Create() and esl_sq_CreateFrom()
+ *
+ * See esl_sq.md for notes.
  */
+
+#ifdef eslSQ_EXAMPLE
 #include <stdio.h>
 #include <string.h>
 #include "easel.h"
@@ -3389,12 +3390,14 @@ int main(void)
   esl_sq_Destroy(sq2);
   return 0;
 }
-/*::cexcerpt::sq_example::end::*/
 #endif /*eslSQ_EXAMPLE*/
 
 
+/* Example of creating a digital ESL_SQ.
+ *
+ * See esl_sq.md for notes.
+ */
 #ifdef eslSQ_EXAMPLE2
-/*::cexcerpt::sq_example2::begin::*/
 #include <stdio.h>
 #include <string.h>
 #include "easel.h"
@@ -3453,7 +3456,6 @@ int main(void)
   esl_sq_Destroy(sq2);
   return 0;
 }
-/*::cexcerpt::sq_example2::end::*/
 #endif /*eslSQ_EXAMPLE2*/
 /*------------------ end, example drivers ------------------------*/
 

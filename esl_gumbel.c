@@ -1353,7 +1353,6 @@ main(int argc, char **argv)
  * 11. Example.
  *****************************************************************/ 
 #ifdef eslGUMBEL_EXAMPLE
-/*::cexcerpt::gumbel_example::begin::*/
 #include <stdio.h>
 #include "easel.h"
 #include "esl_random.h"
@@ -1400,7 +1399,6 @@ main(int argc, char **argv)
   esl_randomness_Destroy(r);
   return 0;
 }
-/*::cexcerpt::gumbel_example::end::*/
 #endif /*eslGUMBEL_EXAMPLE*/
 
 

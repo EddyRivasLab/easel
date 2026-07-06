@@ -23,7 +23,6 @@ extern "C" {
  * Some code assumes that the second cutoff is always +1 of the first,
  * e.g. eslMSA_TC2 = eslMSA_TC1 + 1
  */
-/*::cexcerpt::msa_cutoffs::begin::*/
 #define eslMSA_TC1     0
 #define eslMSA_TC2     1
 #define eslMSA_GA1     2
@@ -31,7 +30,6 @@ extern "C" {
 #define eslMSA_NC1     4
 #define eslMSA_NC2     5
 #define eslMSA_NCUTS   6
-/*::cexcerpt::msa_cutoffs::end::*/
 
 /* Object: ESL_MSA
  * 
@@ -41,14 +39,12 @@ typedef struct {
   /* Mandatory information associated with the alignment.
    * (The important stuff.)
    */
-  /*::cexcerpt::msa_mandatory::begin::*/
   char  **aseq;       /* alignment itself, [0..nseq-1][0..alen-1], \0-terminated */
   char  **sqname;     /* sequence names [0..nseq-1][], \0-terminated             */
   double *wgt;        /* sequence weights [0..nseq-1], default 1.0               */
   int64_t alen;       /* length of alignment (columns); or (if growable) -1      */
   int     nseq;       /* number of seqs in alignment; or (if growable) blocksize */
   int     flags;      /* flags for what info has been set                        */
-  /*::cexcerpt::msa_mandatory::end::*/
 
   /* w/ digital alphabets, we store pre-digitized data in
    * ax[][], instead of the text info in aseq[][].
@@ -59,7 +55,6 @@ typedef struct {
   /* Optional information that we understand, and that we might have.
    * (The occasionally useful stuff.)
    */
-  /*::cexcerpt::msa_optional::begin::*/
   char  *name;      /* name of alignment, or NULL                                           */
   char  *desc;      /* description of alignment, or NULL                                    */
   char  *acc;       /* accession of alignment, or NULL                                      */
@@ -76,7 +71,6 @@ typedef struct {
   char **pp;        /* posterior prob per residue, or NULL.     (string, \0-term)           */
   float  cutoff[eslMSA_NCUTS];  /* NC/TC/GA cutoffs propagated to Pfam/Rfam                 */
   int    cutset[eslMSA_NCUTS];  /* TRUE if a cutoff is set; else FALSE                      */
-  /*::cexcerpt::msa_optional::end::*/
 
   /* Info needed for maintenance of the data structure 
    * (internal stuff.)

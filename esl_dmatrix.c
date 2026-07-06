@@ -14,7 +14,7 @@
  *   8. Optional: Interfaces to LAPACK
  *   9. Unit tests
  *  10. Test driver
- *  11. Examples
+ *  11. Example
  *
  * To do:
  *   - eventually probably want additional matrix types
@@ -823,7 +823,6 @@ esl_dmx_Multiply(const ESL_DMATRIX *A, const ESL_DMATRIX *B, ESL_DMATRIX *C)
 }
 
 
-/*::cexcerpt::function_comment_example::begin::*/
 /* Function:  esl_dmx_Exp()
  * Synopsis:  Calculates matrix exponential $\mathbf{P} = e^{t\mathbf{Q}}$.
  * Incept:    SRE, Thu Mar  8 18:41:38 2007 [Janelia]
@@ -854,7 +853,6 @@ esl_dmx_Multiply(const ESL_DMATRIX *A, const ESL_DMATRIX *B, ESL_DMATRIX *C)
 int
 esl_dmx_Exp(const ESL_DMATRIX *Q, double t, ESL_DMATRIX *P)
 {
-/*::cexcerpt::function_comment_example::end::*/
   ESL_DMATRIX *Qz   = NULL;	/* Q/2^z rescaled matrix*/
   ESL_DMATRIX *Qpow = NULL;	/* keeps running product Q^k */
   ESL_DMATRIX *C    = NULL;	/* tmp storage for matrix multiply result */
@@ -1549,13 +1547,10 @@ int main(void)
 
 
 /*****************************************************************
- * 11. Examples
+ * 11. Example
  *****************************************************************/ 
 
-/*   gcc -g -Wall -o example -I. -DeslDMATRIX_EXAMPLE esl_dmatrix.c easel.c -lm
- */
 #ifdef eslDMATRIX_EXAMPLE
-/*::cexcerpt::dmatrix_example::begin::*/
 #include "easel.h"
 #include "esl_dmatrix.h"
 
@@ -1579,7 +1574,6 @@ int main(void)
   esl_dmatrix_Destroy(C);
   return 0;
 }
-/*::cexcerpt::dmatrix_example::end::*/
 #endif /*eslDMATRIX_EXAMPLE*/
 
 

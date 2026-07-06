@@ -1,34 +1,40 @@
 
 # Eddy lab code conventions
 
-This document is for indoctrinating new developers into the
-conventions used by Eddy lab code, including HMMER, Infernal, and
-Easel. These conventions make it easier for one busy professor to
-maintain our code for a long time.
+This document is for indoctrinating new developers (both human and AI)
+into the conventions used by the Easel library that underlies Eddy lab
+codebases, including HMMER and Infernal. These conventions aim to make
+it easier for one busy professor and his trusty AI sidekick to
+maintain a large amount of code for a long time.
 
-Our older code doesn't always follow our own current conventions. Our
+Essentially the same code conventions apply to all our code, where it
+makes sense. The Easel library code is inherently modular. Other
+codebases, like HMMER and Infernal, are as strictly organized into
+modules.
+
+Older code doesn't always follow current conventions. These
 conventions apply like building ordinances.  When a significant
-renovation happens, old work is brought up to current standards.
+renovation happens, we bring old work up to current standards.
+
+
 
 ------------------------------------
 
 ## naming conventions at a glance
 
-| thing              | example                   | explanation |
-|--------------------|---------------------------|-------------|
-| project prefix     | `esl`                     | Externally visible functions, structures, macros, and constants are prefixed according to which of our code projects it's from. |
-| module name        | `json`                    | We call discrete units of our code "modules". A module name is 10 characters or fewer.  |
-| source file        | `esl_json.c`              | Each module has one source file, named `esl_<module>.c`...     |
-| header file        | `esl_json.h`              | ... and one header file, named `esl_<module>.h`...             |
-| documentation      | `esl_json.md`             | ... and one documentation file, named `esl_<module>.md`, in github-flavored Markdown (GFM) format. (This is aspirational. Currently they're all LaTeX `.tex` files, and I want to make them Markdown instead as we go forward.) |
-| objects            | `ESL_JSON`                | Each module typically typedef's one object (C structure), named `ESL_<MODULE>`. If there's more than one object, the additional ones are named something like `ESL_<MODULE>_FOO`. |
-| external function  | `esl_json_PartialParse()` | A module defines as few externally visible functions as possible, and names them `esl_<module>_<functionname>()`. The `<functionname>` part generally uses mixed case capitalization, and follows standardized **interface** nomenclature and behavior, described below. Functions in `easel.c` omit the module name: `esl_exception()` for example.|
-| internal function  | `json_foo()`              | ... usually most functions are static, not exposed outside the module. |
-| macro              | `ESL_JSON_MACRO()`        | Macros follow the same naming convention as functions, but are all uppercase. |
-| constant           | `eslJSON_KEY`             | `#define`'d constants are `esl<MODULE>_<CONSTNAME>`.  Constants in `easel.h` omit the `<MODULE>_` part. This includes a set of defined return codes, such as `eslOK`. |
-| configure constant | `HAVE_STDINT_H`           | Constants that don't start with `esl` are almost always compile-time configuration constants defined by the autoconf `./configure` script, defined in `esl_config.h`, and following GNU naming standards.  |
-
-
+| thing              | example                   | explanation                                                                                                                                                                                                                                                                                                |
+|--------------------|---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| source file        | `esl_json.c`              | Each module has one source file, named `esl_<module>.c`...                                                                                                                                                                                                                                                 |
+| header file        | `esl_json.h`              | ... and one header file, named `esl_<module>.h`...                                                                                                                                                                                                                                                         |
+| documentation      | `esl_json.md`             | ... and optionally one documentation file, named `esl_<module>.md`, in github-flavored Markdown (GFM) format.                                                                                                                                                                                              |
+| module name        | `json`                    | We call discrete units of Easel library code "modules". A module name is 10 characters or fewer.                                                                                                                                                                                                           |
+| project prefix     | `esl`                     | Externally visible functions, structures, macros, and constants are prefixed according to which of our code projects it's from.                                                                                                                                                                            |
+| objects            | `ESL_JSON`                | Each Easel module typically typedef's one object (C structure), named `ESL_<MODULE>`. If there's more than one object, the additional ones are named something like `ESL_<MODULE>_FOO`.                                                                                                                    |
+| external function  | `esl_json_PartialParse()` | externally visible functions are named `esl_<module>_<functionname>()`. The `<functionname>` part generally uses mixed case capitalization, and follows standardized **interface** nomenclature and behavior, described below. Functions in `easel.c` omit the module name: `esl_exception()` for example. |
+| internal function  | `json_foo()`              | ... many functions are static, not exposed outside the module.  They drop the `esl_` prefix.                                                                                                                                                                                                               |
+| macro              | `ESL_JSON_MACRO()`        | Macros follow the same naming convention as functions, but are all uppercase.                                                                                                                                                                                                                              |
+| constant           | `eslJSON_KEY`             | `#define`'d constants are `esl<MODULE>_<CONSTNAME>`.  Constants in `easel.h` omit the `<MODULE>_` part. This includes a set of defined return codes, such as `eslOK`.                                                                                                                                      |
+| configure constant | `HAVE_STDINT_H`           | Constants that don't start with `esl` are almost always compile-time configuration constants defined by the autoconf `./configure` script, defined in `esl_config.h`. These follow GNU naming standards.                                                                                                   |
 
 
 -----------------------------------
@@ -42,142 +48,92 @@ capabilities. The module name is used to construct all the externally
 visible identifiers (names of functions, structures, etc.) provided by
 the module.
 
-Each module consists of three files: a .c C code file, a .h header
-file, and a documentation file (currently .tex, but we're moving to
-Markdown, .md). These filenames are constructed from the project
-prefix (below) and the module name. For example, the Easel `buffer`
-module is implemented in `esl_buffer.c`, `esl_buffer.h`, and
-`esl_buffer.tex`.
+Each module consists of two or three files: a .c C code file, a .h
+header file, and an optional .md documentation file.  These filenames
+are constructed from the project prefix (below) and the module
+name. For example, the Easel `json` module is implemented in
+`esl_json.c`, `esl_json.h`, and `esl_json.md`.
 
-Our `.c` files are larger than most coding styles would
-advocate. Our code is designed to be _read_, to be
-_self-documenting_, to contain its own _testing methods_, and to
-provide useful _working examples_.  Thus the size of the files is a
-little deceptive.  Only about a quarter of a
-module's `.c` file might typically be its actual module implementation. 
-Around half of the mass of a typical `.c` file is documentation, and
-about a quarter consists of **_drivers_** for unit testing and examples.
+My `.c` files are larger than most coding styles would advocate. Our
+code is designed to be _read_, to be _self-documenting_, to contain
+its own _testing methods_, and to provide useful _working examples_.
+Thus the size of the files is deceptive.  Typically only about a
+quarter of a module's `.c` file is its actual implementation.  Around
+half of the mass of a typical `.c` file is documentation, and about a
+quarter consists of **_drivers_** for unit tests and examples.
 
 
 ### dependencies between modules
 
-Module dependencies must follow a directed acyclic graph. You can't have 
-module foo depend on bar, bar depend on baz, and baz depend on foo. 
+Module dependencies must follow a directed acyclic graph. 
 
-The main hierarchy in our graph is by project: Infernal uses HMMER and
-Easel functions, and HMMER uses Easel functions.
+The main hierarchy is by codebase: HMMER uses Easel functions,
+Infernal uses both HMMER and Easel functions.
 
 <img align="right" width="500" src="figures/easel_techtree.png">
 
 Within a project, modules are organized (implicitly, if not
 explicitly) in groups so that there's a hierarchy of groups, and a
-hierarchy of modules within groups. The figure to the right shows the
-current Easel "technology tree". ("Open in new tab" to embiggen.)
+hierarchy of modules within groups. The figure shows the current Easel
+"technology tree".
 
+### organization of a .c file
 
+A .c file is typically organized into a stereotyped set of sections,
+to facilitate navigation:
 
-### the project prefix
-
-We have three primary software projects -- Easel, HMMER, and Infernal.
-They stack on top of each other, with Infernal calling both HMMER and
-Easel code, for example. When we look at our source code, we want to
-identify at a glance where a given piece of code is from. We also want
-to avoid name clashes with the system and with other libraries, even
-unanticipated future ones.  So each project has a unique prefix:
-
-| prefix | project   |
-|--------|-----------|
-| `esl_` | Easel     |
-| `p7_`  | HMMER 3.x |
-| `h4_`  | HMMER 4.x |
-| `cm_`  | Infernal  |
-
-All externally visible identifiers use a project prefix.  Static
-identifiers (internal to one .c or .h file) do not.
-
-###  sections of the .c file
-
-A .c file is typically organized into a somewhat stereotypical set of
-sections, to facilitate navigation:
-
-| section                | description  |
-|------------------------|--------------|
-| `the H4_FOOBAR object` | First section provides the API for creating and destroying any object(s) this module implements. |
-| the rest of the API    | Any other external functions follow, in one or more sections. |
-| `debugging/dev code`   | Externally visible functions for validating, dumping objects. |
-| private functions      | We aren't rigorous about where internal (static) functions go, but they often go in a separate section in the middle of the .c file, after the API and before the drivers. |
-| optional drivers       | Sections for any stats, benchmark, or regression drivers. |
-| unit tests             | `utest_*()` functions for the test driver. |
-| test driver            | All modules have an automated test driver that runs the unit tests. |
-| examples               | At least one example small program showing how to use the main features of the module. |
-| exegesis               | If the code needs lengthy general explanatory notes, they're at the bottom of the file.|
+| section                | description                                                                                                                                                                |
+|------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `the H4_FOOBAR object` | API for creating and destroying any object(s) implemented by this module.                                                                                                  |
+| the rest of the API    | Any other external functions, in one or more sections.                                                                                                                     |
+| debugging/dev code     | External functions solely used in debugging and development.                                                                                                               |
+| private functions      | We're not rigorous about where internal (static) functions go, but they often go in a separate section in the middle of the .c file, after the API and before the drivers. |
+| optional drivers       | Sections for any stats, benchmark, or regression drivers.                                                                                                                  |
+| unit tests             | `utest_*()` functions for the test driver.                                                                                                                                 |
+| unit test driver       | All modules have an automated test driver that runs the unit tests.                                                                                                        |
+| examples               | At least one example small program showing how to use the main features of the module.                                                                                     |
 
 The top of the .c file starts with a comment with a one-line
 description of the module's purpose, a table of contents for its
-sections, and possibly some other brief notes. (If the module needs
-more than brief explanatory notes, we write an "exegesis" section at
-the bottom of the file - it's at the bottom deliberately, so a
-maintainer sees the code immediately.)
+sections, and possibly some other brief notes. See the top of
+`esl_json.c` for an example.
 
-For example, this is the top of start of `esl_json`:
-
-	/* esl_json : JSON data file parsing
-	 * 
-	 * Inspired by Serge Zaitsev's Jasmine parser, https://github.com/zserge/jsmn 
-	 *
-     * Contents:
-     *   1. Full or incremental JSON parsing 
-     *   2. ESL_JSON: a JSON parse tree
-     *   3. ESL_JSON_PARSER: precise state at each input byte
-     *   4. Accessing tokenized data
-     *   5. Debugging, development tools
-     *   6. Internal functions
-     *   7. Unit tests
-     *   8. Test driver
-     *   9. Example
-     *
-     * References:
-     *   www.json.org
-     *   tools.ietf.org/html/rfc8259 
-     */
-     #include <esl_config.h>
-
-The short table of contents description lines are repeated in comments
-at the top of each section later in the file, facilitating
+The short table of contents description lines are repeated verbatim in
+comments at the top of each section in the file, facilitating
 text-searching:
 
-
+```c
     /*****************************************************************
      * 3. ESL_JSON_PARSER : precise state at each input byte 
      *****************************************************************/
-
-These section headers are also parsed automatically by our `autodoc`
-automated documentation script, when it extracts and formats a table
-of external functions from the .c file.
-
-
+```
 
 ### included headers
 
 The first include is a project-wide configuration header named
-`<project_prefix>_config.h`.  It must be included first, because it
-may contain configuration constants that affect the behavior of other
-headers, even including system headers. It must be included with angle
-brackets, not double quotes, so compilation commands can control the
-order that -I include directories are searched (build tree first,
-source tree last), to assure that we don't erroneously use a stray
-previous config file in the source tree when we're building in a build
-tree.
+`<project_prefix>_config.h`.  
+
+It must be included first. It may contain configuration constants that
+affect the behavior of other headers, including system headers.
+
+It must be included with angle brackets, not double quotes. Our
+Makefiles allow compilation both in build directories (separate from
+the source tree) or directly in the source tree. With angle brackets,
+`-I` paths in compilation commands completely control the order that
+include directories are searched (build tree first, source tree last),
+and keep us from erroneously using a stray previous config file in the
+source tree when we're building in a build tree.
 
 System headers come next, because they might contain configuration
-that affects our headers. Finally come our headers. I tend to group
-our headers together by project, and alphabetize them, but (aside from
-the project-wide config.h) our headers don't depend on any particular
-inclusion order.
+that affects the rest of our headers. 
+
+Finally come our own headers. I tend to group our headers together by
+project, and alphabetize them, but (aside from the project-wide
+config.h) our headers don't depend on any particular inclusion order.
 
 For example:
 
-
+```c
     #include <h4_config.h>
 
     #include <stdio.h>
@@ -190,8 +146,7 @@ For example:
 
     #include "h4_hmm.h"
     #include "h4_profile.h"
-
-
+```
 
 
 ###   the .h file
@@ -199,16 +154,29 @@ For example:
 The contents of each .h file are wrapped in a standardized `#ifndef
 <project_prefix><MODULE>_INCLUDED` that makes sure each header is only
 included once during compilation, regardless of the order of
-`#include` statements; for example:
+`#include` statements. Then after the includes, we start and end with
+idiomatic `#ifdef __cplusplus` blocks that facilitate using our C code
+in C++ projects. For example:
 
 ```
 #ifndef eslJSON_INCLUDED
 #define eslJSON_INCLUDED
+
 #include <esl_config.h>
 
- /* ...contents here... */
+/* other includes here... */
 
-#endif /* eslJSON_INCLUDED */
+#ifdef __cplusplus // C++
+extern "C" {
+#endif
+
+/* ...contents here... */
+
+
+#ifdef __cplusplus // C++
+}
+#endif
+#endif // eslJSON_INCLUDED 
 ```
 
 The contents are typically ordered as:
@@ -220,34 +188,46 @@ The contents are typically ordered as:
 
 
 
-
 ------------------------------------
 
-## writing an Easel function
+## design of a function
 
 ###      conventions for function names
 
-Externally visible function names are tripartite: `<pfx>_<module>_<funcname>`.
+Each software project uses a unique prefix for all its externally
+declared identifiers, to avoid namespace clashes and to make it easy
+to locate the source code for any identifier.
 
-The `<module>` part should be the module's full name. Some Easel
-modules historically also have abbreviated tag names, such as `abc`
-for the `alphabet` module, but I've decided this creates more
-confusion than the saved typing is worth. 
+| prefix | project   |
+|--------|-----------|
+| `esl_` | Easel     |
+| `p7_`  | HMMER 3.x |
+| `h4_`  | HMMER 4.x |
+| `cm_`  | Infernal  |
 
-Because `<pfx>` and `<module>` is also used to construct filenames,
+Externally visible function names are tripartite:
+`<pfx>_<module>_<funcname>()`.
+
+The `<module>` part is the module's full name. Some Easel modules
+historically also have abbreviated tag names, such as `abc` for the
+`alphabet` module, but the cost in clarity outweighs the savings in
+typing.
+
+Because `<pfx>` and `<module>` are also used to construct filenames,
 the idea is that one should be able to immediately know where to find
 the source code file for a given function, just from its name.
 
 There are a set of standard `<funcname>`'s that obey common behaviors,
 called **interfaces** (see below). For example, allocation/deallocation routines
 are called `_Create()` and `_Destroy()`. Otherwise, the name part can be anything.
+
 We generally use mixed-case capitalization, as in `esl_json_DoSomething()`.
 
 Private (static) functions can be named anything you want (within
 reason; be careful of namespace clashes, don't name a function
-`strcmp()`) and do not have to follow these conventions. However, it's
-common to just drop the `<pfx>` and have internal functions named
-`<module>_<funcname>`.
+`strcmp()`) and do not have to follow these conventions. However, we
+typically just drop the `<pfx>` and have internal functions named
+`<module>_<funcname>()`.
 
 Sometimes essentially the same function must be provided for different
 data types. In these cases one-letter prefixes are used to indicate
@@ -258,6 +238,7 @@ datatype:
 | `C`       | `esl_rsq_CShuffle()`  |  `char` type, or a C `char *` text string |
 | `X`       | `esl_rsq_XShuffle()`  |  `ESL_DSQ` type, an Easel digitized sequence |
 | `I`       | `esl_vec_ISum()`      |  `int` integer(s) |
+| `L`       | `esl_vec_LSum()`      |  `int64_t` 64-bit integer(s) |
 | `F`       | `esl_vec_FSum()`      |  `float` float(s) |
 | `D`       | `esl_vec_DSum()`      |  `double` double(s) |
 
@@ -277,53 +258,30 @@ Summarized:
 | argument        | |
 |-----------------|---------------------------------------------------------------|
 | `const *foo`    | `foo`'s contents are input-only, unmodified by the function.  |
-| `*foo`          | `foo`'s contents are modified -- including reallocation of caller-provided space. |
-| `*ret_foo`      | `foo` is a result that's been allocated by the function.      |
-| `*opt_foo`      | `foo` is an optional result allocated by the function.        |
+| `*foo`          | `foo`'s contents are modified -- including reallocation of caller-provided space inside a struct. |
+| `*ret_foo`      | `foo` is a result that's been allocated by the function; caller must free it.     |
+| `*opt_foo`      | `foo` is an optional result allocated by the function; caller must free it, if it asked for it.  |
 | `*byp_foo`      | `foo` may be provided by the caller, may be allocated and returned by the function, or may be left NULL and the function will use internal defaults. |
 
 In more detail:
 
-* **const *foo, input only:** When an argument is a pointer to a
-  structure that's strictly input, unmodified by the function, we use
-  C's `const` qualifier.
-
-* __*foo, input/output:__ When the caller provides allocated existing
-  space, either with valid data (for an input/output argument) or
-  without.  The function may modify the data, the allocation, or both.
-  We aim to minimize allocations (`malloc()` is relatively expensive)
-  so it's common to provide a previously allocated data structure that
-  might or might not be the right size to hold the function's output,
-  and have the function reallocate it only if needed.
-
-* __*ret_foo, allocated output:__The function allocates space for the result,
-  and passes back a pointer to it. The caller is responsible for 
-  deallocation. For example:
-  
-        int
-		esl_module_Function(ESL_FOOOBJ **ret_foo)
-		{
-	      ...
-		}
-
-   is called like:
-
-        ESL_FOOOBJ *foo = NULL;
-	    esl_module_Function(&foo);
-
-* __*opt_foo, optional allocated output:__ As above, but for an optional
-  result. The caller can pass `NULL` instead of a pointer to a pointer
+* __*opt_foo, optional allocated output:__  
+  Caller can pass `NULL` instead of a pointer to a pointer
   if it doesn't want the result. For example:
 
+```c
 		int
 		esl_module_Function(ESL_FOOOBJ **opt_foo)
 		{
 	      ...
 		}
+```
 
   can either be called like the `*ret_foo` example above, or like:
    
+```c
         esl_module_Function(NULL);
+```
 
 * __*byp_foo, input/output/default switch:__ There are a few cases
   where there are three ways an argument is handled:
@@ -337,32 +295,41 @@ In more detail:
   handling a digital sequence alphabet, `ESL_ALPHABET`. For example,
   to provide a known alphabet to a function:
   
+```c
 		ESL_ALPHABET *abc = esl_alphabet_Create(eslAMINO);
 		esl_module_Function(&abc);
+```
 	
-	to have the function figure out the alphabet and return it:
+  or to have the function figure out the alphabet and return it:
 	
+```c
 		ESL_ALPHABET *abc = NULL;
 		esl_module_Function(&abc);
+```
 
-	and to have the function run in default without it:
+  or to have the function run in default without it:
 	
+```c
 		esl_module_Function(NULL);
+```
 		
-	The function itself would look something like:
+  The function itself would look something like:
 	
+```c
 		int
 		esl_module_Function(ESL_FOOOBJ **byp_abc)
 		{
-			ESL_ALPHABET *abc = (byp_abc == NULL || *byp_abc == NULL) ? esl_alphabet_Create(eslAMINO) : *byp_abc;
+			ESL_ALPHABET *abc = (byp_abc && *byp_abc) ? *byp_abc || esl_alphabet_Create(eslAMINO);
 			...
-			if (byp_abc != NULL) *byp_abc = abc;
+			if (byp_abc) *byp_abc = abc;
 			return eslOK;
 		}
+```
 			
-    Or alternatively, because the pointer incantations are obscure and error-prone, 
-	we have macros for this:
+  Or alternatively, because the pointer incantations are obscure and error-prone, 
+  we have macros for this:
 	
+```c
 		int
 		esl_module_Function(ESL_FOOOBJ **byp_abc)
 		{
@@ -371,19 +338,21 @@ In more detail:
 			if (esl_byp_IsReturned(byp_abc)) *byp_abc = abc;
 			return eslOK;
 		}
+```
 
 
 ###  reentrancy and thread-safety
 
 All our code must expect to be called in multithreaded
 applications. All functions must be reentrant. There should be no
-global or static variables.
+global variables.
 
 
-### write portable code
+###  portability.
 
-We aim to be portable across any POSIX- and C99-compliant system and
+We need to be portable across any POSIX- and C99-compliant system and
 compiler.
+
 
 #### Don't assume  `char` is signed.
 
@@ -399,11 +368,12 @@ To generate a warning on bad code that is assigning -1 to a `char`
 (for example), build and compile with `configure CC=gcc CFLAGS="-g
 -Wall -funsigned-char"`.
 
+
 --------------------------------------------------------------
 
-## writing small Easel-based programs like the Easel miniapps
+## design of small Easel-based programs 
 
-### Standard Easel option behavior and documentation
+### standard Easel option behavior and documentation
 
 Some options recur across many Easel-based programs. We try to enforce
 consistent behavior and documentation. For each option below, two
@@ -489,9 +459,6 @@ The two are not identical: **`--gapfrac x`** keeps when *s > 1-x*, and
 
 --------------------------------------------------------------
 
-
-
-
 ## error handling
 
 ### quick reference table
@@ -506,159 +473,141 @@ The two are not identical: **`--gapfrac x`** keeps when *s > 1-x*, and
 |                     |                   | with cleanup  | `ESL_XEXCEPTION(errcode,"...")`       |
 | Program exit        | n/a               | no            | `esl_fatal("...")`                    |
 
-### in depth
 
-#### esl_fatal(): errors in main program
+### return codes 
 
-`esl_fatal()` is the most straightforward error handler. It simply
-prints a message to `stderr` and exits the program with nonzero status. 
+Easel functions generally return a status code: `eslOK` (0) on
+success, or a nonzero error code on failure. Error codes are defined
+in `easel.h`. Some examples are `eslEMEM` (memory allocation failure),
+`eslEOF` (end-of-file), and `eslEFORMAT` (bad input format). 
 
-We only use `esl_fatal()` when we're in the `main()` of a program (or
-a static function that only one program calls). **Otherwise, a
-function must never terminate a program directly.** It must always
-return control to the caller - or at least have a way to do so, in the
-case of our exception handlers. The reason is that the function might
-be called in some big complicated program (a GUI, for example) that
-might want to do some sort of recovery or state-saving before it exits
-after an error.  The caller (ultimately, the program) must always have
-control of deciding what to do about an error.
+A few function interfaces have a different pattern. For example,
+`_Create()` functions return an allocated pointer to a new object or
+`NULL`, `_Destroy()` functions return `void`, and `_Get*()` functions
+directly return some value they've accessed in an object.
 
-#### error status codes: errors in functions
+### normal errors vs. exceptions
 
-Errors in _functions_ (as opposed to the main program) are of two types:
-"normal" errors, or exceptions. A normal error is expected, something
-that could happen in normal use, like a user making a mistake in an
-input. An exception is unexpected, something that shouldn't happen,
-something that's our fault in the code, or something awry in system
-resources (including allocation and write failures).
+We distinguish two types of errors: "normal" errors, and exceptions. A
+normal error is something that will happen in normal use, like a user
+making a mistake in an input. An exception is something that shouldn't
+happen: a bug or something awry in system resources (including
+allocation and write failures). We say a normal error is "returned",
+and an exception is "thrown".
 
-For a normal error, we _always_ return control to the caller, so the
-caller can do something appropriate to issue an informative error
-message to the user. The simplest convention is to just return an
-integer status code.
+For a normal error, a function always returns control to the caller,
+usually simply by returning the nonzero status code. The caller checks
+for nonzero status codes and does something appropriate.
 
-Easel functions generally return an integer status code where `eslOK`
-means success.  Error status codes are listed in `easel.h`. Common
-ones include `eslEMEM` (memory allocation failure), `eslEOF`
-(end-of-file), and `eslEFORMAT` (bad input format).
+### thrown exceptions: ESL_EXCEPTION()
 
-The documentation in the header before each function must document
-which status codes can be normally returned, including `eslOK` and any
-normal errors. If the function can return a normal error code, the
-caller *must check for this code*, or at least check for `status !=
-eslOK`.
+For an exception, we _usually_ want to exit our program immediately
+with a nonzero exit status and an informative error message (like
+`esl_fatal()`), because most programs are command-line applications,
+and that's all they're going to do with an abnormal error
+anyway. However, for some complex applications (e.g. GUIs) we _may_
+need to return control to the caller, if we're in a program that needs
+to be more graceful about how it dies. 
 
-A few interfaces follow a different pattern. `_Create()` functions
-return an allocated pointer to a new object. `_Destroy()` functions
-return `void`. `_Get*()` functions directly return some value they've
-accessed in an object.
-
-#### error messages: ESL_FAIL() 
-
-Sometimes, we want to propagate more information about the error back
-to the caller, more than just an integer `status` code. For example, a
-parser wants to have a way to report to the user exactly where and why
-it failed. This is what the `ESL_FAIL()` macro is for. The caller
-passes an allocated buffer for the message as one of the function
-arguments, of size `eslERRBUFSIZE`; this is often allocated statically
-as e.g. `char errbuf[eslERRBUFSIZE]`. The function can
-then call `ESL_FAIL(<code>, <errbuf>, <message>)`. The message can be
-formatted using standard `printf()` semantics,
-e.g. `ESL_FAIL(eslEFORMAT, errbuf, "failed at line %d", linenum)`.
-
-#### exceptions: ESL_EXCEPTION()
-
-For an abnormal exception, we _usually_ want to exit our program
-immediately with a nonzero exit status and an informative error
-message (just the same as with `esl_fatal()`) because most of our
-programs are command-line applications and that's all they're going to
-do with an abnormal error anyway. However, depending on the program
-we're writing, we _may_ need to return control to the caller, if we're
-in a program that needs to do some more complex cleanup before it
-dies.
-
-Easel uses an exception handler to allow the program to control which
-way it wants to behave when an exception
-occurs. `ESL_EXCEPTION(<errcode>, <message>)` calls the handler. The
-default exception handler is fatal: it calls
-`esl_fatal(<message>)`. Optionally, the program can provide its own
-exception handler, registering it with `esl_exception_SetHandler()`.
-A nonfatal exception handler can behave more like `ESL_FAIL()`, for
-example, returning a nonzero error code to the caller.
-
-The documentation in the header before each function should document
-which status codes can be thrown on exceptions. Any external function
-that calls Easel functions must consider the possibility that a
-nonfatal exception handler is being used. Thus any external function
-must minimally check for return of the successful `eslOK` status code,
-and it may check for specific error codes if it wants to handle different
-kinds of exceptions differently. A `main()` (or static functions that
-are only called by one program) does not need to check for exceptions
-or exception status codes, if the program uses the default exception
-handler (or a fatal custom one). Indeed, in this case, if the called
-Easel function has no normal return codes other than `eslOK`, a
-program or static function can call it without checking the return
-status, even if exceptions can occur in it.
+Therefore for exceptions we call the Easel exception handler, with an
+informative message. The default exception handler acts like
+`esl_fatal()`.  Programs can register their own custom exception
+handler (using `esl_exception_SetHandler()`) to define another
+behavior, including nonfatal handlers that return the exception code.
+The `ESL_EXCEPTION(errcode, msg)` macro implements the convention of
+throwing an exception through the registered handler with a
+`sprintf()`-formatted error message, along with filename and line
+number.
 
 
-#### "ERROR:" cleanup blocks
+### normal errors with more information: errbuf[] and ESL_FAIL()
 
-Easel functions clean up any memory allocation they've done before
-returning, even in the case of errors and exceptions. (A program could
-conceivably try to recover from an error and continue, so we don't
-want memory leaks.) A design pattern in Easel is the use of a `ERROR:`
-block at the end of a function, where all allocations are free'd, all
-returned pointers are set to a documented state for what happens to
-them upon an error, and a nonzero Easel error code is returned.
+Some functions also can provide the caller with a short message
+containing more detailed information about a normal error. For
+example, a parsing function might record exactly where and why an
+input failed to parse. These functions let the caller optionally
+provide an allocated `errbuf[]` of length `ERRBUFSIZE` (defined as
+128). The `ESL_FAIL(errcode, errbuf, msg)` macro implements the
+convention of returning an error code with the optional short
+`snprintf()`-formatted message. The caller can then compose an error
+message that includes this short piece of additional text. 
 
-`ESL_XFAIL()` and `ESL_XEXCEPTION()` are versions of `ESL_FAIL()` and
-`ESL_EXCEPTION()` that finish by setting `status = <errcode>` and
-calling `goto ERROR:`. (I know the adage "goto is considered harmful"
-but this is one of the few good reasons to use a `goto` in C.)
+Sometimes the `errbuf[]` is itself an argument to the function;
+sometimes the `errbuf[]` is inside an object that's an argument to the
+function.
 
-To use these macros, you need to have a `status` variable declared in
-scope, and the `ERROR:` goto target.
+### cleanup before return: goto ERROR, ESL_XFAIL(), ESL_XEXCEPTION()
 
-Example:
-
-```
-int
-my_func(char **ret_s)
-{
-    char *s = NULL;    // all allocated ptrs initialized to NULL
-    int   status;      // status variable declared in scope to use ESL_XFAIL(), ESL_XEXCEPTION()
-
-    if (( status = esl_sprintf(&s, "test") != eslOK) goto ERROR;    // propagate exceptions up, don't throw a second one
-    if ( strlen(s) < 4 ) ESL_XEXCEPTION(eslEINVAL, "that string ought to be length 4, I just made it");  // w/ nonfatal handler, sets status = eslEINVAL, then calls goto ERROR
-
-    *ret_s = s;
-    return eslOK;
-    
-  ERROR:
-    free(s);
-    *ret_s = s;
-    return status;
-}
-```
+If a function needs to deallocate memory or other cleanup before it
+returns or throws an error, the function ends with an idiomatic
+`ERROR:` code block containing the cleanup code. We set a `status`
+variable with the error code, use a `goto ERROR:` to jump to the
+cleanup block, and the cleanup block returns or throws the code.  The
+X versions of the handling macros are the cleanup versions:
+`ESL_XFAIL()` for normal errors with short `errbuf[]` messages, and
+`ESL_XEXCEPTION()` for exceptions.
 
 
-#### contract checks
 
-Many Easel functions first validate their arguments before
-proceeding. I call this a "contract check". Contract checks should
-come before any allocations, and they should use
-`ESL_EXCEPTION(eslEINVAL, "message for what was wrong")`.
+### fatal errors in command-line programs: esl_fatal()
 
-In some places, we use `ESL_DASSERT1()` for contract checks instead.
-With this way of doing it, we're only checking in code compiled with
-debugging instrumentation, and not checking in production code. The
-`ESL_DASSERT1()` way should be used only sparingly, if at all, and
-only in cases where the check itself is computationally expensive.  In
-general we should replace `ESL_DASSERT1()` contract checks with
-`ESL_EXCEPTION(eslEINVAL, "...")`.
+`esl_fatal()` is the standard way to exit a command-line program,
+writing an `sprintf()`-formatted informative message to `stderr` and
+returning a nonzero code to the operating system. `esl_fatal()` is
+only used in programs (i.e. in code unique to the program: `main()`
+and dedicated static functions).
+
+Unit tests always use `esl_fatal()` to immediately exit upon detecting
+a test failure.
+
+Functions that can be called by other programs must always return to
+the caller. They must not call `esl_fatal()` (or any other fatal exit,
+like `abort()`) because we want programs to be able to customize how
+they handle fatal exceptions. We anticipate that some programs (like a
+GUI, for example) may want to assure that library calls can never just
+crash out before a fatal exception can be handled gracefully.
 
 
----------------------------------------------------
+
+### contract checks: ESL_DASSERT1()
+
+Some Easel functions first validate their arguments before
+proceeding. We call this a "contract check". Contract checks come
+before any allocations. We implement contract checks either as
+exceptions (`ESL_EXCEPTION(eslEINVAL, "message for what was wrong")`)
+or as assertions that are only compiled into debugging/development
+builds (`ESL_DASSERT1(( arg1 == is_valid ))`). We favor the
+`ESL_DASSERT1(( test ))` style when the anticipated problem is purely
+a coding error, and the `ESL_EXCEPTION(eslEINVAL, ...)` style when the
+problem could conceivably arise in production code. 
+
+### calling Easel functions from programs vs. functions
+
+Because the default exception handler acts like `esl_fatal()`,
+programs that use the default handler (including static functions only
+called by that one program) do not need to check for thrown exception
+codes. Programs do need to check for any normal error codes that the
+function might return. Each function's documentation block states
+which status codes can be normally returned.
+
+On the other hand, a function needs to check for both thrown exception
+codes and normal error codes when it calls another Easel
+function. Always check for any status code of `!= eslOK`; although
+each function's documentation specifically lists the exception codes
+it can throw, the list is not necessarily complete, when a nonfatal
+exception handler is registered and exceptions percolate up the call
+stack from other functions.
+
+> _Only a complete outsider could ask your question. Are there
+> control authorities? There are nothing but control authorities. Of
+> course, their purpose is not to uncover errors in the ordinary meaning
+> of the word, since errors do not occur and even when an error does in
+> fact occur, as in your case, who can say conclusively that it is an
+> error?_
+> -- Franz Kafka, _The Castle_
+
+--------------------------------------------------------------
+
 
 ##  managing memory allocation
 

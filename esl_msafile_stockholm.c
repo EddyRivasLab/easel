@@ -93,7 +93,7 @@ static int stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl);
 
 
 /*****************************************************************
- *# 1. API for reading/writing Stockholm input.
+ *  1. API for reading/writing Stockholm input.
  *****************************************************************/
 
 /* Function:  esl_msafile_stockholm_SetInmap()
@@ -2617,12 +2617,9 @@ main(int argc, char **argv)
  * 8. Examples.
  *****************************************************************/
 
-#ifdef eslMSAFILE_STOCKHOLM_EXAMPLE
 /* A full-featured example of reading/writing MSA(s) in Stockholm format.
-   gcc -g -Wall -o esl_msafile_stockholm_example -I. -L. -DeslMSAFILE_STOCKHOLM_EXAMPLE esl_msafile_stockholm.c -leasel -lm
-   ./esl_msafile_stockholm_example <msafile>
  */
-/*::cexcerpt::msafile_stockholm_example::begin::*/
+#ifdef eslMSAFILE_STOCKHOLM_EXAMPLE
 #include <stdio.h>
 
 #include "easel.h"
@@ -2689,18 +2686,13 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   exit(0);
 }
-/*::cexcerpt::msafile_stockholm_example::end::*/
 #endif /*eslMSAFILE_STOCKHOLM_EXAMPLE*/
 
 
 
-#ifdef eslMSAFILE_STOCKHOLM_EXAMPLE2
 /* A minimal example. Read Stockholm MSAs, in text mode.
-   gcc -g -Wall -o esl_msafile_stockholm_example2 -I. -L. -DeslMSAFILE_STOCKHOLM_EXAMPLE2 esl_msafile_stockholm.c -leasel -lm
-   ./esl_msafile_stockholm_example2 <msafile>
  */
-
-/*::cexcerpt::msafile_stockholm_example::begin::*/
+#ifdef eslMSAFILE_STOCKHOLM_EXAMPLE2
 #include <stdio.h>
 
 #include "easel.h"
@@ -2731,6 +2723,5 @@ main(int argc, char **argv)
   esl_msafile_Close(afp);
   exit(0);
 }
-/*::cexcerpt::msafile_stockholm_example2::end::*/
 #endif /*eslMSAFILE_STOCKHOLM_EXAMPLE2*/
 /*--------------------- end of example --------------------------*/

@@ -627,7 +627,6 @@ main(int argc, char **argv)
  * 9. Example 
  ****************************************************************************/ 
 #ifdef eslEXPONENTIAL_EXAMPLE
-/*::cexcerpt::exp_example::begin::*/
 #include <stdio.h>
 #include "easel.h"
 #include "esl_random.h"
@@ -674,6 +673,5 @@ main(int argc, char **argv)
   esl_histogram_Destroy(h);
   return 0;
 }
-/*::cexcerpt::exp_example::end::*/
 #endif /*eslEXPONENTIAL_EXAMPLE*/
 

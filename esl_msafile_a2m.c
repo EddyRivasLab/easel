@@ -28,7 +28,7 @@ static int a2m_padding_digital(ESL_MSA *msa, char **csflag, int *nins, int ncons
 static int a2m_padding_text   (ESL_MSA *msa, char **csflag, int *nins, int ncons);
 
 /*****************************************************************
- *# 1. API for reading/writing A2M|A3M format
+ *  1. API for reading/writing A2M|A3M format
  *****************************************************************/
 
 
@@ -999,12 +999,9 @@ main(int argc, char **argv)
  * 5. Examples.
  *****************************************************************/
 
-#ifdef eslMSAFILE_A2M_EXAMPLE
 /* A full-featured example of reading/writing an MSA in A2M|A3M format.
-   gcc -g -Wall -o esl_msafile_a2m_example -I. -L. -DeslMSAFILE_A2M_EXAMPLE esl_msafile_a2m.c -leasel -lm
-   ./esl_msafile_a2m_example <msafile>
  */
-/*::cexcerpt::msafile_a2m_example::begin::*/
+#ifdef eslMSAFILE_A2M_EXAMPLE
 #include <stdio.h>
 
 #include "easel.h"
@@ -1069,16 +1066,12 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   exit(0);
 }
-/*::cexcerpt::msafile_a2m_example::end::*/
 #endif /*eslMSAFILE_A2M_EXAMPLE*/
 
 
-#ifdef eslMSAFILE_A2M_EXAMPLE2
 /* A minimal example. Read A2M|A3M MSA, in text mode
-   gcc -g -Wall -o esl_msafile_a2m_example2 -I. -L. -DeslMSAFILE_A2M_EXAMPLE2 esl_msafile_a2m.c -leasel -lm
-   ./esl_msafile_a2m_example <msafile>
  */
-/*::cexcerpt::msafile_a2m_example2::begin::*/
+#ifdef eslMSAFILE_A2M_EXAMPLE2
 #include <stdio.h>
 
 #include "easel.h"
@@ -1105,7 +1098,6 @@ main(int argc, char **argv)
   esl_msafile_Close(afp);
   exit(0);
 }
-/*::cexcerpt::msafile_a2m_example2::end::*/
 #endif /*eslMSAFILE_A2M_EXAMPLE2*/
 /*--------------------- end of examples -------------------------*/
 

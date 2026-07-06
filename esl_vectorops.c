@@ -2062,8 +2062,6 @@ main(int argc, char **argv)
  *****************************************************************/ 
 
 #ifdef eslVECTOROPS_EXAMPLE
-/*::cexcerpt::vectorops_example::begin::*/
-/*   gcc -g -Wall -o example -I. -DeslVECTOROPS_EXAMPLE esl_vectorops.c easel.c -lm   */
 #include "easel.h"
 #include "esl_vectorops.h"
 
@@ -2081,7 +2079,6 @@ main(void)
   free(p);
   return 0;
 }
-/*::cexcerpt::vectorops_example::end::*/
 #endif /*eslVECTOROPS_EXAMPLE*/
 
 

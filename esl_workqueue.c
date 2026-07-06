@@ -17,7 +17,7 @@
 #include "esl_workqueue.h"
 
 /*****************************************************************
- *# 1. Work queue routines
+ *  1. Work queue routines
  *****************************************************************/ 
 
 /* Function:  esl_workqueue_Create()

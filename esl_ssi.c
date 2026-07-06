@@ -21,7 +21,7 @@ static uint32_t v30swap  = 0xb3c9d3d3; /* byteswapped */
 
 
 /*****************************************************************
- *# 1. Using (reading) an SSI index.
+ *  1. Using (reading) an SSI index.
  *****************************************************************/ 
 
 static int  binary_search(ESL_SSI *ssi, const char *key, uint32_t klen, off_t base, 
@@ -597,7 +597,7 @@ binary_search(ESL_SSI *ssi, const char *key, uint32_t klen, off_t base,
 
 
 /*****************************************************************
- *# 2. Creating (writing) new SSI files.
+ *  2. Creating (writing) new SSI files.
  *****************************************************************/ 
 static int current_newssi_size(const ESL_NEWSSI *ns);
 static int activate_external_sort(ESL_NEWSSI *ns);
@@ -1465,7 +1465,7 @@ skeysort(const void *k1, const void *k2)
 
 
 /*****************************************************************
- *# 3. Portable binary i/o
+ *  3. Portable binary i/o
  *****************************************************************/ 
 
 /* Function:  esl_byteswap()
@@ -2022,12 +2022,9 @@ main(int argc, char **argv)
 /*****************************************************************
  * 5. Example code.
  ****************************************************************/
+
+/* Example of creating an SSI index. */
 #ifdef eslSSI_EXAMPLE
-/* gcc -o example -g -Wall -DeslSSI_EXAMPLE esl_ssi.c easel.c
- * esl-shuffle -o foo.fa -N 1000 -G --amino -L 400 
- * ./example foo.fa
- */
-/*::cexcerpt::ssi_example::begin::*/
 #include <stdio.h>
 #include "easel.h"
 #include "esl_ssi.h"
@@ -2082,15 +2079,11 @@ main(int argc, char **argv)
   free(ssifile);
   return 0;
 }
-/*::cexcerpt::ssi_example::end::*/
 #endif /*eslSSI_EXAMPLE*/
 
-
-#ifdef eslSSI_EXAMPLE2
-/* gcc -o example2 -g -Wall -DeslSSI_EXAMPLE2 esl_ssi.c easel.c
- * ./example2 random77 foo.fa.ssi 
+/* Example 2: using an SSI index
  */
-/*::cexcerpt::ssi_example2::begin::*/
+#ifdef eslSSI_EXAMPLE2
 #include <stdio.h>
 #include "easel.h"
 #include "esl_ssi.h"
@@ -2128,6 +2121,5 @@ int main(int argc, char **argv)
   free(buf);
   return 0;
 }
-/*::cexcerpt::ssi_example2::end::*/
 #endif /*eslSSI_EXAMPLE2*/
 

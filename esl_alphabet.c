@@ -1643,10 +1643,7 @@ main(void)
  * 6. Examples.
  *****************************************************************/ 
 
-/*   gcc -g -Wall -o example -I. -DeslALPHABET_EXAMPLE esl_alphabet.c easel.c
- */
 #ifdef eslALPHABET_EXAMPLE
-/*::cexcerpt::alphabet_example::begin::*/
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_dsq.h"
@@ -1668,14 +1665,10 @@ main(void)
   esl_alphabet_Destroy(a);
   return 0;
 }
-/*::cexcerpt::alphabet_example::end::*/
 #endif /*eslALPHABET_EXAMPLE*/
 
 
-/*   gcc -g -Wall -o example -I. -DeslALPHABET_EXAMPLE2 esl_alphabet.c easel.c
- */
 #ifdef eslALPHABET_EXAMPLE2
-/*::cexcerpt::alphabet_example2::begin::*/
 #include "easel.h"
 #include "esl_alphabet.h"
 int main(void)
@@ -1703,7 +1696,6 @@ int main(void)
   esl_alphabet_Destroy(a);
   return 0;
 }
-/*::cexcerpt::alphabet_example2::end::*/
 #endif /*eslALPHABET_EXAMPLE2*/
 
 

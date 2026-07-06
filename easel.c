@@ -2602,7 +2602,6 @@ main(int argc, char **argv)
  *****************************************************************/
 
 #ifdef eslEASEL_EXAMPLE
-/*::cexcerpt::easel_example_tmpfiles::begin::*/
 /* gcc -g -Wall -o example -I. -L. -DeslEASEL_EXAMPLE_TMPFILES easel.c -leasel -lm
  * ./example
  */
@@ -2638,7 +2637,6 @@ int main(void)
 
   return eslOK;
 }
-/*::cexcerpt::easel_example_tmpfiles::end::*/
 #endif /*eslEASEL_EXAMPLE*/
 
 

@@ -651,7 +651,6 @@ main(int argc, char **argv)
  * 8. Example 
  ****************************************************************************/ 
 #ifdef eslWEIBULL_EXAMPLE
-/*::cexcerpt::wei_example::begin::*/
 #include <stdio.h>
 #include "easel.h"
 #include "esl_random.h"
@@ -699,7 +698,6 @@ main(int argc, char **argv)
   esl_histogram_Destroy(h);
   return 0;
 }
-/*::cexcerpt::wei_example::end::*/
 #endif /*eslWEIBULL_EXAMPLE*/
 
 

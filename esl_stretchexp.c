@@ -608,7 +608,6 @@ main(int argc, char **argv)
  * Example main()
  ****************************************************************************/ 
 #ifdef eslSTRETCHEXP_EXAMPLE
-/*::cexcerpt::sxp_example::begin::*/
 #include <stdio.h>
 #include "easel.h"
 #include "esl_random.h"
@@ -656,6 +655,5 @@ main(int argc, char **argv)
   esl_histogram_Destroy(h);
   return 0;
 }
-/*::cexcerpt::sxp_example::end::*/
 #endif /*eslSTRETCHEXP_EXAMPLE*/
 
