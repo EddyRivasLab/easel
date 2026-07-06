@@ -105,7 +105,6 @@
 
 # To be replaced by new integrated tests
 # TK TK
-# 1 exercise e2                 !testsuite/e2.sh! @miniapps/esl-seqstat@ !formats/stockholm.1!
 # 1 exercise degen-residues     !testsuite/i1-degen-residues.pl! @@ !! %TESTPFX%
 # 1 exercise ncbi-indices       !testsuite/i2-ncbi-indices.pl!   @@ !! %TESTPFX%
 # 1 exercise blank-gf           !testsuite/i3-blank-gf.pl!       @@ !! %TESTPFX%
