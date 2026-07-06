@@ -57,12 +57,12 @@ if m := re.search(r'^#=GS TTK_HUMAN/525-791\s+WT', r.stdout, flags=re.MULTILINE)
 
 # -f  :  filter by %id. Default 80%. Does nothing to the example.
 r  = esl_itest.run(f'{easel} weight -f {srcdir}/testsuite/example-stockholm.sto')
-r2 = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+r2 = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
 if m := re.search(r'^Number of sequences: 38', r2.stdout, flags=re.MULTILINE) == None: esl_itest.fail()
 
 # -o  : output to file
 r  = esl_itest.run(f'{easel} weight -o {tmppfx}.sto {srcdir}/testsuite/example-stockholm.sto')
-r2 = subprocess.run(f'{easel} msastat {tmppfx}.sto'.split(), check=True, encoding='utf-8', capture_output=True)
+r2 = subprocess.run(f'{easel} alistat {tmppfx}.sto'.split(), check=True, encoding='utf-8', capture_output=True)
 if m := re.search(r'^Number of sequences: 38', r2.stdout, flags=re.MULTILINE) == None: esl_itest.fail()
 
 # --id  : set fid threshold for -b. default 0.62, a la BLOSUM62. Requires -b.
@@ -75,7 +75,7 @@ r = esl_itest.run(f'{easel} weight -b --id 2.0  {srcdir}/testsuite/example-stock
 
 # --idf  : set fid threshold for -f. default 0.80. Requires -f.
 r = esl_itest.run(f'{easel} weight -f --idf 0.40 {srcdir}/testsuite/example-stockholm.sto')
-r2 = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+r2 = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
 if m := re.search(r'^Number of sequences: 34', r2.stdout, flags=re.MULTILINE) == None: esl_itest.fail()
 
 r = esl_itest.run(f'{easel} weight --idf 0.40    {srcdir}/testsuite/example-stockholm.sto', expect_success=False)

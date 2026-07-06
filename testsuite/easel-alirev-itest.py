@@ -30,7 +30,7 @@ r = esl_itest.run(f'{easel} alirev -h')
 
 # basic
 r  = esl_itest.run(f'{easel} alirev {srcdir}/testsuite/example-rna.sto')
-r2 = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+r2 = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
 if (m := re.search(r'Number of sequences:\s+116', r2.stdout)) is None: esl_itest.fail()
 if (m := re.search(r'Total # residues:\s+',       r2.stdout)) is None: esl_itest.fail()
 

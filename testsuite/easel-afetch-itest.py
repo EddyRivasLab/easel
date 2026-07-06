@@ -37,12 +37,12 @@ if ( m := re.search(r'^seq1\s+AISPRHDMCVEFYWGNKTQL', r.stdout, flags=re.MULTILIN
 
 # `-o` retrieval to a file   Creates {}.sto3 file.
 r = esl_itest.run('{0}/miniapps/easel afetch -o {1}.sto3 {1}.sto Delta'.format(builddir, tmppfx))
-r = esl_itest.run('{0}/miniapps/easel msastat -1q {1}.sto3'.format(builddir, tmppfx))
+r = esl_itest.run('{0}/miniapps/easel alistat -1q {1}.sto3'.format(builddir, tmppfx))
 if ( m := re.search(r'^1\s+Delta\s+XX0004\s+Stockholm\s+1\s+20', r.stdout, flags=re.MULTILINE)) == None: esl_itest.fail()
 
 # `-O' retrieval to file named <key>.  Creates {}-test file
 r = esl_itest.run('{0}/miniapps/easel afetch -O {1}.sto {1}-test'.format(builddir, tmppfx))
-r = esl_itest.run('{0}/miniapps/easel msastat -1q {1}-test'.format(builddir, tmppfx))
+r = esl_itest.run('{0}/miniapps/easel alistat -1q {1}-test'.format(builddir, tmppfx))
 pattern = r'^1\s+{}-test\s+XX0005\s+Stockholm\s+1\s+20'.format(tmppfx)
 if ( m := re.search(pattern, r.stdout, flags=re.MULTILINE)) == None: esl_itest.fail()
 
@@ -61,11 +61,11 @@ r = esl_itest.run('{0}/miniapps/easel afetch {1}.sto XX0004'.format(builddir, tm
 if ( m := re.search(r'^seq1\s+AISPRHDMCVEFYWGNKTQL', r.stdout, flags=re.MULTILINE)) == None: esl_itest.fail()
 
 r = esl_itest.run('{0}/miniapps/easel afetch -fo {1}.sto3 {1}.sto Delta'.format(builddir, tmppfx))
-r = esl_itest.run('{0}/miniapps/easel msastat -1q {1}.sto3'.format(builddir, tmppfx))
+r = esl_itest.run('{0}/miniapps/easel alistat -1q {1}.sto3'.format(builddir, tmppfx))
 if ( m := re.search(r'^1\s+Delta\s+XX0004\s+Stockholm\s+1\s+20', r.stdout, flags=re.MULTILINE)) == None: esl_itest.fail()
 
 r = esl_itest.run('{0}/miniapps/easel afetch -fO {1}.sto {1}-test'.format(builddir, tmppfx))
-r = esl_itest.run('{0}/miniapps/easel msastat -1q {1}-test'.format(builddir, tmppfx))
+r = esl_itest.run('{0}/miniapps/easel alistat -1q {1}-test'.format(builddir, tmppfx))
 pattern = r'^1\s+{}-test\s+XX0005\s+Stockholm\s+1\s+20'.format(tmppfx)
 if ( m := re.search(pattern, r.stdout, flags=re.MULTILINE)) == None: esl_itest.fail()
 

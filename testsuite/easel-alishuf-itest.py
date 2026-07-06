@@ -1,8 +1,8 @@
 #! /usr/bin/env python3
 
-# Integration test for `easel msashuf` 
+# Integration test for `easel alishuf` 
 #
-# Usage: easel-msashuf-itest.py <builddir> <srcdir> <tmppfx>
+# Usage: easel-alishuf-itest.py <builddir> <srcdir> <tmppfx>
 #   <builddir>: path to Easel build dir. `easel` miniapp is <builddir>/miniapps/easel
 #   <srcdir>:   path to Easel src dir.
 #   <tmppfx>:   prefix we're allowed to use to create tmp files in current working dir.
@@ -25,7 +25,7 @@ esl_itest.check_progs(builddir, progs_used)
 
 easel = f'{builddir}/miniapps/easel'
 
-def parse_msastat(output):
+def parse_alistat(output):
     if (m := re.search(r'^Number of sequences:\s*(\d+)', output, flags=re.MULTILINE)) is None: esl_itest.fail()
     nseq = int(m.group(1))
     if (m := re.search(r'^Alignment length:\s*(\d+)',    output, flags=re.MULTILINE)) is None: esl_itest.fail()
@@ -33,16 +33,16 @@ def parse_msastat(output):
     return (nseq, alen)
 
 
-r = esl_itest.run(f'{easel} msastat {srcdir}/testsuite/example-rna.sto')
-expected_nseq, expected_alen = parse_msastat(r.stdout)
+r = esl_itest.run(f'{easel} alistat {srcdir}/testsuite/example-rna.sto')
+expected_nseq, expected_alen = parse_alistat(r.stdout)
 
 # `-h` help 
-r = esl_itest.run(f'{easel} msashuf -h')
+r = esl_itest.run(f'{easel} alishuf -h')
 
 # basic
-r  = esl_itest.run(f'{easel} msashuf {srcdir}/testsuite/example-rna.sto')
-r2 = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
-nseq, alen = parse_msastat(r2.stdout)
+r  = esl_itest.run(f'{easel} alishuf {srcdir}/testsuite/example-rna.sto')
+r2 = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+nseq, alen = parse_alistat(r2.stdout)
 if nseq != expected_nseq or alen != expected_alen: esl_itest.fail()
 
 #  -o           direct output data to file <f>
@@ -50,41 +50,41 @@ if nseq != expected_nseq or alen != expected_alen: esl_itest.fail()
 #
 # By using --seed, we can compare two shuffles for exact equality.
 #
-r   = esl_itest.run(f'{easel} msashuf --seed 42                 {srcdir}/testsuite/example-rna.sto')
-r2  = esl_itest.run(f'{easel} msashuf --seed 42 -o {tmppfx}.sto {srcdir}/testsuite/example-rna.sto')
+r   = esl_itest.run(f'{easel} alishuf --seed 42                 {srcdir}/testsuite/example-rna.sto')
+r2  = esl_itest.run(f'{easel} alishuf --seed 42 -o {tmppfx}.sto {srcdir}/testsuite/example-rna.sto')
 with open(f'{tmppfx}.sto') as f: s = f.read()
 if s != r.stdout: esl_itest.fail()
 
 # --rna         assert <msafile> is RNA
 #
-r2  = esl_itest.run(f'{easel} msashuf --seed 42 --rna {srcdir}/testsuite/example-rna.sto')
+r2  = esl_itest.run(f'{easel} alishuf --seed 42 --rna {srcdir}/testsuite/example-rna.sto')
 if r2.stdout != r.stdout: esl_itest.fail()
 
 # --informat    assert <msafile> is in format <s>
-r2  = esl_itest.run(f'{easel} msashuf --seed 42 --informat stockholm {srcdir}/testsuite/example-rna.sto')
+r2  = esl_itest.run(f'{easel} alishuf --seed 42 --informat stockholm {srcdir}/testsuite/example-rna.sto')
 if r2.stdout != r.stdout: esl_itest.fail()
 
 # --dna         assert <msafile> is DNA 
 #
 # Now the shuffle will differ, using DNA T instead of RNA U, so don't compare exactly.
 #
-r2 = esl_itest.run(f'{easel} msashuf --dna {srcdir}/testsuite/example-rna.sto')
-r3 = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r2.stdout)
-nseq, alen = parse_msastat(r3.stdout)
+r2 = esl_itest.run(f'{easel} alishuf --dna {srcdir}/testsuite/example-rna.sto')
+r3 = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r2.stdout)
+nseq, alen = parse_alistat(r3.stdout)
 if nseq != expected_nseq or alen != expected_alen: esl_itest.fail()
 
 #  -v     shuffle residues in each column independently
 #
-r  = esl_itest.run(f'{easel} msashuf -v {srcdir}/testsuite/example-rna.sto')
-r2 = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
-nseq, alen = parse_msastat(r2.stdout)
+r  = esl_itest.run(f'{easel} alishuf -v {srcdir}/testsuite/example-rna.sto')
+r2 = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+nseq, alen = parse_alistat(r2.stdout)
 if nseq != expected_nseq or alen != expected_alen: esl_itest.fail()
 
 #  -b    take bootstrapping samples
 #  -N    generate <n> samples per input msa (e.g. bootstraps)
 #
-r  = esl_itest.run(f'{easel} msashuf -b -N 10 {srcdir}/testsuite/example-rna.sto')
-r2 = subprocess.run(f'{easel} msastat -1 -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+r  = esl_itest.run(f'{easel} alishuf -b -N 10 {srcdir}/testsuite/example-rna.sto')
+r2 = subprocess.run(f'{easel} alistat -1 -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
 for line in r2.stdout.splitlines():
     if line.startswith('#'): continue
     if (m := re.match(r'(\d+)\s+(\S+)\s+-\s+Stockholm\s+(\d+)\s+(\d+)', line)) is None: esl_itest.fail()
@@ -100,12 +100,12 @@ for line in r2.stdout.splitlines():
 #
 # Switch to using a protein MSA; recalculate the expected nseq,alen.
 #
-r = esl_itest.run(f'{easel} msastat {srcdir}/testsuite/example-stockholm.sto')
-expected_nseq, expected_alen = parse_msastat(r.stdout)
+r = esl_itest.run(f'{easel} alistat {srcdir}/testsuite/example-stockholm.sto')
+expected_nseq, expected_alen = parse_alistat(r.stdout)
 
-r  = esl_itest.run(f'{easel} msashuf --amino {srcdir}/testsuite/example-stockholm.sto')
-r2 = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
-nseq, alen = parse_msastat(r2.stdout)
+r  = esl_itest.run(f'{easel} alishuf --amino {srcdir}/testsuite/example-stockholm.sto')
+r2 = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+nseq, alen = parse_alistat(r2.stdout)
 if nseq != expected_nseq or alen != expected_alen: esl_itest.fail()
 
 

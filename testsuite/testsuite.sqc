@@ -124,6 +124,8 @@
 1 exercise easel-alimerge     !testsuite/easel-alimerge-itest.py!   @@ !! %TESTPFX%
 1 exercise easel-alipid       !testsuite/easel-alipid-itest.py!     @@ !! %TESTPFX%
 1 exercise easel-alirev       !testsuite/easel-alirev-itest.py!     @@ !! %TESTPFX%
+1 exercise easel-alishuf      !testsuite/easel-alishuf-itest.py!    @@ !! %TESTPFX%
+1 exercise easel-alistat      !testsuite/easel-alistat-itest.py!    @@ !! %TESTPFX%
 1 exercise easel-compalign    !testsuite/easel-compalign-itest.py!  @@ !! %TESTPFX%
 1 exercise easel-compstruct   !testsuite/easel-compstruct-itest.py! @@ !! %TESTPFX%
 1 exercise easel-construct    !testsuite/easel-construct-itest.py!  @@ !! %TESTPFX%
@@ -132,8 +134,6 @@
 1 exercise easel-histplot     !testsuite/easel-histplot-itest.py!   @@ !! %TESTPFX%
 1 exercise easel-kmer         !testsuite/easel-kmer-itest.py!       @@ !! %TESTPFX%
 1 exercise easel-mask         !testsuite/easel-mask-itest.py!       @@ !! %TESTPFX%
-1 exercise easel-msashuf      !testsuite/easel-msashuf-itest.py!    @@ !! %TESTPFX%
-1 exercise easel-msastat      !testsuite/easel-msastat-itest.py!    @@ !! %TESTPFX%
 1 exercise easel-printseq     !testsuite/easel-printseq-itest.py!   @@ !! %TESTPFX%
 1 exercise easel-reformat     !testsuite/easel-reformat-itest.py!   @@ !! %TESTPFX%
 1 exercise easel-seqrange     !testsuite/easel-seqrange-itest.py!   @@ !! %TESTPFX%

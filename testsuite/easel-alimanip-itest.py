@@ -39,7 +39,7 @@ if r.stdout != r2.stdout: esl_itest.fail()
     
 # -o 
 r  = esl_itest.run(f'{easel} alimanip -o {tmppfx}.sto {srcdir}/testsuite/example-stockholm.sto')
-r2 = subprocess.run(f'{easel} msastat {tmppfx}.sto'.split(), check=True, encoding='utf-8', capture_output=True)
+r2 = subprocess.run(f'{easel} alistat {tmppfx}.sto'.split(), check=True, encoding='utf-8', capture_output=True)
 if (m := re.search(r'Number of sequences:\s+38', r2.stdout, flags=re.MULTILINE)) is None: esl_itest.fail()
 
 # --informat
@@ -51,7 +51,7 @@ r  = esl_itest.run(f'{easel} alimanip --informat afa {srcdir}/testsuite/example-
 
 # --outformat
 r  = esl_itest.run(f'{easel} alimanip --outformat afa {srcdir}/testsuite/example-stockholm.sto')
-r2 = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+r2 = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
 if (m := re.search(r'^Format:\s+aligned_FASTA', r2.stdout, flags=re.MULTILINE)) is None: esl_itest.fail()
 
 # --amino
@@ -78,12 +78,12 @@ if r2.stdout != r.stdout: esl_itest.fail()
 # that length *is* the median
 #
 r   = esl_itest.run(f'{easel} alimanip --lnfract 1.0 {srcdir}/testsuite/example-stockholm.sto')
-r2  = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+r2  = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
 if (m := re.search(r'Smallest:\s+(\d+)', r2.stdout, flags=re.MULTILINE)) is None: esl_itest.fail()
 lnfract_len = int(m.group(1))
 
 r3  = esl_itest.run(f'{easel} alimanip --lxfract 1.0 {srcdir}/testsuite/example-stockholm.sto')
-r4  = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r3.stdout)
+r4  = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r3.stdout)
 if (m := re.search(r'Largest:\s+(\d+)', r4.stdout, flags=re.MULTILINE)) is None: esl_itest.fail()
 lxfract_len = int(m.group(1))
 if lnfract_len != lxfract_len: esl_itest.fail()
@@ -96,11 +96,11 @@ if lnfract_len != lxfract_len: esl_itest.fail()
 # make --lmin output equal --lnfract and --lmax equal --lxfract.
 #
 r5  = esl_itest.run(f'{easel} alimanip --lmin {lnfract_len} {srcdir}/testsuite/example-stockholm.sto')
-r6  = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r5.stdout)
+r6  = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r5.stdout)
 if r6.stdout != r2.stdout: esl_itest.fail()
 
 r7  = esl_itest.run(f'{easel} alimanip --lmax {lnfract_len} {srcdir}/testsuite/example-stockholm.sto')
-r8  = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r7.stdout)
+r8  = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r7.stdout)
 if r8.stdout != r4.stdout: esl_itest.fail()
 
 
@@ -141,22 +141,22 @@ with open(f'{tmppfx}.mask2', 'w') as f:         # for testing --mask2rf, RF over
 
 # --rffract   remove seqs with less than <x> fraction of non-gap RF consensus cols (removes seq1)
 r  = esl_itest.run(f'{easel} alimanip --dna --rffract 0.6 {tmppfx}.sto')
-r2 = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+r2 = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
 if (m := re.search(r'^Number of sequences:\s+2', r2.stdout, flags=re.MULTILINE)) is None: esl_itest.fail()
 
 # --detrunc   removes seqs with n or more leading or trailing gaps in consensus (RF) positions (removes seq1)
 r  = esl_itest.run(f'{easel} alimanip --dna --detrunc 1 {tmppfx}.sto')
-r2 = subprocess.run(f'{easel} msastat --dna -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+r2 = subprocess.run(f'{easel} alistat --dna -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
 if (m := re.search(r'^Number of sequences:\s+2', r2.stdout, flags=re.MULTILINE)) is None: esl_itest.fail()
 
 # --xambig    removes sequences with more than n ambiguous residues
 #             (second test tests for strictly > n)
 r  = esl_itest.run(f'{easel} alimanip --dna --xambig 1 {tmppfx}.sto')
-r2 = subprocess.run(f'{easel} msastat --dna -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+r2 = subprocess.run(f'{easel} alistat --dna -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
 if (m := re.search(r'^Number of sequences:\s+2', r2.stdout, flags=re.MULTILINE)) is None: esl_itest.fail()
 
 r  = esl_itest.run(f'{easel} alimanip --dna --xambig 4 {tmppfx}.sto')
-r2 = subprocess.run(f'{easel} msastat --dna -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+r2 = subprocess.run(f'{easel} alistat --dna -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
 if (m := re.search(r'^Number of sequences:\s+3', r2.stdout, flags=re.MULTILINE)) is None: esl_itest.fail()
 
 # --seq-r <f>   remove sequences listed in file <f>
@@ -184,7 +184,7 @@ if r.stdout != r2.stdout: esl_itest.fail()
 
 # --seq-ni <n>   with --seq-ins, keep seqs with longer insertions, of len >= n
 r  = esl_itest.run(f'{easel} alimanip --dna --seq-ins 7 --seq-ni 2 {tmppfx}.sto')
-r2 = subprocess.run(f'{easel} msastat --dna -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+r2 = subprocess.run(f'{easel} alistat --dna -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
 if (m := re.search(r'^seq3',                     r.stdout,  flags=re.MULTILINE)) is None: esl_itest.fail()
 if (m := re.search(r'^Number of sequences:\s+1', r2.stdout, flags=re.MULTILINE)) is None: esl_itest.fail()
 
@@ -192,20 +192,20 @@ r  = esl_itest.run(f'{easel} alimanip --dna --seq-ins 7 --seq-ni 3 {tmppfx}.sto'
 
 # --seq-xi <n>   with --seq-ins, keep seqs with shorter insertions, of len <= n
 r  = esl_itest.run(f'{easel} alimanip --dna --seq-ins 7 --seq-xi 1 {tmppfx}.sto')
-r2 = subprocess.run(f'{easel} msastat --dna -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+r2 = subprocess.run(f'{easel} alistat --dna -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
 if (m := re.search(r'^seq2',                     r.stdout,  flags=re.MULTILINE)) is None: esl_itest.fail()
 if (m := re.search(r'^Number of sequences:\s+1', r2.stdout, flags=re.MULTILINE)) is None: esl_itest.fail()
 
 # --trim <f>     trim aligned seqs to the subseqs in fasta file <f>
 r  = esl_itest.run(f'{easel} alimanip --dna --trim {tmppfx}.subseqs {tmppfx}.sto')
-r2 = subprocess.run(f'{easel} msastat --dna -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+r2 = subprocess.run(f'{easel} alistat --dna -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
 if (m := re.search(r'^seq2\s+---ACGTA-ACG----\s*$', r.stdout,  flags=re.MULTILINE)) is     None: esl_itest.fail()
 if (m := re.search(r'^Number of sequences:\s+3',    r2.stdout, flags=re.MULTILINE)) is     None: esl_itest.fail()
 if (m := re.search(r'^#=GC RF',                     r.stdout,  flags=re.MULTILINE)) is not None: esl_itest.fail()
 
 # --t-keeprf     with --trim, preserve the #=GC RF annotation line
 r  = esl_itest.run(f'{easel} alimanip --dna --trim {tmppfx}.subseqs --t-keeprf {tmppfx}.sto')
-r2 = subprocess.run(f'{easel} msastat --dna -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+r2 = subprocess.run(f'{easel} alistat --dna -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
 if (m := re.search(r'^seq2\s+---ACGTA-ACG----\s*$', r.stdout,  flags=re.MULTILINE)) is None: esl_itest.fail()
 if (m := re.search(r'^Number of sequences:\s+3',    r2.stdout, flags=re.MULTILINE)) is None: esl_itest.fail()
 if (m := re.search(r'^#=GC RF',                     r.stdout,  flags=re.MULTILINE)) is None: esl_itest.fail()

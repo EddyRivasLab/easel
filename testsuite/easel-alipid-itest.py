@@ -26,7 +26,7 @@ esl_itest.check_progs(builddir, progs_used)
 easel = f'{builddir}/miniapps/easel'
 
 # figure out n(n-1)/2, which will be the # of lines in the output table (one per pair of seqs)
-r = subprocess.run(f'{easel} msastat {srcdir}/testsuite/example-stockholm.sto'.split(), check=True, encoding='utf-8', capture_output=True)
+r = subprocess.run(f'{easel} alistat {srcdir}/testsuite/example-stockholm.sto'.split(), check=True, encoding='utf-8', capture_output=True)
 if (m := re.search(r'^Number of sequences:\s*(\d+)', r.stdout, flags=re.MULTILINE)) is None: esl_itest.fail()
 nseq   = int(m.group(1))
 npairs = nseq * (nseq-1) / 2

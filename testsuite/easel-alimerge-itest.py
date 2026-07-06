@@ -28,7 +28,7 @@ import esl_itest
 # <msafile> must only contain 1 MSA.
 #
 # It's important to keep the seqs in their original order. `easel
-# msastat` calculation of avg pid has a tiny/annoying order dependence
+# alistat` calculation of avg pid has a tiny/annoying order dependence
 # because of fp roundoff error.
 #
 # Wrote this as a function that I can lift somewhere else - might be
@@ -150,31 +150,31 @@ def main():
 
     easel = f'{builddir}/miniapps/easel'
 
-    # We test for identical `easel msastat` output for original vs. merged
+    # We test for identical `easel alistat` output for original vs. merged
     #
-    r = esl_itest.run(f'{easel} msastat {srcdir}/testsuite/example-rna.sto')
-    orig_msastat = r.stdout
+    r = esl_itest.run(f'{easel} alistat {srcdir}/testsuite/example-rna.sto')
+    orig_alistat = r.stdout
 
     # A 2-way split
     #
     msasplit(f'{srcdir}/testsuite/example-rna.sto', easel, 2, tmppfx)
     r  = esl_itest.run(f'{easel} alimerge {tmppfx}.1.sto {tmppfx}.2.sto')
-    r2 = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
-    if orig_msastat != r2.stdout: esl_itest.fail()
+    r2 = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+    if orig_alistat != r2.stdout: esl_itest.fail()
 
     # A 3-way split
     #
     msasplit(f'{srcdir}/testsuite/example-rna.sto', easel, 3, tmppfx)
     r  = esl_itest.run(f'{easel} alimerge {tmppfx}.1.sto {tmppfx}.2.sto {tmppfx}.3.sto')
-    r2 = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
-    if orig_msastat != r2.stdout: esl_itest.fail()
+    r2 = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+    if orig_alistat != r2.stdout: esl_itest.fail()
 
     # One multi-MSA file with a 3-way split, through stdin
     #
     msasplit(f'{srcdir}/testsuite/example-rna.sto', easel, 3, tmppfx)
     r  = esl_itest.run_piped(f'cat {tmppfx}.1.sto {tmppfx}.2.sto {tmppfx}.3.sto', f'{easel} alimerge -')
-    r2 = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
-    if orig_msastat != r2.stdout: esl_itest.fail()
+    r2 = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+    if orig_alistat != r2.stdout: esl_itest.fail()
     
     # -h   help 
     r = esl_itest.run(f'{easel} alimerge -h')
@@ -184,33 +184,33 @@ def main():
 
     # -o <outfile>
     r  = esl_itest.run(f'{easel} alimerge -o {tmppfx}.merged.sto {tmppfx}.1.sto {tmppfx}.2.sto')
-    r2 = esl_itest.run(f'{easel} msastat {tmppfx}.merged.sto')
-    if orig_msastat != r2.stdout: esl_itest.fail()
+    r2 = esl_itest.run(f'{easel} alistat {tmppfx}.merged.sto')
+    if orig_alistat != r2.stdout: esl_itest.fail()
 
     # --small
     # requires one-block Pfam format on input
     r  = esl_itest.run(f'{easel} alimerge --small {tmppfx}.1.sto {tmppfx}.2.sto')
-    r2 = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
-    if orig_msastat != r2.stdout: esl_itest.fail()
+    r2 = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+    if orig_alistat != r2.stdout: esl_itest.fail()
 
     # --rfonly
     # (with and without --small)
     # by comparison to `easel alicol --rfonly` on the original complete MSA
     #
     r  = esl_itest.run (f'{easel} alicol --rfonly {srcdir}/testsuite/example-rna.sto')
-    r2 = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+    r2 = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
     r  = esl_itest.run (f'{easel} alimerge --rfonly {tmppfx}.1.sto {tmppfx}.2.sto')
-    r3 = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+    r3 = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
     r  = esl_itest.run (f'{easel} alimerge --rfonly --small {tmppfx}.1.sto {tmppfx}.2.sto')
-    r4 = subprocess.run(f'{easel} msastat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+    r4 = subprocess.run(f'{easel} alistat -'.split(), check=True, encoding='utf-8', capture_output=True, input=r.stdout)
     if r3.stdout != r2.stdout: esl_itest.fail()
     if r4.stdout != r2.stdout: esl_itest.fail()
 
     # --outformat (incompatible with --small, which always outputs Pfam format)
     r  = esl_itest.run (f'{easel} alimerge --outformat afa {tmppfx}.1.sto {tmppfx}.2.sto')
-    r2 = subprocess.run(f'{easel} msastat --informat afa -'.split(),                        check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+    r2 = subprocess.run(f'{easel} alistat --informat afa -'.split(),                        check=True, encoding='utf-8', capture_output=True, input=r.stdout)
     r  = subprocess.run(f'{easel} reformat afa {srcdir}/testsuite/example-rna.sto'.split(), check=True, encoding='utf-8', capture_output=True)
-    r3 = subprocess.run(f'{easel} msastat --informat afa -'.split(),                        check=True, encoding='utf-8', capture_output=True, input=r.stdout)
+    r3 = subprocess.run(f'{easel} alistat --informat afa -'.split(),                        check=True, encoding='utf-8', capture_output=True, input=r.stdout)
     if r3.stdout != r2.stdout: esl_itest.fail()
 
     r = esl_itest.run(f'{easel} alimerge --small --outformat afa {tmppfx}.1.sto {tmppfx}.2.sto', expect_success=False)
@@ -218,8 +218,8 @@ def main():
     # -v: verbose, requires -o
     r = esl_itest.run(f'{easel} alimerge -v -o {tmppfx}.sto {tmppfx}.1.sto {tmppfx}.2.sto')
     if 'file name' not in r.stdout: esl_itest.fail()
-    r2 = esl_itest.run(f'{easel} msastat {tmppfx}.merged.sto')
-    if orig_msastat != r2.stdout: esl_itest.fail()
+    r2 = esl_itest.run(f'{easel} alistat {tmppfx}.merged.sto')
+    if orig_alistat != r2.stdout: esl_itest.fail()
 
     r = esl_itest.run(f'{easel} alimerge -v {tmppfx}.1.sto {tmppfx}.2.sto', expect_success=False)
 
