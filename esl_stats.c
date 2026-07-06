@@ -1317,5 +1317,6 @@ main(int argc, char **argv)
   printf("%-10.3g %12.2f\n", P, G);
   exit(0);
 }
+#endif /*eslSTATS_EXAMPLE2*/
 /*--------------------- end of examples -------------------------*/
 
