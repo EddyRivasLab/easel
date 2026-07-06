@@ -1,7 +1,7 @@
 Easel is a library used by other Eddy lab software packages including
 HMMER and Infernal. 
 
-Our coding style is described in `documentation/codestyle.md`.
+Our coding style is described in `Codestyle.md`.
 
 The code for the Easel library is in `esl_<foo>.[ch]` files.  Many
 modules have an additional documentation file `esl_<foo>.md`,

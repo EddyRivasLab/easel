@@ -704,7 +704,7 @@ is recognized and parsed by our `autodoc.py` program, which assumes
 that this starts a specially structured function documentation header.
 
 For information on `autodoc` and the format of our structured comment
-headers, see [`devkit/autodoc.md`](../devkit/autodoc.md).
+headers, see [`devkit/autodoc.md`](devkit/autodoc.md).
 
 
 -----------------------------------------------

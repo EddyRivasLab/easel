@@ -31,8 +31,8 @@
 /*****************************************************************
  * 1. Macros implementing Easel's error handling conventions
  *
- *    For more information on how Easel error handling works, see
- *    documentation/codestyle.md.
+ *    For more information on how Easel error handling works, 
+ *    see `Codestyle.md`.
  *****************************************************************/
 /* Many objects contain a fixed length "errbuf" for failure
  * diagnostics: ESL_FAIL() and ESL_XFAIL() fill this buffer.

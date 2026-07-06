@@ -1,0 +1,106 @@
+# A2M|A3M format for multiple sequence alignments
+
+A2M (alignment to model) format was introduced as the native format
+for the UC Santa Cruz SAM profile HMM software package. It has two
+variants: a fully aligned format similar to aligned FASTA that uses
+`.` characters to pad out insertion regions, and a compact "dotless"
+format. The name "A3M" was later introduced by the HH-suite software
+package to specifically mean the compact, dotless variant. The full
+variant is rarely used.
+
+To select A2M|A3M format, use the format code `a2m` or `a3m`: for
+example, to reformat a Stockholm alignment to A3M:
+
+```
+% easel reformat a3m myali.sto
+```
+
+Easel treats `a2m` and `a3m` as synonymous and treats the two formats
+identically. The reader will read either A3M or full A2M. The writer
+only writes A3M (dotless A2M).
+
+The most official documentation for A2M format appears to be at
+<http://compbio.soe.ucsc.edu/a2m-desc.html>. The HH-suite
+documentation also has a brief description of A3M.
+
+## An example A2M|A3M file
+
+This alignment:
+
+```
+seq1  ACDEF...GHIKLMNPQTVWY
+seq2  ACDEF...GHIKLMNPQTVWY
+seq3  ---EFmnrGHIKLMNPQT---
+```
+
+is encoded in A3M format as:
+
+```
+>seq1  Sequence 1 description
+ACDEFGHIKLMNPQTVWY
+>seq2  Sequence 2 description
+ACDEFGHIKLMNPQTVWY
+>seq3  Sequence 3 description
+---EFmnrGHIKLMNPQT---
+```
+
+A2M|A3M format looks a lot like aligned FASTA format. A crucial
+difference is that the aligned sequences in an A3M ("dotless" A2M) file
+do not necessarily all have the same number of characters. The format
+distinguishes between "consensus columns" (where residues are in upper
+case and gaps are a dash, `-`) and "insert columns" (where residues are
+in lower case and gaps are dots, `.`, that aren't explicitly shown in
+the format -- hence "dotless" A2M). The position and number of gaps in
+insert columns (dots) is implicit in this representation. An advantage
+of this format is its compactness.
+
+This representation only works if all insertions relative to consensus
+are considered to be unaligned characters. That is how insertions are
+handled by profile HMM implementations like SAM, HH-suite, and HMMER,
+and profile SCFG implementations like Infernal.
+
+Thus every sequence must have the same number of consensus columns
+(upper case letters plus `-` characters), and may have additional
+lower case letters for insertions.
+
+## Legal characters
+
+A2M|A3M (at least according to SAM's documentation) does not support
+some special characters such as the `*` (not-a-residue) or `~` (missing
+data) characters. Easel outputs these characters as gaps: either `-` in
+a consensus column, or nothing in an insert column.
+
+The SAM software parses only a subset of legal ambiguity codes for
+amino acids and nucleotides. For amino acids, it only reads {BXZ} in
+addition to the 20 standard one-letter codes. For nucleotides, it only
+reads {NRY} in addition to {ACGTU}. With one crucial exception, it
+treats all other letters as X or N.
+
+The crucial exception is `O`. SAM reads an `O` as the position of a
+"free insertion module" (FIM), a concept that appears to be specific to
+SAM-style profile HMMs. This has no impact on nucleic acid sequences,
+where `O` is not a legal character. But in amino acid sequences, `O`
+means pyrrolysine, one of the unusual genetically-encoded amino acids.
+This means that A2M format alignments must not contain pyrrolysine
+residues, lest they be read as FIMs by SAM. For this reason, Easel
+converts `O` residues to `X` when it writes an amino acid alignment in
+A2M format.
+
+## Determining consensus columns
+
+Writing A2M|A3M format requires knowing which alignment columns are
+supposed to be considered consensus and which are considered inserts.
+If the alignment was produced by HMMER or Infernal, then the alignment
+already has so-called "reference annotation" (what appears as a
+`#=GC RF` line in Stockholm format) marking the consensus columns.
+
+In many other cases, though, a multiple alignment has no reference
+annotation; for example, if it has been read from an alignment format
+that has no reference annotation markup. In this case, to write an
+A2M|A3M format, Easel will internally generate a "reasonable" guess at
+consensus columns, using essentially the same procedure that HMMER's
+`hmmbuild` program uses by default: sequence fragments (sequences
+$< 50\%$ of the mean sequence length in the alignment overall) are
+ignored, and for the remaining sequences, any column containing $\geq
+50\%$ residues is considered to be a consensus column. Important: this
+dealigns regions that get defined as insertions.

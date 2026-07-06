@@ -2,7 +2,7 @@
 
 The easel (esl) module implements a small set of functionality shared
 by all the modules: notably, the error-handling system, which is
-described in [the Easel coding style](documentation/codestyle.md), as
+described in [the Easel coding style](Codestyle.md), as
 well as some other capabilities, described below.
 
 ## secure temporary files

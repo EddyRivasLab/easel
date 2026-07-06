@@ -584,7 +584,6 @@ AC_CONFIG_FILES([ \
  Makefile               \
  miniapps/Makefile      \
  testsuite/Makefile     \
- documentation/Makefile \
  ])
 AC_CONFIG_HEADERS([decoy_config.h])   # This keeps gnu 'autoheader' from overwriting our esl_config.h.in
 AC_CONFIG_HEADERS([esl_config.h])

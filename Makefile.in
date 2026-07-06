@@ -47,7 +47,6 @@ libdir      = @libdir@
 includedir  = @includedir@
 mandir      = @mandir@
 docdir      = @docdir@
-pdfdir      = @pdfdir@
 mandir      = @mandir@
 man1dir     = ${mandir}/man1
 man1ext     = .1
@@ -536,7 +535,7 @@ ${VMX_EXAMPLES}:     SIMD_CFLAGS= ${VMX_CFLAGS}
 
 
 
-.PHONY: all dev tests check pdf install uninstall clean distclean dist implode TAGS
+.PHONY: all dev tests check install uninstall clean distclean dist implode TAGS
 .FORCE:
 
 all:    libeasel.a .FORCE
@@ -557,9 +556,6 @@ check:  ${ALL_UTESTS} .FORCE
 dcheck:
 	@command -v python3 >/dev/null 2>&1 || { echo >&2 "python3 is required for 'make dcheck', but is not in your PATH. Aborting."; exit 1; }
 	${QUIET_SUBDIR0}testsuite   ${QUIET_SUBDIR1} dcheck
-
-pdf:
-	${QUIET_SUBDIR0}documentation ${QUIET_SUBDIR1} pdf
 
 libeasel.a:  ${ALL_OBJS} 
 	${QUIET_AR}${AR} -r libeasel.a $(ALL_OBJS) > /dev/null 2>&1
@@ -655,7 +651,6 @@ uninstall:
 # "make clean" removes almost everything except configuration files
 #
 clean:
-	${QUIET_SUBDIR0}documentation ${QUIET_SUBDIR1} clean
 	${QUIET_SUBDIR0}testsuite     ${QUIET_SUBDIR1} clean
 	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} clean
 	${QUIET}-rm -f ${ALL_OBJS} libeasel.a
@@ -675,7 +670,6 @@ endif
 
 
 distclean:  clean
-	${QUIET_SUBDIR0}documentation ${QUIET_SUBDIR1} distclean
 	${QUIET_SUBDIR0}testsuite     ${QUIET_SUBDIR1} distclean
 	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} distclean
 	${QUIET}-rm -f esl_config.h decoy_config.h
