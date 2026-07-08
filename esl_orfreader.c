@@ -672,8 +672,7 @@ sevenorfs_create(ESL_RANDOMNESS *rng, struct sevenorfs_s **ret_svs)
   svs->a            = esl_rnd_Roll(rng, 121);  // 0..120
   svs->b            = esl_rnd_Roll(rng, 41);   // 0..40
   svs->c            = esl_rnd_Roll(rng, 121);  // 0..120 
-  //svs->which_strand = esl_rnd_Roll(rng, 2);    // fwd | rev
-  svs->which_strand = 0;
+  svs->which_strand = esl_rnd_Roll(rng, 2);    // fwd | rev
 
   svs->abc          = esl_alphabet_Create(eslDNA);
   svs->L            = svs->a + 3*svs->b + svs->c + 6;
@@ -783,7 +782,9 @@ utest_sevenorfs(ESL_RANDOMNESS *rng)
   ESL_SQFILE         *sqfp        = NULL;
   ESL_SQ             *psq         = esl_sq_CreateDigital(aa_abc);
   int                 which_orf;
-  int                 saw_orf[8];    // flag for whether we see each orf. 
+  int                 saw_orf[8];     // flag for whether we see each orf. 
+  int                 fwd_orfs;       // fwd orfs 0-4 can be translated, based on strandedness (fwd vs rev of <svs>, do_fwd and do_rev of <orffp>)
+  int                 rev_orfs;       // rev orfs 5-7 can be translated
   int                 i;
   int                 status;
  
@@ -813,11 +814,14 @@ utest_sevenorfs(ESL_RANDOMNESS *rng)
     }
   if (status != eslEOF) esl_fatal(msg);
 
-  if (saw_orf[0] != ( orffp->require_init && orffp->do_fwd && svs->orf_len[0] >= orffp->minlen)) esl_fatal(msg);  // orf 0 is only when require_init is true, and is only top strand
-  for (i = 1; i <= 4; i++)   // four orfs 1..4 are top strand
-    if (saw_orf[i] != (! orffp->require_init && orffp->do_fwd && svs->orf_len[i] >= orffp->minlen)) esl_fatal(msg);
-  for (i = 5; i <= 7; i++)   // three orfs 5..7 are rev strand
-    if (saw_orf[i] != (! orffp->require_init && orffp->do_rev && svs->orf_len[i] >= orffp->minlen)) esl_fatal(msg);
+  fwd_orfs = (svs->which_strand == 0 && orffp->do_fwd) || (svs->which_strand == 1 && orffp->do_rev);
+  rev_orfs = (svs->which_strand == 0 && orffp->do_rev) || (svs->which_strand == 1 && orffp->do_fwd);
+
+  if (saw_orf[0] != (    orffp->require_init && fwd_orfs && svs->orf_len[0] && svs->orf_len[0] >= orffp->minlen)) esl_fatal(msg);  // orf 0 is only when require_init is true, and is only top strand
+  for (i = 1; i <= 4; i++) 
+    if (saw_orf[i] != (! orffp->require_init && fwd_orfs && svs->orf_len[i] && svs->orf_len[i] >= orffp->minlen)) esl_fatal(msg);
+  for (i = 5; i <= 7; i++) 
+    if (saw_orf[i] != (! orffp->require_init && rev_orfs && svs->orf_len[i] && svs->orf_len[i] >= orffp->minlen)) esl_fatal(msg);
   
   esl_orfreader_Destroy(orffp);
   esl_sqfile_Close(sqfp);
