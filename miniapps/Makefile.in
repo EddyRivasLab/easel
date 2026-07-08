@@ -128,7 +128,7 @@ install: easel ${MANPAGES}
 uninstall:
 	-rm -f ${DESTDIR}${bindir}/easel
 	for p in easel $(SUBCMDS:%=easel-%); do \
-	   rm ${DESTDIR}${man1dir}/$$p${man1ext} ;\
+	   rm -f ${DESTDIR}${man1dir}/$$p${man1ext} ;\
 	done
 
 clean:

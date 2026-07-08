@@ -116,7 +116,7 @@ esl_orfreader_Destroy(ESL_ORFREADER *orffp)
       free(orffp);
     }
 }
-  
+
 
 /* Function:  esl_orfreader_Read()
  * Synopsis:  Read next ORF from ongoing six-frame translation of DNA sequence
@@ -190,17 +190,17 @@ esl_orfreader_Read(ESL_ORFREADER *orffp, ESL_SQ *sq)
   ESL_DSQ  zyx[3];       // tmp space for revcomp'ed triplet for esl_gencode_GetTranslation(), when ambig code in triplet
   ESL_DSQ  aaf,aar;      // aa for fwd, rev translation of current XYZ and (ZYX)' triplet
   int      initf,initr;  // TRUE|FALSE for whether current XYZ fwd | (ZYX)' rev triplet is a valid initiator in gencode
-  int      status;       
+  int      status;
 
   /* Possible states that <orffp> is in as we enter:
    *  [1]      j = 0        n = 0    Initialization.
-   *  [2] 4 <= j <= n-2     n >= 6   x_{j..j+2} was a stop codon (fwd or rev) and we returned at least 1 ORF w/ previous call to _Read.
+   *  [2] 4 <= j <= n-1     n >= 6   x_{j-1..j+1} was a stop codon (fwd or rev) and we returned at least 1 ORF w/ previous call to _Read.
    *  [3]     j = L-1 >= 2  n = 0    prv seq (of len L) read EOD'd and terminated up to six ORFs. L >= 3. The mechanics of ReadWindow() set dnasq->L to prv n, and dnasq->n to 0.
-   * 
+   *
    * We may already have finished ORFs (qn > 0) that can be
    * immediately returned without reading or translating more DNA.
    */
-  while (orffp->qn == 0) 
+  while (orffp->qn == 0)
     {
       /* Now three other states are possible too, in iterations of the while loop beyond the first one:
        *  [4]  j = n-1      n >= 3    The translation loop ran out of sequence on the current window. 
@@ -213,16 +213,16 @@ esl_orfreader_Read(ESL_ORFREADER *orffp, ESL_SQ *sq)
        *    - if we just read the first window of a new sequence, initialize codonf|codonr|ambig_pos
        *    - translate x_{j..j+2}
        */
-      
+
 
       /* Read new window if we don't have at least one triplet in a
        * current window to translate.
        *
-       * In all states except state[2] for j < n-2, we know we will
+       * In all states except state[2] for j <= n-2, we know we will
        * have no more triplets in current window (if we have one) when
        * we advance j++.
        *
-       * State [2] at j=n-2 and state [4] will read next window of
+       * State [2] at j=n-1 and state [4] will read next window of
        * current sequence (and either get one, or EOD). State [5] will
        * try to read and EOD.
        *
@@ -233,29 +233,29 @@ esl_orfreader_Read(ESL_ORFREADER *orffp, ESL_SQ *sq)
        * _ReadWindow() changes n.  need_reinit also needs to be set
        * correctly (to FALSE) even if we're not reading any seq
        * window, so it gets set first, outside the reading block.
-       * 
+       *
        */
-      need_reinit = (orffp->dnasq->n == 0 ? TRUE : FALSE);   
-      if (orffp->j >= orffp->dnasq->n-2)   // [1] 0 >= -2  [2] n-2 >= n-2  [3] (>=2) >= -2  [4] n-1 >= n-2  [5] 1 >= (<=1)
+      need_reinit = (orffp->dnasq->n == 0 ? TRUE : FALSE);
+      if (orffp->j > orffp->dnasq->n-2)   // [1] 0 > -2  [2] n-1 > n-2  [3] (>=2) > -2  [4] n-1 > n-2  [5] 1 > (< 3-2)
         {
           status   = esl_sqio_ReadWindow(orffp->sqfp, /*context C=*/2, /*window W=*/orffp->W, orffp->dnasq);  // C=2 so we keep x_j,x_j+1 from current window, if any
 
-          if (status == eslEOD) {                    // with EOD, ReadWindow set dnasq->L = len of the last seq we read, and dnasq->n = 0.
+          if (status == eslEOD) {                        // with EOD, ReadWindow set dnasq->L = len of the last seq we read, and dnasq->n = 0.
             for (j = orffp->j-1; j < orffp->j+2; j++) {  // j already advanced +1; is n-1. Need to finish n-2..n codon first, hence the -1 here
-              finish_orf(orffp, j%3);            // finish fwd strand orfs in order of j (their last position)
-              finish_orf(orffp, j%3+3);          // and rev strand orfs in order of j too (their first position)
+              finish_orf(orffp, j%3);                    // finish fwd strand orfs in order of j (their last position)
+              finish_orf(orffp, j%3+3);                  // and rev strand orfs in order of j too (their first position)
             }
             esl_sq_Reuse(orffp->dnasq);
           }
-          else if (status != eslOK) return status;   // includes normal EOF, and any exceptions; includes <eslEINVAL> for an invalid residue.
+          else if (status != eslOK) return status;       // includes normal EOF, and any exceptions; includes <eslEINVAL> for an invalid residue.
 
           orffp->j = 1;  // start processing at first nt in new sequence window. (Which will often be the n-1/n-2 context C=2 copied from a prev window) 
         }
 
       // Some copies for more concise/clear notation below.
-      j      = orffp->j;             
-      dsq    = orffp->dnasq->dsq;    
-      n      = orffp->dnasq->n;      
+      j      = orffp->j;
+      dsq    = orffp->dnasq->dsq;
+      n      = orffp->dnasq->n;
 
       /* If we just read the start of a new sequence, and it's at
        * least long enough for one triplet to be translated,
@@ -272,7 +272,7 @@ esl_orfreader_Read(ESL_ORFREADER *orffp, ESL_SQ *sq)
             orffp->ambig_pos = 0;
           }
         }
-  
+
       /* Translate codon by codon until we either finish at least one
        * ORF, or we run out of sequence and go around the while loop
        * again to read more DNA sequence.
