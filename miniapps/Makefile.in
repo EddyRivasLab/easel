@@ -19,7 +19,6 @@ datarootdir = @datarootdir@
 bindir      = @bindir@
 libdir      = @libdir@
 includedir  = @includedir@
-mandir      = @mandir@
 docdir      = @docdir@
 pdfdir      = @pdfdir@
 mandir      = @mandir@
@@ -87,7 +86,7 @@ ifndef V
 	QUIET_AR      = @echo '    ' AR $@;
 	QUIET_SUBDIR0 = +@subdir=
 	QUIET_SUBDIR1 = ; echo '    ' SUBDIR  $$subdir; \
-		        ${MAKE} -s -C $$subdir
+		        ${MAKE} -C $$subdir
 endif
 
 
@@ -118,16 +117,15 @@ ${MANPAGES}: %.man: %.man.in
 	   $< > $@
 
 install: easel ${MANPAGES}
-	${INSTALL} -d ${DESTDIR}${bindir}
-	${INSTALL} -d ${DESTDIR}${man1dir}
-	${INSTALL} -m 0755 easel ${DESTDIR}${bindir}
+	if [ ! -d ${DESTDIR}${bindir} ];  then ${INSTALL} -d ${DESTDIR}${bindir}; fi
+	if [ ! -d ${DESTDIR}${man1dir} ]; then ${INSTALL} -d ${DESTDIR}${man1dir}; fi
 	for p in easel $(SUBCMDS:%=easel-%); do \
 	   ${INSTALL} -m 0644 $$p.man ${DESTDIR}${man1dir}/$$p${man1ext} ;\
 	done
 
 uninstall:
 	-rm -f ${DESTDIR}${bindir}/easel
-	for p in easel $(SUBCMDS:%=easel-%); do \
+	-for p in easel $(SUBCMDS:%=easel-%); do \
 	   rm -f ${DESTDIR}${man1dir}/$$p${man1ext} ;\
 	done
 
