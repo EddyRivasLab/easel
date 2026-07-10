@@ -1314,6 +1314,22 @@ seed that got chosen when your seed was 0.
 
 ###   using temp files in unit tests
 
+## integrated tests
+
+Integrated tests are Python scripts. They have a uniform command line
+syntax:
+
+```
+   <testscript.py> <builddir> <srcdir> <tmppfx>
+```
+
+They find built programs to run and test in the `<builddir>` tree, and
+source files (including example input files) in the `<top_srcdir>`
+tree. 
+
+Integrated tests must be portable, so they must only use the Python
+standard library. Numpy, for example, is not installed by default by
+some Linux distros.
 
 
 

@@ -9,10 +9,10 @@
 #
 # Also uses `easel alicol --mingap`.
 
-import numpy as np
 import filecmp
 import glob
 import os
+import random
 import re
 import subprocess
 import sys
@@ -60,12 +60,11 @@ def msasplit(msafile, easel, K, tmppfx):
     # This is fairly generic code for uniformly sampling
     # a "composition" of K splits from N things.
     #
-    rng = np.random.default_rng()
     N   = len(S)
 
-    assign = {}                                                     # Split the 0..N-1 elems of list <S> by setting K endpoints 
-    ends   = sorted(rng.choice(range(0,N-1), K-1, replace=False))   # ... first sample K-1 endpoints 0..N-2 uniformly without replacement. 
-    ends  += [ N-1 ]                                                # ... then add sentinel at end. ends[k=0..K-1] works for all segments including K-1 now.
+    assign = {}                                        # Split the 0..N-1 elems of list <S> by setting K endpoints 
+    ends   = sorted(random.sample(range(0,N-1), K-1))  # ... first sample K-1 endpoints 0..N-2 uniformly without replacement. 
+    ends  += [ N-1 ]                                   # ... then add sentinel at end. ends[k=0..K-1] works for all segments including K-1 now.
     k      = 0
     for i in range(N):
         assign[S[i]] = k+1
