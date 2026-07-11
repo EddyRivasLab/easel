@@ -13,7 +13,7 @@ LIBS           = @LIBGSL@ @LIBS@ -lm
 
 SQCLEVEL = 2
 
-QUIET_SUBDIR0 = +${MAKE} -C #space separator after -c
+QUIET_SUBDIR0 = +${MAKE} -C #space separator after -C
 QUIET_SUBDIR1 = 
 ifndef V
 	QUIET_CC      = @echo '    ' CC $@;
