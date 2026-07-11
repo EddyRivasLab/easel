@@ -147,12 +147,12 @@ bypassing autodetection.
 Valid unaligned sequence file format codes for
 .I fmt
 are
-.B fasta|ddbj|embl|genbank|uniprot
+.BR @EASEL_SEQ_FORMATS@
 (case insensitive).
 Multiple sequence alignment files are also accepted
 and read one (unaligned) sequence at a time; MSA formats
 are 
-.B stockholm|pfam|a2m|a3m|afa|psiblast|clustal|clustallike|phylip|phylips|selex.
+.BR @EASEL_MSA_FORMATS@ .
 See
 .BR "man easel"
 for more detail on formats and autodetection.

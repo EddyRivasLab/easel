@@ -115,11 +115,11 @@ both work).
 Unaligned sequence file format names to use as a
 .I fmt
 argument are:
-.BR fasta|ddbj|embl|genbank|uniprot .
+.BR @EASEL_SEQ_FORMATS@ .
 
 .PP
 Multiple sequence alignment format names are:
-.BR stockholm|pfam|a2m|a3m|afa|psiblast|clustal|clustallike|phylip|phylips|selex .
+.BR @EASEL_MSA_FORMATS@ .
 
 .PP
 When a miniapp outputs sequences or alignments, it will typically
@@ -128,7 +128,7 @@ have an
 option for selecting the output format.
 The choices for multiple sequence alignment output formats,
 are the same as for inputs:
-.BR stockholm|pfam|a2m|a3m|afa|psiblast|clustal|clustallike|phylip|phylips|selex .
+.BR @EASEL_MSA_FORMATS@ .
 For unaligned sequence output, the
 only choice for
 .I fmt

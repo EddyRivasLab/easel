@@ -5,11 +5,16 @@ SHELL      = /bin/sh
 
 ## Man page substitutions 
 #
-EASEL_VERSION   = @EASEL_VERSION@
-EASEL_DATE      = @EASEL_DATE@
-EASEL_COPYRIGHT = @EASEL_COPYRIGHT@
-EASEL_LICENSE   = @EASEL_LICENSE@
-EASEL_URL       = @EASEL_URL@
+# The file format lists are rendered in .man pages with .BR, so the
+# quotes and spaces are important in " | ".
+#
+EASEL_VERSION     = @EASEL_VERSION@
+EASEL_DATE        = @EASEL_DATE@
+EASEL_COPYRIGHT   = @EASEL_COPYRIGHT@
+EASEL_LICENSE     = @EASEL_LICENSE@
+EASEL_URL         = @EASEL_URL@
+EASEL_MSA_FORMATS = a2m " | " a3m " | " afa " | " clustal " | " clustallike " | " pfam " | " phylip " | " phylips " | " psiblast " | " selex " | " stockholm
+EASEL_SEQ_FORMATS = fasta " | " ddbj " | " embl " | " genbank " | " uniprot
 
 ## Installation targets
 #
@@ -78,7 +83,7 @@ MANPAGES   = easel.man $(SUBCMDS:%=easel-%.man)
 
 ## Beautification magic stolen from git 
 #
-QUIET_SUBDIR0 = +${MAKE} -C #space separator after -c
+QUIET_SUBDIR0 = +${MAKE} -C #space separator after -C
 QUIET_SUBDIR1 = 
 ifndef V
 	QUIET_CC      = @echo '    ' CC $@;
@@ -109,11 +114,13 @@ ${SUBCMDOBJS}: %.o : %.c ../libeasel.a
 # 
 ${MANPAGES}: %.man: %.man.in
 	${QUIET_GEN}sed \
-	   -e 's|[@]EASEL_VERSION[@]|${EASEL_VERSION}|g'     \
-	   -e 's|[@]EASEL_DATE[@]|${EASEL_DATE}|g'           \
-	   -e 's|[@]EASEL_COPYRIGHT[@]|${EASEL_COPYRIGHT}|g' \
-	   -e 's|[@]EASEL_LICENSE[@]|${EASEL_LICENSE}|g'     \
-	   -e 's|[@]EASEL_URL[@]|${EASEL_URL}|g'             \
+	   -e 's|[@]EASEL_VERSION[@]|${EASEL_VERSION}|g'         \
+	   -e 's|[@]EASEL_DATE[@]|${EASEL_DATE}|g'               \
+	   -e 's|[@]EASEL_COPYRIGHT[@]|${EASEL_COPYRIGHT}|g'     \
+	   -e 's|[@]EASEL_LICENSE[@]|${EASEL_LICENSE}|g'         \
+	   -e 's|[@]EASEL_URL[@]|${EASEL_URL}|g'                 \
+	   -e 's%[@]EASEL_MSA_FORMATS[@]%${EASEL_MSA_FORMATS}%g' \
+	   -e 's%[@]EASEL_SEQ_FORMATS[@]%${EASEL_SEQ_FORMATS}%g' \
 	   $< > $@
 
 install: easel ${MANPAGES}

@@ -245,7 +245,7 @@ and bypass format autodetection.
 Choices for
 .I fmt
 are:
-.BR stockholm|pfam|a2m|a3m|afa|psiblast|clustal|clustallike|phylip|phylips|selex .
+.BR @EASEL_MSA_FORMATS@ .
 
 .TP
 .BI \-\-maxfrag " n"
@@ -299,7 +299,7 @@ Write the filtered output MSA in alignment file format
 Choices for
 .I fmt
 are:
-.BR stockholm|pfam|a2m|a3m|afa|psiblast|clustal|clustallike|phylip|phylips|selex .
+.BR @EASEL_MSA_FORMATS@ .
 Default is to use the same format as the input
 .IR msafile .
 

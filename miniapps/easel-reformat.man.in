@@ -124,12 +124,12 @@ bypassing autodetection.
 Valid input unaligned sequence file format codes for
 .I fmt
 are
-.B fasta|ddbj|embl|genbank|uniprot
+.BR @EASEL_SEQ_FORMATS@
 (case insensitive).
 Valid input MSA file format codes for
 .I fmt
 are
-.BR stockholm|pfam|a2m|a3m|afa|psiblast|clustal|clustallike|phylip|phylips|selex .
+.BR @EASEL_MSA_FORMATS@ .
 See
 .B "man easel"
 for more detail on formats and autodetection.

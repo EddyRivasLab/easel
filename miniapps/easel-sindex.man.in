@@ -92,7 +92,7 @@ and bypass format autodetection.
 Choices for
 .I fmt
 are:
-.B fasta|ddbj|embl|genbank|uniprot
+.BR @EASEL_SEQ_FORMATS@
 (case insensitive).
 See
 .B man easel

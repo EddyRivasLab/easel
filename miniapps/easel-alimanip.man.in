@@ -65,7 +65,7 @@ bypassing format autodetection.
 Choices for 
 .I fmt
 are
-.BR a2m|a3m|afa|clustal|clustallike|pfam|phylip|phylips|psiblast|selex|stockholm .
+.BR @EASEL_MSA_FORMATS@ .
 .I fmt
 is case-insensitive (e.g.
 .B afa
@@ -81,7 +81,7 @@ Write the output in alignment format
 Choices for 
 .I fmt
 are
-.BR a2m|a3m|afa|clustal|clustallike|pfam|phylip|phylips|psiblast|selex|stockholm .
+.BR @EASEL_MSA_FORMATS@ .
 .I fmt
 is case-insensitive (e.g.
 .B afa
