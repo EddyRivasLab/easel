@@ -106,8 +106,8 @@ fi
 #     EASEL_VERSION    e.g. "1.9a"
 #
 
-EASEL_DATE="July 2025"
-EASEL_COPYRIGHT="Copyright (C) 2025 Howard Hughes Medical Institute"
+EASEL_DATE="July 2026"
+EASEL_COPYRIGHT="Copyright (C) 2026 Harvard University"
 EASEL_LICENSE="Freely distributed under the BSD open source license."
 EASEL_VERSION=$PACKAGE_VERSION
 EASEL_URL="http://bioeasel.org/"
