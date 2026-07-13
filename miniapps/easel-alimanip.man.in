@@ -373,9 +373,9 @@ has gaps in one or both positions.
 Update Infernal's cmalign 0.72-1.0.2 posterior probability "POST"
 annotation to "PP" annotation, which is read by other miniapps,
 including 
-.B esl\-alimask
+.B easel alicol
 and 
-.B esl\-alistat.
+.B easel alistat.
 
 .TP
 .B \-\-amino

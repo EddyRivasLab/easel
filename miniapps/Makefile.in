@@ -95,12 +95,14 @@ ifndef V
 endif
 
 
-.PHONY: all dev tests check install uninstall clean distclean 
+.PHONY: all dev tests check manpages install uninstall clean distclean 
 
 all: 	easel ${MANPAGES}
 dev:    all
 tests:  all
 check:  all
+
+manpages: ${MANPAGES}
 
 easel:  % : %.c ../libeasel.a ${SUBCMDOBJS}
 	${QUIET_GEN}${CC} ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ $< ${SUBCMDOBJS} ${LIBS}

@@ -26,6 +26,8 @@ import sys
 if len(sys.argv) == 1: f = sys.stdin
 else:                  f = open(sys.argv[1])
 
+in_synopsis = False
+
 for line in f:
     line = line.rstrip('\n')
 

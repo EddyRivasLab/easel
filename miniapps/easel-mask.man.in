@@ -51,11 +51,11 @@ and number as the sequences in the
 This is easy to enforce, because the format of
 .I maskfile 
 is also legal as a list of names for 
-.BR esl\-sfetch , 
+.BR "easel sfetch" , 
 so you can always fetch a temporary sequence file with 
-.B esl\-sfetch 
+.B easel sfetch 
 and pipe that to 
-.BR esl\-mask .
+.BR "easel mask" .
 (Alternatively, see the 
 .B \-R
 option for fetching from an SSI-indexed
@@ -120,7 +120,7 @@ and
 .I seqfile
 come in exactly the same order and number.  The
 .I seqfile
-must be SSI indexed (see \fBesl\-sfetch \-\-index\fR.)
+must be SSI indexed (see \fBeasel sindex\fR.)
 
 .TP
 .BI \-x " <n>"

@@ -28,7 +28,7 @@ total processes should operate on during a parallel processing of
 The 
 .I seqfile 
 must be indexed first using 
-.B esl\-sfetch \-\-index
+.B easel sindex
 .IR seqfile .
 This creates an SSI index file
 .IR seqfile .ssi.

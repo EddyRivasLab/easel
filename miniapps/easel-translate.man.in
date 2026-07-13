@@ -51,7 +51,7 @@ If
 is \- (a single dash), input is read from the stdin pipe. This
 (combined
 with the output being a standard FASTA file) allows
-.B esl\-translate 
+.B easel translate 
 to be used in command line incantations.
 If
 .I seqfile

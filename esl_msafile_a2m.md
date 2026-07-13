@@ -19,10 +19,6 @@ Easel treats `a2m` and `a3m` as synonymous and treats the two formats
 identically. The reader will read either A3M or full A2M. The writer
 only writes A3M (dotless A2M).
 
-The most official documentation for A2M format appears to be at
-<http://compbio.soe.ucsc.edu/a2m-desc.html>. The HH-suite
-documentation also has a brief description of A3M.
-
 ## An example A2M|A3M file
 
 This alignment:
