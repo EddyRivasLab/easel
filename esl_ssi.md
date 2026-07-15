@@ -308,7 +308,7 @@ the sequence record quickly, if you had to read the entire sequence
 into memory just to extract the right part of it.
 
 SSI uses a simple but effective technique to find subsequences.
-Provided that he sequence data file is consistently formatted so that
+Provided that the sequence data file is consistently formatted so that
 each line in each record (except the last one) is of the same length,
 in both bytes and residues, we can determine a disk offset of the
 start of any subsequence by arithmetic. Easel refers to such a file

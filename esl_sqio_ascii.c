@@ -2292,6 +2292,8 @@ seebuf(ESL_SQFILE *sqfp, int64_t maxn, int64_t *opt_nres, int64_t *opt_endpos)
            if      (ascii->bpl    == -1)         ascii->bpl = ascii->prvbpl; /* init  */
            else if (ascii->prvbpl != ascii->bpl) ascii->bpl = 0;             /* inval */
            else if (ascii->curbpl  > ascii->bpl) ascii->bpl = 0;             /* inval, this covers case when final line is longer */
+           else if (ascii->bpl    == ascii->rpl+1 &&
+                    ascii->curbpl != ascii->currpl+1) ascii->bpl = 0;        /* inval: catches an edge case where a final line has leading space(s) and (bpl==rpl+1) is misleading */
          }
 
          ascii->prvbpl  = ascii->curbpl;
