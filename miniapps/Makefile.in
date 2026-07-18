@@ -104,17 +104,17 @@ check:  all
 
 manpages: ${MANPAGES}
 
-easel:  % : %.c ../libeasel.a ${SUBCMDOBJS}
+easel:  % : %.c ../libeasel.a ${SUBCMDOBJS} ../esl_config.h
 	${QUIET_GEN}${CC} ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${DEFS} ${LDFLAGS} -L.. -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ $< ${SUBCMDOBJS} ${LIBS}
 
-${SUBCMDOBJS}: %.o : %.c ../libeasel.a
+${SUBCMDOBJS}: %.o : %.c ../libeasel.a ../esl_config.h
 	${QUIET_CC}${CC} -I. -I.. -I${srcdir} -I${srcdir}/.. ${CPPFLAGS} ${CFLAGS} ${PTHREAD_CFLAGS} ${SIMD_CFLAGS} ${DEFS} -c $<
 
 # [@] in the sed patterns protects these from configure's output
 # variable substitution; we need these target patterns to be literally
 # @EASEL_VERSION@, etc.
 # 
-${MANPAGES}: %.man: %.man.in
+${MANPAGES}: %.man: %.man.in ../esl_config.h
 	${QUIET_GEN}sed \
 	   -e 's|[@]EASEL_VERSION[@]|${EASEL_VERSION}|g'         \
 	   -e 's|[@]EASEL_DATE[@]|${EASEL_DATE}|g'               \

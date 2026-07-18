@@ -2,13 +2,15 @@
 #
 #    getargs()     - Verify that <argv> is <builddir> <srcdir> <tmppfx>; return those args.
 #    check_progs() - Verify that each program in a list is present in <builddir> and executable
+#    check_files() - Verify that each file in a list is present in <srcdir> and readable
+#    fail()        - Print test failure message, exit non-zero
 #    run()         - Run <cmd> in shell, return subprocess.CompletedProcess object.
-#    fail()        - Print test failure message, exit non-zero.
+#    run_piped()   - Run <cmd1> | <cmd2> to test <cmd2>, return its subprocess.CompletedProcess object.
 #
-import sys
+import glob
 import os
 import subprocess
-import glob
+import sys
 from inspect import currentframe, getframeinfo
 
 def getargs(argv, test_progfile='miniapps/easel', test_srcfile='easel.c'):
@@ -17,7 +19,7 @@ def getargs(argv, test_progfile='miniapps/easel', test_srcfile='easel.c'):
 
     if len(argv) != 4:
         sys.exit("Usage: {} <builddir> <srcdir> <tmppfx>".format(testname))
-        
+
     builddir = sys.argv[1]
     srcdir   = sys.argv[2]
     tmppfx   = sys.argv[3]
@@ -166,7 +168,6 @@ def run_piped(cmd1, cmd2, expect_success=True):
     return r2
 
 
-
 def write_testmsa_1(outfile, seqname5):
     """Write a Stockholm multi-MSA test file, all canonical residues & digitizable.
 
@@ -211,7 +212,7 @@ seq1 TRHIFKESLNAVYQCWGDMP
     with open(outfile, 'w') as f:
         print(msa, file=f)
 
-        
+
 
 def write_testmsa_2(outfile):
     """Write a Stockholm multi-MSA test file, exercising text mode.
@@ -232,5 +233,3 @@ seq1  aBcDeFgHiJkLmNoPqRsTvWxYz.-_1234567890!@#
 """
     with open(outfile, 'w') as f:
         print(msa, file=f)
-
-  
