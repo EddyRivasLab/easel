@@ -128,6 +128,7 @@ ${MANPAGES}: %.man: %.man.in ../esl_config.h
 install: easel ${MANPAGES}
 	if [ ! -d ${DESTDIR}${bindir} ];  then ${INSTALL} -d ${DESTDIR}${bindir}; fi
 	if [ ! -d ${DESTDIR}${man1dir} ]; then ${INSTALL} -d ${DESTDIR}${man1dir}; fi
+	${INSTALL} -m 0755 easel ${DESTDIR}${bindir}/ 
 	for p in easel $(SUBCMDS:%=easel-%); do \
 	   ${INSTALL} -m 0644 $$p.man ${DESTDIR}${man1dir}/$$p${man1ext} ;\
 	done
