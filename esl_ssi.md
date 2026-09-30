@@ -309,21 +309,20 @@ into memory just to extract the right part of it.
 
 SSI uses a simple but effective technique to find subsequences.
 Provided that the sequence data file is consistently formatted so that
-each line in each record (except the last one) is of the same length,
+each line in each record is of the same length (except the last
+sequence line of each record, which must be no longer than the others)
 in both bytes and residues, we can determine a disk offset of the
-start of any subsequence by arithmetic. Easel refers to such a file
-as "well-formatted". For example, a simple well-formatted FASTA file
-with 50 residues per line might have 51 bytes on every sequence line
-(counting the '`\0`') but for the last line in each record
-(`bpl`=51, `rpl`=50). Position $i$ in a sequence $1..L$
-will be on line $l = (i-1)/\mathrm{rpl}$, and line $l$ starts at
-disk offset $l * \mathrm{bpl}$ relative to the start of the
-sequence data.
+start of any subsequence by arithmetic. Easel refers to such a file as
+"well-formatted". For example, a simple well-formatted FASTA file with
+50 residues per line might have 51 bytes on every sequence line
+(counting the '`\n`') but for the last line in each record (`bpl`=51,
+`rpl`=50). Position $i$ in a sequence $1..L$ will be on line $l =
+(i-1)/\mathrm{rpl}$, and line $l$ starts at disk offset $l *
+\mathrm{bpl}$ relative to the start of the sequence data.
 
-If there are no nonsequence characters in the data line except the
-terminal '`\0`' (which is true iff `bpl` = `rpl`+1
-and 1 residue = 1 byte), we can precisely identify the disk position
-of any residue $i$ (_single residue resolution_):
+If there are no nonsequence characters in any data line except the
+terminal '`\0`', then we can do even better; we can precisely identify
+the disk position of any residue $i$ (_single residue resolution_):
 
 $$
 \mathrm{relative\ offset\ of\ residue\ } i =

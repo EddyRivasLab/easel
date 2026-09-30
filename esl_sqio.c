@@ -1876,6 +1876,48 @@ write_spaced_fasta(FILE *fp, ESL_SQ *sq)
   sq->eoff = ftello(fp) - 1;
 }
 
+/* write_mixed_fasta()
+ *
+ * Write a FASTA file with deliberately inconsistent line lengths: each
+ * record is either 60 residues per line, or all on one line. This tests our
+ * detection of "well-formatted" files for bpl/rpl subseq indexing.
+ */
+static void
+write_mixed_fasta(ESL_RANDOMNESS *r, FILE *fp, ESL_SQ *sq)
+{
+  char *buf = NULL;
+  int   w;
+  int   pos;
+
+  if ((buf = malloc(sizeof(char) * (sq->n+1))) == NULL) esl_fatal("malloc failed");
+  esl_dsq_TextizeN(sq->abc, sq->dsq+1, sq->n, buf);
+  buf[sq->n] = '\0';
+
+  w = (esl_rnd_Roll(r, 2) == 0) ? 60 : ESL_MAX(1, sq->n);  // 60 residues per line, or all on one line 
+
+  sq->roff = ftello(fp);
+  fprintf(fp, ">%s", sq->name);
+  if (sq->desc[0] != 0) fprintf(fp, " %s", sq->desc);
+  sq->hoff = ftello(fp);    // unlike the writers above, we have to set hoff: sqarr[] offsets are stale from mode 2 by now 
+  fputc('\n', fp);
+
+  sq->doff = ftello(fp);
+  for (pos = 0; pos < sq->n; pos += w)
+    fprintf(fp, "%.*s\n", (int) ESL_MIN(w, sq->n-pos), buf+pos);
+  sq->eoff = ftello(fp) - 1;
+  free(buf);
+}
+
+static void
+check_geometry(int mode, int bpl, int rpl, char *msg)
+{
+  switch (mode) {
+  case 0:  if (bpl != 0)               esl_fatal(msg); break; // uglified: bpl should be invalid (rpl might not be) 
+  case 1:  if (rpl != 60 || bpl == 0)  esl_fatal(msg); break; // spaced: bpl, rpl should be valid 
+  case 2:  if (rpl != 60 || bpl != 61) esl_fatal(msg); break; // normal: bpl, rpl should be valid, w/ bpl=rpl+1 
+  case 3:  break;   // mixed: bpl,rpl could come out either way here; utest_subseq_geometry() pins down the exact cases
+  }
+}
 
 static void
 make_ssi_index(ESL_ALPHABET *abc, const char *tmpfile, int format, char *ssifile, int mode)
@@ -1908,14 +1950,7 @@ make_ssi_index(ESL_ALPHABET *abc, const char *tmpfile, int format, char *ssifile
   
   if (esl_newssi_Write(ns)        != eslOK)  esl_fatal(msg);
 
-  bpl = sqfp->data.ascii.bpl;
-  rpl = sqfp->data.ascii.rpl;
-
-  switch (mode) {
-  case 0:  if (bpl != 0)               esl_fatal(msg); break; /* uglified: bpl should be invalid (rpl might not be) */
-  case 1:  if (rpl != 60 || bpl == 0)  esl_fatal(msg); break; /* spaced: bpl, rpl should be valid */
-  case 2:  if (rpl != 60 || bpl != 61) esl_fatal(msg); break; /* normal: bpl, rpl should be valid, w/ bpl=rpl+1 */
-  }
+  check_geometry(mode, sqfp->data.ascii.bpl, sqfp->data.ascii.rpl, msg);
 
   esl_sqfile_Close(sqfp);
   esl_newssi_Close(ns);
@@ -1930,8 +1965,6 @@ utest_read(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, char *seqfile, int format, 
   ESL_SQFILE *sqfp        = NULL;
   int         nseq        = 0;
   int         status;
-  
-  int         bpl, rpl;
  
   if (esl_sqfile_OpenDigital(abc, seqfile, format, NULL, &sqfp) != eslOK) esl_fatal(msg);
   while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
@@ -1945,14 +1978,7 @@ utest_read(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, char *seqfile, int format, 
   if (status != eslEOF) esl_fatal(msg);
   if (nseq   != N)      esl_fatal(msg);
 
-  bpl = sqfp->data.ascii.bpl;
-  rpl = sqfp->data.ascii.rpl;
-
-  switch (mode) {
-  case 0:  if (bpl != 0)                     esl_fatal(msg); break; /* uglified: bpl should be invalid (rpl might not be) */
-  case 1:  if (rpl != 60 || bpl == 0)  esl_fatal(msg); break; /* spaced: bpl, rpl should be valid */
-  case 2:  if (rpl != 60 || bpl != 61) esl_fatal(msg); break; /* normal: bpl, rpl should be valid, w/ bpl=rpl+1 */
-  }
+  check_geometry(mode, sqfp->data.ascii.bpl, sqfp->data.ascii.rpl, msg);
 
   esl_sqfile_Close(sqfp);
   esl_sq_Destroy(sq);
@@ -1966,8 +1992,6 @@ utest_read_info(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, char *seqfile, int for
   ESL_SQFILE *sqfp        = NULL;
   int         nseq        = 0;
   int         status;
-  
-  int         bpl, rpl;
  
   if (esl_sqfile_OpenDigital(abc, seqfile, format, NULL, &sqfp) != eslOK) esl_fatal(msg);
   while ((status = esl_sqio_ReadInfo(sqfp, sq)) == eslOK)
@@ -1992,14 +2016,7 @@ utest_read_info(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, char *seqfile, int for
   if (status != eslEOF) esl_fatal(msg);
   if (nseq   != N)      esl_fatal(msg);
 
-  bpl = sqfp->data.ascii.bpl;
-  rpl = sqfp->data.ascii.rpl;
-
-  switch (mode) {
-  case 0:  if (bpl != 0)                     esl_fatal(msg); break; /* uglified: bpl should be invalid (rpl might not be) */
-  case 1:  if (rpl != 60 || bpl == 0)  esl_fatal(msg); break; /* spaced: bpl, rpl should be valid */
-  case 2:  if (rpl != 60 || bpl != 61) esl_fatal(msg); break; /* normal: bpl, rpl should be valid, w/ bpl=rpl+1 */
-  }
+  check_geometry(mode, sqfp->data.ascii.bpl, sqfp->data.ascii.rpl, msg);
 
   esl_sqfile_Close(sqfp);
   esl_sq_Destroy(sq);
@@ -2016,9 +2033,9 @@ utest_read_window(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, char *seqfile, int f
   int         C           = 10;
   int         W           = 50;
   int         nres        = 0;
+  int         L;
   int         wstatus;
 
-  int         bpl, rpl, L;
  
   if (esl_sqfile_OpenDigital(abc, seqfile, format, NULL, &sqfp) != eslOK) esl_fatal(msg);
   while ((wstatus = esl_sqio_ReadWindow(sqfp, C, W, sq)) == eslOK || wstatus == eslEOD)
@@ -2070,14 +2087,7 @@ utest_read_window(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, char *seqfile, int f
       }
     }
 
-  bpl = sqfp->data.ascii.bpl;
-  rpl = sqfp->data.ascii.rpl;
-
-  switch (mode) {
-  case 0:  if (bpl != 0)                     esl_fatal(msg); break; /* uglified: bpl should be invalid (rpl might not be) */
-  case 1:  if (rpl != 60 || bpl == 0)  esl_fatal(msg); break; /* spaced: bpl, rpl should be valid */
-  case 2:  if (rpl != 60 || bpl != 61) esl_fatal(msg); break; /* normal: bpl, rpl should be valid, w/ bpl=rpl+1 */
-  }
+  check_geometry(mode, sqfp->data.ascii.bpl, sqfp->data.ascii.rpl, msg);
 
   if (wstatus != eslEOF) esl_fatal(msg);
   if (nseq    != N)      esl_fatal(msg);
@@ -2118,6 +2128,66 @@ utest_fetch_subseq(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, 
     }
 
   esl_sqfile_Close(sqfp);
+  esl_sq_Destroy(sq);
+}
+
+
+/* utest_subseq_geometry()
+ *
+ * A file only qualifies for bpl/rpl subseq indexing if every sequence
+ * line in it is bpl,rpl - except that the last line of a record may be
+ * shorter, and (when bpl=rpl+1, single residue resolution) no line may
+ * hold anything but residues and its newline. Check that we detect
+ * violations wherever they hide: in a record with only one sequence
+ * line (which has no nonterminal line to be compared against); in the
+ * first record, before bpl,rpl have been set at all; and on a final
+ * line with no terminating newline. Fetches from such a file are
+ * silently corrupted if we get this wrong.
+ */
+static void
+utest_subseq_geometry(void)
+{
+  char *msg = "sqio subseq geometry unit test failed";
+  struct { char *fasta; int bpl; int rpl; } trial[] = {
+    /* uniform 10 residues/line, shorter last line in each record: valid, residue resolution */
+    { ">a\nACGTACGTAC\nACGTACGTAC\nAC\n>b\nACGTACGTAC\nACGT\n",               11, 10 },
+    /* a record on one line, longer than rpl */
+    { ">a\nACGTACGTAC\nACGTACGTAC\nAC\n>b\nACGTACGTACACGTACGTACACGT\n",        0,  0 },
+    /* ... and the same, before bpl,rpl have been set by any other record */
+    { ">b\nACGTACGTACACGTACGTACACGT\n>a\nACGTACGTAC\nACGTACGTAC\nAC\n",        0,  0 },
+    /* a final line longer than bpl, with no terminating newline */
+    { ">a\nACGTACGTAC\nACGTACGTAC\nAC\n>b\nACGTACGTAC\nACGTACGTACACGT",        0,  0 },
+    /* a space on a last line, which makes bpl=rpl+1 misleading; rpl stays valid, bpl doesn't */
+    { ">a\nACGTACGTAC\nACGTACGTAC\nAC\n>b\nACGTACGTAC\nAC GT\n",               0, 10 },
+    /* ... and the same, before bpl,rpl have been set */
+    { ">b\nAC GT\n>a\nACGTACGTAC\nACGTACGTAC\nAC\n",                           0, 10 },
+    /* ... and the same, with no terminating newline */
+    { ">a\nACGTACGTAC\nACGTACGTAC\nAC\n>b\nACGTACGTAC\nAC GT",                 0, 10 },
+  };
+  int         ntrials = sizeof(trial) / sizeof(trial[0]);
+  char        tmpfile[32];
+  FILE       *fp   = NULL;
+  ESL_SQFILE *sqfp = NULL;
+  ESL_SQ     *sq   = esl_sq_Create();
+  int         i;
+  int         status;
+
+  for (i = 0; i < ntrials; i++)
+    {
+      strcpy(tmpfile, "esltmpXXXXXX");
+      if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal("failed to make tmpfile");
+      fputs(trial[i].fasta, fp);
+      fclose(fp);
+
+      if (esl_sqfile_Open(tmpfile, eslSQFILE_FASTA, NULL, &sqfp) != eslOK) esl_fatal(msg);
+      while ((status = esl_sqio_ReadInfo(sqfp, sq)) == eslOK) esl_sq_Reuse(sq);
+      if (status != eslEOF)                     esl_fatal("%s: trial %d", msg, i);
+      if (sqfp->data.ascii.bpl != trial[i].bpl) esl_fatal("%s: trial %d, bpl %d not %d", msg, i, sqfp->data.ascii.bpl, trial[i].bpl);
+      if (sqfp->data.ascii.rpl != trial[i].rpl) esl_fatal("%s: trial %d, rpl %d not %d", msg, i, sqfp->data.ascii.rpl, trial[i].rpl);
+
+      esl_sqfile_Close(sqfp);
+      remove(tmpfile);
+    }
   esl_sq_Destroy(sq);
 }
 
@@ -2304,7 +2374,7 @@ main(int argc, char **argv)
   /* Create an array of sequences we'll use for all the tests */
   synthesize_testseqs(r, abc, maxL, N, &sqarr);
 
-  for (mode = 0; mode < 3; mode++) /* 0=ugly 1=spaced 2=normal*/
+  for (mode = 0; mode < 4; mode++) /* 0=ugly 1=spaced 2=normal 3=mixed*/
     {
       /* Write FASTA file to disk, and SSI index it */
       strcpy(tmpfile, "esltmpXXXXXX");
@@ -2320,6 +2390,7 @@ main(int argc, char **argv)
 	  sqarr[i]->acc[0] = c;
 	}
 	break;
+      case 3: for (i = 0; i < N; i++) write_mixed_fasta(r, fp, sqarr[i]); break;
       }
       fclose(fp);
       make_ssi_index(abc, tmpfile, eslSQFILE_FASTA, ssifile, mode);
@@ -2334,6 +2405,7 @@ main(int argc, char **argv)
     }  
 
   utest_guess_mechanics(abc, sqarr, N);
+  utest_subseq_geometry();
   utest_write          (abc, sqarr, N, eslMSAFILE_STOCKHOLM);
   utest_guess_empty_seq();
 

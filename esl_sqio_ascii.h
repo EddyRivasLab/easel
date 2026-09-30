@@ -65,15 +65,18 @@ typedef struct esl_sqascii_s {
   ESL_MSA      *msa;	      /* preloaded alignment to draw seqs from  */
   int           idx;	      /* index of next seq to return, 0..nseq-1 */
 
-  /* SSI indexes allow fast random access of records in a seq file          */
-  char    *ssifile;	      /* path to expected SSI index file            */
-  int      rpl;		      /* residues per line in file; -1=unset 0=inval*/
-  int      bpl;		      /* bytes per line in file; -1=unset, 0=inval  */
-  int      currpl;	      /* residues on current line (-1=unknown)      */
-  int      curbpl;	      /* bytes on current line    (-1=unknown)      */
-  int      prvrpl;	      /* residues on previous line                  */
-  int      prvbpl;	      /* bytes on previous line                     */
-  ESL_SSI *ssi;		      /* open ESL_SSI index, or NULL if none        */
+  /* SSI indexes allow fast random access of records in a seq file              */
+  char    *ssifile;     /* path to expected SSI index file                      */
+  int      rpl;         /* residues per line in file; -1=unset 0=inval          */
+  int      bpl;         /* bytes per line in file; -1=unset, 0=inval            */
+  int      currpl;      /* residues on current line (-1=unknown)                */
+  int      curbpl;      /* bytes on current line    (-1=unknown)                */
+  int      prvrpl;      /* residues on previous line                            */
+  int      prvbpl;      /* bytes on previous line                               */
+  int      maxrpl;      /* max residues on any seq line so far                  */
+  int      maxbpl;      /* max bytes on any seq line so far                     */
+  int      maxgap;      /* max nonresidues (e.g. spaces) on any seq line so far */
+  ESL_SSI *ssi;         /* open ESL_SSI index, or NULL if none                  */
 } ESL_SQASCII_DATA;
 
 

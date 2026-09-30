@@ -21,6 +21,8 @@ files_used = [ 'testsuite/example-genbank.gb',     # 4 phage DNA seqs:    NC_047
 
 progs_used = [ 'miniapps/easel' ]
 
+seq1 = 'ACGTACGTAG' * 12 + 'ACGTA'  # 125 residues, written 10 per line
+seq2 = 'AGCTTAGCTT' * 7             #  70 residues, all on one line
 
 (builddir, srcdir, tmppfx) = esl_itest.getargs(sys.argv)
 esl_itest.check_files(srcdir,   files_used)
@@ -28,7 +30,6 @@ esl_itest.check_progs(builddir, progs_used)
 
 # -h
 r = esl_itest.run(f'{builddir}/miniapps/easel sfetch -h')
-
 
 ##
 ## Two passes. Pass 1: unindexed. Pass 2: indexed.
@@ -40,11 +41,25 @@ for p in [ 'unindexed', 'indexed']:
     shutil.copyfile('{}/testsuite/example-uniprot.dat'.format(srcdir), '{}.dat'.format(tmppfx))
     shutil.copyfile('{}/testsuite/example-uniprot.fa'.format(srcdir), '{}.fa'.format(tmppfx))
 
+    # Also create two FASTA files whose records disagree on a line length:
+    # seq1 has 10 residues per line, seq2 is all on one line. Such files
+    # aren't "well-formatted" (see esl_ssi.md), so `easel sindex` must not
+    # mark them for fast subseq lookup. If it does, indexed `-c` fetches come
+    # back silently shifted, by a byte per line. The .noeol.fa version also
+    # leaves the newline off its last line, a second place such a bug hides.
+    for (sfx, eol) in [ ('mixed', '\n'), ('noeol', '') ]:
+        with open('{}.{}.fa'.format(tmppfx, sfx), 'w') as f:
+            f.write('>seq1\n')
+            for i in range(0, len(seq1), 10): f.write(seq1[i:i+10] + '\n')
+            f.write('>seq2\n' + seq2 + eol)
+
     # index them, on that pass
     if p == 'indexed':
         r = esl_itest.run('{}/miniapps/easel sindex {}.gb'.format(builddir,tmppfx))
         r = esl_itest.run('{}/miniapps/easel sindex {}.dat'.format(builddir,tmppfx))
         r = esl_itest.run('{}/miniapps/easel sindex {}.fa'.format(builddir,tmppfx))
+        for sfx in [ 'mixed', 'noeol' ]:
+            r = esl_itest.run('{}/miniapps/easel sindex {}.{}.fa'.format(builddir,tmppfx,sfx))
 
     # by name, verbatim fetch: output is GenBank format
     r = esl_itest.run('{0}/miniapps/easel sfetch {1}.gb NC_055916'.format(builddir, tmppfx))            
@@ -103,7 +118,20 @@ for p in [ 'unindexed', 'indexed']:
     # -c  subseq fetching
     r  = esl_itest.run('{0}/miniapps/easel sfetch -c 101..200 {1}.dat .'.format(builddir,tmppfx))
     if re.search(r'^>MNME_BEII9\/101-200', r.stdout) == None: esl_itest.fail()
-  
+
+    # -c  must return exactly the requested residues, indexed or not, even
+    #     from the two not-well-formatted files we made above.
+    for sfx in [ 'mixed', 'noeol' ]:
+        for (name, seq) in [ ('seq1', seq1), ('seq2', seq2) ]:
+            for (start, end) in [ (1,1), (1,10), (9,12), (11,20), (21,30), (61,70), (1,len(seq)) ]:
+                r    = esl_itest.run('{0}/miniapps/easel sfetch -c {1}..{2} {3}.{4}.fa {5}'.format(builddir, start, end, tmppfx, sfx, name))
+                got  = ''.join(r.stdout.splitlines()[1:])
+                what = '{} {}.fa {} -c {}..{}'.format(p, sfx, name, start, end)
+                if re.search(r'^>{0}\/{1}-{2}'.format(name, start, end), r.stdout) == None:
+                    esl_itest.fail('{}: bad name/coords line'.format(what))
+                if got != seq[start-1:end]:
+                    esl_itest.fail('{}: got {}, not {}'.format(what, got, seq[start-1:end]))
+
     for tmpfile in glob.glob('{}.*'.format(tmppfx)): os.remove(tmpfile)
 
 

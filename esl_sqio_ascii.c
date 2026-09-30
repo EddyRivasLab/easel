@@ -187,6 +187,9 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
   ascii->prvbpl     = -1; /* (ditto) */
   ascii->currpl     = -1;
   ascii->curbpl     = -1;
+  ascii->maxrpl     = -1;
+  ascii->maxbpl     = -1;
+  ascii->maxgap     = -1;
   ascii->ssi        = NULL;
 
   /* MSA formats are handled entirely by msafile module - 
@@ -1292,7 +1295,7 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 
     /* Now position for a subseq fetch of <start..end> on fwd strand, using SSI offset calc  */
     ESL_DASSERT1(( sq->doff != 0 ));
-    if (ascii->bpl == 0 || ascii->rpl == 0)      /* no help; brute force resolution. */
+    if (ascii->bpl <= 0 || ascii->rpl <= 0)      /* no help; brute force resolution. */
       {
         offset       = sq->doff;
         actual_start = 1;
@@ -2277,24 +2280,34 @@ seebuf(ESL_SQFILE *sqfp, int64_t maxn, int64_t *opt_nres, int64_t *opt_endpos)
       x   = sqfp->inmap[sym];
 
       if      (x <= 127) nres++;
-      else if (x == eslDSQ_EOL) 
+      else if (x == eslDSQ_EOL)
       {
          if (ascii->curbpl != -1) ascii->curbpl += bpos - lasteol;
          if (ascii->currpl != -1) ascii->currpl += nres - nres2;
          nres2        += nres - nres2;
 
-         if (ascii->rpl != 0 && ascii->prvrpl != -1) { /* need to treat counts on last line in record differently (can be shorter but not longer), hence cur/prv */
+         /* If bpl/rpl are set, then nonterminal seq lines must match
+          * them exactly, and terminal seq lines must fit within
+          * them. We may not know bpl/rpl yet when we see a terminal
+          * seq line (first sequence record(s) may have only one line
+          * of sequence), so track maxima over all seq lines.
+          */
+         if (ascii->curbpl                 > ascii->maxbpl) ascii->maxbpl = ascii->curbpl;
+         if (ascii->currpl                 > ascii->maxrpl) ascii->maxrpl = ascii->currpl;
+         if (ascii->curbpl - ascii->currpl > ascii->maxgap) ascii->maxgap = ascii->curbpl - ascii->currpl;
+
+         if (ascii->rpl != 0 && ascii->prvrpl != -1) {
            if      (ascii->rpl    == -1)         ascii->rpl = ascii->prvrpl; /* init  */
            else if (ascii->prvrpl != ascii->rpl) ascii->rpl = 0;             /* inval */
-           else if (ascii->currpl  > ascii->rpl) ascii->rpl = 0;             /* inval, this covers case when final line is longer */
          }
          if (ascii->bpl != 0 && ascii->prvbpl != -1) {
            if      (ascii->bpl    == -1)         ascii->bpl = ascii->prvbpl; /* init  */
            else if (ascii->prvbpl != ascii->bpl) ascii->bpl = 0;             /* inval */
-           else if (ascii->curbpl  > ascii->bpl) ascii->bpl = 0;             /* inval, this covers case when final line is longer */
-           else if (ascii->bpl    == ascii->rpl+1 &&
-                    ascii->curbpl != ascii->currpl+1) ascii->bpl = 0;        /* inval: catches an edge case where a final line has leading space(s) and (bpl==rpl+1) is misleading */
          }
+
+         if (ascii->rpl > 0 && ascii->maxrpl > ascii->rpl) ascii->rpl = 0;   /* inval: some line is longer than rpl */
+         if (ascii->bpl > 0 && ascii->maxbpl > ascii->bpl) ascii->bpl = 0;   /* inval: some line is longer than bpl */
+         if (ascii->bpl > 0 && ascii->bpl == ascii->rpl+1 && ascii->maxgap > 1)  ascii->bpl = 0;   /* inval: bpl==rpl+1 implies residue resolution, but some line has extra nonresidue bytes */
 
          ascii->prvbpl  = ascii->curbpl;
          ascii->prvrpl  = ascii->currpl;
@@ -2310,6 +2323,21 @@ seebuf(ESL_SQFILE *sqfp, int64_t maxn, int64_t *opt_nres, int64_t *opt_endpos)
 
   if (ascii->curbpl != -1) ascii->curbpl += bpos - lasteol - 1;
   if (ascii->currpl != -1) ascii->currpl += nres - nres2;
+
+  /* Watch out for a final line with no EOL.
+   * This may also be a partial line on a buffer boundary, but that's ok;
+   * curbpl/currpl can be underestimated for this line and we won't invalidate bpl/rpl indexing.
+   * The +1 in maxgap is for the EOL that we didn't see (yet, or if EOF, ever).
+   */
+  if (ascii->curbpl != -1) {
+    if (ascii->curbpl                     > ascii->maxbpl) ascii->maxbpl = ascii->curbpl;
+    if (ascii->currpl                     > ascii->maxrpl) ascii->maxrpl = ascii->currpl;
+    if (ascii->curbpl - ascii->currpl + 1 > ascii->maxgap) ascii->maxgap = ascii->curbpl - ascii->currpl + 1;
+  }
+  if (ascii->rpl > 0 && ascii->maxrpl > ascii->rpl) ascii->rpl = 0;
+  if (ascii->bpl > 0 && ascii->maxbpl > ascii->bpl) ascii->bpl = 0;
+  if (ascii->bpl > 0 && ascii->bpl == ascii->rpl+1 && ascii->maxgap > 1) ascii->bpl = 0;
+
   if (opt_nres   != NULL) *opt_nres   = nres;
   if (opt_endpos != NULL) *opt_endpos = bpos;
   return status;
@@ -3313,6 +3341,9 @@ esl_sqascii_Parse(char *buf, int size, ESL_SQ *sq, int format)
   ascii->prvbpl       = -1;/* (ditto) */
   ascii->currpl       = -1;
   ascii->curbpl       = -1;
+  ascii->maxrpl       = -1;
+  ascii->maxbpl       = -1;
+  ascii->maxgap       = -1;
   ascii->ssi          = NULL;
 
   /* Configure the <sqfp>'s parser and inmaps for this format. */
