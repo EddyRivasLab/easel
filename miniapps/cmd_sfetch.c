@@ -115,7 +115,11 @@ esl_cmd_sfetch(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
         }
 
       // There are two ways to ask for reverse complement: start>end coords and -r. If we do both, they cancel each other out
-      if (do_rev && esl_sq_ReverseComplement(sq) != eslOK) esl_fatal("Failed to reverse complement %s; is it a protein?\n", sq->name);
+      if (do_rev)
+        {
+          if (esl_sq_ReverseComplement(sq) != eslOK) esl_fatal("Failed to reverse complement %s; is it a protein?\n", sq->name);
+          esl_sq_FormatName(sq, "%s/%" PRId64 "-%" PRId64, sq->source, sq->start, sq->end);  // ReverseComplement() swapped start/end again; rename to match
+        }
       if (newname) esl_sq_SetName(sq, newname);
       esl_sqio_Write(ofp, sq, eslSQFILE_FASTA, FALSE);
 
@@ -215,17 +219,20 @@ ssi_subseq_fetch(FILE *ofp, ESL_SQFILE *sqfp, char *key, int64_t start, int64_t 
   int     do_rev;
 
   /* reverse complement indicated by coords start>end, but watch out for end=0 case; we don't know sq->n yet */
-  if      (end   == 0)         { i = start; j = 0;     do_rev = TRUE;  }  // "42:"    => suffix
+  if      (end   == 0)         { i = start; j = 0;     do_rev = FALSE; }  // "42:"    => suffix
   else if (start == 0)         { i = end;   j = 0;     do_rev = TRUE;  }  // ":42"    => suffix rev comp
   else if (start > end)        { i = end;   j = start; do_rev = TRUE;  }  // "100:42" => rev comp
-  else                         { i = start; j = end;   do_rev = FALSE; }  // "42:"    => normal
+  else                         { i = start; j = end;   do_rev = FALSE; }  // "42:100" => normal
 
   /* FetchSubseq() is aware of end=0 special case semantics, but does not handle revcomp start>end convention; fetch i..j */
   if (esl_sqio_FetchSubseq(sqfp, key, i, j, sq) != eslOK) esl_fatal(esl_sqfile_GetErrorBuf(sqfp));
 
-  if (do_rev && esl_sq_ReverseComplement(sq) != eslOK)
-    esl_fatal("Failed to reverse complement %s; is it a protein?\n", sq->name);
-
+  if (do_rev)
+    {
+      if (esl_sq_ReverseComplement(sq) != eslOK)
+        esl_fatal("Failed to reverse complement %s; is it a protein?\n", sq->name);
+      esl_sq_FormatName(sq, "%s/%" PRId64 "-%" PRId64, sq->source, sq->start, sq->end);  // ReverseComplement() swapped start/end; rename to match, like convert_to_subseq() does
+    }
   *ret_sq = sq;
 }
 
@@ -241,6 +248,8 @@ ssi_subseq_fetch(FILE *ofp, ESL_SQFILE *sqfp, char *key, int64_t start, int64_t 
  * If start<=end, the subsequence is start..end. If start>end,
  * start..end is reverse complemented, meaning the subseq coords are
  * end..start relative to the original source.
+ *
+ * The coords must be [1,sq->n]. Else, we exit with an error message.
  *
  * The point of using text mode in `easel sfetch` is to preserve any
  * meaningful use of upper/lower case or special residues in the
@@ -291,6 +300,10 @@ convert_to_subseq(ESL_SQ *sq, int64_t start, int64_t end)
   /* reverse complement indicated by coords start>end */
   if (start > end) { i = end;   j = start; do_rev = TRUE;  }
   else             { i = start; j = end;   do_rev = FALSE; }
+
+  /* Validate the coords, now that we know sq->n */
+  if (i < 1 || i > sq->n) esl_fatal("Requested start %" PRId64 " isn't in the sequence %s", i, sq->name);
+  if (j > sq->n)          esl_fatal("Subsequence end %" PRId64 " is greater than length %" PRId64, j, sq->n);
 
   /* Keep original name in sq->source; then reset the name to the subseq name.
    */

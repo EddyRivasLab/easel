@@ -24,6 +24,8 @@ progs_used = [ 'miniapps/easel' ]
 seq1 = 'ACGTACGTAG' * 12 + 'ACGTA'  # 125 residues, written 10 per line
 seq2 = 'AGCTTAGCTT' * 7             #  70 residues, all on one line
 
+def revcomp(s): return s[::-1].translate(str.maketrans('ACGT', 'TGCA'))
+
 (builddir, srcdir, tmppfx) = esl_itest.getargs(sys.argv)
 esl_itest.check_files(srcdir,   files_used)
 esl_itest.check_progs(builddir, progs_used)
@@ -41,24 +43,27 @@ for p in [ 'unindexed', 'indexed']:
     shutil.copyfile('{}/testsuite/example-uniprot.dat'.format(srcdir), '{}.dat'.format(tmppfx))
     shutil.copyfile('{}/testsuite/example-uniprot.fa'.format(srcdir), '{}.fa'.format(tmppfx))
 
-    # Also create two FASTA files whose records disagree on a line length:
-    # seq1 has 10 residues per line, seq2 is all on one line. Such files
-    # aren't "well-formatted" (see esl_ssi.md), so `easel sindex` must not
-    # mark them for fast subseq lookup. If it does, indexed `-c` fetches come
-    # back silently shifted, by a byte per line. The .noeol.fa version also
-    # leaves the newline off its last line, a second place such a bug hides.
-    for (sfx, eol) in [ ('mixed', '\n'), ('noeol', '') ]:
+    # Also create three DNA FASTA files. In .wellfmt.fa, every seq line is
+    # 10 residues, so the file is "well-formatted" (see esl_ssi.md) and
+    # `easel sindex` marks it for fast subseq lookup. In the other two, the
+    # records disagree on a line length: seq1 has 10 residues per line, seq2
+    # is all on one line. Those aren't well-formatted, so `easel sindex` must
+    # *not* mark them. If it does, indexed `-c` fetches come back silently
+    # shifted, by a byte per line. The .noeol.fa version also leaves the
+    # newline off its last line, a second place such a bug hides.
+    for (sfx, w2, eol) in [ ('wellfmt', 10, '\n'), ('mixed', 70, '\n'), ('noeol', 70, '') ]:
         with open('{}.{}.fa'.format(tmppfx, sfx), 'w') as f:
             f.write('>seq1\n')
             for i in range(0, len(seq1), 10): f.write(seq1[i:i+10] + '\n')
-            f.write('>seq2\n' + seq2 + eol)
+            f.write('>seq2\n')
+            f.write('\n'.join([ seq2[i:i+w2] for i in range(0, len(seq2), w2) ]) + eol)
 
     # index them, on that pass
     if p == 'indexed':
         r = esl_itest.run('{}/miniapps/easel sindex {}.gb'.format(builddir,tmppfx))
         r = esl_itest.run('{}/miniapps/easel sindex {}.dat'.format(builddir,tmppfx))
         r = esl_itest.run('{}/miniapps/easel sindex {}.fa'.format(builddir,tmppfx))
-        for sfx in [ 'mixed', 'noeol' ]:
+        for sfx in [ 'wellfmt', 'mixed', 'noeol' ]:
             r = esl_itest.run('{}/miniapps/easel sindex {}.{}.fa'.format(builddir,tmppfx,sfx))
 
     # by name, verbatim fetch: output is GenBank format
@@ -119,11 +124,11 @@ for p in [ 'unindexed', 'indexed']:
     r  = esl_itest.run('{0}/miniapps/easel sfetch -c 101..200 {1}.dat .'.format(builddir,tmppfx))
     if re.search(r'^>MNME_BEII9\/101-200', r.stdout) == None: esl_itest.fail()
 
-    # -c  must return exactly the requested residues, indexed or not, even
-    #     from the two not-well-formatted files we made above.
-    for sfx in [ 'mixed', 'noeol' ]:
+    # -c  must return exactly the requested residues, indexed or not, and
+    #     whether or not the file is well-formatted.
+    for sfx in [ 'wellfmt', 'mixed', 'noeol' ]:
         for (name, seq) in [ ('seq1', seq1), ('seq2', seq2) ]:
-            for (start, end) in [ (1,1), (1,10), (9,12), (11,20), (21,30), (61,70), (1,len(seq)) ]:
+            for (start, end) in [ (1,1), (1,10), (9,12), (11,20), (21,30), (61,70), (1,len(seq)), (len(seq),len(seq)) ]:
                 r    = esl_itest.run('{0}/miniapps/easel sfetch -c {1}..{2} {3}.{4}.fa {5}'.format(builddir, start, end, tmppfx, sfx, name))
                 got  = ''.join(r.stdout.splitlines()[1:])
                 what = '{} {}.fa {} -c {}..{}'.format(p, sfx, name, start, end)
@@ -131,6 +136,62 @@ for p in [ 'unindexed', 'indexed']:
                     esl_itest.fail('{}: bad name/coords line'.format(what))
                 if got != seq[start-1:end]:
                     esl_itest.fail('{}: got {}, not {}'.format(what, got, seq[start-1:end]))
+
+    # -c  open-ended and reverse complement coords. '<i>..' is i..L; '..<i>'
+    #     is L..i revcomp; '<j>..<i>' with j>i is i..j revcomp. Indexed and
+    #     unindexed fetches go through different code (ssi_subseq_fetch() vs
+    #     convert_to_subseq() in cmd_sfetch.c), and <key>='.' always takes the
+    #     unindexed one, so we check that all of them agree - both on the
+    #     residues, and on the name/coords they claim in the FASTA header.
+    for sfx in [ 'wellfmt', 'mixed', 'noeol' ]:
+        for (key, name, seq) in [ ('seq1', 'seq1', seq1), ('seq2', 'seq2', seq2), ('.', 'seq1', seq1) ]:
+            L = len(seq)
+            for (coords, cname, want) in [ ('11..20',           '11-20',            seq[10:20]  ),
+                                           ('20..11',           '20-11',    revcomp(seq[10:20]) ),
+                                           ('{}..'.format(L-9), '{}-{}'.format(L-9, L),    seq[L-10:]  ),
+                                           ('..{}'.format(L-9), '{}-{}'.format(L, L-9), revcomp(seq[L-10:]) ) ]:
+                r    = esl_itest.run('{0}/miniapps/easel sfetch -c {1} {2}.{3}.fa {4}'.format(builddir, coords, tmppfx, sfx, key))
+                got  = ''.join(r.stdout.splitlines()[1:])
+                what = '{} {}.fa {} -c {}'.format(p, sfx, key, coords)
+                if re.search(r'^>{}\/{}\s'.format(name, cname), r.stdout) == None:
+                    esl_itest.fail('{}: bad name/coords line: {}'.format(what, r.stdout.splitlines()[0]))
+                if got != want:
+                    esl_itest.fail('{}: got {}, not {}'.format(what, got, want))
+
+    # -c  with -r too. -r reverse complements after the fetch, so it flips the
+    #     sense of the coords: `-rc 11..20` gives the same thing as `-c 20..11`,
+    #     and for `-rc 20..11` the two cancel. The name/coords must flip along
+    #     with the residues. -r is applied in shared code in esl_cmd_sfetch(),
+    #     so one file suffices here; the two <key> forms cover both fetch paths.
+    for (key, name, seq) in [ ('seq1', 'seq1', seq1), ('.', 'seq1', seq1) ]:
+        L = len(seq)
+        for (coords, cname, want) in [ ('11..20',           '20-11',            revcomp(seq[10:20]) ),
+                                       ('20..11',           '11-20',                    seq[10:20]  ),
+                                       ('{}..'.format(L-9), '{}-{}'.format(L, L-9), revcomp(seq[L-10:]) ),
+                                       ('..{}'.format(L-9), '{}-{}'.format(L-9, L),         seq[L-10:]  ) ]:
+            r    = esl_itest.run('{0}/miniapps/easel sfetch -rc {1} {2}.wellfmt.fa {3}'.format(builddir, coords, tmppfx, key))
+            got  = ''.join(r.stdout.splitlines()[1:])
+            what = '{} wellfmt.fa {} -rc {}'.format(p, key, coords)
+            if re.search(r'^>{}\/{}\s'.format(name, cname), r.stdout) == None:
+                esl_itest.fail('{}: bad name/coords line: {}'.format(what, r.stdout.splitlines()[0]))
+            if got != want:
+                esl_itest.fail('{}: got {}, not {}'.format(what, got, want))
+
+    # -c  coords off the end of the sequence must fail cleanly. The indexed
+    #     path range checks in esl_sqio_FetchSubseq(), but convert_to_subseq()
+    #     used to not check at all: it read off the end of sq->seq and printed
+    #     junk residues under a header claiming the requested coords, with
+    #     exit status 0.
+    for sfx in [ 'wellfmt', 'mixed', 'noeol' ]:
+        for (key, seq) in [ ('seq1', seq1), ('seq2', seq2), ('.', seq1) ]:
+            L = len(seq)
+            for coords in [ '1..{}'.format(L+1),         '{}..{}'.format(L, L+1),
+                            '{}..{}'.format(L+1, L+10),  '{}..1'.format(L+1),
+                            '{}..'.format(L+1),          '..{}'.format(L+1),
+                            '100000..100010' ]:
+                r = esl_itest.run('{0}/miniapps/easel sfetch -c {1} {2}.{3}.fa {4}'.format(builddir, coords, tmppfx, sfx, key), expect_success=False)
+                if re.search(r"isn't in the sequence|is greater than length", r.stderr) == None:
+                    esl_itest.fail('{} {}.fa {} -c {}: failed, but not with a range error: {}'.format(p, sfx, key, coords, r.stderr))
 
     for tmpfile in glob.glob('{}.*'.format(tmppfx)): os.remove(tmpfile)
 
