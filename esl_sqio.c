@@ -2318,6 +2318,51 @@ utest_guess_empty_seq()
   esl_sq_Destroy(seqs[1]);
 }
 
+/* utest_fasta_comments()
+ *
+ * Lines starting with ; before the first FASTA record are comments
+ * (Pearson's original FASTA format). Make sure that format guessing
+ * and the FASTA parser skip them, and that the record offset of the
+ * first sequence still points at its >.
+ */
+static void
+utest_fasta_comments(void)
+{
+  char       *msg      = "sqio fasta_comments unit test failure";
+  char        tmpfile[32];
+  char       *text     = ";comment\n;\n>seq1 first\nACGT\nAC\n>seq2\nGGGG\n";
+  int         format   = eslSQFILE_UNKNOWN;
+  FILE       *fp;
+  ESL_SQFILE *sqfp;
+  ESL_SQ     *sq       = esl_sq_Create();
+
+  strcpy(tmpfile, "esltmpXXXXXX");   // no suffix, so format guessing has to read the file
+  if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
+  fputs(text, fp);
+  fclose(fp);
+
+  if (esl_sqfile_Open(tmpfile, format, NULL, &sqfp) != eslOK) esl_fatal(msg);
+  if (sqfp->format != eslSQFILE_FASTA)                        esl_fatal(msg);
+
+  if (esl_sqio_Read(sqfp, sq)         != eslOK) esl_fatal(msg);
+  if (strcmp(sq->name, "seq1")        != 0)     esl_fatal(msg);
+  if (strcmp(sq->desc, "first")       != 0)     esl_fatal(msg);
+  if (strcmp(sq->seq,  "ACGTAC")      != 0)     esl_fatal(msg);
+  if (sq->roff                        != 11)    esl_fatal(msg);   // strlen(";comment\n;\n")
+  esl_sq_Reuse(sq);
+
+  if (esl_sqio_Read(sqfp, sq)         != eslOK) esl_fatal(msg);
+  if (strcmp(sq->name, "seq2")        != 0)     esl_fatal(msg);
+  if (strcmp(sq->seq,  "GGGG")        != 0)     esl_fatal(msg);
+  esl_sq_Reuse(sq);
+
+  if (esl_sqio_Read(sqfp, sq)         != eslEOF) esl_fatal(msg);
+
+  esl_sqfile_Close(sqfp);
+  esl_sq_Destroy(sq);
+  remove(tmpfile);
+}
+
 #endif /*eslSQIO_TESTDRIVE*/
 /*------------------ end, unit tests ----------------------------*/
 
@@ -2408,6 +2453,7 @@ main(int argc, char **argv)
   utest_subseq_geometry();
   utest_write          (abc, sqarr, N, eslMSAFILE_STOCKHOLM);
   utest_guess_empty_seq();
+  utest_fasta_comments();
 
   for (i = 0; i < N; i++) esl_sq_Destroy(sqarr[i]);
   free(sqarr);

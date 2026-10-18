@@ -416,8 +416,8 @@ sqascii_GuessFileFormat(ESL_SQFILE *sqfp, int *ret_fmt)
   ascii->is_linebased = TRUE;
   loadbuf(sqfp);/* now ascii->buf is a line of the file */
 
-  /* get first nonblank line */
-  while (esl_str_IsBlank(ascii->buf)) {
+  /* get first nonblank line, skipping ; comment lines (as in FASTA, see header_fasta()) */
+  while (esl_str_IsBlank(ascii->buf) || *(ascii->buf) == ';') {
     status = loadbuf(sqfp);
     if      (status == eslEOF) ESL_XFAIL(eslEFORMAT, ascii->errbuf, "No data found in file");
     else if (status != eslOK)  goto ERROR;
@@ -3023,7 +3023,10 @@ inmap_fasta(ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap)
  * 
  * sqfp->buf[sqfp->bpos] is sitting at the start of a FASTA record, or
  * at a space before it (in which case we'll advance, skipping whitespace,
- * until a > is reached).
+ * until a > is reached). Lines starting with ; before the record are
+ * comments, as in Pearson's original FASTA format, and are skipped too.
+ * (Between records this doesn't arise: the sequence parser stops at the
+ * next >, and ; is not a sequence character.)
  * Parse the header line, storing name and description in <sq>.
  * 
  * On success, returns <eslOK> and:
@@ -3053,7 +3056,12 @@ header_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq)
   if (ascii->nc == ascii->bpos && (status = loadbuf(sqfp)) != eslOK) return status;
 
   c =  ascii->buf[ascii->bpos];
-  while (status == eslOK && isspace(c)) status = nextchar(sqfp, &c); /* skip space (including \n) */
+  while (status == eslOK && (isspace(c) || c == ';'))  /* skip space (including \n) and ; comment lines */
+    {
+      if (c == ';')  /* ; comment line, as in Pearson's original FASTA format: skip to end of line */
+        while (status == eslOK && c != '\n') status = nextchar(sqfp, &c);
+      else status = nextchar(sqfp, &c);
+    }
 
   if (status == eslEOF) return eslEOF;
 
