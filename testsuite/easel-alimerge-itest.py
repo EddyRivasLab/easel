@@ -112,6 +112,13 @@ def msasplit(msafile, easel, K, tmppfx):
 # (Revisit this if we ever clean up gap character inconsistencies in
 # Stockholm/Pfam format files.)
 #
+# seq2's trailing ~ run covers its last consensus column, not only the
+# trailing insert column. `easel alicol --mingap` removes an insert
+# column that holds only ~'s, so if seq2 ended in a residue plus one ~
+# insert column, a split putting seq2 with seq3 would erase seq2's 3'
+# fragment marking before the merge, and the merged column would
+# correctly come back as '.', not '~'.
+#
 def write_small_testmsa(outfile):
     msa = """\
 # STOCKHOLM 1.0
@@ -125,7 +132,7 @@ def write_small_testmsa(outfile):
 #=GS seq1 XX unparsed GS annotation
 
 seq1         .AGGGAA.AAAACCCUUUUAA
-seq2         ~~~~GAAAAAAACCCUUUUA~
+seq2         ~~~~GAAAAAAACCCUUU~~~
 seq3         AAGGGAA..AAACCCUU~~~~
 #=GR seq3 SS ..<<<_....__>>>::....
 #=GR seq3 XX 1111111..11111111....
@@ -141,22 +148,36 @@ seq3         AAGGGAA..AAACCCUU~~~~
 
 # write_frag_testmsa()
 #
-# A fragment (seq1) whose leading and trailing ~ runs end right
-# against insert columns that only seq2 occupies. When the MSA is
-# split and merged back with `alimerge --small`, those insert columns
-# are new gap columns for seq1, at the inner edge of its ~ runs; they
-# must come back as ~, not '.'. (`cmalign` merges its temporary
-# alignments through the same esl_msafile2 code, and `cmbuild
-# --fraggiven` rejects a fragment with '.' before its first residue
-# or after its last.)
+# Two small MSAs, each with a fragment (seq1) and a full-length seq2
+# that alone occupies some insert columns. When an MSA is split and
+# merged back, those insert columns are new gap columns for seq1.
 #
-def write_frag_testmsa(outfile):
-    msa = """\
+# <which> = 1: seq1's leading and trailing ~ runs end right against
+# the insert columns, so the new columns are at the inner edge of its
+# ~ runs and must come back as ~, not '.'. (`cmalign` merges its
+# temporary alignments through the esl_msafile2 code that --small
+# uses, and `cmbuild --fraggiven` rejects a fragment with '.' before
+# its first residue or after its last.)
+#
+# <which> = 2: seq1 is a 5'-only fragment. The new trailing insert
+# columns are ordinary gaps and must come back as '.', not ~.
+#
+def write_frag_testmsa(outfile, which):
+    if which == 1:
+        msa = """\
 # STOCKHOLM 1.0
 
 seq1    ~~~~~~GGGAAACCCUU~~~~~
 seq2    AAGGaaGGGAAACCCUUuuAAA
 #=GC RF xxxx..xxxxxxxxxxx..xxx
+//"""
+    else:
+        msa = """\
+# STOCKHOLM 1.0
+
+seq1    ~~~~GGGAAACCCUUA..
+seq2    AAGGGGGAAACCCUUAuu
+#=GC RF xxxxxxxxxxxxxxxx..
 //"""
     with open(outfile, 'w') as f:
         print(msa, file=f)
@@ -254,12 +275,14 @@ def main():
     if not filecmp.cmp(f'{tmppfx}.sto', f'{tmppfx}.out', shallow=False): esl_itest.fail()
 
 
-    # --small with fragment ~ runs that abut new insert columns.
+    # Fragment ~ runs and new insert columns, with and without --small.
     #
-    write_frag_testmsa(f'{tmppfx}.sto')
-    msasplit(f'{tmppfx}.sto', easel, 2, tmppfx)
-    r  = esl_itest.run(f'{easel} alimerge --small -o {tmppfx}.out {tmppfx}.1.sto {tmppfx}.2.sto')
-    if not filecmp.cmp(f'{tmppfx}.sto', f'{tmppfx}.out', shallow=False): esl_itest.fail()
+    for which in (1, 2):
+        write_frag_testmsa(f'{tmppfx}.sto', which)
+        msasplit(f'{tmppfx}.sto', easel, 2, tmppfx)
+        for opt in ('', '--small'):
+            r  = esl_itest.run(f'{easel} alimerge {opt} -o {tmppfx}.out {tmppfx}.1.sto {tmppfx}.2.sto')
+            if not filecmp.cmp(f'{tmppfx}.sto', f'{tmppfx}.out', shallow=False): esl_itest.fail()
 
 
     # Cleanup
