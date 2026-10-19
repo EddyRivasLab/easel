@@ -137,6 +137,29 @@ seq3         AAGGGAA..AAACCCUU~~~~
         print(msa, file=f)
 
 
+
+
+# write_frag_testmsa()
+#
+# A fragment (seq1) whose leading and trailing ~ runs end right
+# against insert columns that only seq2 occupies. When the MSA is
+# split and merged back with `alimerge --small`, those insert columns
+# are new gap columns for seq1, at the inner edge of its ~ runs; they
+# must come back as ~, not '.'. (`cmalign` merges its temporary
+# alignments through the same esl_msafile2 code, and `cmbuild
+# --fraggiven` rejects a fragment with '.' before its first residue
+# or after its last.)
+#
+def write_frag_testmsa(outfile):
+    msa = """\
+# STOCKHOLM 1.0
+
+seq1    ~~~~~~GGGAAACCCUU~~~~~
+seq2    AAGGaaGGGAAACCCUUuuAAA
+#=GC RF xxxx..xxxxxxxxxxx..xxx
+//"""
+    with open(outfile, 'w') as f:
+        print(msa, file=f)
     
     
 def main():
@@ -228,6 +251,14 @@ def main():
     msasplit(f'{tmppfx}.sto', easel, 2, tmppfx)
     r  = esl_itest.run(f'{easel} alimerge {tmppfx}.1.sto {tmppfx}.2.sto')
     r2 = subprocess.run(f'{easel} reformat -o {tmppfx}.out --replace=-:. pfam -'.split(), check=True, encoding='utf-8', input=r.stdout)
+    if not filecmp.cmp(f'{tmppfx}.sto', f'{tmppfx}.out', shallow=False): esl_itest.fail()
+
+
+    # --small with fragment ~ runs that abut new insert columns.
+    #
+    write_frag_testmsa(f'{tmppfx}.sto')
+    msasplit(f'{tmppfx}.sto', easel, 2, tmppfx)
+    r  = esl_itest.run(f'{easel} alimerge --small -o {tmppfx}.out {tmppfx}.1.sto {tmppfx}.2.sto')
     if not filecmp.cmp(f'{tmppfx}.sto', f'{tmppfx}.out', shallow=False): esl_itest.fail()
 
 
