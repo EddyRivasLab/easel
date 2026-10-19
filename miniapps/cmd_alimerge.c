@@ -1158,6 +1158,7 @@ inflate_string(const char *s, const char *rf, int L, const int *maxmis, const in
   char   gapchar = '.';            // all other new gaps we need to open in as[] are '.'
   int    lb      = 0;              // position of first non-'~' in s[], for fragment marking; 0 = no left ~'s
   int    rb      = L;              // position of last non-'~' in s[]; L = no right ~'s
+  int    newmis;                   // TRUE if a new column before s[i2] is inside (or at the inner edge of) a fragment ~ run
   int    nmis;                     // # of ~ chars in local structure alignment part of current insert block, according to rf[]
   int    ngap;                     // # of gap chars in insert part of current insert block, according to rf[]
   int    x,i2;
@@ -1167,12 +1168,12 @@ inflate_string(const char *s, const char *rf, int L, const int *maxmis, const in
 
   ESL_ALLOC(as, sizeof(char) * (new_alen+1));
 
-  /* find first and last non-'~' chars in s[], if as[] is an aligned seq that may need to be fragment-marked */
-  if (do_frag_tildes && (s[0] == '~' || s[L-1] == '~'))
-    {
-      for (lb  = 0;   lb  <  L; lb++) if (s[lb] != '~') break;
-      for (rb  = L-1; rb  >= 0; rb--) if (s[rb] != '~') break;
-    }
+  /* find first and last non-'~' chars in s[], if as[] is an aligned seq that may need to be fragment-marked.
+   * Leave rb = L if there are no right ~'s (and lb = 0 if no left ~'s), or new trailing columns
+   * of a 5'-only fragment would be marked ~.
+   */
+  if (do_frag_tildes && s[0]   == '~') for (lb = 0;   lb <  L; lb++) if (s[lb] != '~') break;
+  if (do_frag_tildes && s[L-1] == '~') for (rb = L-1; rb >= 0; rb--) if (s[rb] != '~') break;
 
   while (c <= C)
     {
@@ -1203,11 +1204,13 @@ inflate_string(const char *s, const char *rf, int L, const int *maxmis, const in
       else
         {               // All other insert blocks are split, left- and right-justified; expansion happens in middles
           for (i2 = ip+1; i2 <= ip + nmis/2;        i2++)  { as[j++] = (i2 < lb || i2 > rb ? '~' : s[i2]);   }
-          for (x  = 0;    x  <  maxmis[c-1] - nmis; x++)   { as[j++] = (i2 < lb || i2 > rb ? '~' : mischar); }
+          newmis = ((lb > 0 && i2 <= lb) || i2 > rb);     // a new column just before s[lb] (the first residue) is ~ too
+          for (x  = 0;    x  <  maxmis[c-1] - nmis; x++)   { as[j++] = (newmis ? '~' : mischar); }
           for (      ;    i2 <= ip + nmis;          i2++)  { as[j++] = (i2 < lb || i2 > rb ? '~' : s[i2]);   }
 
           for (      ; i2 <= ip + nmis + ngap/2; i2++)     { as[j++] = (i2 < lb || i2 > rb ? '~' : s[i2]);   }
-          for (x  = 0; x  <  maxgap[c-1] - ngap; x++)      { as[j++] = (i2 < lb || i2 > rb ? '~' : gapchar); }
+          newmis = ((lb > 0 && i2 <= lb) || i2 > rb);
+          for (x  = 0; x  <  maxgap[c-1] - ngap; x++)      { as[j++] = (newmis ? '~' : gapchar); }
           for (      ; i2 <= i-1;                i2++)     { as[j++] = (i2 < lb || i2 > rb ? '~' : s[i2]);   }
         }
 

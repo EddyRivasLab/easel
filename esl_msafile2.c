@@ -273,7 +273,7 @@ msafile2_open(const char *filename, const char *env, ESL_MSAFILE2 **ret_afp)
 
 static int  get_pp_idx(ESL_ALPHABET *abc, char ppchar);
 static int  gapize_string(char *src_str, int64_t src_len, int64_t dst_len, int *ngapA, char gapchar, char **ret_dst_str);
-static void fix_frag_tilde_bug(const char *s, int L, char *as, int N);
+static void fix_frag_tilde_bug(const char *s, int64_t L, const int *ngapA, char *as);
 static void shrink_string(char *str, const int *useme, int len);
 static int  determine_spacelen(char *s);
 
@@ -1031,7 +1031,7 @@ esl_msafile2_RegurgitatePfam(ESL_MSAFILE2 *afp, FILE *ofp, int maxname, int maxg
 	      if(add2me != NULL) { 
 		if((status = gapize_string(text, textlen, textlen + gaps2addlen, add2me, gapchar2add, &gapped_text)) != eslOK) goto ERROR; 
                 if (text[0] == '~' || text[textlen-1] == '~')
-                  fix_frag_tilde_bug(text, textlen, gapped_text, textlen + gaps2addlen);
+                  fix_frag_tilde_bug(text, textlen, add2me, gapped_text);
 		fprintf(ofp, "%-*s %s\n", curmargin, seqname, gapped_text);
 		free(gapped_text);
 	      }
@@ -1069,22 +1069,37 @@ esl_msafile2_RegurgitatePfam(ESL_MSAFILE2 *afp, FILE *ofp, int maxname, int maxg
  * esl_msafile2 interface already annoys me, so I'm deferring that. I
  * added this as a workaround when I reimplemented `easel alimerge`.
  * [2026/0520-easel-alimerge-small]
+ *
+ * The workaround converts each new gap column to `~` if it falls
+ * inside a leading or trailing `~` run of the source aseq <s>, or at
+ * the run's inner edge (between the run and the first/last non-`~`
+ * character). The inner edge matters: `cmalign` merges its
+ * temporary alignments with this function, and a new insert column
+ * just before a fragment's first residue (or just after its last)
+ * must be `~` too, or `cmbuild --fraggiven` rejects the row.
+ *
+ * <s> is the source aseq of length <L>; <ngapA> is the same
+ * [0..L] gap count array gapize_string() used (ngapA[k] new gaps go
+ * before source position k); <as> is gapize_string()'s output.
  */
 static void
-fix_frag_tilde_bug(const char *s, int L, char *as, int N)
+fix_frag_tilde_bug(const char *s, int64_t L, const int *ngapA, char *as)
 {
-  int i,n;
+  int64_t nlead, ntrail;   /* lengths of the leading and trailing ~ runs in <s> */
+  int64_t k;               /* number of source chars to the left of a new gap column */
+  int64_t a = 0;           /* position in <as> */
+  int     i;
 
-  n = 0; 
-  while (s[n] == '~') n++;
-  for (i = 0; n && i < N; i++)
-    if (as[i] != '~') as[i] = '~'; else n--;
-  
-  n = 0;
-  while (s[L-n-1] == '~') n++;
-  for (i = N-1; n && i >= 0; i--)
-    if (as[i] != '~') as[i] = '~'; else n--;
-}  
+  for (nlead  = 0; nlead  < L && s[nlead]      == '~'; nlead++)  ;
+  for (ntrail = 0; ntrail < L && s[L-ntrail-1] == '~'; ntrail++) ;
+
+  for (k = 0; k <= L; k++)
+    {
+      for (i = 0; i < ngapA[k]; i++, a++)
+        if ((nlead && k <= nlead) || (ntrail && k >= L-ntrail)) as[a] = '~';
+      a++;   /* skip source char k */
+    }
+}
 
 
 /* get_pp_idx
