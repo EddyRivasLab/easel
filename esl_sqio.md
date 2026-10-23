@@ -1,24 +1,24 @@
 # esl_sqio - unaligned sequence file input/output
 
-The `sqio` module handles input from unaligned sequence data
-files, such as FASTA files.
+The `sqio` module handles unaligned sequence input from data files,
+such as FASTA files.
 
 `sqio` can automatically recognize and parse several different
 file formats, including FASTA, UniProt, Genbank, DDBJ, and EMBL.
 Additionally, it can read individual unaligned sequences from multiple
 alignment files in several different formats, including Stockholm,
-Clustal, aligned FASTA, PSI-BLAST, and Phylip.
+Clustal, aligned FASTA, A3M, PSI-BLAST, and Phylip.
 
-Sequences can be read from normal files, directly from the
-`stdin` pipe, or from `gzip`-compressed files.
+Sequences can be read from normal files, directly from a `stdin` pipe,
+or from `gzip`-compressed files.
 
 Sequence files can be automatically looked for in a list of one or
 more database directories, specified by an environment variable (such
-as `HMMERDB`).
+as `UNIPROTDB`).
 
-The module uses an `ESL_SQFILE` object which works much like an
-ANSI C `FILE`, maintaining information for an open sequence file
-while it's being read.
+The module uses an `ESL_SQFILE` object which works like an ANSI C
+`FILE`, maintaining information for an open sequence file while it's
+being read.
 
 
 ## examples
@@ -41,9 +41,8 @@ optional `env` argument is described below too; here, we're passing
 Several things can go wrong in trying to open a sequence file that are
 beyond the control of Easel or your application, so it's important
 that you check the return code. `esl_sqfile_Open()` returns
-`eslENOTFOUND` if the file can't be opened, and
-`eslEFORMAT` if the file is empty, or if autodetection can't
-determine its format.
+`eslENOTFOUND` if the file can't be opened, and `eslEFORMAT` if the
+file is empty or if autodetection can't determine its format.
 
 Additionally, internal errors might be thrown, which you should check
 for if you installed a nonfatal error handler.
@@ -106,12 +105,12 @@ on the command line.
 Accepted unaligned sequence file formats (and their Easel format
 codes) include:
 
-| name | code | description |
-|------|------|-------------|
-| fasta | `eslSQFILE_FASTA` | FASTA format |
-| embl | `eslSQFILE_EMBL` | EMBL DNA database format |
-| genbank | `eslSQFILE_GENBANK` | GenBank DNA database format |
-| ddbj | `eslSQFILE_DDBJ` | DDBJ DNA database format |
+| name    | code                | description                     |
+|---------|---------------------|---------------------------------|
+| fasta   | `eslSQFILE_FASTA`   | FASTA format                    |
+| embl    | `eslSQFILE_EMBL`    | EMBL DNA database format        |
+| genbank | `eslSQFILE_GENBANK` | GenBank DNA database format     |
+| ddbj    | `eslSQFILE_DDBJ`    | DDBJ DNA database format        |
 | uniprot | `eslSQFILE_UNIPROT` | UniProt protein database format |
 
 The above names, case-insensitive, are what a user uses to specify a
@@ -160,72 +159,3 @@ The `msafile` module is more advanced. Its parsers are based on the
 newer `buffer` module which provides rewindable input buffers even for
 stdin and pipes.
 
-## adding a sequence parser
-
-New parsers for new formats can be plugged into `sqio` without
-any API changes. Existing Easel-based programs don't need code changes
-to use the new parser.
-
-A new parser will need a format type, a structure for parser specific
-data, API functions and a hook into the `sqfile_open` function.
-
-The list of formats are defined in `esl_sqio.h`. A new
-`#define` gets added to the existing formats.
-
-A data structure for parser specific data will need to be added
-to `ESL_SQDATA`. This structure is a union of the
-different parser specific data structures.
-
-```c
-typedef union {
-  ESL_SQASCII_DATA ascii;
-  ESL_SQNCBI_DATA  ncbi;
-} ESL_SQDATA;
-```
-
-Finally, a set of parser specific function pointers need to be
-defined. The functions in `esl_sqio.c` in turn call these
-function pointers. The `esl_sqfile_Open` function initializes
-the function pointers to NULL, so if they are not set, an exception
-will occur when the function is called. At a minimum, the function
-should be defined to return an `eslEUNIMPLEMENTED`. Below is a
-map the the function pointers to their respective function.
-
-| Function pointer | `sqio` function |
-|------------------|-----------------|
-| position | `esl_sqfile_Position` |
-| close | `esl_sqfile_Close` |
-| set_digital | `esl_sqfile_SetDigital` |
-| guess_alphabet | `esl_sqfile_GuessAlphabet` |
-| read | `esl_sqio_Read` |
-| read_info | `esl_sqio_ReadInfo` |
-| read_seq | `esl_sqio_ReadSequence` |
-| read_window | `esl_sqio_ReadWindow` |
-| echo | `esl_sqio_Echo` |
-| read_block | `esl_sqio_ReadBlock` |
-| open_ssi | `esl_sqfile_OpenSSI` |
-| pos_by_key | `esl_sqfile_PositionByKey` |
-| pos_by_number | `esl_sqfile_PositionByNumber` |
-| fetch | `esl_sqio_Fetch` |
-| fetch_info | `esl_sqio_FetchInfo` |
-| fetch_subseq | `esl_sqio_FetchSubseq` |
-| is_rewindable | `esl_sqfile_IsRewindable` |
-| get_error | `esl_sqfile_GetErrorBuf` |
-
-A hook needs to be added to the function `sqfile_open`.
-This hook will try to open the specified file. If successful,
-the `ESL_SQFILE` structure should be filled in with function
-pointers and the parser specific data and the open hook
-return `eslOK`. If the sequence files were not found for
-the specific parser, an `eslENOTFOUND` is returned and
-the next parser tries to open the file. Below is an example
-of code that tries to open an NCBI BLAST database if not
-successful, then the ASCII sequence parsers try to open the
-file.
-
-```c
-    if (format == eslSQFILE_NCBI && status == eslENOTFOUND)
-      status = esl_sqncbi_Open(sqfp->filename, sqfp->format, sqfp);
-    if (status == eslENOTFOUND)
-      status = esl_sqascii_Open(sqfp->filename, sqfp->format, sqfp);
-```

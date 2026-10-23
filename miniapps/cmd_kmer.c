@@ -97,7 +97,7 @@ esl_cmd_kmer(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 
   while ((status = esl_sqio_Read(sqfp, sq)) != eslEOF)
     {
-      if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s)\n%s\n",        sqfp->filename, sqfp->get_error(sqfp));     
+      if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s)\n%s\n",        sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));     
       else if (status != eslOK)      esl_fatal("Unexpected error %d reading sequence file %s", status, sqfp->filename);
 
       for (s = 0; s < nstrands; s++)

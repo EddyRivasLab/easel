@@ -628,7 +628,7 @@ esl_dsqdata_Write(ESL_SQFILE *sqfp, char *basename, char *errbuf)
       n = strlen(sq->desc); if (n > max_desclen) max_desclen = n;
       esl_sq_Reuse(sq);
     }
-  if      (status == eslEFORMAT) ESL_XFAIL(eslEFORMAT, errbuf, sqfp->get_error(sqfp));
+  if      (status == eslEFORMAT) ESL_XFAIL(eslEFORMAT, errbuf, esl_sqfile_GetErrorBuf(sqfp));
   else if (status != eslEOF)     goto ERROR;
 
   if ((status = esl_sqfile_Position(sqfp, 0)) != eslOK) return status;
@@ -714,7 +714,7 @@ esl_dsqdata_Write(ESL_SQFILE *sqfp, char *basename, char *errbuf)
 
       esl_sq_Reuse(sq);
     }
-  if      (status == eslEFORMAT) ESL_XFAIL(eslEFORMAT, errbuf, sqfp->get_error(sqfp));
+  if      (status == eslEFORMAT) ESL_XFAIL(eslEFORMAT, errbuf, esl_sqfile_GetErrorBuf(sqfp));
   else if (status != eslEOF)     goto ERROR;
 
   /* Stub file */
@@ -1714,7 +1714,7 @@ main(int argc, char **argv)
   else {
     status = esl_sqfile_GuessAlphabet(sqfp, &alphatype);
     if      (status == eslENOALPHABET) esl_fatal("Couldn't guess alphabet from first sequence in %s", infile);
-    else if (status == eslEFORMAT)     esl_fatal("Parse failed (sequence file %s)\n%s\n", infile, sqfp->get_error(sqfp));     
+    else if (status == eslEFORMAT)     esl_fatal("Parse failed (sequence file %s)\n%s\n", infile, esl_sqfile_GetErrorBuf(sqfp));     
     else if (status == eslENODATA)     esl_fatal("Sequence file %s contains no data?", infile);
     else if (status != eslOK)          esl_fatal("Failed to guess alphabet (error code %d)\n", status);
   }
@@ -1723,7 +1723,7 @@ main(int argc, char **argv)
 
   status = esl_dsqdata_Write(sqfp, basename, errbuf);
   if      (status == eslEWRITE)  esl_fatal("Failed to open dsqdata output files:\n  %s", errbuf);
-  else if (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s)\n  %s", infile, sqfp->get_error(sqfp));
+  else if (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s)\n  %s", infile, esl_sqfile_GetErrorBuf(sqfp));
   else if (status != eslOK)      esl_fatal("Unexpected error while creating dsqdata file (code %d)\n", status);
 
   esl_sqfile_Close(sqfp);

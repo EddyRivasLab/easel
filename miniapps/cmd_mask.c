@@ -81,7 +81,7 @@ esl_cmd_mask(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 
   if (do_fetching)
     {
-      if (sqfp->data.ascii.do_gzip || sqfp->data.ascii.do_stdin || esl_sqio_IsAlignment(sqfp->format) )
+      if (sqfp->do_gzip || sqfp->do_stdin || esl_sqio_IsAlignment(sqfp->format) )
         esl_fatal("For fetching sequences with -R, <seqfile> must be an SSI-indexed plain sequence file");
 
       status = esl_sqfile_OpenSSI(sqfp, /*ssifile_hint=*/NULL);

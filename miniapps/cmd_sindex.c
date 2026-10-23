@@ -130,8 +130,8 @@ esl_cmd_sindex(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
     }
   
   /* Determine if the file was suitable for fast subseq lookup. */
-  if (sqfp->data.ascii.bpl > 0 && sqfp->data.ascii.rpl > 0) {
-    if ((status = esl_newssi_SetSubseq(ssifp, fh, sqfp->data.ascii.bpl, sqfp->data.ascii.rpl)) != eslOK) 
+  if (sqfp->bpl > 0 && sqfp->rpl > 0) {
+    if ((status = esl_newssi_SetSubseq(ssifp, fh, sqfp->bpl, sqfp->rpl)) != eslOK) 
       esl_fatal("Failed to set %s for fast subseq lookup.");
   }
 

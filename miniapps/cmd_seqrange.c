@@ -56,8 +56,8 @@ esl_cmd_seqrange(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
   else if (status != eslOK)        esl_fatal("Open failed, code %d.\n", status);
 
   /* Exit if seqfile is an alignment, is gzipped or is piped from stdin, we can't handle this */
-  if (sqfp->data.ascii.do_gzip)           esl_fatal("Can't determine seq range for a .gz compressed file\n");
-  if (sqfp->data.ascii.do_stdin)          esl_fatal("Can't determine seq range for a standard input pipe\n");
+  if (sqfp->do_gzip)                      esl_fatal("Can't determine seq range for a .gz compressed file\n");
+  if (sqfp->do_stdin)                     esl_fatal("Can't determine seq range for a standard input pipe\n");
   if (esl_sqio_IsAlignment(sqfp->format)) esl_fatal("Can't determine seq range for an alignment file\n");              
 
   /* Open the SSI index for retrieval, it is required */
@@ -67,8 +67,7 @@ esl_cmd_seqrange(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
   else if (status != eslOK)      esl_fatal("Failed to open SSI index\n");
 
   /* Verify that we have more processors than sequences */
-  ESL_SQASCII_DATA *ascii = &sqfp->data.ascii; 
-  if(ascii->ssi->nprimary < nproc) esl_fatal("Fewer sequences than processors (<nproc>); %d < %d\n", ascii->ssi->nprimary, nproc);
+  if (sqfp->ssi->nprimary < nproc) esl_fatal("Fewer sequences than processors (<nproc>); %d < %d\n", sqfp->ssi->nprimary, nproc);
 
   /* Determine the range for all <nproc> processors */
   range_by_seqnum(sqfp, nproc, &(final_sqidx));
@@ -98,11 +97,10 @@ range_by_seqnum(ESL_SQFILE *sqfp, int nproc, int64_t **ret_final_sqidx)
   int64_t     nseq_total;    /* total number of sequences in sqfp */
   int64_t     remainder;     /* num extra seqs after even split across all procs */
   int64_t     nseq_used;     /* running total of nseqs on all procs */
-  ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
   ESL_ALLOC(final_sqidx, sizeof(int64_t) * nproc);
 
-  nseq_total    = ascii->ssi->nprimary;
+  nseq_total    = sqfp->ssi->nprimary;
 
   nseq_per_proc = (int) (nseq_total / nproc);
   remainder     = nseq_total - (nseq_per_proc * nproc);
@@ -112,7 +110,7 @@ range_by_seqnum(ESL_SQFILE *sqfp, int nproc, int64_t **ret_final_sqidx)
     if(p < remainder) nseq_used++;
     final_sqidx[p] = nseq_used;
   }
-  if(nseq_used != nseq_total) esl_fatal("Unable to split up sequences properly, coding error");
+  if (nseq_used != nseq_total) esl_fatal("Unable to split up sequences properly, coding error");
 
   *ret_final_sqidx = final_sqidx;
 

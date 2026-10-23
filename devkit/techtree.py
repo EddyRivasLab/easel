@@ -67,7 +67,7 @@ easelmods = {
     'ADVANCED_SEQUENCES' :        [ 'distance', 'wuss', 'paml', 'randomseq', 'ratematrix', 'scorematrix', 'swat' ],
     'MULTIPLE_ALIGNMENTS' :       [ 'msa', 'msacluster', 'msashuffle', 'msaweight' ],
     'MULTIPLE_ALIGNMENT_FILES' :  [ 'msafile', 'msafile2', 'msafile_a2m', 'msafile_afa', 'msafile_clustal', 'msafile_phylip', 'msafile_psiblast', 'msafile_selex', 'msafile_stockholm' ],
-    'SEQUENCE_FILES' :            [ 'sq', 'sqio_ascii', 'sqio_ncbi', 'sqio', 'dsqdata', 'gencode' ],
+    'SEQUENCE_FILES' :            [ 'sq', 'sqio', 'dsqdata', 'gencode' ],
     'SIMD_VECTORS' :              [ 'alloc', 'cpu', 'sse', 'avx', 'avx512', 'neon', 'vmx' ],
     'MULTITHREADING' :            [ 'threads', 'workqueue' ],
     'MPI' :                       [ 'mpi' ],
@@ -175,10 +175,8 @@ easeladd = {
 # SEQUENCE_FILES
     'sq'                : set(),
     'sqio'              : { 'sq' },
-    'sqio_ascii'        : { 'sq', 'sqio' },
-    'sqio_ncbi'         : { 'sq', 'sqio' },
-    'dsqdata'           : { 'sq', 'sqio', 'sqio_ascii' },
-    'gencode'           : { 'sq', 'sqio', 'sqio_ascii', 'sqio_ncbi' },
+    'dsqdata'           : { 'sq', 'sqio' },
+    'gencode'           : { 'sq', 'sqio' },
 # SIMD_VECTORS
     'alloc'             : set(),
     'cpu'               : set(),

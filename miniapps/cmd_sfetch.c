@@ -68,7 +68,7 @@ esl_cmd_sfetch(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   else if (status == eslEFORMAT)   esl_fatal("Format of seqfile %s unrecognized.", seqfile);
   else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
 
-  if (! sqfp->data.ascii.do_gzip && ! sqfp->data.ascii.do_stdin &&  ! esl_sqio_IsAlignment(sqfp->format) )
+  if (! sqfp->do_gzip && ! sqfp->do_stdin &&  ! esl_sqio_IsAlignment(sqfp->format) )
     sqfp_seekable = TRUE;          // (an MSA file is seekable for MSA records, but not for sequence records)
 
   /* Open optional SSI index, if input is seekable and SSI index exists
@@ -78,7 +78,7 @@ esl_cmd_sfetch(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
       status = esl_sqfile_OpenSSI(sqfp, /*ssifile_hint=*/NULL);
       if      (status == eslEFORMAT)   esl_fatal("SSI index is in incorrect format\n");
       else if (status == eslERANGE)    esl_fatal("SSI index is in 64-bit format; this machine can't read it\n");
-      else if (status == eslENOTFOUND) sqfp->data.ascii.ssi = NULL;
+      else if (status == eslENOTFOUND) sqfp->ssi = NULL;
       else if (status != eslOK)        esl_fatal("Failed to open SSI index\n");
     }
 
@@ -104,7 +104,7 @@ esl_cmd_sfetch(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
       if (status == eslESYNTAX) esl_fatal("-c takes arg of subseq coords <from>..<to>; %s not recognized", coords);
       if (status == eslFAIL)    esl_fatal("Failed to find <from> or <to> coord in %s", coords);
 
-      if ( sqfp->data.ascii.ssi && strcmp(key, ".") != 0)
+      if ( sqfp->ssi && strcmp(key, ".") != 0)
         {
           ssi_subseq_fetch(ofp, sqfp, key, start, end, &sq);
         }
@@ -175,7 +175,7 @@ onefetch(FILE *ofp, ESL_SQFILE *sqfp, char *key, ESL_SQ **ret_sq)
     }
   /* Use SSI index if we have one
    */
-  else if (sqfp->data.ascii.ssi != NULL)	
+  else if (sqfp->ssi != NULL)	
     {
       status = esl_sqfile_PositionByKey(sqfp, key);
       if      (status == eslENOTFOUND) esl_fatal("seq %s not found in SSI index for file %s\n", key, sqfp->filename);
