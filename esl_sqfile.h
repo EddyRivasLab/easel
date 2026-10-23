@@ -1,14 +1,11 @@
-/* sqio: unaligned sequence file i/o.
+/* sqfile: unaligned sequence file i/o.
  * 
  * To do: 
- *   :: esl_sqio_* vs. esl_sqfile_* prefixing is inconsistent,
- *      for historical reasons. Fix.
- *
  *   :: Write tests for bad format detection, making sure that
  *      linenumber report is correct.
  */
-#ifndef eslSQIO_INCLUDED
-#define eslSQIO_INCLUDED
+#ifndef eslSQFILE_INCLUDED
+#define eslSQFILE_INCLUDED
 #include <esl_config.h>
 
 #include <stdio.h>
@@ -20,10 +17,10 @@
 #include "esl_sq.h"
 
 /* Unaligned file format codes
- * These codes are coordinated with the msa module.
+ * These codes are coordinated with the msafile module.
  *   - 0 is an unknown/unassigned format (eslSQFILE_UNKNOWN, eslMSAFILE_UNKNOWN)
- *   - <=100 is reserved for sqio, for unaligned formats
- *   - >100  is reserved for msa, for aligned formats
+ *   - <=100 is reserved for sqfile,  for unaligned formats
+ *   - >100  is reserved for msafile, for aligned formats
  */
 #define eslSQFILE_UNKNOWN      0
 #define eslSQFILE_FASTA        1   // FASTA format
@@ -144,36 +141,36 @@ extern void  esl_sqfile_Close(ESL_SQFILE *sqfp);
 
 extern int   esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type);
 
-extern int   esl_sqio_Read      (ESL_SQFILE *sqfp, ESL_SQ *sq);
-extern int   esl_sqio_ReadInfo  (ESL_SQFILE *sqfp, ESL_SQ *sq);
-extern int   esl_sqio_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq);
-extern int   esl_sqio_ReadBlock (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int max_init_window, int long_target);
-extern int   esl_sqio_Parse     (char *buffer, int size, ESL_SQ *sq, int format);
+extern int   esl_sqfile_Read      (ESL_SQFILE *sqfp, ESL_SQ *sq);
+extern int   esl_sqfile_ReadInfo  (ESL_SQFILE *sqfp, ESL_SQ *sq);
+extern int   esl_sqfile_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq);
+extern int   esl_sqfile_ReadBlock (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int max_init_window, int long_target);
+extern int   esl_sqfile_Parse     (char *buffer, int size, ESL_SQ *sq, int format);
 
-extern int   esl_sqio_Write      (FILE *fp, ESL_SQ *s, int format, int update);
-extern int   esl_sqio_Echo       (ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp);
-extern int   esl_sqio_WriteFasta(FILE *fp, ESL_SQ *sq, int save_offsets);
+extern int   esl_sqfile_Write     (FILE *fp, ESL_SQ *s, int format, int update);
+extern int   esl_sqfile_Echo      (ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp);
+extern int   esl_sqfile_WriteFasta(FILE *fp, ESL_SQ *sq, int save_offsets);
 
 extern const char *esl_sqfile_GetErrorBuf(const ESL_SQFILE *sqfp);
 extern int   esl_sqfile_IsRewindable(const ESL_SQFILE *sqfp);
-extern int   esl_sqio_IsAlignment(int fmt);
-extern int   esl_sqio_EncodeFormat(char *fmtstring);
-extern char *esl_sqio_DecodeFormat(int fmt);
+extern int   esl_sqfile_IsAlignment(int fmt);
+extern int   esl_sqfile_EncodeFormat(char *fmtstring);
+extern char *esl_sqfile_DecodeFormat(int fmt);
 extern int   esl_sqfile_Position(ESL_SQFILE *sqfp, off_t offset);
 
-extern int   esl_sqio_Ignore  (ESL_SQFILE *sqfp, const char *ignored);
-extern int   esl_sqio_Accept  (ESL_SQFILE *sqfp, const char *accepted);
-extern int   esl_sqio_AcceptAs(ESL_SQFILE *sqfp, const char *accepted, char readas);
+extern int   esl_sqfile_Ignore  (ESL_SQFILE *sqfp, const char *ignored);
+extern int   esl_sqfile_Accept  (ESL_SQFILE *sqfp, const char *accepted);
+extern int   esl_sqfile_AcceptAs(ESL_SQFILE *sqfp, const char *accepted, char readas);
 
 extern int   esl_sqfile_OpenSSI         (ESL_SQFILE *sqfp, const char *ssifile_hint);
 extern int   esl_sqfile_PositionByKey   (ESL_SQFILE *sqfp, const char *key);
 extern int   esl_sqfile_PositionByNumber(ESL_SQFILE *sqfp, int which);
-extern int   esl_sqio_Fetch      (ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq);
-extern int   esl_sqio_FetchInfo  (ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq);
-extern int   esl_sqio_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t start, int64_t end, ESL_SQ *sq);
+extern int   esl_sqfile_Fetch      (ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq);
+extern int   esl_sqfile_FetchInfo  (ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq);
+extern int   esl_sqfile_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t start, int64_t end, ESL_SQ *sq);
 
 extern int   esl_sqfile_Cache(const ESL_ALPHABET *abc, const char *seqfile, int fmt, const char *env, ESL_SQCACHE **ret_sqcache);
 extern void  esl_sqfile_Free(ESL_SQCACHE *sqcache);
 
-#endif /*eslSQIO_INCLUDED*/
+#endif /*eslSQFILE_INCLUDED*/
 

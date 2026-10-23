@@ -161,7 +161,7 @@ HDRS = 	easel.h\
 	esl_rootfinder.h\
 	esl_scorematrix.h\
 	esl_sq.h\
-	esl_sqio.h\
+	esl_sqfile.h\
 	esl_sse.h\
 	esl_ssi.h\
 	esl_stack.h\
@@ -243,7 +243,7 @@ OBJS =	easel.o\
 	esl_rootfinder.o\
 	esl_scorematrix.o\
 	esl_sq.o\
-	esl_sqio.o\
+	esl_sqfile.o\
 	esl_ssi.o\
 	esl_stack.o\
 	esl_stats.o\
@@ -336,7 +336,7 @@ UTESTS =\
 	esl_rootfinder_utest\
 	esl_scorematrix_utest\
 	esl_sq_utest\
-	esl_sqio_utest\
+	esl_sqfile_utest\
 	esl_ssi_utest\
 	esl_stack_utest\
 	esl_stats_utest\
@@ -490,9 +490,9 @@ EXAMPLES = \
         esl_scorematrix_example\
         esl_sq_example\
         esl_sq_example2\
-        esl_sqio_example\
-        esl_sqio_example2\
-        esl_sqio_example3\
+        esl_sqfile_example\
+        esl_sqfile_example2\
+        esl_sqfile_example3\
         esl_ssi_example\
         esl_ssi_example2\
         esl_stack_example\

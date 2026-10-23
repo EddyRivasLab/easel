@@ -636,7 +636,7 @@ main(int argc, char **argv)
 #include "esl_getopts.h"
 #include "esl_hmm.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 
 static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
@@ -774,7 +774,7 @@ main(int argc, char **argv)
   else if (status == eslEFORMAT)   esl_fatal("Format unrecognized.");
   else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
 
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+  while ((status = esl_sqfile_Read(sqfp, sq)) == eslOK)
     {   
       esl_hmx_GrowTo(hmx, sq->n, hmm->M);
 

@@ -640,7 +640,7 @@ esl_dsq_Revcomp(const ESL_ALPHABET *abc, ESL_DSQ *dsq, int64_t n)
  *            format too; pass NULL if you don't have one.
  *
  *            This is not fancy and isn't intended to be. You'd
- *            usually be using <ESL_SQ> and esl_sqio functions for
+ *            usually be using <ESL_SQ> and esl_sqfile functions for
  *            production stuff. This is mostly intended for unit tests
  *            that write dsq's to tmpfiles.
  *
@@ -902,7 +902,7 @@ esl_dsq_CAppend_noalloc(const ESL_DSQ *inmap, char *dest, int64_t *ldest, const 
 
 #include "esl_random.h"
 #include "esl_randomseq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 
 static void
 utest_basic_examples(void)
@@ -1257,13 +1257,13 @@ utest_Write(ESL_RANDOMNESS *rng)
   if (fclose(fp)                                      != 0)     esl_fatal(msg);
 
   if (esl_sqfile_OpenDigital(abc, tmpfile1, eslSQFILE_FASTA, /*env=*/NULL, &sqfp) != eslOK) esl_fatal(msg);
-  if (esl_sqio_Read(sqfp, sq)                       != eslOK)  esl_fatal(msg);
+  if (esl_sqfile_Read(sqfp, sq)                       != eslOK)  esl_fatal(msg);
   if (sq->n != L)                                              esl_fatal(msg);
   if (strcmp(testname, sq->name)                    != 0)      esl_fatal(msg);
   if (strcmp(testdesc, sq->desc)                    != 0)      esl_fatal(msg);
   if (memcmp(sq->dsq, dsq, sizeof(ESL_DSQ) * (L+2)) != 0)      esl_fatal(msg);
   if (esl_sq_Reuse(sq)                              != eslOK)  esl_fatal(msg);
-  if (esl_sqio_Read(sqfp, sq)                       != eslEOF) esl_fatal(msg);  // test seq is the only one in the file
+  if (esl_sqfile_Read(sqfp, sq)                       != eslEOF) esl_fatal(msg);  // test seq is the only one in the file
   if (esl_sq_Reuse(sq)                              != eslOK)  esl_fatal(msg);
   esl_sqfile_Close(sqfp);
 
@@ -1273,7 +1273,7 @@ utest_Write(ESL_RANDOMNESS *rng)
   if (fclose(fp)                                                != 0)     esl_fatal(msg);
 
   if (esl_sqfile_OpenDigital(abc, tmpfile2, eslSQFILE_FASTA, /*env=*/NULL, &sqfp) != eslOK) esl_fatal(msg);
-  if (esl_sqio_Read(sqfp, sq)                       != eslOK)  esl_fatal(msg);
+  if (esl_sqfile_Read(sqfp, sq)                       != eslOK)  esl_fatal(msg);
   if (sq->n != L)                                              esl_fatal(msg);
   if (strcmp(sq->name, "sequence")                  != 0)      esl_fatal(msg);  // the default for esl_dsq_Write() is to name the seq "sequence"
   if (strcmp(sq->desc, "")                          != 0)      esl_fatal(msg);

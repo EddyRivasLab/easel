@@ -1,9 +1,9 @@
-# esl_sqio - unaligned sequence file input/output
+# esl_sqfile - unaligned sequence file input/output
 
-The `sqio` module handles unaligned sequence input from data files,
+The `sqfile` module handles unaligned sequence input from data files,
 such as FASTA files.
 
-`sqio` can automatically recognize and parse several different
+`sqfile` can automatically recognize and parse several different
 file formats, including FASTA, UniProt, Genbank, DDBJ, and EMBL.
 Additionally, it can read individual unaligned sequences from multiple
 alignment files in several different formats, including Stockholm,
@@ -25,7 +25,7 @@ being read.
 
 ### reading sequences from a file
 
-The `eslSQIO_EXAMPLE` example at the end of `esl_sqio.c` 
+The `eslSQFILE_EXAMPLE` example at the end of `esl_sqfile.c` 
 opens a file, reads sequences from it one at a time, then
 closes the file.
 
@@ -66,7 +66,7 @@ buffer is a brief explanatory message that gets filled in when a
 `eslEFORMAT` error occurs.
 
 Unlike in the MSA module, you don't get access to the current line
-text; some of sqio's parsers use fast block-based (`fread()`) input
+text; some of sqfile's parsers use fast block-based (`fread()`) input
 instead of line-based input.
 
 We can reuse the same `ESL_SQ` object for subsequent sequences
@@ -82,7 +82,7 @@ is closed with `esl_sqfile_Close()`.
 
 Most Easel-based programs manipulate sequences in Easel's digital
 sequence format, using `alphabet`, as opposed to manipulating
-them as plaintext. The `sqio` reader can be used either in text
+them as plaintext. The `sqfile` reader can be used either in text
 mode or digital mode. In text mode, you get the `sq->seq` field
 of the `ESL_SQ`; in digital mode, you get `sq->dsq`.
 
@@ -94,7 +94,7 @@ errors. The sequence object, because it needs to have either its
 `seq` or `dsq` field allocated. Both also carry a copy of
 the pointer to the alphabet.
 
-The `eslSQIO_EXAMPLE2` example in `esl_sqio.c` shows the standard
+The `eslSQFILE_EXAMPLE2` example in `esl_sqfile.c` shows the standard
 idiom for opening files in digital mode, autoguessing their format and
 alphabet by default, and allowing format and alphabet to be specified
 on the command line.

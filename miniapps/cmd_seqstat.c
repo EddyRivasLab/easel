@@ -12,7 +12,7 @@
 #include "esl_alphabet.h"
 #include "esl_getopts.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_subcmd.h"
 #include "esl_vectorops.h"
 
@@ -109,7 +109,7 @@ esl_cmd_seqstat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
   int             status;
 
   if (esl_opt_GetString(go, "--informat") != NULL) {
-    infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    infmt = esl_sqfile_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
 
@@ -192,7 +192,7 @@ esl_cmd_seqstat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
   /* Main loop over input sequences.
    * Read in 4K nonoverlapping (C=0) windows because the file might be a genome with huge chromosomes.
    */
-  while (( status = esl_sqio_ReadWindow(sqfp, /*C=*/ 0, 4096, sq)) != eslEOF)
+  while (( status = esl_sqfile_ReadWindow(sqfp, /*C=*/ 0, 4096, sq)) != eslEOF)
     {
       if (status == eslOK)
 	{
@@ -246,7 +246,7 @@ esl_cmd_seqstat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
     }
   else if (! do_tbl && ! do_comptbl && ! do_names)
     {
-      esl_printf("Format:              %s\n",   esl_sqio_DecodeFormat(sqfp->format));
+      esl_printf("Format:              %s\n",   esl_sqfile_DecodeFormat(sqfp->format));
       esl_printf("Alphabet type:       %s\n",   esl_abc_DecodeType(abc->type));
       esl_printf("Number of sequences: %" PRId64 "\n", nseq);
       esl_printf("Total # residues:    %" PRId64 "\n", nres);
@@ -280,7 +280,7 @@ determine_exact_fieldwidths(ESL_SQFILE *sqfp, int *ret_maxw_name, int *ret_maxw_
   int           w;
   int           status;
 
-  while (( status = esl_sqio_ReadWindow(sqfp, /*C=*/ 0, 4096, sq)) != eslEOF)
+  while (( status = esl_sqfile_ReadWindow(sqfp, /*C=*/ 0, 4096, sq)) != eslEOF)
     {
       if (status == eslEOD)
         {

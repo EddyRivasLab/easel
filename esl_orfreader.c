@@ -15,7 +15,7 @@
 #include "esl_dsq.h"
 #include "esl_gencode.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 
 #include "esl_orfreader.h"
 
@@ -238,7 +238,7 @@ esl_orfreader_Read(ESL_ORFREADER *orffp, ESL_SQ *sq)
       need_reinit = (orffp->dnasq->n == 0 ? TRUE : FALSE);
       if (orffp->j > orffp->dnasq->n-2)   // [1] 0 > -2  [2] n-1 > n-2  [3] (>=2) > -2  [4] n-1 > n-2  [5] 1 > (< 3-2)
         {
-          status   = esl_sqio_ReadWindow(orffp->sqfp, /*context C=*/2, /*window W=*/orffp->W, orffp->dnasq);  // C=2 so we keep x_j,x_j+1 from current window, if any
+          status   = esl_sqfile_ReadWindow(orffp->sqfp, /*context C=*/2, /*window W=*/orffp->W, orffp->dnasq);  // C=2 so we keep x_j,x_j+1 from current window, if any
 
           if (status == eslEOD) {                        // with EOD, ReadWindow set dnasq->L = len of the last seq we read, and dnasq->n = 0.
             for (j = orffp->j-1; j < orffp->j+2; j++) {  // j already advanced +1; is n-1. Need to finish n-2..n codon first, hence the -1 here
@@ -885,7 +885,7 @@ main(int argc, char **argv)
 #include "esl_getopts.h"
 #include "esl_orfreader.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 
 static ESL_OPTIONS options[] = {
   /* name          type       default  env  range toggles reqs incomp     help                                     docgroup */
@@ -917,7 +917,7 @@ main(int argc, char **argv)
   int            status;
 
   if (esl_opt_IsOn(go, "--informat")) {
-    if ((infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslSQFILE_UNKNOWN)
+    if ((infmt = esl_sqfile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslSQFILE_UNKNOWN)
       esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
   status = esl_sqfile_OpenDigital(nt_abc, dnafile, infmt, NULL, &sqfp);
@@ -934,7 +934,7 @@ main(int argc, char **argv)
 
   while ((status = esl_orfreader_Read(orffp, sq)) == eslOK)
     {
-      esl_sqio_Write(stdout, sq, eslSQFILE_FASTA, FALSE);
+      esl_sqfile_Write(stdout, sq, eslSQFILE_FASTA, FALSE);
       esl_sq_Reuse(sq);
     }
   if (status != eslEOF) esl_fatal("ORF reading failed abnormally");

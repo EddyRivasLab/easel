@@ -13,7 +13,7 @@
 #include "esl_regexp.h"
 #include "esl_sq.h"
 #include "esl_ssi.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_subcmd.h"
 
 
@@ -60,7 +60,7 @@ esl_cmd_sfetch(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 
   /* Open the sequence file */
   if (esl_opt_GetString(go, "--informat") != NULL) {
-    infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    infmt = esl_sqfile_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
   status = esl_sqfile_Open(seqfile, infmt, NULL, &sqfp);
@@ -68,7 +68,7 @@ esl_cmd_sfetch(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   else if (status == eslEFORMAT)   esl_fatal("Format of seqfile %s unrecognized.", seqfile);
   else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
 
-  if (! sqfp->do_gzip && ! sqfp->do_stdin &&  ! esl_sqio_IsAlignment(sqfp->format) )
+  if (! sqfp->do_gzip && ! sqfp->do_stdin &&  ! esl_sqfile_IsAlignment(sqfp->format) )
     sqfp_seekable = TRUE;          // (an MSA file is seekable for MSA records, but not for sequence records)
 
   /* Open optional SSI index, if input is seekable and SSI index exists
@@ -121,7 +121,7 @@ esl_cmd_sfetch(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
           esl_sq_FormatName(sq, "%s/%" PRId64 "-%" PRId64, sq->source, sq->start, sq->end);  // ReverseComplement() swapped start/end again; rename to match
         }
       if (newname) esl_sq_SetName(sq, newname);
-      esl_sqio_Write(ofp, sq, eslSQFILE_FASTA, FALSE);
+      esl_sqfile_Write(ofp, sq, eslSQFILE_FASTA, FALSE);
 
       esl_sq_Destroy(sq);
       if (ofp != stdout) {
@@ -136,13 +136,13 @@ esl_cmd_sfetch(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 
       if (sqfp_seekable && do_rev == FALSE && newname == NULL)
         { // We can Echo() the sequence record exactly if we can seek back to where it started, and we're not mucking with it
-          if (esl_sqio_Echo(sqfp, sq, ofp) != eslOK) esl_fatal("Echo failed: %s\n", esl_sqfile_GetErrorBuf(sqfp));
+          if (esl_sqfile_Echo(sqfp, sq, ofp) != eslOK) esl_fatal("Echo failed: %s\n", esl_sqfile_GetErrorBuf(sqfp));
         }
       else
         { // Otherwise we Write() the parsed text-mode version. 
           if (do_rev && esl_sq_ReverseComplement(sq) != eslOK) esl_fatal("Failed to reverse complement %s; is it a protein?\n", sq->name);
           if (newname) esl_sq_SetName(sq, newname);
-          esl_sqio_Write(ofp, sq, eslSQFILE_FASTA, FALSE);
+          esl_sqfile_Write(ofp, sq, eslSQFILE_FASTA, FALSE);
         }
       esl_sq_Destroy(sq);
 
@@ -168,7 +168,7 @@ onefetch(FILE *ofp, ESL_SQFILE *sqfp, char *key, ESL_SQ **ret_sq)
    */
   if (strcmp(key, ".") == 0)
     {
-      status = esl_sqio_Read(sqfp, sq);
+      status = esl_sqfile_Read(sqfp, sq);
       if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s):\n%s\n", sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
       else if (status == eslEOF)     esl_fatal("Sequence file %s empty?", sqfp->filename);
       else if (status != eslOK)      esl_fatal("Unexpected error %d reading sequence file %s", status, sqfp->filename);
@@ -182,7 +182,7 @@ onefetch(FILE *ofp, ESL_SQFILE *sqfp, char *key, ESL_SQ **ret_sq)
       else if (status == eslEFORMAT)   esl_fatal("Failed to parse SSI index for %s\n", sqfp->filename);
       else if (status != eslOK)        esl_fatal("Failed to look up location of seq %s in SSI index of file %s\n", key, sqfp->filename);
 
-      status = esl_sqio_Read(sqfp, sq);
+      status = esl_sqfile_Read(sqfp, sq);
       if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s):\n%s\n", sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
       else if (status == eslEOF)     esl_fatal("Unexpected EOF reading sequence file %s", status, sqfp->filename);
       else if (status != eslOK)      esl_fatal("Unexpected error %d reading sequence file %s", status, sqfp->filename);
@@ -198,7 +198,7 @@ onefetch(FILE *ofp, ESL_SQFILE *sqfp, char *key, ESL_SQ **ret_sq)
   // Else, we have to read the whole damn file sequentially until we find the seq 
   else
     {
-      while ((status = esl_sqio_Read(sqfp, sq)) != eslEOF) {
+      while ((status = esl_sqfile_Read(sqfp, sq)) != eslEOF) {
         if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s):\n%s\n", sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
         else if (status != eslOK)      esl_fatal("Unexpected error %d reading sequence file %s", status, sqfp->filename);
 
@@ -225,7 +225,7 @@ ssi_subseq_fetch(FILE *ofp, ESL_SQFILE *sqfp, char *key, int64_t start, int64_t 
   else                         { i = start; j = end;   do_rev = FALSE; }  // "42:100" => normal
 
   /* FetchSubseq() is aware of end=0 special case semantics, but does not handle revcomp start>end convention; fetch i..j */
-  if (esl_sqio_FetchSubseq(sqfp, key, i, j, sq) != eslOK) esl_fatal(esl_sqfile_GetErrorBuf(sqfp));
+  if (esl_sqfile_FetchSubseq(sqfp, key, i, j, sq) != eslOK) esl_fatal(esl_sqfile_GetErrorBuf(sqfp));
 
   if (do_rev)
     {

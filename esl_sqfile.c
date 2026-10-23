@@ -41,7 +41,7 @@
 #include "esl_mem.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_sq.h"
 #include "esl_ssi.h"
 
@@ -199,7 +199,7 @@ esl_sqfile_OpenDigital(const ESL_ALPHABET *abc, const char *filename, int format
 int
 esl_sqfile_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc)
 {
-  if (! esl_sqio_IsAlignment(sqfp->format))
+  if (! esl_sqfile_IsAlignment(sqfp->format))
     {
       switch (sqfp->format) {
       case eslSQFILE_EMBL:       inmap_embl   (sqfp, abc->inmap); break;
@@ -253,7 +253,7 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
 /* sqfile_init()
  * Initialize a newly opened ESL_SQFILE.
  * Just to pull a verbose block of routine code out of sqfile_open().
- * Matches order of elements in ESL_SQFILE as declared in esl_sqio.h.
+ * Matches order of elements in ESL_SQFILE as declared in esl_sqfile.h.
  */
 static void
 sqfile_init(ESL_SQFILE *sqfp)
@@ -346,7 +346,7 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
    * the MSA parser will handle opening the stream instead, including
    * stdin and .gz files.
    */
-  if (! esl_sqio_IsAlignment(sqfp->format))
+  if (! esl_sqfile_IsAlignment(sqfp->format))
     {
       if (strcmp(sqfp->filename, "-") == 0)  /* stdin special case */
         {
@@ -387,9 +387,9 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
        * nonrewindable sources, trying to guess an unaligned format.  We
        * could open a second .gz pipe, but that's ugly; and in any case,
        * we can't rewind stdin. Eventually, this will get resolved, by
-       * having sqio open an ESL_BUFFER, then doing an
+       * having esl_sqfile open an ESL_BUFFER, then doing an
        * esl_msafile_OpenBuffer() if we need to hand control to the
-       * msafile module. For now, sqio is already documented to be
+       * msafile module. For now, esl_sqfile is already documented to be
        * unable to autodetect MSA file formats in stdin or .gz pipes,
        * so leave it that way.
        */
@@ -401,7 +401,7 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
    * Or, if format is still unknown, try to open the file as an MSA file,
    * using msafile autodetection. 
    */
-  if (sqfp->format == eslSQFILE_UNKNOWN || esl_sqio_IsAlignment(sqfp->format))
+  if (sqfp->format == eslSQFILE_UNKNOWN || esl_sqfile_IsAlignment(sqfp->format))
     {
       status = esl_msafile_Open(NULL, sqfp->filename, NULL, sqfp->format, NULL, &(sqfp->afp));
       if (status != eslOK) { status = eslEFORMAT; goto ERROR; } // This was our last attempt. Failure to open == failure to detect format
@@ -410,7 +410,7 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
   if (sqfp->format == eslSQFILE_UNKNOWN) { status = eslEFORMAT; goto ERROR; }
 
   /* Configure the <sqfp>'s parser and inmaps for this format. */
-  if ( ! esl_sqio_IsAlignment(sqfp->format)) 
+  if ( ! esl_sqfile_IsAlignment(sqfp->format)) 
     {
       switch (sqfp->format) {
       case eslSQFILE_EMBL:     config_embl(sqfp);    inmap_embl(sqfp,    NULL);   break;
@@ -633,14 +633,14 @@ esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
   int     status;
 
   /* Special case: for MSA files, hand this off to msafile_GuessAlphabet. */
-  if (esl_sqio_IsAlignment(sqfp->format)) return esl_msafile_GuessAlphabet(sqfp->afp, ret_type);
+  if (esl_sqfile_IsAlignment(sqfp->format)) return esl_msafile_GuessAlphabet(sqfp->afp, ret_type);
 
   /* set the sqfp to record; we'll rewind afterwards and use the recording */
   sqfp->is_recording = TRUE;
 
   if ((sq = esl_sq_Create()) == NULL) { status = eslEMEM; goto ERROR; }
 
-  status = esl_sqio_ReadWindow(sqfp, 0, 4000, sq);   // ReadWindow() so we don't read a whole 100M+ chromosome for this
+  status = esl_sqfile_ReadWindow(sqfp, 0, 4000, sq);   // ReadWindow() so we don't read a whole 100M+ chromosome for this
   if      (status == eslEOF) { status = eslENODATA; goto ERROR; }
   else if ((status != eslOK) && (status != eslEOD)) goto ERROR;
 
@@ -667,7 +667,7 @@ esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
  * 3. Sequence reading (sequential)
  *****************************************************************/ 
 
-/* Function:  esl_sqio_Read()
+/* Function:  esl_sqfile_Read()
  * Synopsis:  Read the next sequence from a file.
  *
  * Purpose:   Reads the next sequence from open sequence file <sqfp> into 
@@ -688,13 +688,13 @@ esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
  *            <eslEINCONCEIVABLE> on internal error.
  */
 int
-esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
+esl_sqfile_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
   int64_t epos;
   int64_t n;
   int     status;
 
-  if (esl_sqio_IsAlignment(sqfp->format))
+  if (esl_sqfile_IsAlignment(sqfp->format))
   {
     ESL_SQ *tmpsq = NULL;
     if (sqfp->msa == NULL || sqfp->idx >= sqfp->msa->nseq)
@@ -763,7 +763,7 @@ esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
 }
 
 
-/* Function:  esl_sqio_ReadInfo()
+/* Function:  esl_sqfile_ReadInfo()
  * Synopsis:  Read sequence info, but not the sequence itself.
  *
  * Purpose:   Read the next sequence from open sequence file <sqfp>,
@@ -781,13 +781,13 @@ esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_sqio_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
+esl_sqfile_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
   int64_t epos;
   int64_t n;
   int     status;
 
-  if (esl_sqio_IsAlignment(sqfp->format))
+  if (esl_sqfile_IsAlignment(sqfp->format))
     {
       ESL_SQ *tmpsq = NULL;
       if (sqfp->msa == NULL || sqfp->idx >= sqfp->msa->nseq)
@@ -863,7 +863,7 @@ esl_sqio_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
 
 
-/* Function:  esl_sqio_ReadWindow()
+/* Function:  esl_sqfile_ReadWindow()
  * Synopsis:  Read next window of sequence.
  *
  * Purpose:   Read a next window of <W> residues from open file <sqfp>,
@@ -903,12 +903,12 @@ esl_sqio_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
  *            for nucleic acid sequence. 
  *            
  *            If you read the reverse complement strand, you must read
- *            the whole thing, calling <esl_sqio_ReadWindow()> with
+ *            the whole thing, calling <esl_sqfile_ReadWindow()> with
  *            negative <W> windows until <eslEOD> is returned again
  *            with an empty (info-only) <sq> structure. When that
  *            <EOD> is reached, the <sqfp> is repositioned at the
  *            start of the next sequence record; the caller should now
- *            <Reuse()> the <sq>, and the next <esl_sqio_ReadWindow()>
+ *            <Reuse()> the <sq>, and the next <esl_sqfile_ReadWindow()>
  *            call must have a positive <W>, corresponding to starting
  *            to read the Watson strand of the next sequence.
  *
@@ -935,7 +935,7 @@ esl_sqio_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
  *            <eslEOD> if no new residues were read for this sequence
  *            and strand, and <sq> now contains an empty info-only
  *            structure (annotation and <L> are valid). Before calling
- *            <esl_sqio_ReadWindow()> again, caller will either want
+ *            <esl_sqfile_ReadWindow()> again, caller will either want
  *            to make <W> negative (to start reading the Crick strand
  *            of the current sequence), or it will want to reset the
  *            <sq> (with <esl_sq_Reuse()>) to go on the next sequence.
@@ -958,7 +958,7 @@ esl_sqio_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
  *            <eslEMEM> on allocation error.
  */
 int
-esl_sqio_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
+esl_sqfile_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 {
   ESL_SQ *tmpsq = NULL;
   int     actual_start;
@@ -967,7 +967,7 @@ esl_sqio_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
   off_t   offset;
   int     status;
 
-  if (esl_sqio_IsAlignment(sqfp->format))
+  if (esl_sqfile_IsAlignment(sqfp->format))
     {
       // special: if we're initializing a revcomp window read, back sqfp->idx up one
       if (W < 0 && sq->start == 0) sqfp->idx--;
@@ -1247,7 +1247,7 @@ esl_sqio_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
   return status;
 }
 
-/* Function:  esl_sqio_ReadBlock()
+/* Function:  esl_sqfile_ReadBlock()
  * Synopsis:  Read the next block of sequences from a file.
  *
  * Purpose:   Reads a block of sequences from open sequence file <sqfp> into 
@@ -1296,7 +1296,7 @@ esl_sqio_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
  *            <eslEINCONCEIVABLE> on internal error.
  */
 int
-esl_sqio_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int max_init_window, int long_target)
+esl_sqfile_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int max_init_window, int long_target)
 {
   ESL_SQ *tmpsq  = NULL;
   int     i      = 0;
@@ -1312,7 +1312,7 @@ esl_sqio_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, in
           so just read in a sequence at a time  */
       for (i = 0; i < max_sequences && size < eslSQFILE_BLOCK_MAXRES; ++i)
         {
-          status = esl_sqio_Read(sqfp, sqBlock->list + i);
+          status = esl_sqfile_Read(sqfp, sqBlock->list + i);
           if (status != eslOK) break;
           size += sqBlock->list[i].n;
           ++sqBlock->count;
@@ -1330,7 +1330,7 @@ esl_sqio_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, in
       if (! sqBlock->complete )
         {
           //overloading C as indicator of how big C should be for this window reading action
-          status = esl_sqio_ReadWindow(sqfp, sqBlock->list->C, max_residues, sqBlock->list);
+          status = esl_sqfile_ReadWindow(sqfp, sqBlock->list->C, max_residues, sqBlock->list);
           if (status == eslOK)
             {
               sqBlock->count = i = 1;
@@ -1353,7 +1353,7 @@ esl_sqio_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, in
                   esl_sq_Reuse(tmpsq);
                   tmpsq->start =  sqBlock->list->start ;
                   tmpsq->C = 0;
-                  status = esl_sqio_ReadWindow(sqfp, 0, max_residues, tmpsq);
+                  status = esl_sqfile_ReadWindow(sqfp, 0, max_residues, tmpsq);
                   if (status != eslEOD) {
                     if (tmpsq != NULL) esl_sq_Destroy(tmpsq);
                     return status; //surprising
@@ -1384,7 +1384,7 @@ esl_sqio_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, in
           esl_sq_Reuse(tmpsq);
           esl_sq_Reuse(sqBlock->list + i);
 
-          status = esl_sqio_ReadWindow(sqfp, 0, request_size, tmpsq); 
+          status = esl_sqfile_ReadWindow(sqfp, 0, request_size, tmpsq); 
           esl_sq_Copy(tmpsq, sqBlock->list +i);
           if (status != eslOK && status != eslEOD) break; /* end of sequences (eslEOF), or we read an empty seq (eslEOD) or error (other)  */
 
@@ -1426,7 +1426,7 @@ esl_sqio_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, in
             esl_sq_Reuse(tmpsq);
             tmpsq->start =  sqBlock->list[i].start ;
             tmpsq->C = 0;
-            status = esl_sqio_ReadWindow(sqfp, 0, max_residues, tmpsq);
+            status = esl_sqfile_ReadWindow(sqfp, 0, max_residues, tmpsq);
 
             if (status != eslEOD) {
               if (tmpsq) esl_sq_Destroy(tmpsq);
@@ -1445,7 +1445,7 @@ esl_sqio_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, in
   return status;
 }
 
-/* Function:  esl_sqio_Parse()
+/* Function:  esl_sqfile_Parse()
  * Synopsis:  Parse a sequence already read into a buffer.
  *
  * Purpose:   Parse the buffer <buf> for a sequence <s> of type
@@ -1458,7 +1458,7 @@ esl_sqio_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, in
  *            <eslEINVAL> on unsupported format.
  */
 int
-esl_sqio_Parse(char *buf, int size, ESL_SQ *sq, int format)
+esl_sqfile_Parse(char *buf, int size, ESL_SQ *sq, int format)
 {
   ESL_SQFILE sqfp;
   int64_t    epos;
@@ -1542,7 +1542,7 @@ esl_sqio_Parse(char *buf, int size, ESL_SQ *sq, int format)
  * 4. Sequence writing
  *****************************************************************/
 
-/* Function:  esl_sqio_Write()
+/* Function:  esl_sqfile_Write()
  * Synopsis:  Write a sequence to a file.
  *
  * Purpose:   Write sequence <s> to an open FILE <fp> in file format
@@ -1556,12 +1556,12 @@ esl_sqio_Parse(char *buf, int size, ESL_SQ *sq, int format)
  *            <eslEWRITE> on system write error, such as filled disk.
  */
 int
-esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update)
+esl_sqfile_Write(FILE *fp, ESL_SQ *s, int format, int update)
 {
   ESL_MSA *msa;
   int status;
 
-  if (esl_sqio_IsAlignment(format))
+  if (esl_sqfile_IsAlignment(format))
     {
       if ((status = convert_sq_to_msa(s, &msa)) != eslOK) return status;
       status = esl_msafile_Write(fp, msa, format);
@@ -1572,7 +1572,7 @@ esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update)
   switch (format) {
   case eslSQFILE_FASTA:   
   case eslSQFILE_HMMPGMD:
-    status = esl_sqio_WriteFasta(fp, s, update); 
+    status = esl_sqfile_WriteFasta(fp, s, update); 
     break;
   default: 
     ESL_EXCEPTION(eslEINCONCEIVABLE, "can't write that format");
@@ -1580,7 +1580,7 @@ esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update)
   return status;
 }
 
-/* Function:  esl_sqio_Echo()
+/* Function:  esl_sqfile_Echo()
  * Synopsis:  Echo a sequence's record onto output stream.
  *
  * Purpose:   Given a complete <sq> that we have read by some means
@@ -1607,7 +1607,7 @@ esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update)
  *            <eslESYS>     on system call failures.
  */
 int
-esl_sqio_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
+esl_sqfile_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
 {
   int64_t save_linenumber;
   int     save_currpl;
@@ -1621,7 +1621,7 @@ esl_sqio_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
 
   if (sqfp->do_stdin)                     ESL_EXCEPTION(eslEINVAL, "can't Echo() a sequence from standard input");
   if (sqfp->do_gzip)                      ESL_EXCEPTION(eslEINVAL, "can't Echo() a sequence from a gzipped file");
-  if (esl_sqio_IsAlignment(sqfp->format)) ESL_EXCEPTION(eslEINVAL, "can't Echo() a sequence from an alignment file");
+  if (esl_sqfile_IsAlignment(sqfp->format)) ESL_EXCEPTION(eslEINVAL, "can't Echo() a sequence from an alignment file");
   if (sq->roff == -1 || sq->eoff == -1)   ESL_EXCEPTION(eslEINVAL, "can't Echo() a sequence without disk offset info");
 
   save_linenumber = sqfp->linenumber;
@@ -1659,7 +1659,7 @@ esl_sqio_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
 
 
 
-/* Function:  esl_sqio_WriteFasta()
+/* Function:  esl_sqfile_WriteFasta()
  * Synopsis:  Write a sequence in FASTA format
  *
  * Purpose:   Write sequence <sq> in FASTA format to the open stream <fp>.
@@ -1673,7 +1673,7 @@ esl_sqio_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
  *            <eslEWRITE> on system write error.
  */
 int
-esl_sqio_WriteFasta(FILE *fp, ESL_SQ *sq, int save_offsets)
+esl_sqfile_WriteFasta(FILE *fp, ESL_SQ *sq, int save_offsets)
 {
   char     buf[61];
   int64_t  pos;
@@ -1735,7 +1735,7 @@ esl_sqfile_IsRewindable(const ESL_SQFILE *sqfp)
   else                                 return TRUE;
 }
 
-/* Function:  esl_sqio_IsAlignment()
+/* Function:  esl_sqfile_IsAlignment()
  * Synopsis:  Return TRUE for alignment file format codes.
  *
  * Purpose:   Returns TRUE if <fmt> is an alignment file
@@ -1748,13 +1748,13 @@ esl_sqfile_IsRewindable(const ESL_SQFILE *sqfp)
  *            code.
  */
 int
-esl_sqio_IsAlignment(int fmt)
+esl_sqfile_IsAlignment(int fmt)
 {
   return (fmt >= 100 ? TRUE : FALSE);
 }
 
 
-/* Function:  esl_sqio_EncodeFormat()
+/* Function:  esl_sqfile_EncodeFormat()
  * Synopsis:  Convert a string to an internal format code.
  *
  * Purpose:   Given <fmtstring>, return format code.  For example, if
@@ -1766,7 +1766,7 @@ esl_sqio_IsAlignment(int fmt)
  *            all return <eslSQFILE_FASTA>, for example.
  */
 int
-esl_sqio_EncodeFormat(char *fmtstring)
+esl_sqfile_EncodeFormat(char *fmtstring)
 {
   if (strcasecmp(fmtstring, "fasta")     == 0) return eslSQFILE_FASTA;
   if (strcasecmp(fmtstring, "embl")      == 0) return eslSQFILE_EMBL;
@@ -1779,7 +1779,7 @@ esl_sqio_EncodeFormat(char *fmtstring)
   return esl_msafile_EncodeFormat(fmtstring);
 }
 
-/* Function:  esl_sqio_DecodeFormat()
+/* Function:  esl_sqfile_DecodeFormat()
  * Synopsis:  Returns descriptive string for file format code.
  *
  * Purpose:   Given a format code <fmt>, returns a string label for
@@ -1787,9 +1787,9 @@ esl_sqio_EncodeFormat(char *fmtstring)
  *            returns "FASTA". 
  */
 char *
-esl_sqio_DecodeFormat(int fmt)
+esl_sqfile_DecodeFormat(int fmt)
 {
-  if (esl_sqio_IsAlignment(fmt)) return esl_msafile_DecodeFormat(fmt);
+  if (esl_sqfile_IsAlignment(fmt)) return esl_msafile_DecodeFormat(fmt);
 
   switch (fmt) {
   case eslSQFILE_UNKNOWN:    return "unknown";
@@ -1803,7 +1803,7 @@ esl_sqio_DecodeFormat(int fmt)
   case eslSQFILE_FMINDEX:    return "fmindex";
   default:                   break;
   }
-  esl_exception(eslEINVAL, FALSE, __FILE__, __LINE__,  "no such sqio format code %d", fmt);
+  esl_exception(eslEINVAL, FALSE, __FILE__, __LINE__,  "no such sqfile format code %d", fmt);
   return NULL;
 }
 
@@ -1852,7 +1852,7 @@ esl_sqfile_Position(ESL_SQFILE *sqfp, off_t offset)
   if (offset < 0)                      ESL_EXCEPTION(eslEINVAL, "bad offset");
   if (offset > 0 && sqfp->afp != NULL) ESL_EXCEPTION(eslEINVAL, "can't use esl_sqfile_Position() w/ nonzero offset on MSA file");
 
-  if (esl_sqio_IsAlignment(sqfp->format)) 
+  if (esl_sqfile_IsAlignment(sqfp->format)) 
     { /* msa file: close and reopen. maybe sometime we'll have esl_msafile_Rewind() */
       /* we have already verified that offset==0 for MSA file */
       esl_msafile_Close(sqfp->afp);
@@ -1887,7 +1887,7 @@ esl_sqfile_Position(ESL_SQFILE *sqfp, off_t offset)
   return eslOK;
 }
 
-/* Function:  esl_sqio_Ignore()
+/* Function:  esl_sqfile_Ignore()
  * Synopsis:  Sets the input map to ignore one or more input characters.
  *
  * Purpose:   Set the input map of the open <sqfp> to allow
@@ -1901,7 +1901,7 @@ esl_sqfile_Position(ESL_SQFILE *sqfp, off_t offset)
  * Returns:   <eslOK> on success.
  */
 int
-esl_sqio_Ignore(ESL_SQFILE *sqfp, const char *ignored)
+esl_sqfile_Ignore(ESL_SQFILE *sqfp, const char *ignored)
 {
   int i;
   for (i = 0; ignored[i] != '\0'; i++)
@@ -1909,7 +1909,7 @@ esl_sqio_Ignore(ESL_SQFILE *sqfp, const char *ignored)
   return eslOK;
 }
 
-/* Function:  esl_sqio_Accept()
+/* Function:  esl_sqfile_Accept()
  * Synopsis:  Add more characters to a text-mode sqfile's inmap.
  * Incept:    SRE, Sun 01 Jun 2025 [B6 920 SAN-BOS]
  *
@@ -1919,14 +1919,14 @@ esl_sqio_Ignore(ESL_SQFILE *sqfp, const char *ignored)
  *            sequence residue characters.
  *
  *            This should be called immediately after opening the
- *            <sqfp>, before the first call to esl_sqio_Read().
+ *            <sqfp>, before the first call to esl_sqfile_Read().
  *
  *            This only works for a text mode <sqfp>. You can't
  *            extend a digital alphabet that's already defined (not
  *            without making a new custom alphabet). You can, however,
  *            have a digital alphabet accept additional input chars
  *            and map them to the digital alphabet's "unknown residue"
- *            code: see <esl_sqio_AcceptAs()>.
+ *            code: see <esl_sqfile_AcceptAs()>.
  *
  * Args:      sqfp     - recently opened seqfile, in text mode
  *            accepted - string of chars to add to the inmap
@@ -1940,12 +1940,12 @@ esl_sqio_Ignore(ESL_SQFILE *sqfp, const char *ignored)
  * Xref:      [2025/0531-easel-reformat]
  */
 int
-esl_sqio_Accept(ESL_SQFILE *sqfp, const char *accepted)
+esl_sqfile_Accept(ESL_SQFILE *sqfp, const char *accepted)
 {
   int i;
   
   if (sqfp->do_digital)
-    ESL_EXCEPTION(eslEINVAL, "bad esl_sqio_Accept(): a digital alphabet can't accept additional chars");
+    ESL_EXCEPTION(eslEINVAL, "bad esl_sqfile_Accept(): a digital alphabet can't accept additional chars");
 
   for (i = 0; accepted[i] != '\0'; i++)
     sqfp->inmap[(int) accepted[i]] = accepted[i];
@@ -1953,7 +1953,7 @@ esl_sqio_Accept(ESL_SQFILE *sqfp, const char *accepted)
   return eslOK;
 }
 
-/* Function:  esl_sqio_AcceptAs()
+/* Function:  esl_sqfile_AcceptAs()
  * Synopsis:  Map a list of additional characters.
  *
  * Purpose:   Set the input map of the open <sqfp> to allow the 
@@ -1971,7 +1971,7 @@ esl_sqio_Accept(ESL_SQFILE *sqfp, const char *accepted)
  * Returns:   <eslOK> on success.
  */
 int
-esl_sqio_AcceptAs(ESL_SQFILE *sqfp, const char *accepted, char readas)
+esl_sqfile_AcceptAs(ESL_SQFILE *sqfp, const char *accepted, char readas)
 {
   int i;
   
@@ -2063,7 +2063,7 @@ esl_sqfile_OpenSSI(ESL_SQFILE *sqfp, const char *ssifile_hint)
  *            file.
  *
  * Returns:   <eslOK> on success, and the file <sqfp> is repositioned
- *            so that the next <esl_sqio_Read()> call will read the
+ *            so that the next <esl_sqfile_Read()> call will read the
  *            sequence named <key>.
  *            
  *            Returns <eslENOTFOUND> if <key> isn't found in the
@@ -2145,7 +2145,7 @@ esl_sqfile_PositionByNumber(ESL_SQFILE *sqfp, int which)
 }
 
 
-/* Function:  esl_sqio_Fetch()
+/* Function:  esl_sqfile_Fetch()
  * Synopsis:  Fetch a complete sequence, using SSI indexing.
  *
  * Purpose:   Fetch a sequence named (or accessioned) <key> from
@@ -2163,17 +2163,17 @@ esl_sqfile_PositionByNumber(ESL_SQFILE *sqfp, int which)
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_sqio_Fetch(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
+esl_sqfile_Fetch(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
 {
   int status;
 
   if (sqfp->ssi == NULL) ESL_FAIL(eslEINVAL, sqfp->errbuf, "No SSI index for %s; can't fetch sequences", sqfp->filename);
   if ((status = esl_sqfile_PositionByKey(sqfp, key)) != eslOK) return status;
-  if ((status = esl_sqio_Read(sqfp, sq))             != eslOK) return status;
+  if ((status = esl_sqfile_Read(sqfp, sq))             != eslOK) return status;
   return eslOK;
 }
   
-/* Function:  esl_sqio_FetchInfo()
+/* Function:  esl_sqfile_FetchInfo()
  * Synopsis:  Fetch a sequence's info, using SSI indexing.
  *
  * Purpose:   Fetch a sequence named (or accessioned) <key> from
@@ -2192,18 +2192,18 @@ esl_sqio_Fetch(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_sqio_FetchInfo(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
+esl_sqfile_FetchInfo(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
 {
   int status;
 
   if (sqfp->ssi == NULL) ESL_FAIL(eslEINVAL, sqfp->errbuf, "No SSI index for %s; can't fetch subsequences", sqfp->filename);
   if ((status = esl_sqfile_PositionByKey(sqfp, key)) != eslOK) return status;
-  if ((status = esl_sqio_ReadInfo(sqfp, sq))         != eslOK) return status;
+  if ((status = esl_sqfile_ReadInfo(sqfp, sq))       != eslOK) return status;
   return eslOK;
 }
   
 
-/* Function:  esl_sqio_FetchSubseq()
+/* Function:  esl_sqfile_FetchSubseq()
  * Synopsis:  Fetch a subsequence, using SSI indexing.
  *
  * Purpose:   Fetch subsequence <start..end> from a sequence named (or
@@ -2234,7 +2234,7 @@ esl_sqio_FetchInfo(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
  * Throws:    <eslEMEM> on allocation errors.
  */
 int
-esl_sqio_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t start, int64_t end, ESL_SQ *sq)
+esl_sqfile_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t start, int64_t end, ESL_SQ *sq)
 {
   uint16_t fh; /* SSI file handle */
   off_t    r_off, d_off;
@@ -2362,7 +2362,7 @@ esl_sqfile_Cache(const ESL_ALPHABET *abc, const char *seqfile, int fmt, const ch
   max = 0;
   count = 0;
   sq  = esl_sq_CreateDigital(abc);
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK) {
+  while ((status = esl_sqfile_Read(sqfp, sq)) == eslOK) {
     ++count;
 
     res_size += sq->n + 1;
@@ -2430,7 +2430,7 @@ esl_sqfile_Cache(const ESL_ALPHABET *abc, const char *seqfile, int fmt, const ch
   /* loop through the database filling in the cache */
   n = 0;
   esl_sqfile_Position(sqfp, 0);
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK) {
+  while ((status = esl_sqfile_Read(sqfp, sq)) == eslOK) {
     c = cache->sq_list + n;
 
     /* if header fields have been defined, copy them to the cache */
@@ -3735,7 +3735,7 @@ fileheader_hmmpgmd(ESL_SQFILE *sqfp)
 /*****************************************************************
  * 14. Benchmark driver
  *****************************************************************/ 
-#ifdef eslSQIO_BENCHMARK
+#ifdef eslSQFILE_BENCHMARK
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -3747,7 +3747,7 @@ fileheader_hmmpgmd(ESL_SQFILE *sqfp)
 #include "easel.h"
 #include "esl_getopts.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_stopwatch.h"
 
 static ESL_OPTIONS options[] = {
@@ -3765,7 +3765,7 @@ static ESL_OPTIONS options[] = {
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options] <DNA FASTA file>";
-static char banner[] = "benchmark driver for sqio module";
+static char banner[] = "benchmark driver for sqfile module";
 
 static int benchmark_read (char *filename, int bufsize, int64_t *ret_magic);
 static int benchmark_fread(char *filename, int bufsize, int64_t *ret_magic);
@@ -3791,7 +3791,7 @@ main(int argc, char **argv)
   int64_t        nr       = 0;
 
   if (esl_opt_IsOn(go, "--format")) {
-    format = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--format"));
+    format = esl_sqfile_EncodeFormat(esl_opt_GetString(go, "--format"));
     if (format == eslSQFILE_UNKNOWN) esl_fatal("unrecognized database format %s\n", esl_opt_GetString(go, "--format"));
   }
 
@@ -3822,12 +3822,12 @@ main(int argc, char **argv)
   esl_stopwatch_Start(w);
   if (esl_opt_GetBoolean(go, "-i"))
     {
-      while (esl_sqio_ReadInfo(sqfp, sq) == eslOK) { n++; nr += sq->L; esl_sq_Reuse(sq); }
+      while (esl_sqfile_ReadInfo(sqfp, sq) == eslOK) { n++; nr += sq->L; esl_sq_Reuse(sq); }
     }
   else if (esl_opt_GetBoolean(go, "-w"))
     {
       int wstatus;
-      while ((wstatus = esl_sqio_ReadWindow(sqfp, C, W, sq)) != eslEOF)
+      while ((wstatus = esl_sqfile_ReadWindow(sqfp, C, W, sq)) != eslEOF)
 	{ 
 	  if        (wstatus == eslEOD) {
 	    if (!do_crick || W < 0) { n++; esl_sq_Reuse(sq); }
@@ -3839,10 +3839,10 @@ main(int argc, char **argv)
     }
   else 
     {
-      while (esl_sqio_Read(sqfp, sq) == eslOK)  { n++; nr += sq->L; esl_sq_Reuse(sq); }
+      while (esl_sqfile_Read(sqfp, sq) == eslOK)  { n++; nr += sq->L; esl_sq_Reuse(sq); }
     }
   esl_stopwatch_Stop(w);
-  esl_stopwatch_Display(stdout, w, "sqio:  ");
+  esl_stopwatch_Display(stdout, w, "sqfile:  ");
   printf("Read %d sequences; %lld residues.\n", n, (long long int) nr);
 
   esl_sqfile_Close(sqfp);
@@ -3948,7 +3948,7 @@ benchmark_mmap(char *filename, int bufsize, int64_t *ret_magic)
 #endif  
 
 
-#endif /*eslSQIO_BENCHMARK*/
+#endif /*eslSQFILE_BENCHMARK*/
 /*-------------- end, benchmark driver --------------------------*/
 
 
@@ -3956,7 +3956,7 @@ benchmark_mmap(char *filename, int bufsize, int64_t *ret_magic)
 /*****************************************************************
  * 15. Unit tests
  *****************************************************************/ 
-#ifdef eslSQIO_TESTDRIVE
+#ifdef eslSQFILE_TESTDRIVE
 
 #include "esl_keyhash.h"
 #include "esl_random.h"
@@ -4145,7 +4145,7 @@ check_geometry(int mode, int bpl, int rpl, char *msg)
 static void
 make_ssi_index(ESL_ALPHABET *abc, const char *tmpfile, int format, char *ssifile, int mode)
 { 
-  char       *msg  = "sqio unit testing: failed to make SSI index";
+  char       *msg  = "sqfile unit testing: failed to make SSI index";
   ESL_NEWSSI *ns   = NULL;
   ESL_SQFILE *sqfp = NULL;
   ESL_SQ     *sq   = esl_sq_CreateDigital(abc);
@@ -4158,7 +4158,7 @@ make_ssi_index(ESL_ALPHABET *abc, const char *tmpfile, int format, char *ssifile
   if (esl_newssi_Open(ssifile, TRUE, &ns)                       != eslOK) esl_fatal(msg);
   if (esl_newssi_AddFile(ns, tmpfile, format, &fh)              != eslOK) esl_fatal(msg);
   if (esl_sqfile_OpenDigital(abc, tmpfile, format, NULL, &sqfp) != eslOK) esl_fatal(msg);
-  while ((status = esl_sqio_ReadInfo(sqfp, sq)) == eslOK)
+  while ((status = esl_sqfile_ReadInfo(sqfp, sq)) == eslOK)
     {
       if (esl_newssi_AddKey(ns, sq->name, fh, sq->roff, sq->doff, sq->L)   != eslOK) esl_fatal(msg);
       if (sq->acc[0] != '\0' && esl_newssi_AddAlias(ns, sq->acc, sq->name) != eslOK) esl_fatal(msg);
@@ -4183,14 +4183,14 @@ make_ssi_index(ESL_ALPHABET *abc, const char *tmpfile, int format, char *ssifile
 static void
 utest_read(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, char *seqfile, int format, int mode)
 {
-  char       *msg         = "sqio complete read unit test failed";
+  char       *msg         = "sqfile complete read unit test failed";
   ESL_SQ     *sq          = esl_sq_CreateDigital(abc);
   ESL_SQFILE *sqfp        = NULL;
   int         nseq        = 0;
   int         status;
  
   if (esl_sqfile_OpenDigital(abc, seqfile, format, NULL, &sqfp) != eslOK) esl_fatal(msg);
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+  while ((status = esl_sqfile_Read(sqfp, sq)) == eslOK)
     {
       /* FASTA doesn't preserve accessions. Copy it, as a hack, so Compare test succeeds*/
       if (sq->acc[0] == '\0' && esl_sq_SetAccession(sq, sqarr[nseq]->acc) != eslOK) esl_fatal(msg);
@@ -4210,14 +4210,14 @@ utest_read(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, char *seqfile, int format, 
 static void
 utest_read_info(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, char *seqfile, int format, int mode)
 {
-  char       *msg         = "sqio info read unit test failed";
+  char       *msg         = "sqfile info read unit test failed";
   ESL_SQ     *sq          = esl_sq_CreateDigital(abc);
   ESL_SQFILE *sqfp        = NULL;
   int         nseq        = 0;
   int         status;
  
   if (esl_sqfile_OpenDigital(abc, seqfile, format, NULL, &sqfp) != eslOK) esl_fatal(msg);
-  while ((status = esl_sqio_ReadInfo(sqfp, sq)) == eslOK)
+  while ((status = esl_sqfile_ReadInfo(sqfp, sq)) == eslOK)
     {
       if (strcmp(sq->name,   sqarr[nseq]->name)   != 0) esl_fatal(msg);
       if (format != eslSQFILE_FASTA && 
@@ -4248,7 +4248,7 @@ utest_read_info(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, char *seqfile, int for
 static void
 utest_read_window(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, char *seqfile, int format, int mode)
 {
-  char       *msg         = "sqio window read unit test failed";
+  char       *msg         = "sqfile window read unit test failed";
   ESL_SQ     *sq          = esl_sq_CreateDigital(abc);
   ESL_SQ     *rev         = esl_sq_CreateDigital(abc);
   ESL_SQFILE *sqfp        = NULL;
@@ -4261,7 +4261,7 @@ utest_read_window(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, char *seqfile, int f
 
  
   if (esl_sqfile_OpenDigital(abc, seqfile, format, NULL, &sqfp) != eslOK) esl_fatal(msg);
-  while ((wstatus = esl_sqio_ReadWindow(sqfp, C, W, sq)) == eslOK || wstatus == eslEOD)
+  while ((wstatus = esl_sqfile_ReadWindow(sqfp, C, W, sq)) == eslOK || wstatus == eslEOD)
     {
       if (wstatus == eslEOD) {
 	if (W < 0) {
@@ -4322,7 +4322,7 @@ utest_read_window(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, char *seqfile, int f
 static void
 utest_fetch_subseq(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, char *seqfile, char *ssifile, int format)
 {
-  char       *msg         = "sqio subseq read unit test failure";
+  char       *msg         = "sqfile subseq read unit test failure";
   ESL_SQ     *sq          = esl_sq_CreateDigital(abc);
   ESL_SQFILE *sqfp        = NULL;
   int         i;
@@ -4344,7 +4344,7 @@ utest_fetch_subseq(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, 
 	end   = esl_rnd_Roll(r, sqarr[i]->n) + 1;
       } while (start > end);
 
-      if (esl_sqio_FetchSubseq(sqfp, source, start, end, sq)        != eslOK) esl_fatal(msg);
+      if (esl_sqfile_FetchSubseq(sqfp, source, start, end, sq)        != eslOK) esl_fatal(msg);
       if (memcmp(&(sqarr[i]->dsq[start]), &sq->dsq[1], end-start+1) != 0)     esl_fatal(msg);
       
       esl_sq_Reuse(sq);
@@ -4370,7 +4370,7 @@ utest_fetch_subseq(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, 
 static void
 utest_subseq_geometry(void)
 {
-  char *msg = "sqio subseq geometry unit test failed";
+  char *msg = "sqfile subseq geometry unit test failed";
   struct { char *fasta; int bpl; int rpl; } trial[] = {
     /* uniform 10 residues/line, shorter last line in each record: valid, residue resolution */
     { ">a\nACGTACGTAC\nACGTACGTAC\nAC\n>b\nACGTACGTAC\nACGT\n",               11, 10 },
@@ -4403,7 +4403,7 @@ utest_subseq_geometry(void)
       fclose(fp);
 
       if (esl_sqfile_Open(tmpfile, eslSQFILE_FASTA, NULL, &sqfp) != eslOK) esl_fatal(msg);
-      while ((status = esl_sqio_ReadInfo(sqfp, sq)) == eslOK) esl_sq_Reuse(sq);
+      while ((status = esl_sqfile_ReadInfo(sqfp, sq)) == eslOK) esl_sq_Reuse(sq);
       if (status != eslEOF)                     esl_fatal("%s: trial %d", msg, i);
       if (sqfp->bpl != trial[i].bpl) esl_fatal("%s: trial %d, bpl %d not %d", msg, i, sqfp->bpl, trial[i].bpl);
       if (sqfp->rpl != trial[i].rpl) esl_fatal("%s: trial %d, rpl %d not %d", msg, i, sqfp->rpl, trial[i].rpl);
@@ -4424,7 +4424,7 @@ utest_subseq_geometry(void)
 static void
 utest_write(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, int format)
 {
-  char       *msg         = "sqio write unit test failure";
+  char       *msg         = "sqfile write unit test failure";
   char        tmpfile[32] = "esltmpXXXXXX";
   ESL_SQFILE *sqfp        = NULL;
   ESL_SQ     *sq          = esl_sq_CreateDigital(abc);
@@ -4433,12 +4433,12 @@ utest_write(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, int format)
   int         i;
   int         require_nonzero_length = FALSE;
 
-  if (esl_sqio_IsAlignment(format)) require_nonzero_length = TRUE;
+  if (esl_sqfile_IsAlignment(format)) require_nonzero_length = TRUE;
 
   if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
   for (i = 0; i < N; i++)
     if (! require_nonzero_length || sqarr[i]->L > 0)
-      esl_sqio_Write(fp, sqarr[i], format, FALSE);
+      esl_sqfile_Write(fp, sqarr[i], format, FALSE);
   fclose(fp);
 
   if (esl_sqfile_OpenDigital(abc, tmpfile, format, NULL, &sqfp)           != eslOK)  esl_fatal(msg);
@@ -4447,7 +4447,7 @@ utest_write(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, int format)
       for (i = 0; i < N; i++)
 	{
           if (require_nonzero_length && sqarr[i]->L == 0) continue;
-	  if (esl_sqio_Read(sqfp, sq)                                     != eslOK)  esl_fatal(msg);
+	  if (esl_sqfile_Read(sqfp, sq)                                     != eslOK)  esl_fatal(msg);
 	  if (strcmp(sqarr[i]->name,   sq->name)                          != 0)      esl_fatal(msg);
 	  if (sqarr[i]->L                                                 !=  sq->L) esl_fatal(msg);
 	  if (memcmp(sqarr[i]->dsq, sq->dsq, sizeof(ESL_DSQ) * (sq->L+2)) != 0)      esl_fatal(msg);
@@ -4466,7 +4466,7 @@ utest_write(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, int format)
  *
  * Related to EPN bugfix a61ee23: esl_sqfile_GuessAlphabet() segfaults
  * when file contains 1 seq, file is >4096 bytes, seq is <4000
- * residues, because of a fault in the mechanics of sqio with
+ * residues, because of a fault in the mechanics of sqfile with
  * is_recording TRUE and is_linebased FALSE.
  *
  * This unit test exercises those mechanics, the original bug and
@@ -4478,7 +4478,7 @@ utest_write(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, int format)
 static void
 utest_guess_mechanics(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N)
 {
-  char       *msg         = "sqio guess_mechanics unit test failure";
+  char       *msg         = "sqfile guess_mechanics unit test failure";
   char        tmpfile[32];
   FILE       *fp;          
   ESL_SQFILE *sqfp;
@@ -4488,8 +4488,8 @@ utest_guess_mechanics(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N)
   for (i = 0; i < N; i++)  // for each individual sequence in <sqarr>, one at a time:
     {
       strcpy(tmpfile, "esltmpXXXXXX");
-      if (esl_tmpfile_named(tmpfile, &fp)                      != eslOK) esl_fatal(msg);
-      if (esl_sqio_Write(fp, sqarr[i], eslSQFILE_FASTA, FALSE) != eslOK) esl_fatal(msg);
+      if (esl_tmpfile_named(tmpfile, &fp)                        != eslOK) esl_fatal(msg);
+      if (esl_sqfile_Write(fp, sqarr[i], eslSQFILE_FASTA, FALSE) != eslOK) esl_fatal(msg);
       fclose(fp);
 
       if (esl_sqfile_Open(tmpfile, eslSQFILE_FASTA, NULL, &sqfp) != eslOK) esl_fatal(msg);
@@ -4510,13 +4510,13 @@ utest_guess_mechanics(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N)
  * it tries to guess the alphabet on files containing only empty sequences.
  *
  * Related to bugfix 441a4d3: esl_sqfile_GuessAlphabet() did not handle
- * the case where esl_sqio_ReadWindow() would return eslEOD on empty
+ * the case where esl_sqfile_ReadWindow() would return eslEOD on empty
  * sequences, and returned an error instead of eslENOALPHABET.
  */
 static void
 utest_guess_empty_seq()
 {
-  char       *msg         = "sqio guess_empty_seq unit test failure";
+  char       *msg         = "sqfile guess_empty_seq unit test failure";
   char        tmpfile[32];
   ESL_SQ*     seqs[2];
   FILE       *fp;
@@ -4528,8 +4528,8 @@ utest_guess_empty_seq()
 
   strcpy(tmpfile, "esltmpXXXXXX");
   if (esl_tmpfile_named(tmpfile, &fp)                     != eslOK) esl_fatal(msg);
-  if (esl_sqio_Write(fp, seqs[0], eslSQFILE_FASTA, FALSE) != eslOK) esl_fatal(msg);
-  if (esl_sqio_Write(fp, seqs[1], eslSQFILE_FASTA, FALSE) != eslOK) esl_fatal(msg);
+  if (esl_sqfile_Write(fp, seqs[0], eslSQFILE_FASTA, FALSE) != eslOK) esl_fatal(msg);
+  if (esl_sqfile_Write(fp, seqs[1], eslSQFILE_FASTA, FALSE) != eslOK) esl_fatal(msg);
   fclose(fp);
 
   if (esl_sqfile_Open(tmpfile, eslSQFILE_FASTA, NULL, &sqfp) != eslOK) esl_fatal(msg);
@@ -4541,7 +4541,7 @@ utest_guess_empty_seq()
   esl_sq_Destroy(seqs[1]);
 }
 
-#endif /*eslSQIO_TESTDRIVE*/
+#endif /*eslSQFILE_TESTDRIVE*/
 /*------------------ end, unit tests ----------------------------*/
 
 
@@ -4550,7 +4550,7 @@ utest_guess_empty_seq()
  * 16. Test driver.
  *****************************************************************/
 
-#ifdef eslSQIO_TESTDRIVE
+#ifdef eslSQFILE_TESTDRIVE
 #include <esl_config.h>
 
 #include <stdlib.h>
@@ -4562,7 +4562,7 @@ utest_guess_empty_seq()
 #include "esl_random.h"
 #include "esl_randomseq.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 
 static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
@@ -4573,7 +4573,7 @@ static ESL_OPTIONS options[] = {
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options]";
-static char banner[] = "test driver for sqio module";
+static char banner[] = "test driver for sqfile module";
 
 int
 main(int argc, char **argv)
@@ -4609,7 +4609,7 @@ main(int argc, char **argv)
 	for (i = 0; i < N; i++) {
 	  c = sqarr[i]->acc[0];	/* hack: hide the accession, so digital writer doesn't write it. */
 	  sqarr[i]->acc[0] = '\0';
-	  esl_sqio_Write(fp, sqarr[i], eslSQFILE_FASTA, TRUE); 
+	  esl_sqfile_Write(fp, sqarr[i], eslSQFILE_FASTA, TRUE); 
 	  sqarr[i]->acc[0] = c;
 	}
 	break;
@@ -4641,7 +4641,7 @@ main(int argc, char **argv)
   fprintf(stderr, "#  status = ok\n");
   return 0;
 }
-#endif /*eslSQIO_TESTDRIVE*/
+#endif /*eslSQFILE_TESTDRIVE*/
 /*------------------ end, test driver ---------------------------*/
 
 
@@ -4650,13 +4650,13 @@ main(int argc, char **argv)
  * 17. Examples
  *****************************************************************/
 
-/* Example 3: using esl_sqio_Parse()
+/* Example 3: using esl_sqfile_Parse()
  */
-#ifdef eslSQIO_EXAMPLE3
+#ifdef eslSQFILE_EXAMPLE3
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 
 int
 main(void)
@@ -4675,7 +4675,7 @@ main(void)
   abc = esl_alphabet_Create(alphatype);
   sq  = esl_sq_CreateDigital(abc);
 
-  status = esl_sqio_Parse(test, strlen(test), sq, format);
+  status = esl_sqfile_Parse(test, strlen(test), sq, format);
   if      (status == eslEFORMAT) esl_fatal("Parse failed, invalid format");
   else if (status != eslOK)      esl_fatal("Unexpected error %d", status);
 
@@ -4683,14 +4683,14 @@ main(void)
   esl_alphabet_Destroy(abc);
   return 0;
 }
-#endif /*eslSQIO_EXAMPLE3*/
+#endif /*eslSQFILE_EXAMPLE3*/
 
 /* Example 2: simplest, text mode
  */
-#ifdef eslSQIO_EXAMPLE2
+#ifdef eslSQFILE_EXAMPLE2
 #include "easel.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 
 int
 main(int argc, char **argv)
@@ -4706,7 +4706,7 @@ main(int argc, char **argv)
   else if (status == eslEFORMAT)   esl_fatal("Format unrecognized.");
   else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
 
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+  while ((status = esl_sqfile_Read(sqfp, sq)) == eslOK)
   {     /* use each sequence for whatever you want */
     printf("%-40s length: %8ld   desclen: %lu\n", sq->name, (long) sq->L, (unsigned long) strlen(sq->desc));
     esl_sq_Reuse(sq);
@@ -4718,17 +4718,17 @@ main(int argc, char **argv)
   esl_sqfile_Close(sqfp);
   return 0;
 }
-#endif /*eslSQIO_EXAMPLE2*/
+#endif /*eslSQFILE_EXAMPLE2*/
 
 
 /* Example 1: standard idiom for digital seqfile reading
  */
-#ifdef eslSQIO_EXAMPLE
+#ifdef eslSQFILE_EXAMPLE
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_getopts.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 
 static ESL_OPTIONS options[] = {
   /* name          type       default  env  range toggles reqs incomp  help         docgroup */
@@ -4740,7 +4740,7 @@ static ESL_OPTIONS options[] = {
  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options] <seqfile>";
-static char banner[] = "example of reading in standard sqio idiom, digital mode";
+static char banner[] = "example of reading in standard sqfile idiom, digital mode";
 
 int
 main(int argc, char **argv)
@@ -4755,7 +4755,7 @@ main(int argc, char **argv)
   int           status;
 
   if (esl_opt_IsOn(go, "--informat")) {
-    if ((infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslSQFILE_UNKNOWN)
+    if ((infmt = esl_sqfile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslSQFILE_UNKNOWN)
       esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
   }
 
@@ -4778,9 +4778,9 @@ main(int argc, char **argv)
   sq  = esl_sq_CreateDigital(abc);
   esl_sqfile_SetDigital(sqfp, abc);
 
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+  while ((status = esl_sqfile_Read(sqfp, sq)) == eslOK)
     {  
-      esl_sqio_Write(stdout, sq, eslSQFILE_FASTA, /*update=*/FALSE);
+      esl_sqfile_Write(stdout, sq, eslSQFILE_FASTA, /*update=*/FALSE);
       esl_sq_Reuse(sq);
     }
   if      (status == eslEFORMAT) esl_fatal("Parse failed\n  %s", esl_sqfile_GetErrorBuf(sqfp));
@@ -4792,6 +4792,6 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   return 0;
 }
-#endif /*eslSQIO_EXAMPLE*/
+#endif /*eslSQFILE_EXAMPLE*/
 
 

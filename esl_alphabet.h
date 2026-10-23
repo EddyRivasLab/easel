@@ -20,7 +20,7 @@ extern "C" {
  * or sometimes (as in esl_alphabet) uint8_t[128] to avoid circularity
  * in declaring ESL_DSQ itself. It is a many-to-one construct for
  * mapping 7-bit ASCII chars (in range 0..127) either to new ASCII
- * chars (in the case of raw sequence input in sqio, msa) or to
+ * chars (in the case of raw sequence input in sqfile, msafile) or to
  * digital codes (in the alphabet module).  Valid mapped values are
  * 0..127; any value in range 128..255 is some kind of flag.
  *

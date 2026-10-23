@@ -67,7 +67,7 @@ easelmods = {
     'ADVANCED_SEQUENCES' :        [ 'distance', 'wuss', 'paml', 'randomseq', 'ratematrix', 'scorematrix', 'swat' ],
     'MULTIPLE_ALIGNMENTS' :       [ 'msa', 'msacluster', 'msashuffle', 'msaweight' ],
     'MULTIPLE_ALIGNMENT_FILES' :  [ 'msafile', 'msafile2', 'msafile_a2m', 'msafile_afa', 'msafile_clustal', 'msafile_phylip', 'msafile_psiblast', 'msafile_selex', 'msafile_stockholm' ],
-    'SEQUENCE_FILES' :            [ 'sq', 'sqio', 'dsqdata', 'gencode' ],
+    'SEQUENCE_FILES' :            [ 'sq', 'sqfile', 'dsqdata', 'gencode' ],
     'SIMD_VECTORS' :              [ 'alloc', 'cpu', 'sse', 'avx', 'avx512', 'neon', 'vmx' ],
     'MULTITHREADING' :            [ 'threads', 'workqueue' ],
     'MPI' :                       [ 'mpi' ],
@@ -174,9 +174,9 @@ easeladd = {
     'msafile_stockholm' : { 'msafile' },
 # SEQUENCE_FILES
     'sq'                : set(),
-    'sqio'              : { 'sq' },
-    'dsqdata'           : { 'sq', 'sqio' },
-    'gencode'           : { 'sq', 'sqio' },
+    'sqfile'              : { 'sq' },
+    'dsqdata'           : { 'sq', 'sqfile' },
+    'gencode'           : { 'sq', 'sqfile' },
 # SIMD_VECTORS
     'alloc'             : set(),
     'cpu'               : set(),

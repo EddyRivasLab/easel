@@ -14,7 +14,7 @@
 #include "esl_random.h"
 #include "esl_randomseq.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_subcmd.h"
 #include "esl_vectorops.h"
 
@@ -91,7 +91,7 @@ esl_cmd_shuffle(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
   }
 
   if (esl_opt_GetString(go, "--informat") != NULL) {
-    infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    infmt = esl_sqfile_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
 
@@ -103,7 +103,7 @@ esl_cmd_shuffle(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
   if ( esl_opt_GetBoolean(go, "-t"))
     { /* text mode inputs */
       sq = esl_sq_Create();
-      while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+      while ((status = esl_sqfile_Read(sqfp, sq)) == eslOK)
         {
           if      (esl_opt_GetBoolean(go, "-d"))  esl_rsq_CShuffleDP     (rng, sq->seq, sq->seq);                                // diresidue shuffling 
           else if (esl_opt_GetBoolean(go, "-0"))  esl_rsq_CMarkov0       (rng, sq->seq, sq->seq);                                // 0th order Markov 
@@ -114,7 +114,7 @@ esl_cmd_shuffle(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
           else                                    esl_rsq_CShuffle       (rng, sq->seq, sq->seq);                                // default: monoresidue shuffling 
           
           esl_sq_AppendToName(sq, "-shuffled");
-          esl_sqio_Write(ofp, sq, outfmt, FALSE);
+          esl_sqfile_Write(ofp, sq, outfmt, FALSE);
           
           esl_sq_Reuse(sq);
         }
@@ -137,7 +137,7 @@ esl_cmd_shuffle(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
        sq  = esl_sq_CreateDigital(abc);
        esl_sqfile_SetDigital(sqfp, abc);
 
-      while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+      while ((status = esl_sqfile_Read(sqfp, sq)) == eslOK)
         {
           if      (esl_opt_GetBoolean(go, "-d"))  esl_rsq_XShuffleDP     (rng,      sq->dsq, sq->n, abc->K, sq->dsq);                        // diresidue shuffling 
           else if (esl_opt_GetBoolean(go, "-0"))  esl_rsq_XMarkov0       (rng,      sq->dsq, sq->n, abc->K, sq->dsq);                        // 0th order Markov 
@@ -149,7 +149,7 @@ esl_cmd_shuffle(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
           else                                    esl_rsq_XShuffle       (rng,      sq->dsq, sq->n,         sq->dsq);                        // default: monoresidue shuffling 
           
           esl_sq_AppendToName(sq, "-shuffled");
-          esl_sqio_Write(ofp, sq, outfmt, FALSE);
+          esl_sqfile_Write(ofp, sq, outfmt, FALSE);
           
           esl_sq_Reuse(sq);
         }

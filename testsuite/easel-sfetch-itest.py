@@ -178,7 +178,7 @@ for p in [ 'unindexed', 'indexed']:
                 esl_itest.fail('{}: got {}, not {}'.format(what, got, want))
 
     # -c  coords off the end of the sequence must fail cleanly. The indexed
-    #     path range checks in esl_sqio_FetchSubseq(), but convert_to_subseq()
+    #     path range checks in esl_sqfile_FetchSubseq(), but convert_to_subseq()
     #     used to not check at all: it read off the end of sq->seq and printed
     #     junk residues under a header claiming the requested coords, with
     #     exit status 0.

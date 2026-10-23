@@ -70,7 +70,7 @@ might want to allow an input T to mean U in a program that deals with
 RNA sequence analysis, so that input files can either contain RNA or
 DNA sequence data.  Easel reuses the input map concept in routines
 involved in reading and representing input character sequences, for
-example in the `alphabet`, `sqio`, and `msa`
+example in the `alphabet`, `sqfile`, and `msa`
 modules.
 
 

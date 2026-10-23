@@ -319,9 +319,9 @@ esl_msafile_OpenFailure(ESL_MSAFILE *afp, int status)
  *            using alphabet <abc>.
  *
  * Note:      This function is only here for legacy support: it's
- *            called by esl_sqio, which still uses an outdated
+ *            called by esl_sqfile, which still uses an outdated
  *            open / guess alphabet / set digital pattern. When 
- *            sqio is upgraded next, this function should be removed.
+ *            sqfile is upgraded next, this function should be removed.
  */
 int
 esl_msafile_SetDigital(ESL_MSAFILE *afp, const ESL_ALPHABET *abc)
@@ -745,7 +745,7 @@ esl_msafile_EncodeFormat(char *fmtstring)
  * Throws:    If code isn't valid, throws an <eslEINCONCEIVABLE> exception 
  *            internally, and returns <NULL>. 
  *            
- * Note:      Keep in sync with <esl_sqio_DecodeFormat()>.
+ * Note:      Keep in sync with <esl_sqfile_DecodeFormat()>.
  */
 char *
 esl_msafile_DecodeFormat(int fmt)

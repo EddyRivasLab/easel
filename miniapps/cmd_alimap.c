@@ -18,7 +18,7 @@
 #include "esl_fileparser.h"
 #include "esl_getopts.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
 #include "esl_distance.h"

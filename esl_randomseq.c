@@ -2300,7 +2300,7 @@ main(int argc, char **argv)
 #ifdef eslRANDOMSEQ_EXAMPLE
 #include "easel.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_random.h"
 #include "esl_randomseq.h"
 
@@ -2317,14 +2317,14 @@ main(int argc, char **argv)
   if (esl_sqfile_Open(seqfile, format, NULL, &sqfp) != eslOK) 
     esl_fatal("Failed to open %s\n", seqfile);
 
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+  while ((status = esl_sqfile_Read(sqfp, sq)) == eslOK)
   {
     printf("[Original sequence:]\n");
-    esl_sqio_Write(stdout, sq, eslSQFILE_FASTA);
+    esl_sqfile_Write(stdout, sq, eslSQFILE_FASTA);
 
     printf("[After shuffling:]\n");
     esl_rsq_CShuffle(rng, sq->seq, sq->seq); /* shuffle in place */
-    esl_sqio_Write(stdout, sq, eslSQFILE_FASTA);
+    esl_sqfile_Write(stdout, sq, eslSQFILE_FASTA);
 
     esl_sq_Reuse(sq);
   }

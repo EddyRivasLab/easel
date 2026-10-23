@@ -12,7 +12,7 @@
 #include "esl_alphabet.h"
 #include "esl_getopts.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_subcmd.h"
 #include "esl_vectorops.h"
 
@@ -60,7 +60,7 @@ esl_cmd_kmer(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   if (W <= 0) esl_fatal("K argument for kmer length must be > 0");
 
   if (esl_opt_IsOn(go, "--informat")) {
-    if ((infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslSQFILE_UNKNOWN)
+    if ((infmt = esl_sqfile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslSQFILE_UNKNOWN)
       esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
 
@@ -95,7 +95,7 @@ esl_cmd_kmer(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   if (! be_quiet)
     esl_dataheader(stdout, ESL_MAX(W,6), "kmer", 10, "count", 10, "freq", 10, "log2-odds", 0);
 
-  while ((status = esl_sqio_Read(sqfp, sq)) != eslEOF)
+  while ((status = esl_sqfile_Read(sqfp, sq)) != eslEOF)
     {
       if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s)\n%s\n",        sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));     
       else if (status != eslOK)      esl_fatal("Unexpected error %d reading sequence file %s", status, sqfp->filename);

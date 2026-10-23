@@ -16,7 +16,7 @@
 #include "esl_random.h"
 #include "esl_randomseq.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_subcmd.h"
 #include "esl_vectorops.h"
 
@@ -69,7 +69,7 @@ esl_cmd_synth(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   if (L <= 0)              esl_fatal("<L> argument (seq length) is an integer > 0; not %s",         esl_opt_GetArg(go, 3));
 
   if (do_markov && esl_opt_GetString(go, "--informat") != NULL) {
-    m_infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    m_infmt = esl_sqfile_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (m_infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
 
@@ -106,7 +106,7 @@ esl_cmd_synth(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
           if (N > 1) esl_sq_FormatName(sq, "random%d", i);
           else       esl_sq_SetName(sq, "random");
           sq->n = L;
-          esl_sqio_Write(ofp, sq, outfmt, FALSE);
+          esl_sqfile_Write(ofp, sq, outfmt, FALSE);
         }
     }
 
@@ -163,7 +163,7 @@ markov_generation(ESL_RANDOMNESS *rng, const ESL_ALPHABET *abc, char *seqfile, i
   else if (status == eslEFORMAT)   esl_fatal("Format of seqfile couldn't be determined");
   else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
 
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+  while ((status = esl_sqfile_Read(sqfp, sq)) == eslOK)
     {
       if ( esl_dsq_mercount(abc, sq->dsq, sq->n, W, wmerct)  != eslOK) esl_fatal("w-mer count failed");
 
@@ -188,7 +188,7 @@ markov_generation(ESL_RANDOMNESS *rng, const ESL_ALPHABET *abc, char *seqfile, i
       if (N > 1) esl_sq_FormatName(sq, "random%d", i);
       else       esl_sq_SetName(sq, "random");
 
-      esl_sqio_Write(ofp, sq, outfmt, FALSE);
+      esl_sqfile_Write(ofp, sq, outfmt, FALSE);
     }
 
   esl_rsq_markov_Destroy(pmarkov, pwmer);

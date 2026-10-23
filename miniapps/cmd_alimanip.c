@@ -22,7 +22,7 @@
 #include "esl_msafile.h"
 #include "esl_msafile2.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_stack.h"
 #include "esl_subcmd.h"
 #include "esl_tree.h"
@@ -1011,7 +1011,7 @@ static int read_sqfile(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc, int nseq, ESL_
   ESL_ALLOC(sq, sizeof(ESL_SQ *) * (nseq + 1)); /* +1 for the last guy we allocate but don't use */
   i = 0;
   sq[i] = esl_sq_CreateDigital(abc);
-  while ((status = esl_sqio_Read(sqfp, sq[i])) == eslOK) { 
+  while ((status = esl_sqfile_Read(sqfp, sq[i])) == eslOK) { 
     i++;
     if(i > nseq) esl_fatal("With --trim, sequence file must have same number seqs as in <msafile>\n"); 
     sq[i] = esl_sq_CreateDigital(abc);

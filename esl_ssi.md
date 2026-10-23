@@ -233,7 +233,7 @@ Similarly, the `ssi` module does not specify the meaning of the
 associate any useful format code (or indeed, any other number) with
 each indexed file. A typical use, though, would be sequence file
 format codes like `eslSQFILE_FASTA` or
-`eslMSAFILE_STOCKHOLM` from the `sqio` or `msa`
+`eslMSAFILE_STOCKHOLM` from the `sqfile` or `msa`
 modules.
 
 Only one possible optional behavior flag is currently defined:

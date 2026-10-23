@@ -12,7 +12,7 @@
 #include "esl_sq.h"
 #include "esl_subcmd.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 
 static ESL_OPTIONS cmd_options[] = {
   /* name           type        default  env  range toggles reqs incomp  help                                          docgroup*/
@@ -72,7 +72,7 @@ esl_cmd_translate(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **ar
   int            status;
 
   if (esl_opt_IsOn(go, "--informat")) {
-    if ((infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslSQFILE_UNKNOWN)
+    if ((infmt = esl_sqfile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslSQFILE_UNKNOWN)
       esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
   status = esl_sqfile_OpenDigital(nt_abc, dnafile, infmt, NULL, &sqfp);
@@ -94,7 +94,7 @@ esl_cmd_translate(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **ar
 
   while ((status = esl_orfreader_Read(orffp, sq)) == eslOK)
     {
-      esl_sqio_Write(stdout, sq, eslSQFILE_FASTA, FALSE);
+      esl_sqfile_Write(stdout, sq, eslSQFILE_FASTA, FALSE);
       esl_sq_Reuse(sq);
     }
   if (status != eslEOF) esl_fatal("ORF reading failed abnormally");

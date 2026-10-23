@@ -20,7 +20,7 @@
 #include "esl_msa.h"
 #include "esl_msafile.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_subcmd.h"
 #include "esl_wuss.h"
 
@@ -159,13 +159,13 @@ esl_cmd_reformat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
 
   /* Additional option processing and validations
    */
-  if ((outfmt = esl_sqio_EncodeFormat(fmt)) == eslSQFILE_UNKNOWN)
+  if ((outfmt = esl_sqfile_EncodeFormat(fmt)) == eslSQFILE_UNKNOWN)
     esl_fatal("%s is not a recognized output seqfile format\n", fmt);
-  if (! esl_sqio_IsAlignment(outfmt) && (outfmt != eslSQFILE_FASTA && outfmt != eslSQFILE_HMMPGMD))  // Unaligned output formats: fasta|hmmpgmd
+  if (! esl_sqfile_IsAlignment(outfmt) && (outfmt != eslSQFILE_FASTA && outfmt != eslSQFILE_HMMPGMD))  // Unaligned output formats: fasta|hmmpgmd
     esl_fatal("Can't reformat to %s format: only can do fasta|hmmpgmd format for unaligned seqfiles", fmt);
 
   if (esl_opt_IsOn(go, "--informat")) {
-    if ( (infmt = esl_sqio_EncodeFormat(esl_opt_GetString( go, "--informat"))) == eslSQFILE_UNKNOWN)
+    if ( (infmt = esl_sqfile_EncodeFormat(esl_opt_GetString( go, "--informat"))) == eslSQFILE_UNKNOWN)
       esl_fatal("%s is not a recognized input seqfile format\n", esl_opt_GetString(go, "--informat"));
   }
 
@@ -196,7 +196,7 @@ esl_cmd_reformat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
   /* MSA => MSA reformatting
    * (If output format is MSA, input also has to be an MSA.) 
    */
-  if (esl_sqio_IsAlignment(outfmt))
+  if (esl_sqfile_IsAlignment(outfmt))
     {
       if (do_small)   // small-memory MSA=>MSA reformatting, line by line
         {
@@ -312,7 +312,7 @@ esl_cmd_reformat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
       else if (status == eslEFORMAT)   esl_fatal("Couldn't determine format of seqfile %s\n", seqfile);
       else if (status != eslOK)        esl_fatal("Open of seqfile %s failed, code %d\n", seqfile, status);
 
-      if (esl_sqio_IsAlignment(sqfp->format))
+      if (esl_sqfile_IsAlignment(sqfp->format))
         {
           if (ignore)  esl_fatal("--ignore option only applies to unaligned input <seqfile> formats");
           if (accept)  esl_fatal("--accept option only applies to unaligned input <seqfile> formats");
@@ -321,16 +321,16 @@ esl_cmd_reformat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
         }
       else
         {
-          if (ignore)  esl_sqio_Ignore  (sqfp, ignore);
-          if (accept)  esl_sqio_Accept  (sqfp, accept);
-          if (acceptn) esl_sqio_AcceptAs(sqfp, acceptn, 'N');
-          if (acceptx) esl_sqio_AcceptAs(sqfp, acceptx, 'X');
+          if (ignore)  esl_sqfile_Ignore  (sqfp, ignore);
+          if (accept)  esl_sqfile_Accept  (sqfp, accept);
+          if (acceptn) esl_sqfile_AcceptAs(sqfp, acceptn, 'N');
+          if (acceptx) esl_sqfile_AcceptAs(sqfp, acceptx, 'X');
         }
 
       if (outfmt == eslSQFILE_HMMPGMD)
         idmapfp = init_hmmpgmd_mapfile(sqfp, ofp, idmapfile);
 
-      while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+      while ((status = esl_sqfile_Read(sqfp, sq)) == eslOK)
         {
           idx++;          
 
@@ -370,7 +370,7 @@ esl_cmd_reformat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
               esl_sq_SetDesc   (sq, "");
             }
 
-          esl_sqio_Write(ofp, sq, outfmt, /*update=*/FALSE);
+          esl_sqfile_Write(ofp, sq, outfmt, /*update=*/FALSE);
           esl_sq_Reuse(sq);
         }
       if      (status == eslEFORMAT) esl_fatal("seqfile parse failed\n  %s", esl_sqfile_GetErrorBuf(sqfp));
@@ -490,7 +490,7 @@ init_hmmpgmd_mapfile(ESL_SQFILE *sqfp, FILE *ofp, char *idmapfile)
   }
 
   // make a first pass over seqfile to get count of sequences, residues 
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK) {
+  while ((status = esl_sqfile_Read(sqfp, sq)) == eslOK) {
     nres += sq->n;
     nseq ++;
     esl_sq_Reuse(sq);
@@ -516,7 +516,7 @@ init_hmmpgmd_mapfile(ESL_SQFILE *sqfp, FILE *ofp, char *idmapfile)
  * single seq version of esl_msa_SymConvert(); see
  * documentation there.
  * 
- * no reason yet to include in sqio API, but that may change.
+ * no reason yet to include in sqfile API, but that may change.
  * 
  * inefficient to use this for upper/lower case conversion,
  * prob by an order of magnitude (because of the strchr() call,

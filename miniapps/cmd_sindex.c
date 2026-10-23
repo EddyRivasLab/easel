@@ -10,7 +10,7 @@
 #include "esl_getopts.h"
 #include "esl_regexp.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_ssi.h"
 #include "esl_subcmd.h"
 
@@ -67,7 +67,7 @@ esl_cmd_sindex(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   /* Open input sequence file */
   if (esl_opt_GetString(go, "--informat") != NULL)
     {
-      infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"));
+      infmt = esl_sqfile_EncodeFormat(esl_opt_GetString(go, "--informat"));
       if (infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
     }
   status = esl_sqfile_Open(seqfile, infmt, NULL, &sqfp);
@@ -93,7 +93,7 @@ esl_cmd_sindex(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   esl_regexp_Compile(rem, "^.+\\|(.+)\\|(.+)$");
 
   /* Read each sequence, index names */
-  while ((status = esl_sqio_ReadInfo(sqfp, sq)) == eslOK)
+  while ((status = esl_sqfile_ReadInfo(sqfp, sq)) == eslOK)
     {
       nseq++;
       if (sq->name == NULL)

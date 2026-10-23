@@ -10,7 +10,7 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #ifdef __cplusplus // magic to make C++ compilers happy
 extern "C" {
 #endif

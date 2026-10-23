@@ -76,7 +76,7 @@ provides the ability to extract single unaligned sequences from a
 multiple alignment.
 
 You would often use the `sq` module in conjunction with
-`sqio`, which provides the ability to read and write
+`sqfile`, which provides the ability to read and write
 `ESL_SQ` objects from and to files.
 
 ## examples
@@ -185,7 +185,7 @@ the `ESL_SQ` object. Instead, use the appropriate
 The `sq` module isn't much use by itself; it's a building block
 for several other modules. For example, one of the main things you'll
 want to do with sequences is to read them from a file. For examples
-and documentation of sequence input, see the `sqio` module.
+and documentation of sequence input, see the `sqfile` module.
 
 ### using a digital `ESL_SQ`
 

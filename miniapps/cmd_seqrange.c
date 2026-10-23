@@ -15,7 +15,7 @@
 #include "esl_regexp.h"
 #include "esl_ssi.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_subcmd.h"
 
 static ESL_OPTIONS cmd_options[] = {
@@ -46,7 +46,7 @@ esl_cmd_seqrange(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
 
   /* Open the sequence file */
   if (esl_opt_GetString(go, "--informat") != NULL) {
-    infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    infmt = esl_sqfile_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
   status = esl_sqfile_Open(seqfile, infmt, NULL, &sqfp);
@@ -58,7 +58,7 @@ esl_cmd_seqrange(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
   /* Exit if seqfile is an alignment, is gzipped or is piped from stdin, we can't handle this */
   if (sqfp->do_gzip)                      esl_fatal("Can't determine seq range for a .gz compressed file\n");
   if (sqfp->do_stdin)                     esl_fatal("Can't determine seq range for a standard input pipe\n");
-  if (esl_sqio_IsAlignment(sqfp->format)) esl_fatal("Can't determine seq range for an alignment file\n");              
+  if (esl_sqfile_IsAlignment(sqfp->format)) esl_fatal("Can't determine seq range for an alignment file\n");              
 
   /* Open the SSI index for retrieval, it is required */
   status = esl_sqfile_OpenSSI(sqfp, NULL);

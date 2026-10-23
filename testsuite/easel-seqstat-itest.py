@@ -36,7 +36,7 @@ if m := re.search(r'^Total # residues:\s+1293', r.stdout, flags=re.MULTILINE) ==
 r = esl_itest.run(f'{easel} seqstat  {srcdir}/testsuite/example-pfam.sto')
 if m := re.search(r'^Total # residues:\s+4602', r.stdout, flags=re.MULTILINE) == None: esl_itest.fail()
 
-# stdin pipe. Currently, esl_sqio format autodetection on stdin only works for unaligned formats, not MSAs.
+# stdin pipe. Currently, esl_sqfile format autodetection on stdin only works for unaligned formats, not MSAs.
 r = esl_itest.run_piped(f'cat {srcdir}/testsuite/example-uniprot.dat', f'{easel} seqstat -')
 if m := re.search(r'^Total # residues:\s+1293', r.stdout, flags=re.MULTILINE) == None: esl_itest.fail()
 

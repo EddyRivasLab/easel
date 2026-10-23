@@ -1704,7 +1704,7 @@ int main(void)
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 
 int 
 main(int argc, char **argv)
@@ -1721,7 +1721,7 @@ main(int argc, char **argv)
   else if (status == eslEFORMAT)   esl_fatal("Format couldn't be determined.");
   else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
 
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+  while ((status = esl_sqfile_Read(sqfp, sq)) == eslOK)
   {
     esl_sq_GuessAlphabet(sq, &type);
     printf("%-25s %s\n", sq->name, esl_abc_DecodeType(type));

@@ -13,7 +13,7 @@
 #include "esl_gencode.h"
 #include "esl_getopts.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_subcmd.h"
 
 
@@ -108,7 +108,7 @@ esl_cmd_printseq(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
 
   /* --informat: assert the input file format */
   if (esl_opt_IsOn(go, "--informat") &&
-      (infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslSQFILE_UNKNOWN)
+      (infmt = esl_sqfile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslSQFILE_UNKNOWN)
     esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat"));
 
   /* Open in text mode first, so we can guess the alphabet if needed */
@@ -140,7 +140,7 @@ esl_cmd_printseq(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
       gcode  = esl_gencode_Create(nt_abc, aa_abc);
     }
 
-  status = esl_sqio_Read(sqfp, sq);
+  status = esl_sqfile_Read(sqfp, sq);
   if      (status == eslEFORMAT) esl_fatal("Parse failed:\n  %s", esl_sqfile_GetErrorBuf(sqfp));
   else if (status == eslEOF)     esl_fatal("No sequence found in %s", seqfile);
   else if (status != eslOK)      esl_fatal("Unexpected read error %d", status);
@@ -213,7 +213,7 @@ esl_cmd_printseq(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
    */
   {
     sq2    = esl_sq_CreateDigital(nt_abc);
-    status = esl_sqio_ReadInfo(sqfp, sq2);
+    status = esl_sqfile_ReadInfo(sqfp, sq2);
     if      (status == eslOK)      esl_fprintf(stderr, "# warning: %s contains more than one sequence; only the first is shown\n", seqfile);
     else if (status == eslEFORMAT) esl_fatal("Parse failed:\n  %s", esl_sqfile_GetErrorBuf(sqfp));
     else if (status != eslEOF)     esl_fatal("Unexpected read error %d", status);

@@ -72,7 +72,7 @@ typedef struct {
 
 
 /* Alignment file format codes.
- * Must coexist with sqio unaligned file format codes.
+ * Must coexist with sqfile unaligned file format codes.
  * Rules:
  *     - 0 is an unknown/unassigned format 
  *     - <=100 reserved for unaligned formats

@@ -1,6 +1,6 @@
 /* esl_orfreader: six-frame translation of DNA sequence input
  *
- * This is a wrapper around DNA sequence input reading (esl_sqio*)
+ * This is a wrapper around DNA sequence input reading (esl_sqfile*)
  * combined with translation by esl_gencode.
  */
 #ifndef eslORFREADER_INCLUDED
@@ -10,7 +10,7 @@
 #include "esl_alphabet.h"
 #include "esl_gencode.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 
 
 /* ESL_ORFREADER

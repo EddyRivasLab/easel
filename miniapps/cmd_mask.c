@@ -13,7 +13,7 @@
 #include "esl_fileparser.h"
 #include "esl_getopts.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_subcmd.h"
 
 static ESL_OPTIONS cmd_options[] = {
@@ -69,7 +69,7 @@ esl_cmd_mask(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 
   /* Open the <seqfile>: text mode, not digital */
   if (esl_opt_GetString(go, "--informat") != NULL) {
-    infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    infmt = esl_sqfile_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
   sq     = esl_sq_Create();
@@ -81,7 +81,7 @@ esl_cmd_mask(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 
   if (do_fetching)
     {
-      if (sqfp->do_gzip || sqfp->do_stdin || esl_sqio_IsAlignment(sqfp->format) )
+      if (sqfp->do_gzip || sqfp->do_stdin || esl_sqfile_IsAlignment(sqfp->format) )
         esl_fatal("For fetching sequences with -R, <seqfile> must be an SSI-indexed plain sequence file");
 
       status = esl_sqfile_OpenSSI(sqfp, /*ssifile_hint=*/NULL);
@@ -121,7 +121,7 @@ esl_cmd_mask(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
       /* Get the sequence */
       if (do_fetching)
 	{  /* If the <seqfile> is SSI indexed, try to reposition it and read <source> seq by random access */
-	  status = esl_sqio_Fetch(sqfp, source, sq);
+	  status = esl_sqfile_Fetch(sqfp, source, sq);
 	  if      (status == eslENOTFOUND) esl_fatal("seq %s not found in SSI index for file %s\n", source, sqfp->filename);
 	  else if (status == eslEINVAL)    esl_fatal("No SSI index or can't reposition in file %s\n", sqfp->filename);
 	  else if (status == eslEFORMAT)   esl_fatal("Parse failed:\n%s\n", esl_sqfile_GetErrorBuf(sqfp));     
@@ -129,7 +129,7 @@ esl_cmd_mask(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 	}
       else 
 	{ /* else, assume we're reading sequentially; <sqfile> and <maskfile> have seqs in same order */
-	  status = esl_sqio_Read(sqfp, sq);
+	  status = esl_sqfile_Read(sqfp, sq);
 	  if      (status == eslEOF)      esl_fatal("File %s ended prematurely; didn't find %s\n", sqfp->filename, source);
 	  else if (status == eslEFORMAT)  esl_fatal("Parse failed:\n%s\n", esl_sqfile_GetErrorBuf(sqfp));
 	  else if (status != eslOK)       esl_fatal("Unexpected error reading sequence file %s\n", sqfp->filename);
@@ -178,7 +178,7 @@ esl_cmd_mask(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
 	      sq->seq[pos] = (do_lowercase ? tolower(sq->seq[pos]) : maskchar);
 	}
 
-      esl_sqio_Write(ofp, sq, outfmt, FALSE);
+      esl_sqfile_Write(ofp, sq, outfmt, FALSE);
       esl_sq_Reuse(sq);
     }
 

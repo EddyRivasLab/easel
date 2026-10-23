@@ -28,7 +28,7 @@
 #include "esl_msafile.h"
 #include "esl_msafile2.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_stack.h"
 #include "esl_subcmd.h"
 #include "esl_tree.h"

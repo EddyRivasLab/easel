@@ -21,7 +21,7 @@
 #include "esl_fileparser.h"
 #include "esl_regexp.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 
 #include "esl_gencode.h"
 

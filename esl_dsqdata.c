@@ -43,7 +43,7 @@
 #include "esl_alphabet.h"
 #include "esl_random.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 
 #include "esl_dsqdata.h"
 
@@ -615,7 +615,7 @@ esl_dsqdata_Write(ESL_SQFILE *sqfp, char *basename, char *errbuf)
   /* First pass over the sequence file, to get statistics.
    * Read it now, before opening any files, in case we find any parse errors.
    */
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+  while ((status = esl_sqfile_Read(sqfp, sq)) == eslOK)
     {
       if (sq->n >= 6 * eslDSQDATA_CHUNK_MAXPACKET)  // guaranteed limit
 	ESL_EXCEPTION(eslEUNIMPLEMENTED, "dsqdata cannot currently deal with large sequences");
@@ -675,7 +675,7 @@ esl_dsqdata_Write(ESL_SQFILE *sqfp, char *basename, char *errbuf)
     ESL_XEXCEPTION_SYS(eslESYS, "fwrite() failed, metadata file header");
 
   /* Second pass: index, metadata, and sequence files */
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+  while ((status = esl_sqfile_Read(sqfp, sq)) == eslOK)
     {
       /* Packed sequence */
       psq = (uint32_t *) sq->dsq;        // pack-in-place
@@ -721,7 +721,7 @@ esl_dsqdata_Write(ESL_SQFILE *sqfp, char *basename, char *errbuf)
   fprintf(stubfp, "Easel dsqdata v1 x%" PRIu32 "\n", uniquetag);
   fprintf(stubfp, "\n");
   fprintf(stubfp, "Original file:   %s\n",          sqfp->filename);
-  fprintf(stubfp, "Original format: %s\n",          esl_sqio_DecodeFormat(sqfp->format));
+  fprintf(stubfp, "Original format: %s\n",          esl_sqfile_DecodeFormat(sqfp->format));
   fprintf(stubfp, "Type:            %s\n",          esl_abc_DecodeType(sqfp->abc->type));
   fprintf(stubfp, "Sequences:       %" PRIu64 "\n", nseq);
   fprintf(stubfp, "Residues:        %" PRIu64 "\n", nres);
@@ -1576,7 +1576,7 @@ utest_readwrite(ESL_RANDOMNESS *rng, ESL_ALPHABET *abc)
       sqarr[i] = NULL;
       if (( status = esl_sq_Sample(rng, abc, maxL, &(sqarr[i])))              != eslOK) esl_fatal(msg);
       if (( status = esl_sq_SetAccession(sqarr[i], ""))                       != eslOK) esl_fatal(msg);
-      if (( status = esl_sqio_Write(tmpfp, sqarr[i], eslSQFILE_FASTA, FALSE)) != eslOK) esl_fatal(msg);
+      if (( status = esl_sqfile_Write(tmpfp, sqarr[i], eslSQFILE_FASTA, FALSE)) != eslOK) esl_fatal(msg);
     }
   fclose(tmpfp);
 

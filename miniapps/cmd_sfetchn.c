@@ -11,7 +11,7 @@
 #include "esl_fileparser.h"
 #include "esl_getopts.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_subcmd.h"
 
 static ESL_OPTIONS cmd_options[] = {
@@ -52,7 +52,7 @@ esl_cmd_sfetchn(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
 
   /* Open the sequence file */
   if (esl_opt_GetString(go, "--informat") != NULL) {
-    infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    infmt = esl_sqfile_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
   status = esl_sqfile_Open(seqfile, infmt, NULL, &sqfp);
@@ -60,7 +60,7 @@ esl_cmd_sfetchn(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
   else if (status == eslEFORMAT)   esl_fatal("Format of seqfile %s unrecognized.", seqfile);
   else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
 
-  if (sqfp->do_gzip || sqfp->do_stdin || esl_sqio_IsAlignment(sqfp->format) )
+  if (sqfp->do_gzip || sqfp->do_stdin || esl_sqfile_IsAlignment(sqfp->format) )
     esl_fatal("`easel sfetchn` requires an actual file for <seqfile>, with an SSI index.");
 
   /* Open its SSI index (mandatory, for sfetchn; for sfetch it's optional) */
@@ -112,7 +112,7 @@ esl_cmd_sfetchn(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
           else                         { i = start; j = end;   rev_coords = FALSE; }
           
           /* FetchSubseq() is aware of end=0 special case semantics, but does not handle revcomp start>end convention; fetch i..j */
-          if (esl_sqio_FetchSubseq(sqfp, key, i, j, sq) != eslOK) esl_fatal(esl_sqfile_GetErrorBuf(sqfp));
+          if (esl_sqfile_FetchSubseq(sqfp, key, i, j, sq) != eslOK) esl_fatal(esl_sqfile_GetErrorBuf(sqfp));
 
           /* Rev comp can be requested two ways, by -r or by start>end coords.
            * Test below is a boolean XOR. if both are FALSE, no rev comp; if both TRUE, rev comps cancel. Otherwise, rev comp.
@@ -121,7 +121,7 @@ esl_cmd_sfetchn(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
             esl_fatal("Failed to reverse complement %s; is it a protein?\n", sq->name);
 
           esl_sq_SetName(sq, newname);                       // with -C, all fetched sequences get a new name, field 1 from the <keyfile>
-          esl_sqio_Write(ofp, sq, eslSQFILE_FASTA, FALSE);
+          esl_sqfile_Write(ofp, sq, eslSQFILE_FASTA, FALSE);
 
           nseq++;
           esl_sq_Reuse(sq);
@@ -139,7 +139,7 @@ esl_cmd_sfetchn(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
           else if (status == eslEFORMAT)   esl_fatal("Failed to parse SSI index for %s\n", sqfp->filename);
           else if (status != eslOK)        esl_fatal("Failed to look up location of seq %s in SSI index of file %s\n", key, sqfp->filename);
 
-          status = esl_sqio_Read(sqfp, sq);
+          status = esl_sqfile_Read(sqfp, sq);
           if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s):\n%s\n", sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
           else if (status == eslEOF)     esl_fatal("Unexpected EOF reading sequence file %s", status, sqfp->filename);
           else if (status != eslOK)      esl_fatal("Unexpected error %d reading sequence file %s", status, sqfp->filename);
@@ -150,11 +150,11 @@ esl_cmd_sfetchn(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
           if (do_rev)
             {
               if (esl_sq_ReverseComplement(sq) != eslOK) esl_fatal("Failed to reverse complement %s; is it a protein?\n", sq->name);
-              esl_sqio_Write(ofp, sq, eslSQFILE_FASTA, FALSE);
+              esl_sqfile_Write(ofp, sq, eslSQFILE_FASTA, FALSE);
             }
           else
             {
-              if (esl_sqio_Echo(sqfp, sq, ofp) != eslOK) esl_fatal("Echo failed: %s\n", esl_sqfile_GetErrorBuf(sqfp));
+              if (esl_sqfile_Echo(sqfp, sq, ofp) != eslOK) esl_fatal("Echo failed: %s\n", esl_sqfile_GetErrorBuf(sqfp));
             }
 
           nseq++;

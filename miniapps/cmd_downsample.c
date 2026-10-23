@@ -6,7 +6,7 @@
 #include "esl_buffer.h"
 #include "esl_getopts.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_subcmd.h"
 #include "esl_mem.h"
 #include "esl_rand64.h"
@@ -46,7 +46,7 @@ esl_cmd_downsample(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **a
   if (esl_opt_GetString(go, "--informat") != NULL) {
     if (! esl_opt_GetBoolean(go, "-s") && ! esl_opt_GetBoolean(go, "-S"))
       esl_fatal("--informat option requires that you're downsampling a sequence file (with -s or -S)");
-    infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    infmt = esl_sqfile_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
 
@@ -151,7 +151,7 @@ downsample_seqs(ESL_RAND64 *rng, int64_t M, const char *infile, int infmt)
   if (( sqarr = malloc(sizeof(ESL_SQ *) * M)) == NULL) esl_fatal("allocation failed");
   for (i = 0; i < M; i++) sqarr[i] = NULL;
   
-  while ( (status = esl_sqio_Read(sqfp, sq)) == eslOK)
+  while ( (status = esl_sqfile_Read(sqfp, sq)) == eslOK)
     {
       N++;
       if (N > M)
@@ -176,7 +176,7 @@ downsample_seqs(ESL_RAND64 *rng, int64_t M, const char *infile, int infmt)
   if (N < M) esl_fatal("input only has %" PRId64 " sequences; not enough to select %" PRId64 " from them", N, M);
 
   for (i = 0; i < M; i++)
-    esl_sqio_Write(stdout, sqarr[i], eslSQFILE_FASTA, /*update=*/FALSE);  // FASTA because infile could be MSA(s)
+    esl_sqfile_Write(stdout, sqarr[i], eslSQFILE_FASTA, /*update=*/FALSE);  // FASTA because infile could be MSA(s)
 
   esl_sqfile_Close(sqfp);
   for (i = 0; i < M; i++) esl_sq_Destroy(sqarr[i]);
@@ -238,11 +238,11 @@ downsample_seqs_big(ESL_RAND64 *rng, int64_t M, const char *infile, int infmt)
   else if (status != eslOK)            esl_fatal("Sequence file open failed, unexpected code %d.", status);
 
   if (! esl_sqfile_IsRewindable(sqfp))       esl_fatal("To use -S, <infile> must be a sequence file, not a (nonrewindable) stream");
-  if (  esl_sqio_IsAlignment(sqfp->format) ) esl_fatal("To use -S, <infile> must be an unaligned sequence file, not an alignment");
+  if (  esl_sqfile_IsAlignment(sqfp->format) ) esl_fatal("To use -S, <infile> must be an unaligned sequence file, not an alignment");
 
   /* First pass: sample <infile>, holding sequence record offsets for the sample
    */
-  while ((status = esl_sqio_ReadInfo(sqfp, sq)) == eslOK)
+  while ((status = esl_sqfile_ReadInfo(sqfp, sq)) == eslOK)
     {
       N++;
       if (N > M) {
@@ -264,8 +264,8 @@ downsample_seqs_big(ESL_RAND64 *rng, int64_t M, const char *infile, int infmt)
   for (i = 0; i < M; i++)
     {
       if (( status = esl_sqfile_Position(sqfp, offlist[i])) != eslOK) esl_fatal("failed to reposition to where sample %" PRId64 " was supposed to be", i);
-      if (( status = esl_sqio_ReadInfo(sqfp, sq))           != eslOK) esl_fatal("failed to read seq info where sample %" PRId64 " was supposed to be", i);
-      if (( status = esl_sqio_Echo(sqfp, sq, stdout))       != eslOK) esl_fatal("failed to echo seq from where sample %" PRId64 " was supposed to be", i);
+      if (( status = esl_sqfile_ReadInfo(sqfp, sq))           != eslOK) esl_fatal("failed to read seq info where sample %" PRId64 " was supposed to be", i);
+      if (( status = esl_sqfile_Echo(sqfp, sq, stdout))       != eslOK) esl_fatal("failed to echo seq from where sample %" PRId64 " was supposed to be", i);
       esl_sq_Reuse(sq);
     }
 

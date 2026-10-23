@@ -2,7 +2,7 @@
 
 The `dsqdata` module implements a binary sequence data format. It
 accelerates sequence data input in four ways, compared to Easel
-flatfile parsers in `sqio`:
+flatfile parsers in `sqfile`:
 
 * __Asynchronous input.__
    Disk and CPU resources are used concurrently, using POSIX threads.

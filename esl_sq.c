@@ -2958,7 +2958,7 @@ utest_Create()
 static void
 utest_Set(ESL_RANDOMNESS *r)
 {
-  char   *msg     = "sqio Set unit test failure";
+  char   *msg     = "sqfile Set unit test failure";
   ESL_SQ *sq      = esl_sq_Create();
   int     ntrials = 8;
   int     maxn    = eslSQ_NAMECHUNK*2;

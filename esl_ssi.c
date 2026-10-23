@@ -806,7 +806,7 @@ esl_newssi_SetSubseq(ESL_NEWSSI *ns, uint16_t fh, uint32_t bpl, uint32_t rpl)
  *           
  *           The data length <L> is technically optional as far as SSI
  *           is concerned; <L> may be passed as 0 to leave it
- *           unset. However, functions in the <sqio> module that use
+ *           unset. However, functions in the <sqfile> module that use
  *           SSI indices will assume that <L> is available.
  *           
  *           <d_off> is also optional; it may be passed as <0> to
@@ -814,7 +814,7 @@ esl_newssi_SetSubseq(ESL_NEWSSI *ns, uint16_t fh, uint32_t bpl, uint32_t rpl)
  *           the data portion of the record. The interpretation of
  *           this data offset may be implementation-defined and may
  *           depend on the format of the datafile; for example, in how
- *           <sqio> uses SSI indices, <d_off> is the offset to the
+ *           <sqfile> uses SSI indices, <d_off> is the offset to the
  *           start of the first sequence line.
  *           
  *           Both <d_off> and <L> must be provided, and additionally
@@ -1777,7 +1777,7 @@ esl_fwrite_offset(FILE *fp, off_t offset)
 #include "esl_arr2.h"
 #include "esl_getopts.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_random.h"
 #include "esl_randomseq.h"
 
@@ -1848,7 +1848,7 @@ ssi_testdata_create(ESL_RANDOMNESS *rng, int max_nfiles, int max_nseq, int maxL,
       for (i = j*td->nseq; i < (j+1)*td->nseq; i++)
 	{
 	  if ( (sq = esl_sq_CreateFrom(td->seqname[i], td->seq[i], td->seqdesc[i], NULL, NULL)) == NULL)  esl_fatal(msg);
-	  if ( esl_sqio_Write(fp, sq, eslSQFILE_FASTA, FALSE) != eslOK) esl_fatal(msg);
+	  if ( esl_sqfile_Write(fp, sq, eslSQFILE_FASTA, FALSE) != eslOK) esl_fatal(msg);
 	  esl_sq_Destroy(sq);
 	}
       fclose(fp);
@@ -1906,7 +1906,7 @@ utest_enchilada(ESL_GETOPTS *go, ESL_RANDOMNESS *rng, int do_external, int do_du
     {
       if (esl_sqfile_Open(td->sqfile[j], eslSQFILE_UNKNOWN, NULL, &sqfp) != eslOK) esl_fatal(msg);
       if (esl_newssi_AddFile(ns, td->sqfile[j], sqfp->format, &fh)       != eslOK) esl_fatal(msg);
-      while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+      while ((status = esl_sqfile_Read(sqfp, sq)) == eslOK)
 	{
 	  if (esl_newssi_AddKey  (ns, sq->name, fh, sq->roff, sq->doff, sq->L) != eslOK) esl_fatal(msg);
 	  if (esl_newssi_AddAlias(ns, sq->desc, sq->name)                      != eslOK) esl_fatal(msg);
@@ -1941,7 +1941,7 @@ utest_enchilada(ESL_GETOPTS *go, ESL_RANDOMNESS *rng, int do_external, int do_du
           if ( esl_ssi_FileInfo(ssi, fh, &qfile, &qfmt)             != eslOK) esl_fatal(msg);      
           if ( esl_sqfile_Open(qfile, qfmt, NULL, &sqfp)            != eslOK) esl_fatal(msg);
           if ( esl_sqfile_Position(sqfp, roff)                      != eslOK) esl_fatal(msg);
-          if ( esl_sqio_Read(sqfp, sq)                              != eslOK) esl_fatal(msg);
+          if ( esl_sqfile_Read(sqfp, sq)                              != eslOK) esl_fatal(msg);
 
           /* Check that it's the right one */
           if (strcmp(sq->name, query) != 0 && strcmp(sq->desc, query) != 0) esl_fatal(msg);
@@ -1977,7 +1977,7 @@ utest_enchilada(ESL_GETOPTS *go, ESL_RANDOMNESS *rng, int do_external, int do_du
 #include "easel.h"
 #include "esl_getopts.h"
 #include "esl_sq.h"
-#include "esl_sqio.h"
+#include "esl_sqfile.h"
 #include "esl_ssi.h"
 #include "esl_random.h"
 #include "esl_randomseq.h"
