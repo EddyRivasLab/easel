@@ -171,7 +171,7 @@ esl_getopts_Create(const ESL_OPTIONS *opt)
  *            to give a header like:
  *            
  *            \begin{cchunk}
- *            # esl-compstruct :: compare RNA structures
+ *            # easel compstruct :: compare RNA structures
  *            # Easel 0.1 (February 2005)
  *            # Copyright (C) 2004-2007 HHMI Janelia Farm Research Campus
  *            # Freely licensed under the Janelia Software License.
@@ -188,7 +188,7 @@ esl_getopts_Create(const ESL_OPTIONS *opt)
  *            the program's name to give a usage line like:
  *            
  *            \begin{cchunk}
- *            Usage: esl-compstruct [options] <trusted file> <test file>
+ *            Usage: easel compstruct [options] <trusted file> <test file>
  *            \end{cchunk}  
  *            
  *            <banner> and <usage> are optional, meaning that either

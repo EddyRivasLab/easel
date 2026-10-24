@@ -892,7 +892,7 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
    * pknot letters can change and even go from pknots to nested
    * (e.g. A..a could go to <..>) depending on which other bps get
    * removed. Note that with the current implementation, a subsequent
-   * esl-reformat --fullwuss call will reformat the individual SS
+   * `easel reformat --fullwuss` call will reformat the individual SS
    * lines output here to full wuss.
    */
   if (do_sindi) { /* only need the ct array if --sindi */

@@ -294,9 +294,8 @@ static int  determine_spacelen(char *s);
  *
  *           Many optional return values (<opt_*>) allow this function
  *           to serve the diverse needs of the miniapps that can run
- *           in a memory-efficient mode (esl-alimerge, esl-alimask,
- *           esl-alistat, esl-ssdraw). For any that are unwanted, pass
- *           <NULL>.
+ *           in a memory-efficient mode (easel alicol, alimanip, alimerge,
+ *           ssdraw). For any that are unwanted, pass <NULL>.
  *
  * Args:     afp           - open alignment file pointer
  *           listfp        - if non-NULL, dump each sequence name we read 
@@ -566,7 +565,7 @@ esl_msafile2_ReadInfoPfam(ESL_MSAFILE2 *afp, FILE *listfp, ESL_ALPHABET *abc, in
 	    if(nseq == 0) { 
 	      if ((status = esl_strdup(seqname, -1, &(first_seqname))) != eslOK) goto ERROR; 
 	    }
-	    else if(strcmp(first_seqname, seqname) == 0) { ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): two seqs with same name. Alignment may be in interleaved Stockholm. Reformat to Pfam with esl-reformat.", afp->linenumber); }
+	    else if(strcmp(first_seqname, seqname) == 0) { ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): two seqs with same name. Alignment may be in interleaved Stockholm. Reformat to Pfam with `easel reformat`.", afp->linenumber); }
 	    if(alen == -1) { /* first aligned text line, need to allocate pp_ct, and possibly abc_ct, spos_ct, epos_ct */
 	      alen = textlen;
 	      if(known_alen != -1 && known_alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): known alen (%" PRId64 " passed in) != actual alen (%d)", afp->linenumber, known_alen, textlen);
@@ -1017,7 +1016,7 @@ esl_msafile2_RegurgitatePfam(ESL_MSAFILE2 *afp, FILE *ofp, int maxname, int maxg
 
 	  /* make sure we haven't just read a second line of the first sequence in file (we must be in Pfam 1 line/seq file) */
 	  if(nseq_read == 0) { if ((status = esl_strdup(seqname, -1, &(first_seqname))) != eslOK) goto ERROR; }
-	  else if(strcmp(first_seqname, seqname) == 0) { ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): two seqs named %s. Alignment appears to be in Stockholm format. Reformat to Pfam with esl-reformat.", afp->linenumber, seqname); }
+	  else if(strcmp(first_seqname, seqname) == 0) { ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): two seqs named %s. Alignment appears to be in Stockholm format. Reformat to Pfam with `easel reformat`.", afp->linenumber, seqname); }
 	  nseq_read++;
 
 	  /* determine if we should regurgitate this sequence or not */

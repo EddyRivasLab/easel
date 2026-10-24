@@ -27,7 +27,7 @@ static ESL_OPTIONS cmd_options[] = {
   { "-c",        eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,            "print per column statistics instead of per sequence stats",      0 },
   { "-p",        eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,            "print stats on accuracy versus posterior probability (PP)",      0 },
   { "--p-mask",  eslARG_OUTFILE,NULL, NULL, NULL, NULL,"-p",  NULL,            "with -p, only consider columns within mask ('1' columns) in <f>",0 },
-  { "--c2dfile", eslARG_OUTFILE,NULL, NULL, NULL, NULL,"-c",  NULL,            "print per column stats to esl-ssdraw --dfile file <f>",          0 },
+  { "--c2dfile", eslARG_OUTFILE,NULL, NULL, NULL, NULL,"-c",  NULL,            "print per column stats to easel ssdraw --dfile file <f>",        0 },
   { "--amino",   eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, "--dna,--rna",   "assert that MSA files contain protein alignments",               0 },
   { "--dna",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, "--amino,--rna", "assert that MSA files contain DNA alignments",                   0 },
   { "--rna",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, "--amino,--dna", "assert that MSA files contain RNA alignments",                   0 },

@@ -428,7 +428,7 @@ finish_orf(ESL_ORFREADER *orffp, int f)
  * than 60aa, so we can set minlen=60 and only do one _Read().
  *
  * This was originally part of the integration test for
- * esl-translate. I moved it into the code when I wrote esl_orfreader.
+ * `easel translate`. I moved it into the code when I wrote esl_orfreader.
  */
 static void
 utest_altcodes(void)

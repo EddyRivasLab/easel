@@ -128,6 +128,8 @@ esl_cmd_sindex(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
         }
       esl_sq_Reuse(sq);
     }
+  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s):\n%s\n", sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
+  else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s", status, sqfp->filename);
   
   /* Determine if the file was suitable for fast subseq lookup. */
   if (sqfp->bpl > 0 && sqfp->rpl > 0) {

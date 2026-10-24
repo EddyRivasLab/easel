@@ -2451,7 +2451,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
 
     /* print postscript comment header, only visible if viewed in text mode */
     fprintf(fp, "%% ------------------------------------------------------------\n");
-    fprintf(fp, "%% Postscript file created by esl-ssdraw (page %d of %d)\n", pi+1, ps->npage);
+    fprintf(fp, "%% Postscript file created by easel ssdraw (page %d of %d)\n", pi+1, ps->npage);
     fprintf(fp, "%% ------------------------------------------------------------\n");
     fprintf(fp, "%% msafile:       %s (%d seqs)\n", esl_opt_GetArg(go, 1), ps->msa_nseq);
     fprintf(fp, "%% templatefile:  %s\n", esl_opt_GetArg(go, 2));
@@ -5912,7 +5912,7 @@ PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr,
 /* Function: get_command
  * Date:     EPN, Fri Jan 25 13:56:10 2008
  *
- * Purpose:  Return the command used to call esl-ssdraw
+ * Purpose:  Return the command used to call `easel ssdraw`
  *           in <ret_command>.
  *
  * Returns:  eslOK on success; eslEMEM on allocation failure.
