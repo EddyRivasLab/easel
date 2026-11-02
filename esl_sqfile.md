@@ -120,6 +120,11 @@ format on a command line: i.e. `--informat fasta` or
 The codes are what you use as a developer to specify a format to an
 Easel function call.
 
+In FASTA files, lines starting with `;` before the first `>` record
+are comments (as in Pearson's original FASTA format, and in metadata
+headers) and are skipped. After the first record, `;` is not special;
+it is an illegal sequence character.
+
 Additionally, there is a code `eslSQFILE_UNKNOWN`. It
 tells `esl_sqfile_Open()` to perform format
 autodetection.
