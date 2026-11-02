@@ -470,10 +470,12 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
  * assumed to be in GenBank format.
  *            
  * If that fails, we attempt to guess based on peeking at the first
- * nonblank line of <filename>. If the line starts with $>$, we assume
- * FASTA format; if the line starts with <ID>, we assume EMBL format;
- * if the line starts with <LOCUS> or it contains the string <Genetic
- * Sequence Data Bank> we assume GenBank format.
+ * nonblank line of <filename>, skipping any lines that start with <;>
+ * (FASTA comments; after them, only FASTA is recognized). If the line
+ * starts with $>$, we assume FASTA format; if the line starts with
+ * <ID>, we assume EMBL format; if the line starts with <LOCUS> or it
+ * contains the string <Genetic Sequence Data Bank> we assume GenBank
+ * format.
  *            
  * If that fails too, return an <eslEFORMAT> error, and
  * <*ret_fmt> is set to <eslSQFILE_UNKNOWN>.
@@ -496,6 +498,7 @@ sqfile_guess_format(ESL_SQFILE *sqfp, int *ret_fmt)
   const char *sfx     = NULL;
   int   is_gzip       = FALSE;
   int   nheader_fasta = 0;
+  char *s;
   int   nsfx;
   int   status;
 
@@ -540,20 +543,32 @@ sqfile_guess_format(ESL_SQFILE *sqfp, int *ret_fmt)
   else if (status != eslOK)  goto ERROR;
   // now sqfp->buf is a line of the file 
 
-  /* get first nonblank line (and noncomment, in the case of FASTA with metadata*/
-  while (esl_str_IsBlank(sqfp->buf) || sqfp->buf[0] == ';')
+  /* get first nonblank line (and noncomment, in the case of FASTA with metadata)
+   * <s> points to the start of it. A line is what loadbuf() got,
+   * ending in \n; but if a comment line ends in a lone \r (old Mac
+   * eol), what follows it in sqfp->buf is the next line.
+   */
+  s = sqfp->buf;
+  while (esl_str_IsBlank(s) || *s == ';')
     {
-      if (sqfp->buf[0] == ';') nheader_fasta++;
+      if (*s == ';')
+        {
+          nheader_fasta++;
+          s += strcspn(s, "\r\n");        // skip comment ...
+          s += strspn (s, " \t\n\v\f\r"); // ... its eol, and any blank lines after it
+          if (*s != '\0') continue;       // lone \r eol: next line is already in the buffer
+        }
       status = loadbuf(sqfp);
       if      (status == eslEOF) ESL_XFAIL(eslEFORMAT, sqfp->errbuf, "No non-blank, non-comment data found in file");
       else if (status != eslOK)  goto ERROR;
+      s = sqfp->buf;
     } 
 
   /* formats that can be determined from the first (nonblank, noncomment) line: */
-  if      (*(sqfp->buf) == '>')                                                       *ret_fmt = eslSQFILE_FASTA;
-  else if (!nheader_fasta && strncmp(sqfp->buf, "ID   ", 5)    == 0)                  *ret_fmt = eslSQFILE_EMBL;
-  else if (!nheader_fasta && strncmp(sqfp->buf, "LOCUS   ", 8) == 0)                  *ret_fmt = eslSQFILE_GENBANK;
-  else if (!nheader_fasta && strstr(sqfp->buf, "Genetic Sequence Data Bank") != NULL) *ret_fmt = eslSQFILE_GENBANK;
+  if      (*s == '>')                                                         *ret_fmt = eslSQFILE_FASTA;
+  else if (!nheader_fasta && strncmp(s, "ID   ", 5)    == 0)                  *ret_fmt = eslSQFILE_EMBL;
+  else if (!nheader_fasta && strncmp(s, "LOCUS   ", 8) == 0)                  *ret_fmt = eslSQFILE_GENBANK;
+  else if (!nheader_fasta && strstr(s, "Genetic Sequence Data Bank") != NULL) *ret_fmt = eslSQFILE_GENBANK;
   else *ret_fmt = eslSQFILE_UNKNOWN;
 
   /* Whether we've been able to determine the format or not, reset
@@ -3211,7 +3226,11 @@ inmap_fasta(ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap)
  * 
  * sqfp->buf[sqfp->bpos] is sitting at the start of a FASTA record, or
  * at a space before it (in which case we'll advance, skipping whitespace,
- * until a > is reached).
+ * until a > is reached). Lines starting with ; before the record are
+ * comments, as in Pearson's original FASTA format, and are skipped too.
+ * (Between FASTA records this doesn't arise: the sequence parser stops
+ * at the next >, and ; is not a sequence character. The daemon format
+ * also uses this parser, so there ; lines after a // are skipped too.)
  * Parse the header line, storing name and description in <sq>.
  * 
  * On success, returns <eslOK> and:
@@ -3239,7 +3258,15 @@ header_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq)
   if (sqfp->nc == sqfp->bpos && (status = loadbuf(sqfp)) != eslOK) return status;
 
   c =  sqfp->buf[sqfp->bpos];
-  while (status == eslOK && isspace(c)) status = nextchar(sqfp, &c); /* skip space (including \n) */
+  while (status == eslOK && (isspace(c) || c == ';'))  /* skip space (including \n) and ; comment lines */
+    {
+      if (c == ';')  /* skip to eol (\n or \r); the eol itself is skipped as space */
+        {
+          while (status == eslOK && c != '\n' && c != '\r') status = nextchar(sqfp, &c);
+          if (status == eslOK && sqfp->linenumber != -1) sqfp->linenumber++;
+        }
+      else status = nextchar(sqfp, &c);
+    }
 
   if (status == eslEOF) return eslEOF;
 
@@ -4541,6 +4568,127 @@ utest_guess_empty_seq()
   esl_sq_Destroy(seqs[1]);
 }
 
+/* utest_fasta_comments()
+ *
+ * Lines starting with ; before the first FASTA record are comments
+ * (Pearson's original FASTA format; also used for metadata headers).
+ * Make sure that format guessing and the FASTA parser skip them, in
+ * text and digital mode, with \n, \r\n, and lone \r line endings, and
+ * with a comment longer than one input buffer; that the record offset
+ * of the first sequence still points at its >, so we can reposition
+ * to it; that line numbers in error messages count comment lines (as
+ * before, leading blank lines aren't counted); and
+ * that ; after the first record is still a parse error.
+ */
+static void
+utest_fasta_comments(void)
+{
+  char         *msg     = "sqfile fasta_comments unit test failure";
+  char         *eol[3]  = { "\n", "\r\n", "\r" };
+  ESL_ALPHABET *abc     = esl_alphabet_Create(eslDNA);
+  ESL_SQ       *sq      = NULL;
+  ESL_SQFILE   *sqfp    = NULL;
+  FILE         *fp      = NULL;
+  char          tmpfile[32];
+  char          longcomment[eslSQFILE_READBUFSIZE + 100];
+  int64_t       roff1, roff2;
+  int           e, do_digital, do_long, do_guess;
+
+  memset(longcomment, 'x', sizeof(longcomment) - 1);   // a comment line that crosses an input buffer boundary
+  longcomment[0]                       = ';';
+  longcomment[sizeof(longcomment) - 1] = '\0';
+
+  for (e = 0; e < 3; e++)
+    for (do_long = 0; do_long <= 1; do_long++)
+      for (do_digital = 0; do_digital <= 1; do_digital++)
+        for (do_guess = 0; do_guess <= 1; do_guess++)
+          {
+            strcpy(tmpfile, "esltmpXXXXXX");   // no suffix, so format guessing has to read the file
+            if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
+            fprintf(fp, ";comment%s;%s%s", eol[e], eol[e], eol[e]);
+            if (do_long) fprintf(fp, "%s%s", longcomment, eol[e]);
+            fprintf(fp, ";~key: value%s", eol[e]);
+            roff1 = ftell(fp);
+            fprintf(fp, ">seq1 first%sACGT%sAC%s", eol[e], eol[e], eol[e]);
+            roff2 = ftell(fp);
+            fprintf(fp, ">seq2%sGGGG%s", eol[e], eol[e]);
+            fclose(fp);
+
+            if (do_digital) { if (esl_sqfile_OpenDigital(abc, tmpfile, (do_guess ? eslSQFILE_UNKNOWN : eslSQFILE_FASTA), NULL, &sqfp) != eslOK) esl_fatal(msg); }
+            else            { if (esl_sqfile_Open       (     tmpfile, (do_guess ? eslSQFILE_UNKNOWN : eslSQFILE_FASTA), NULL, &sqfp) != eslOK) esl_fatal(msg); }
+            if (sqfp->format != eslSQFILE_FASTA) esl_fatal(msg);
+            sq = (do_digital ? esl_sq_CreateDigital(abc) : esl_sq_Create());
+
+            if (esl_sqfile_Read(sqfp, sq)  != eslOK)  esl_fatal(msg);
+            if (strcmp(sq->name, "seq1")   != 0)      esl_fatal(msg);
+            if (strcmp(sq->desc, "first")  != 0)      esl_fatal(msg);
+            if (sq->n    != 6)                        esl_fatal(msg);
+            if (sq->roff != roff1)                    esl_fatal(msg);
+            if (! do_digital && strcmp(sq->seq, "ACGTAC") != 0) esl_fatal(msg);
+            esl_sq_Reuse(sq);
+
+            if (esl_sqfile_Read(sqfp, sq)  != eslOK)  esl_fatal(msg);
+            if (strcmp(sq->name, "seq2")   != 0)      esl_fatal(msg);
+            if (sq->n    != 4)                        esl_fatal(msg);
+            if (sq->roff != roff2)                    esl_fatal(msg);
+            esl_sq_Reuse(sq);
+
+            if (esl_sqfile_Read(sqfp, sq)  != eslEOF) esl_fatal(msg);
+            esl_sq_Reuse(sq);
+
+            /* reposition to the first record by its offset, and from the start of the file */
+            if (esl_sqfile_Position(sqfp, roff1) != eslOK)  esl_fatal(msg);
+            if (esl_sqfile_Read(sqfp, sq)        != eslOK)  esl_fatal(msg);
+            if (strcmp(sq->name, "seq1")         != 0)      esl_fatal(msg);
+            esl_sq_Reuse(sq);
+            if (esl_sqfile_Position(sqfp, 0)     != eslOK)  esl_fatal(msg);
+            if (esl_sqfile_Read(sqfp, sq)        != eslOK)  esl_fatal(msg);
+            if (strcmp(sq->name, "seq1")         != 0)      esl_fatal(msg);
+            if (sq->roff != roff1)                          esl_fatal(msg);
+
+            esl_sqfile_Close(sqfp);
+            esl_sq_Destroy(sq);
+            remove(tmpfile);
+          }
+
+  /* a file with only comments has no sequences in it */
+  strcpy(tmpfile, "esltmpXXXXXX");
+  if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
+  fputs(";comment\n;another\n", fp);
+  fclose(fp);
+  sq = esl_sq_Create();
+  if (esl_sqfile_Open(tmpfile, eslSQFILE_UNKNOWN, NULL, &sqfp) != eslEFORMAT) esl_fatal(msg);
+  if (esl_sqfile_Open(tmpfile, eslSQFILE_FASTA,   NULL, &sqfp) != eslOK)      esl_fatal(msg);
+  if (esl_sqfile_Read(sqfp, sq)                                 != eslEOF)     esl_fatal(msg);
+  esl_sqfile_Close(sqfp);
+  remove(tmpfile);
+
+  /* line numbers in parse errors count the comment lines */
+  strcpy(tmpfile, "esltmpXXXXXX");
+  if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
+  fputs(";comment\n;another\n>seq1\nAC!T\n", fp);
+  fclose(fp);
+  if (esl_sqfile_Open(tmpfile, eslSQFILE_FASTA, NULL, &sqfp)    != eslOK)      esl_fatal(msg);
+  if (esl_sqfile_Read(sqfp, sq)                                 != eslEFORMAT) esl_fatal(msg);
+  if (strstr(esl_sqfile_GetErrorBuf(sqfp), "Line 4")            == NULL)       esl_fatal(msg);
+  esl_sqfile_Close(sqfp);
+  remove(tmpfile);
+
+  /* after the first record, ; is not special: it's an illegal sequence character */
+  strcpy(tmpfile, "esltmpXXXXXX");
+  if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
+  fputs(";comment\n>seq1\nACGT\n;not a comment\n>seq2\nGGGG\n", fp);
+  fclose(fp);
+  esl_sq_Reuse(sq);
+  if (esl_sqfile_Open(tmpfile, eslSQFILE_FASTA, NULL, &sqfp)    != eslOK)      esl_fatal(msg);
+  if (esl_sqfile_Read(sqfp, sq)                                 != eslEFORMAT) esl_fatal(msg);
+  esl_sqfile_Close(sqfp);
+  remove(tmpfile);
+
+  esl_sq_Destroy(sq);
+  esl_alphabet_Destroy(abc);
+}
+
 #endif /*eslSQFILE_TESTDRIVE*/
 /*------------------ end, unit tests ----------------------------*/
 
@@ -4631,6 +4779,7 @@ main(int argc, char **argv)
   utest_subseq_geometry();
   utest_write          (abc, sqarr, N, eslMSAFILE_STOCKHOLM);
   utest_guess_empty_seq();
+  utest_fasta_comments();
 
   for (i = 0; i < N; i++) esl_sq_Destroy(sqarr[i]);
   free(sqarr);
