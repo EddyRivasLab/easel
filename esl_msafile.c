@@ -209,7 +209,7 @@ esl_msafile_Open(ESL_ALPHABET **byp_abc, const char *msafile, const char *env, i
 
 
 /* Function:  esl_msafile_OpenMem()
- * Synopsis:  Open a string or buffer for parsing as an MSA.
+ * Synopsis:  Open an allocated string for parsing as an MSA.
  *
  * Purpose:   Essentially the same as <esl_msafile_Open()>, except
  *            we ``open'' the string or buffer <p>, <n> as the 
@@ -780,20 +780,20 @@ esl_msafile_DecodeFormat(int fmt)
  * 
  * The checker is more rigorous than the parser. To be autodetected,
  * the SELEX file can't use whitespace for gaps. The parser, though,
- * allows whitespace. A caller would have to specific SELEX format
+ * allows whitespace. A caller would have to specify SELEX format
  * explicitly in that case.
  */
 static int
 msafile_check_selex(ESL_BUFFER *bf)
 {
-  esl_pos_t start_offset = -1;
-  int       block_nseq   = 0;	 /* Number of seqs in each block is checked     */
-  int       nseq         = 0;
-  esl_pos_t block_nres   = 0;	 /* Number of residues in each line is checked  */
-  char     *firstname    = NULL; /* First seq name of every block is checked    */
-  esl_pos_t namelen      = 0;
-  int       blockidx     = 0;
-  int       in_block     = FALSE;
+  esl_pos_t start_offset  = -1;
+  int       block_nseq    = 0;	 // Number of seqs in each block is checked 
+  int       nseq          = 0;
+  esl_pos_t block_nres    = 0;	 // Number of residues in each line is checked
+  esl_pos_t firstname_pos = -1;  // Offset to first seq name of first block. offset, not ptr, because bf->mem can realloc
+  esl_pos_t namelen       = 0;
+  int       blockidx      = 0;
+  int       in_block      = FALSE;
   char     *p, *tok;
   esl_pos_t n,  toklen;
   int       status;
@@ -834,8 +834,8 @@ msafile_check_selex(ESL_BUFFER *bf)
       if ( (status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK) goto ERROR; /* there's at least one token - we already checked for blank lines */
       if (nseq == 0)	/* check first seq name in each block */
 	{
-	  if (blockidx == 0) { firstname = tok; namelen = toklen; } /* First block: set the name we check against. */
-	  else if (toklen != namelen || memcmp(tok, firstname, toklen) != 0) { status = eslFAIL; goto DONE; } /* Subsequent blocks */
+          if (blockidx == 0) { firstname_pos = esl_buffer_GetOffsetFor(bf, tok); namelen = toklen; }  // First block: set the name we check against. 
+          else if (toklen != namelen || memcmp(tok, esl_buffer_GetPointerAt(bf, firstname_pos), toklen) != 0) { status = eslFAIL; goto DONE; } // Subsequent blocks 
 	}
       if (esl_memtok(&p, &n, " \t", &tok, &toklen) != eslOK) { status = eslFAIL; goto DONE; }
       if (block_nres && toklen != block_nres)                { status = eslFAIL; goto DONE; }

@@ -850,7 +850,7 @@ phylip_check_sequential_unknown(ESL_BUFFER *bf, int *ret_namewidth)
   
   /* Set an anchor where we are in the input, so we can rewind */
   anchor = esl_buffer_GetOffset(bf);
-  if ( esl_buffer_SetStableAnchor(bf, anchor) != eslOK) { status = eslFAIL; goto ERROR; }
+  if ( esl_buffer_SetAnchor(bf, anchor) != eslOK) { status = eslFAIL; goto ERROR; }
 
   /* Pass 1: number of data lines in file / nseq = integral # of lines per sequence */
   while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK)

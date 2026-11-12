@@ -548,7 +548,7 @@ esl_buffer_Close(ESL_BUFFER *bf)
  *            in the input buffer: <bf->baseoffset + bf->pos>.
  */
 esl_pos_t
-esl_buffer_GetOffset(ESL_BUFFER *bf)
+esl_buffer_GetOffset(const ESL_BUFFER *bf)
 {
   return bf->baseoffset + bf->pos;
 }
@@ -680,19 +680,30 @@ esl_buffer_SetOffset(ESL_BUFFER *bf, esl_pos_t offset)
  * Synopsis:  Sets an anchor in an input stream.
  *
  * Purpose:   Set an anchor at byte <offset> (in input coords) in
- *            input <bf>: which means, keep everything from this byte
+ *            input <bf>. The ESL_BUFFER will keep everything from this byte
  *            on in buffer memory, until anchor is raised.
  *            
- *            The presence of an anchor affects new reads from <fp>;
- *            <mem[r..n-1]> are protected from overwrite, and may be
- *            moved to <mem[0..n-r-1]> as new data is read from the
- *            stream.  Anchors are only needed for input streams that
- *            we read chunkwise.  If entire input is already in <bf>,
- *            setting an anchor is a no-op.
+ *            Specifically, when reading new data into <bf> from
+ *            <bf->fp>, with an anchor set at relative position r =
+ *            offset - baseoffset, <mem[r..n-1]> is protected from
+ *            overwrite, but may be moved to <mem[0..n-r-1]>, and
+ *            it may be relocated by a reallocation.
+ *
+ *            Anchors are only needed for input streams that we read
+ *            chunkwise (parsing the results of more than one
+ *            Get*|Fetch*|Read at a time), or for rewinding in
+ *            buffered input.
+ *
+ *            If entire input is already in <bf>, setting an anchor is
+ *            a no-op.
  *            
- *            In general, the caller should remember what anchor(s) it
- *            sets, so it can raise them later with
- *            <esl_buffer_RaiseAnchor()>.
+ *            The caller should remember what anchor it set, so it can
+ *            can raise it later with <esl_buffer_RaiseAnchor()>.  If
+ *            you fail to raise an anchor that you no longer need,
+ *            reads into the ESL_BUFFER require growing and
+ *            reallocating the buffer eventually to the size of the
+ *            remaining input, effectively circumventing the intent of
+ *            the ESL_BUFFER.
  * 
  *            Byte <offset> must be in the current buffer window. If
  *            not, an <eslEINVAL> exception is thrown.
@@ -727,51 +738,87 @@ esl_buffer_SetAnchor(ESL_BUFFER *bf, esl_pos_t offset)
   return eslOK;
 }
 
-/* Function:  esl_buffer_SetStableAnchor()
- * Synopsis:  Set a stable anchor.
+/* Function:  esl_buffer_GetPointerAt()
+ * Synopsis:  Given an offset in the input, return ptr into ESL_BUFFER memory.
+ * Incept:    SRE, Thu 12 Nov 2026
  *
- * Purpose:   Same as <esl_buffer_SetAnchor()>, except the anchor is
- *            such that all pointers returned by <_Get*()> functions
- *            (i.e. as opposed to just the last <_Get*> function)
- *            will remain valid at least until the anchor is raised.
+ * Purpose:   Given <offset> position in the input (0 = start of input),
+ *            convert it to a pointer into <bf>'s memory 
+ *            <bf->mem>, and return that pointer.
  *
- *            The main use of this is when the caller wants to get
- *            multiple lines or tokens in the input before parsing 
- *            them. 
+ *            The issue here is that any call to a _Get*(), _Fetch*(),
+ *            _Read(), _Set(), or forward _SetOffset() may result in
+ *            reallocating or relocating the ESL_BUFFER's memory.  A
+ *            pointer returned by, e.g. esl_buffer_GetLine(), is only
+ *            safe to use until the next call to these functions.  To
+ *            refer to previous data (lines or tokens or whatever),
+ *            the caller needs to set an appropriate anchor with
+ *            esl_buffer_SetAnchor() to ensure that that previous data
+ *            stays in memory, and then remember positions (line
+ *            starts, etc.) as offsets in the input, not as pointers.
+ *            The caller uses esl_buffer_GetOffsetFor() to convert a
+ *            pointer to an offset that it can store, and
+ *            esl_buffer_GetPointerAt() to convert an offset back
+ *            to a ptr that is good until the next Get*|Fetch*|Read|Set|fwd SetOffset.
  *
- *            A stable anchor prevents buffer refills/reloads from
- *            moving the internal memory around while the anchor is
- *            in place.
+ *            The caller needs to be sure that position <offset> is
+ *            actually still in the <bf->mem> window, which will be true
+ *            if the caller set an anchor at a position <= <offset>.
  *
- * Args:      bf     - input buffer
- *            offset - absolute position in input, <0..inputlen-1>
+ * Args:      bf       - ESL_BUFFER
+ *            offset   - position 0..inputlen-1; baseoffset <= offset < baseoffset+n
  *
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslEINVAL> if <offset> is not in current buffer window.
- * 
- * Notes:     We make a special call for stable anchors, as opposed
- *            to most anchors, because the <memmove()> call here
- *            to rebaseline the buffer's <mem> is expensive.
+ * Returns:   ptr into <ESL_BUFFER> memory at <offset>;
+ *            NULL if offset isn't in the memory window (but caller should make sure this doesn't happen)
  */
-int 
-esl_buffer_SetStableAnchor(ESL_BUFFER *bf, esl_pos_t offset)
+char *
+esl_buffer_GetPointerAt(const ESL_BUFFER *bf, esl_pos_t offset)
 {
-  esl_pos_t ndel;
-  int       status;
+  char *p = NULL;
 
-  if (! bf->fp) return eslOK;	/* without an open stream, no-op: everything is available */
+  /* This is a _Get*() function; codestyle says it always returns success.
+   * Asking for an out-of-bounds ptr is a coding error. Catch such things in dev.
+   */
+  ESL_DASSERT1(( offset >= bf->baseoffset && offset < bf->baseoffset + bf->n ));  
 
-  if ( (status = esl_buffer_SetAnchor(bf, offset)) != eslOK) return status;
+  if (offset >= bf->baseoffset && offset < bf->baseoffset + bf->n)  // and verify in production
+    p = bf->mem + offset - bf->baseoffset;
 
-  ndel       = bf->anchor;
-  bf->anchor = 0;
-  bf->n     -= ndel;
-  bf->pos   -= ndel;
-  if (bf->n) memmove(bf->mem, bf->mem+ndel, bf->n);
-  bf->baseoffset += ndel;
-  return eslOK;
+  return p;
 }
+
+/* Function:  esl_buffer_GetOffsetFor()
+ * Synopsis:  Given a ptr into ESL_BUFFER memory, return offset in input.
+ * Incept:    SRE, Thu 12 Nov 2026 [Koletzki & Schwind, Satinka]
+ *
+ * Purpose:   Counterpart of esl_buffer_GetPointerAt(); see its function
+ *            documentation.
+ *
+ *            Caller needs to make sure to convert ptr to offset
+ *            before the next call to a Get*|Fetch*|Read|Set|fwd SetOffset
+ *            that may reallocate or relocate the ESL_BUFFER's memory.
+ *
+ * Args:      bf  - ESL_BUFFER
+ *            p   - ptr into <bf->mem>. Must be valid.
+ *
+ * Returns:   <offset> corresponding to <p>, if <p> is valid;
+ *            -1 if <p> isn't within <bf->mem> (which shouldn't happen)
+ */
+esl_pos_t
+esl_buffer_GetOffsetFor(const ESL_BUFFER *bf, const char *p)
+{
+  esl_pos_t offset = (p - bf->mem) + bf->baseoffset;
+
+  // in dev code, detect bad ptrs
+  ESL_DASSERT1(( offset >= bf->baseoffset && offset < bf->baseoffset + bf->n ));  
+
+  // in production code, return -1 but this shouldn't happen.
+  if (offset >= bf->baseoffset && offset < bf->baseoffset + bf->n) 
+    return offset;
+  else
+    return -1;
+}
+
 
 
 /* Function:  esl_buffer_RaiseAnchor()
@@ -2772,7 +2819,75 @@ utest_halfnewline(void)
 }
        
 
+/* utest_LineBlocks()
+ *
+ * Reading a block of lines, as in the example6 idiom, requires
+ * the caller to hold information about line offsets and lengths,
+ * and for that information to remain valid in an anchor'ed
+ * ESL_BUFFER through subsequent calls to esl_buffer_GetLine().
+ * This utest sniffs for bugs in that process.
+ *
+ * [xref: esl_buffer_SetStableAnchor() bugfix, 2026/1111-esl-sqfile]
+ *
+ * It also tests anchoring at EOF, where the anchor offset is
+ * baseoffset+n: one past the memory window, but a valid anchor.
+ * Each block anchors at esl_buffer_GetOffset() before its first
+ * GetLine(), so the last block anchors at EOF; and GetLine() itself
+ * anchors at EOF when it discovers EOF.
+ */
+static void
+utest_LineBlocks(ESL_BUFFER *bf, int nlines_expected)
+{
+  const char msg[]     = "utest_LineBlocks() failed";
+  int        maxblock  = 64;      // block sizes cycle 1,2..maxblock,1,2..
+  esl_pos_t *linepos   = NULL;    // linepos[i] = input offset of line i in current block
+  esl_pos_t *linelen   = NULL;    // linelen[i] = length of line i, exclusive of newline
+  esl_pos_t  anchor;              // offset where current block's anchor is set
+  char      *p;
+  esl_pos_t  n;
+  int        blocksize = 0;
+  int        nblock;              // number of lines actually read in current block
+  int        nlines    = 0;       // total lines read so far = line number of last line read
+  int        i;
+  int        status    = eslOK;
 
+  if ((linepos = malloc(sizeof(esl_pos_t) * maxblock)) == NULL) esl_fatal(msg);
+  if ((linelen = malloc(sizeof(esl_pos_t) * maxblock)) == NULL) esl_fatal(msg);
+
+  while (status == eslOK)
+    {
+      blocksize = 1 + (blocksize % maxblock);
+      anchor    = esl_buffer_GetOffset(bf);
+      if (esl_buffer_SetAnchor(bf, anchor) != eslOK) esl_fatal(msg);
+
+      for (nblock = 0; nblock < blocksize; nblock++)
+        {
+          if ((status = esl_buffer_GetLine(bf, &p, &n)) != eslOK) break;  // normally eslEOF
+          linepos[nblock] = esl_buffer_GetOffsetFor(bf, p);
+          linelen[nblock] = n;
+          if (linepos[nblock] < anchor) esl_fatal(msg);
+        }
+
+      /* Only now, after any relocation of bf->mem, look back at the block's lines */
+      for (i = 0; i < nblock; i++)
+        {
+          if ((p = esl_buffer_GetPointerAt(bf, linepos[i])) == NULL) esl_fatal(msg);
+          utest_compare_line(p, linelen[i], nlines + i + 1);
+        }
+      nlines += nblock;
+
+      if (esl_buffer_RaiseAnchor(bf, anchor) != eslOK) esl_fatal(msg);
+    }
+  if (status != eslEOF)          esl_fatal(msg);
+  if (nlines != nlines_expected) esl_fatal(msg);
+
+  /* Once at EOF, we stay there */
+  if (esl_buffer_GetLine(bf, &p, &n) != eslEOF) esl_fatal(msg);
+  if (p != NULL || n != 0)                      esl_fatal(msg);
+
+  free(linepos);
+  free(linelen);
+}
 #endif /* eslBUFFER_TESTDRIVE */
 
 /*****************************************************************
@@ -2780,10 +2895,6 @@ utest_halfnewline(void)
  *****************************************************************/
 
 #ifdef eslBUFFER_TESTDRIVE
-/* compile: gcc -g -Wall -I. -L. -o esl_buffer_utest -DeslBUFFER_TESTDRIVE esl_buffer.c -leasel -lm
- *  (gcov): gcc -g -Wall -fprofile-arcs -ftest-coverage -I. -L. -o esl_buffer_utest -DeslBUFFER_TESTDRIVE esl_buffer.c -leasel -lm
- * run:     ./esl_buffer_utest
- */
 #include <esl_config.h>
 
 #include <stdio.h>
@@ -2834,7 +2945,7 @@ main(int argc, char **argv)
   utest_halfnewline();
 
   nbuftypes  = 7;
-  ntesttypes = 8;
+  ntesttypes = 9;
   for (bufidx = 0; bufidx < nbuftypes; bufidx++)
     for (testidx = 0; testidx < ntesttypes; testidx++)
       {
@@ -2870,6 +2981,7 @@ main(int argc, char **argv)
 	case 5: utest_GetTokenWrapped(bf, nlines); break;
 	case 6: utest_FetchToken     (bf, nlines); break;
 	case 7: utest_FetchTokenAsStrWrapped(bf, nlines); break;
+        case 8: utest_LineBlocks     (bf, nlines); break;
 	default: esl_fatal(msg);
 	}
 
@@ -3178,7 +3290,8 @@ main(int argc, char **argv)
 #endif /*eslBUFFER_EXAMPLE5*/
 
 
-/* Example 6:  using an anchor
+/* Example 6:  reading a block of lines at a time,
+ *             using an anchor and remembering offsets (not ptrs) to lines
  *
  * See esl_buffer.md for more explanation.
  */
@@ -3190,11 +3303,11 @@ main(int argc, char **argv)
 #include <ctype.h>
 
 int
-example_read_lineblock(ESL_BUFFER *bf, char ***ret_lines, esl_pos_t **ret_lens, esl_pos_t *ret_nlines)
+example_read_lineblock(ESL_BUFFER *bf, esl_pos_t **ret_linepos, esl_pos_t **ret_linelen, esl_pos_t *ret_nlines)
 {
-  char      **lines  = NULL;
-  esl_pos_t  *lens   = NULL;
-  esl_pos_t   nlines = 0;
+  esl_pos_t  *linepos = NULL;  // line offsets (absolute position 0..inputlen-1)
+  esl_pos_t  *linelen = NULL;  // line lengths
+  esl_pos_t   nlines  = 0;     // number of lines in current block
   char       *p;
   esl_pos_t   n;
   esl_pos_t   start_offset;
@@ -3202,25 +3315,25 @@ example_read_lineblock(ESL_BUFFER *bf, char ***ret_lines, esl_pos_t **ret_lens, 
 
   /* skip blank lines */
   do {
-    start_offset = esl_buffer_GetOffset(bf);
     if ( (status = esl_buffer_GetLine(bf, &p, &n)) != eslOK) goto ERROR; /* includes normal EOF */
   } while (esl_memspn(p, n, " \t\r\n") == n);
-  /* now p[0..n-1] is a non-blank line, start_offset is offset of p[0], point's on start of next line after it */
+  /* now p[0..n-1] is the first non-blank line, ESL_BUFFER point is on start of next line after it */
   
-  /* anchor stably at start of line block */
-  esl_buffer_SetStableAnchor(bf, start_offset);
+  /* set anchor at start of this first line, so it (and other lines) stay in memory buffer */
+  start_offset =  esl_buffer_GetOffsetFor(bf, p);
+  esl_buffer_SetAnchor(bf, start_offset);
 
-  /* set pointers to non-blank lines */
+  /* read rest of lines in the block, remembering their positions and lengths */
   do {
-    ESL_REALLOC(lines, sizeof(char *)    * (nlines+1));
-    ESL_REALLOC(lens,  sizeof(esl_pos_t) * (nlines+1));
+    ESL_REALLOC(linepos, sizeof(esl_pos_t) * (nlines+1));
+    ESL_REALLOC(linelen, sizeof(esl_pos_t) * (nlines+1));
     
-    lines[nlines] = p;   // cppcheck complains about these assignments: "possible null pointer deference";
-    lens[nlines]  = n;   // but cppcheck is wrong. ESL_REALLOC will fail if lines[] or lens[] are NULL.
+    linepos[nlines] = esl_buffer_GetOffsetFor(bf, p);     // must store as offsets in input; ptrs into ESL_BUFFER are volatile
+    linelen[nlines] = n; 
     nlines++;
   } while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK && esl_memspn(p, n, " \t\r\n") < n);
   
-  /* now p[0] is on a blank line, and point is on start of next line
+  /* now p[0] is on a blank line, and ESL_BUFFER point is on start of next line
    * after it.  you might be fine with that; or you might want to push
    * the blank line back onto the parser. If so, you need to push
    * the line back *before* raising the anchor, because the _Set() function
@@ -3229,49 +3342,61 @@ example_read_lineblock(ESL_BUFFER *bf, char ***ret_lines, esl_pos_t **ret_lens, 
   esl_buffer_Set(bf, p, 0);
   esl_buffer_RaiseAnchor(bf, start_offset);
 
-  *ret_lines  = lines;
-  *ret_lens   = lens;
-  *ret_nlines = nlines;
+  /* With the anchor raised now, the line data is only guaranteed to
+   * still be held in the ESL_BUFFER until the next memory-modifying
+   * esl_buffer call.  Caller must do what it wants to do with the
+   * block of <nlines> lines before such a call.
+   */
+  *ret_linepos = linepos;
+  *ret_linelen = linelen;
+  *ret_nlines  = nlines;
   return eslOK;
 
  ERROR:
-  if (lines) free(lines);
-  if (lens)  free(lens);
-  *ret_lines  = NULL;
-  *ret_lens   = NULL;
-  *ret_nlines = 0;
+  free(linepos);
+  free(linelen);
+  *ret_linepos = NULL;
+  *ret_linelen = NULL;
+  *ret_nlines  = 0;
   return status;
 }
 
 int
 main(int argc, char **argv)
 {
-  char       *filename = argv[1];
+  char       *filename   = argv[1];
+  ESL_BUFFER *bf         = NULL;
   int         blockcount = 0;
   int         linecount  = 0;
   int         xcount     = 0;
   int         i,j;
-  ESL_BUFFER *bf;
-  char      **lines;
-  esl_pos_t  *lens;
+  esl_pos_t  *linepos;
+  esl_pos_t  *linelen;
   esl_pos_t   nlines;
+  char       *line;
   int         status;
 
   status = esl_buffer_Open(filename, "TESTDIR", &bf);
-  if      (status == eslENOTFOUND) esl_fatal("open failed: %s",   bf->errmsg);
+  if      (status == eslENOTFOUND) esl_fatal("open failed: %s",     bf->errmsg);
   else if (status == eslFAIL)      esl_fatal("gzip -dc failed: %s", bf->errmsg);
   else if (status != eslOK)        esl_fatal("open failed with error code %d", status);
 
-  while ( (status = example_read_lineblock(bf, &lines, &lens, &nlines)) == eslOK)
+  while ( (status = example_read_lineblock(bf, &linepos, &linelen, &nlines)) == eslOK)
     {
+      /* example_read_lineblock() has raised its anchor. the line data
+       * are only guaranteed to be available until we make another
+       * memory-modifying call on ESL_BUFFER.
+       */
       blockcount++;
       linecount += nlines;
       for (i = 0; i < nlines; i++)
-	for (j = 0; j < lens[i]; j++) 
-	  if (lines[i][j] == 'x') xcount++;
-
-      free(lines);
-      free(lens);
+        {
+          line = esl_buffer_GetPointerAt(bf, linepos[i]);
+          for (j = 0; j < linelen[i]; j++) 
+            if (line[j] == 'x') xcount++;
+        }
+      free(linepos);
+      free(linelen);
     }
   if (status != eslEOF) esl_fatal("bad MSA format: %s", bf->errmsg);
   esl_buffer_Close(bf);

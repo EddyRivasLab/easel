@@ -48,16 +48,15 @@
 #define eslSELEX_LINE_MM 6
 
 typedef struct {
-  char     **line;		/* line[0..nlines-1][0..llen-1]: memory lines in input buffer */
-  esl_pos_t *llen;		/* length of line[] in bytes                                  */
-  esl_pos_t *offsets;		/* offset of start of each line in input buffer               */
-  int64_t   *linenum;		/* line number of each line[] in input                        */
-  int       *ltype;		/* code for line type: eslSELEX_LINE_SQ, etc.                 */
-  esl_pos_t *lpos;		/* leftmost position of seq data on line[], 0..llen-1 [or -1] */
-  esl_pos_t *rpos;              /* rightmost pos of seq data on line[], 0..llen-1 [or -1]     */
-  int        nlines;		/* number of lines in this block                              */
-  int        nalloc;		/* number of lines allocated for (>=nlines)                   */
-  esl_pos_t  anchor;		/* input buffer anchor set at the start of the block          */
+  esl_pos_t *llen;		/* length of line in bytes                                  */
+  esl_pos_t *offsets;		/* absolute offset of start of each line in input           */
+  int64_t   *linenum;		/* line number of each line in input                        */
+  int       *ltype;		/* code for line type: eslSELEX_LINE_SQ, etc.               */
+  esl_pos_t *lpos;		/* leftmost position of seq data on line, 0..llen-1 [or -1] */
+  esl_pos_t *rpos;              /* rightmost pos of seq data on line, 0..llen-1 [or -1]     */
+  int        nlines;		/* number of lines in this block                            */
+  int        nalloc;		/* number of lines allocated for (>=nlines)                 */
+  esl_pos_t  anchor;		/* input buffer anchor set at the start of the block        */
 } ESL_SELEX_BLOCK;
 
 static ESL_SELEX_BLOCK *selex_block_Create(int nalloc);
@@ -347,7 +346,6 @@ selex_block_Create(int nalloc)
   int              status;
   
   ESL_ALLOC(b,       sizeof(ESL_SELEX_BLOCK));
-  b->line    = NULL;
   b->llen    = NULL;
   b->offsets = NULL;
   b->linenum = NULL;
@@ -357,7 +355,6 @@ selex_block_Create(int nalloc)
   b->nlines  = 0;
   b->anchor  = -1;		/* -1 is a flag for "unused" */
 
-  ESL_ALLOC(b->line,    sizeof(char *)    * nalloc);
   ESL_ALLOC(b->llen,    sizeof(esl_pos_t) * nalloc);
   ESL_ALLOC(b->offsets, sizeof(esl_pos_t) * nalloc);
   ESL_ALLOC(b->linenum, sizeof(int64_t)   * nalloc);
@@ -366,7 +363,6 @@ selex_block_Create(int nalloc)
   ESL_ALLOC(b->rpos,    sizeof(esl_pos_t) * nalloc);
   for (idx = 0; idx < nalloc; idx++) 
     { 
-      b->line[idx]    = NULL; 
       b->llen[idx]    = 0; 
       b->offsets[idx] = 0; 
       b->linenum[idx] = 0; 
@@ -388,7 +384,6 @@ selex_block_Grow(ESL_SELEX_BLOCK *b)
   int idx;
   int status;
 
-  ESL_REALLOC(b->line,    sizeof(char *)    * b->nalloc * 2);
   ESL_REALLOC(b->llen,    sizeof(esl_pos_t) * b->nalloc * 2);
   ESL_REALLOC(b->offsets, sizeof(esl_pos_t) * b->nalloc * 2);
   ESL_REALLOC(b->linenum, sizeof(int64_t)   * b->nalloc * 2);
@@ -397,7 +392,6 @@ selex_block_Grow(ESL_SELEX_BLOCK *b)
   ESL_REALLOC(b->rpos,    sizeof(esl_pos_t) * b->nalloc * 2);
   for (idx = b->nalloc; idx < b->nalloc*2; idx++) 
     { 
-      b->line[idx]    = NULL; 
       b->llen[idx]    = 0; 
       b->offsets[idx] = 0; 
       b->linenum[idx] = 0; 
@@ -415,15 +409,16 @@ selex_block_Grow(ESL_SELEX_BLOCK *b)
 static void
 selex_block_Destroy(ESL_SELEX_BLOCK *b)
 {
-  if (!b) return;
-  if (b->line)    free(b->line);
-  if (b->llen)    free(b->llen);
-  if (b->offsets) free(b->offsets);
-  if (b->linenum) free(b->linenum);
-  if (b->ltype)   free(b->ltype);
-  if (b->lpos)    free(b->lpos);
-  if (b->rpos)    free(b->rpos);
-  free(b);
+  if (b)
+    {
+      free(b->llen);
+      free(b->offsets);
+      free(b->linenum);
+      free(b->ltype);
+      free(b->lpos);
+      free(b->rpos);
+      free(b);
+    }
   return;
 }
 /*------- end, internal functions for input line blocks ---------*/
@@ -441,11 +436,15 @@ selex_block_Destroy(ESL_SELEX_BLOCK *b)
 static int
 selex_ErrorInBlock(ESL_MSAFILE *afp, ESL_SELEX_BLOCK *b, int which)
 {
-  afp->line       = b->line[which];
-  afp->n      = b->llen[which];
+  int status;
+
+  if ((status = esl_buffer_SetOffset(afp->bf, b->offsets[which] + b->llen[which])) != eslOK) return status;
+
+  afp->line       = esl_buffer_GetPointerAt(afp->bf, b->offsets[which]);
+  afp->n          = b->llen[which];
   afp->lineoffset = b->offsets[which];
   afp->linenumber = b->linenum[which];
-  return esl_buffer_SetOffset(afp->bf, b->offsets[which] + b->llen[which]);
+  return eslOK;
 }
 
 /* selex_read_block:  read one block of alignment data.
@@ -458,7 +457,7 @@ selex_ErrorInBlock(ESL_MSAFILE *afp, ESL_SELEX_BLOCK *b, int which)
  * The <afp> detected the end of the block by reading a blank line, or EOF.
  * Thus its point is at the next line after that blank, or at EOF.
  * 
- * The <afp> has a stable anchor set at (*block_p)->anchor.
+ * The <afp> has an anchor set at (*block_p)->anchor.
  * Caller must raise this anchor when it's done parsing the block.
  * 
  * Returns: <eslOK> on success.
@@ -489,15 +488,14 @@ selex_read_block(ESL_MSAFILE *afp, ESL_SELEX_BLOCK **block_p)
   /* if this is first block, allocate block; subsequent blocks reuse it */
   if (!b && (b = selex_block_Create(16)) == NULL) { status = eslEMEM; goto ERROR; }
   
-  /* Anchor stably at this point. */
+  /* Anchor at this point to keep entire block of lines in ESL_BUFFER */
   b->anchor = afp->lineoffset;
-  if ((status = esl_buffer_SetStableAnchor(afp->bf, b->anchor)) != eslOK) goto ERROR;
+  if ((status = esl_buffer_SetAnchor(afp->bf, b->anchor)) != eslOK) goto ERROR;
 
   /* Parse for a block of lines. */
   do {
     if (b->nalloc && idx == b->nalloc && (status = selex_block_Grow(b)) != eslOK) goto ERROR;
 
-    b->line[idx]     = afp->line;
     b->llen[idx]     = afp->n;
     b->offsets[idx]  = afp->lineoffset;
     b->linenum[idx]  = afp->linenumber;   /* ltype, lpos, rpos aren't set yet */
@@ -539,7 +537,7 @@ selex_first_block(ESL_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA **ret_msa)
   ESL_MSA  *msa = NULL;
   int       nrf, nmm, ncs, nss, nsa, nseq;
   int       has_ss, has_sa;
-  char     *p, *tok;
+  char     *p, *line, *tok;
   esl_pos_t n,  ntok;
   int       idx, seqi;
   int       status;
@@ -550,12 +548,15 @@ selex_first_block(ESL_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA **ret_msa)
   has_ss = has_sa = FALSE;
   for (idx = 0; idx < b->nlines; idx++)
     {
-      if      (esl_memstrpfx(b->line[idx], b->llen[idx], "#=RF")) { b->ltype[idx] = eslSELEX_LINE_RF; nrf++; }
-      else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=MM")) { b->ltype[idx] = eslSELEX_LINE_MM; nmm++; }
-      else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=CS")) { b->ltype[idx] = eslSELEX_LINE_CS; ncs++; }
-      else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=SS")) { b->ltype[idx] = eslSELEX_LINE_SS; nss++; has_ss = TRUE; }
-      else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=SA")) { b->ltype[idx] = eslSELEX_LINE_SA; nsa++; has_sa = TRUE; }
-      else                                                        { b->ltype[idx] = eslSELEX_LINE_SQ; nseq++; nss = nsa = 0; }
+      line = esl_buffer_GetPointerAt(afp->bf, b->offsets[idx]);
+      n    = b->llen[idx];
+
+      if      (esl_memstrpfx(line, n, "#=RF")) { b->ltype[idx] = eslSELEX_LINE_RF; nrf++; }
+      else if (esl_memstrpfx(line, n, "#=MM")) { b->ltype[idx] = eslSELEX_LINE_MM; nmm++; }
+      else if (esl_memstrpfx(line, n, "#=CS")) { b->ltype[idx] = eslSELEX_LINE_CS; ncs++; }
+      else if (esl_memstrpfx(line, n, "#=SS")) { b->ltype[idx] = eslSELEX_LINE_SS; nss++;  has_ss = TRUE; }
+      else if (esl_memstrpfx(line, n, "#=SA")) { b->ltype[idx] = eslSELEX_LINE_SA; nsa++;  has_sa = TRUE; }
+      else                                  { b->ltype[idx] = eslSELEX_LINE_SQ; nseq++; nss = nsa = 0; }
 
       if (nss && !nseq) { selex_ErrorInBlock(afp, b, idx); ESL_XFAIL(eslEFORMAT, afp->errmsg, "#=SS must follow a sequence");   }
       if (nsa && !nseq) { selex_ErrorInBlock(afp, b, idx); ESL_XFAIL(eslEFORMAT, afp->errmsg, "#=SA must follow a sequence");   }
@@ -580,15 +581,15 @@ selex_first_block(ESL_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA **ret_msa)
 
   for (seqi = 0, idx = 0; idx < b->nlines; idx++)
     {
-      p = b->line[idx];
-      n = b->llen[idx];
+      line = p = esl_buffer_GetPointerAt(afp->bf, b->offsets[idx]);
+      n        = b->llen[idx];
       if ( esl_memtok(&p, &n, " \t", &tok, &ntok) != eslOK) ESL_XEXCEPTION(eslEINCONCEIVABLE, "can't happen"); /* because a block by definition consists of non-blank lines */
       if (b->ltype[idx] == eslSELEX_LINE_SQ) /* otherwise, first token is #=XX marking annotation of some sort */
 	{
 	  if ((status = esl_msa_SetSeqName(msa, seqi, tok, ntok)) != eslOK) goto ERROR;
 	  seqi++;
 	}
-      b->lpos[idx] = (n ? p-b->line[idx] : -1);  /* set lpos[] to position of first seq or annotation residue */
+      b->lpos[idx] = (n ? p - line : -1);  /* set lpos[] to position of first seq or annotation residue */
     }
 
   *ret_msa = msa;
@@ -609,33 +610,37 @@ selex_first_block(ESL_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA **ret_msa)
 static int
 selex_other_block(ESL_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
 {
-  char     *p, *tok;
+  char     *p, *line, *tok;
   esl_pos_t n, ntok;
   int       idx, seqi;
 
   /* Validate line types */
   for (idx = 0; idx < b->nlines; idx++)
     {
-      if      (esl_memstrpfx(b->line[idx], b->llen[idx], "#=RF")) { if (b->ltype[idx] != eslSELEX_LINE_RF) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=RF line isn't in expected order in block"); } }
-      else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=MM")) { if (b->ltype[idx] != eslSELEX_LINE_MM) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=MM line isn't in expected order in block"); } }
-      else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=CS")) { if (b->ltype[idx] != eslSELEX_LINE_CS) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=CS line isn't in expected order in block"); } }
-      else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=SS")) { if (b->ltype[idx] != eslSELEX_LINE_SS) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=SS line isn't in expected order in block"); } }
-      else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=SA")) { if (b->ltype[idx] != eslSELEX_LINE_SA) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=SA line isn't in expected order in block"); } }
-      else                                                        { if (b->ltype[idx] != eslSELEX_LINE_SQ) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "sequence line isn't in expected order in block"); } }
+      line = esl_buffer_GetPointerAt(afp->bf, b->offsets[idx]);
+      n    = b->llen[idx];
+
+      if      (esl_memstrpfx(line, n, "#=RF")) { if (b->ltype[idx] != eslSELEX_LINE_RF) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=RF line isn't in expected order in block"); } }
+      else if (esl_memstrpfx(line, n, "#=MM")) { if (b->ltype[idx] != eslSELEX_LINE_MM) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=MM line isn't in expected order in block"); } }
+      else if (esl_memstrpfx(line, n, "#=CS")) { if (b->ltype[idx] != eslSELEX_LINE_CS) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=CS line isn't in expected order in block"); } }
+      else if (esl_memstrpfx(line, n, "#=SS")) { if (b->ltype[idx] != eslSELEX_LINE_SS) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=SS line isn't in expected order in block"); } }
+      else if (esl_memstrpfx(line, n, "#=SA")) { if (b->ltype[idx] != eslSELEX_LINE_SA) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=SA line isn't in expected order in block"); } }
+      else                                     { if (b->ltype[idx] != eslSELEX_LINE_SQ) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "sequence line isn't in expected order in block"); } }
     }
   
   /* Validate seq names, and set lpos */
   for (seqi = 0, idx = 0; idx < b->nlines; idx++)
     {
-      p = b->line[idx];
-      n = b->llen[idx];
+      line = p = esl_buffer_GetPointerAt(afp->bf, b->offsets[idx]);
+      n        = b->llen[idx];
+
       if ( esl_memtok(&p, &n, " \t", &tok, &ntok) != eslOK) ESL_EXCEPTION(eslEINCONCEIVABLE, "can't happen"); /* because a block by definition consists of non-blank lines */      
       if (b->ltype[idx] == eslSELEX_LINE_SQ)
 	{
 	  if (! esl_memstrcmp(tok, ntok, msa->sqname[seqi]))  { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "expected sequence %s at this line of block", msa->sqname[seqi]); }
 	  seqi++;
 	}
-      b->lpos[idx] = (n ? p-b->line[idx] : -1);  /* set lpos[] to position of first seq or annotation residue */
+      b->lpos[idx] = (n ? p-line : -1);  /* set lpos[] to position of first seq or annotation residue */
     }
   return eslOK;
 }
@@ -644,10 +649,11 @@ static int
 selex_append_block(ESL_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
 {
   char     *p;
+  char     *ann;                // an annotation line
   esl_pos_t pos;
   int       idx, seqi;
   esl_pos_t leftmost, rightmost;
-  int64_t   nadd;		/* width of this sequence block, in aligned columns added to msa */
+  int64_t   nadd;		// width of this sequence block, in aligned columns added to msa 
   esl_pos_t nleft, ntext;
   int64_t   alen;
   int       status;
@@ -655,7 +661,7 @@ selex_append_block(ESL_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
   /* Determine rpos for each line.  */
   for (idx = 0; idx < b->nlines; idx++)
     {
-      p   = b->line[idx];
+      p   = esl_buffer_GetPointerAt(afp->bf, b->offsets[idx]);
       pos = b->llen[idx] - 1;
       while (pos>=0 && isspace(p[pos])) pos--;
       b->rpos[idx] = ( (pos < b->lpos[idx]) ? -1 : pos); /* -1: a completely blank seq line is valid */
@@ -686,7 +692,8 @@ selex_append_block(ESL_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
 	      if (msa->alen == 0) msa->ax[seqi][0] = eslDSQ_SENTINEL;
 	      for (alen = msa->alen; alen < msa->alen+nleft;  alen++) msa->ax[seqi][alen+1] = esl_abc_XGetGap(msa->abc);
 
-	      status = esl_dsq_Append_noalloc(afp->inmap, msa->ax[seqi], &alen, b->line[idx] + b->lpos[idx], ntext);
+              p = esl_buffer_GetPointerAt(afp->bf, b->offsets[idx]);
+	      status = esl_dsq_Append_noalloc(afp->inmap, msa->ax[seqi], &alen, p + b->lpos[idx], ntext);
 	      if      (status == eslEINVAL) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "illegal residue(s) in sequence line"); }
 	      else if (status != eslOK)     { selex_ErrorInBlock(afp, b, idx); goto ERROR; }
 	      if (alen != msa->alen + nleft + ntext) { selex_ErrorInBlock(afp, b, idx); ESL_EXCEPTION(eslEINCONCEIVABLE, afp->errmsg, "unexpected inconsistency appending a sequence"); };
@@ -700,7 +707,8 @@ selex_append_block(ESL_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
 	      ESL_REALLOC(msa->aseq[seqi], sizeof(char)    * (msa->alen + nadd + 1)); 
 	      for (alen = msa->alen; alen < msa->alen+nleft; alen++) msa->aseq[seqi][alen] = '.';
 
-	      status = esl_dsq_CAppend_noalloc(afp->inmap, msa->aseq[seqi], &alen, b->line[idx] + b->lpos[idx], ntext);
+              p = esl_buffer_GetPointerAt(afp->bf, b->offsets[idx]);
+	      status = esl_dsq_CAppend_noalloc(afp->inmap, msa->aseq[seqi], &alen, p + b->lpos[idx], ntext);
 	      if      (status == eslEINVAL) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "illegal residue(s) in input line"); }
 	      else if (status != eslOK)     { selex_ErrorInBlock(afp, b, idx); goto ERROR; }
 	      if (alen != msa->alen + nleft + ntext) { selex_ErrorInBlock(afp, b, idx); ESL_EXCEPTION(eslEINCONCEIVABLE, afp->errmsg, "unexpected inconsistency appending a sequence"); };
@@ -712,16 +720,16 @@ selex_append_block(ESL_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
 	}
       else 
 	{			/* annotation append: not mapped, characters are copied exactly as they are */
-	  if      (b->ltype[idx] == eslSELEX_LINE_RF) { ESL_REALLOC(msa->rf,         sizeof(char) * (msa->alen + nadd + 1)); p = msa->rf;         }
-	  if      (b->ltype[idx] == eslSELEX_LINE_MM) { ESL_REALLOC(msa->mm,         sizeof(char) * (msa->alen + nadd + 1)); p = msa->mm;         }
-	  else if (b->ltype[idx] == eslSELEX_LINE_CS) { ESL_REALLOC(msa->ss_cons,    sizeof(char) * (msa->alen + nadd + 1)); p = msa->ss_cons;    }
-	  else if (b->ltype[idx] == eslSELEX_LINE_SS) { ESL_REALLOC(msa->ss[seqi-1], sizeof(char) * (msa->alen + nadd + 1)); p = msa->ss[seqi-1]; }
-	  else if (b->ltype[idx] == eslSELEX_LINE_SA) { ESL_REALLOC(msa->sa[seqi-1], sizeof(char) * (msa->alen + nadd + 1)); p = msa->sa[seqi-1]; }
+	  if      (b->ltype[idx] == eslSELEX_LINE_RF) { ESL_REALLOC(msa->rf,         sizeof(char) * (msa->alen + nadd + 1)); ann = msa->rf;         }
+	  else if (b->ltype[idx] == eslSELEX_LINE_MM) { ESL_REALLOC(msa->mm,         sizeof(char) * (msa->alen + nadd + 1)); ann = msa->mm;         }
+	  else if (b->ltype[idx] == eslSELEX_LINE_CS) { ESL_REALLOC(msa->ss_cons,    sizeof(char) * (msa->alen + nadd + 1)); ann = msa->ss_cons;    }
+	  else if (b->ltype[idx] == eslSELEX_LINE_SS) { ESL_REALLOC(msa->ss[seqi-1], sizeof(char) * (msa->alen + nadd + 1)); ann = msa->ss[seqi-1]; }
+	  else if (b->ltype[idx] == eslSELEX_LINE_SA) { ESL_REALLOC(msa->sa[seqi-1], sizeof(char) * (msa->alen + nadd + 1)); ann = msa->sa[seqi-1]; }
 
-	  for (alen = msa->alen; alen < msa->alen+nleft; alen++) p[alen] = '.';
-	  if (ntext) memcpy(p+msa->alen+nleft, b->line[idx]+b->lpos[idx], sizeof(char)*ntext);
-	  for (alen = msa->alen+nleft+ntext; alen < msa->alen+nadd; alen++) p[alen] = '.';
-	  p[alen] = '\0';
+	  for (alen = msa->alen; alen < msa->alen+nleft; alen++) ann[alen] = '.';
+	  if (ntext) memcpy(ann+msa->alen+nleft, esl_buffer_GetPointerAt(afp->bf, b->offsets[idx])+b->lpos[idx], sizeof(char)*ntext);
+	  for (alen = msa->alen+nleft+ntext; alen < msa->alen+nadd; alen++) ann[alen] = '.';
+	  ann[alen] = '\0';
 	}
     }
   msa->alen += nadd;

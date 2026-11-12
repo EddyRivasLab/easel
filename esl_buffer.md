@@ -6,21 +6,20 @@ piped output from executed commands, C strings, and raw memory -- can
 be handled efficiently in a single API and a single object, an
 `ESL_BUFFER`.
 
-The main rationale for `buffer` is to enable multipass parsing of any
-input, even a nonrewindable stream or pipe. A canonical problem in
-sequence file parsing is that we need to know both the format (FASTA
-or Genbank, for instance) and the alphabet (protein or nucleic acid,
-for instance) in order to parse Easel-digitized sequence data
-records. To write "smart" parsers that automagically determine the
-file format and alphabet, so programs work transparently on lots of
-different file types without users needing to specify them, we need
-three-pass parsing: one pass to read raw data and determine the
-format, a second pass to parse the format for sequence data and
-determine its alphabet, and finally the actual parsing of digitized
-sequences. Multiple pass parsing of a nonrewindable stream, such as
-standard input or the output of a `gunzip` call, isn't possible
-without extra support. The `buffer` module standardizes that support
-for all Easel input.
+`ESL_BUFFER` enables multipass parsing of any input, even a
+nonrewindable stream or pipe. A recurring problem in sequence file
+parsing is that we need to know both the format (FASTA or Genbank, for
+instance) and the alphabet (protein or nucleic acid, for instance) in
+order to parse Easel-digitized sequence data records. To write "smart"
+parsers that automagically determine the file format and alphabet, so
+programs work transparently on lots of different file types without
+users needing to specify them, we need three-pass parsing: one pass to
+read raw data and determine the format, a second pass to parse the
+format for sequence data and determine its alphabet, and finally the
+actual parsing of digitized sequences. Multiple pass parsing of a
+nonrewindable stream, such as standard input or the output of a
+`gunzip` call, isn't possible without extra support. The `buffer`
+module standardizes that support for all Easel input.
 
 ## examples
 
@@ -180,22 +179,36 @@ trailing spaces).
 ### using anchors: caller-defined limits on random access
 
 The naive way to enable random access on a sequential stream is to
-slurp the whole stream into memory. If the stream is large, this may
-be very memory inefficient. Many parsers do not need full random
-access, but instead need a limited form of it -- for instance, the
-three-pass case of determining format and alphabet from the start of a
-sequence file. `ESL_BUFFER` allows the caller to define an _anchor_ to
-define a start point in the input that is not allowed to go away until
-the caller says so.
+slurp the whole stream into memory. If the stream is large, this is
+memory inefficient. Most of the time we do not need full random
+access, but instead need a limited form of it, over a range of some
+block of lines, often at the very beginning of the input -- for
+instance, the three-pass case of determining format and alphabet from
+the start of a sequence file. `ESL_BUFFER` allows the caller to define
+an _anchor_ to define a start point in the input that is not allowed
+to go away until the caller says so.
 
-Setting an anchor declares that `mem[anchor..n-1]` is not be
-overwritten by new input reads. A new input read may first relocate
-("reoffset") `mem[anchor..n-1]` to `mem[0..n-anchor-1]` in order to use
-its current allocation efficiently. Setting an anchor may therefore
-cause `mem` to be reoffset and/or reallocated, and `balloc` may grow,
-if the buffer is not large enough to hold everything starting from the
-`anchor` position. When no anchors are set, `mem` will not be reoffset
-or reallocated.
+Setting an `anchor` (in absolute offset coords in the input,
+`0..inputlen-1`) means that `mem[r..n-1]` must not be overwritten by new
+input reads, where `r` is the relative position of the anchor in the
+buffer's memory (`r = anchor - baseoffset`).  
+Setting an anchor does not prevent `mem` from being rebased and/or
+reallocated, though.  A new input read may first rebase `mem[r..n-1]`
+to `mem[0..n-r-1]` in order to use its current allocation efficiently,
+and it may need to reallocate `mem` if the buffer is not large enough
+to hold everything starting from the `anchor` position, which can
+result in relocation of `mem`.
+
+Because of that, you need to be aware that pointers into ESL_BUFFER
+memory (for example, a pointer returned by `esl_buffer_GetLine()`) are
+volatile.  Several `esl_buffer` calls may result in rebasing or
+relocation of internal memory, invalidating any pointers the caller
+may be holding: specifically, `_Get*()`, `_Set()`, `_Fetch*()`,
+`_Read()`, and forward `_SetOffset()` calls. If you want to hold on to
+positions of lines or tokens, store offsets in the input, not
+pointers: use `esl_buffer_GetOffsetFor()` to obtain an offset given a
+pointer, and `esl_buffer_GetPointerAt()` to obtain a pointer given an
+offset.
 
 If we set an anchor at offset 0 in the input, then the entire input
 will be progressively slurped into a larger and larger allocation of
@@ -204,6 +217,8 @@ reposition the buffer anywhere from the anchor to n-1, even in a
 normally nonrewindable, nonpositionable stream. If we've read enough to
 determine what we need (format, alphabet...), we can release the
 anchor, and the buffer's memory usage will stop growing.
+
+
 
 The functions that get a defined chunk of memory --
 `esl_buffer_GetLine()`, `esl_buffer_GetToken()`, and
