@@ -291,7 +291,7 @@ esl_neon_hsum_float(esl_neon_128f_t a, float *ret_sum)
 static inline esl_neon_128f_t 
 esl_neon_rightshift_float(esl_neon_128f_t a, esl_neon_128f_t b)
 {
-  register esl_neon_128f_t v;
+  esl_neon_128f_t v;
 
   v.f32x4 = vrev64q_f32(b.f32x4);            /* b[1] b[0] b[3] b[2] */
   v.f32x4 = vextq_f32(v.f32x4, v.f32x4, 2);  /* b[3] b[2] b[1] b[0] */
@@ -311,7 +311,7 @@ esl_neon_rightshift_float(esl_neon_128f_t a, esl_neon_128f_t b)
 static inline esl_neon_128f_t
 esl_neon_leftshift_float(esl_neon_128f_t a, esl_neon_128f_t b)
 {
-  register esl_neon_128f_t v;
+  esl_neon_128f_t v;
   v.f32x4 = vextq_f32(a.f32x4, b.f32x4, 1);/* now a[1] a[2] a[3] b[0] */
   return v;
 }
