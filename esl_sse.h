@@ -228,7 +228,7 @@ esl_sse_rightshift_ps(__m128 a, __m128 b)
 static inline __m128
 esl_sse_leftshift_ps(__m128 a, __m128 b)
 {
-  register __m128 v = _mm_move_ss(a, b);                 /* now b[0] a[1] a[2] a[3] */
+  __m128 v = _mm_move_ss(a, b);                          /* now b[0] a[1] a[2] a[3] */
   return _mm_shuffle_ps(v, v, _MM_SHUFFLE(0, 3, 2, 1));  /* now a[1] a[2] a[3] b[0] */
 }
 
