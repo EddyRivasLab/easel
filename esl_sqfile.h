@@ -33,6 +33,50 @@
 #define eslSQFILE_HMMPGMD      8   // Farrar hmmpgmd database format: fasta + # header 
 #define eslSQFILE_FMINDEX      9   // Pressed FM-index format used in HMMER
 
+/* Codes for <sqfp->mode>
+ * 
+ * _FILE:       An actual file on disk (the usual case).
+ *              <sqfp->filename> is the full path to the file.
+ *              Suffix of <sqfp->filename> is used in format guessing.
+ *              <sqfp->fp> is that filename, fopen()'ed.
+ *              Random access with ftello()/fseeko() works on unaligned files, but not MSAs; is_seekable = TRUE | FALSE
+ *              Can be closed and reopened to rewind.
+ *
+ * _STREAM:     Either stdin, via a "-" filename to _Open(); or caller-supplied <fp>, "opened" with _OpenStream()
+ *              <sqfp->filename> is "-"
+ *              No suffix-based format guessing.
+ *              Caller owns <sqfp->fp>; not closed by _Close().
+ *              Random access with ftello()/fseeko() may be possible for some _OpenStream() fp's of unaligned files: is_seekable = TRUE | FALSE.
+ *              Cannot be closed and reopened to rewind.
+ *
+ * _GZIP:       <sqfp->filename> is the full path to file, and it's a gzipp'ed file ending in a ".gz" suffix.
+ *              Penultimate suffix (before the .gz) is used in format guessing.
+ *              <sqfp->fp> is a `gzip -dc` output pipe from that input file.
+ *              No random access; is_seekable = FALSE.
+ *              Cannot be closed and reopened to rewind. (Though we could add this someday if we need it.)
+ *
+ * _FILESTREAM: an <fp> "opened" with _OpenStream() that corresponds to an actual file's contents.
+ *              <sqfp->filename> is the full path to a file that could have been opened with _Open().
+ *              Suffix of <sqfp->filename> is used in format guessing.
+ *              <sqfp->fp> is the stream. Caller owns it; not closed by _Close().
+ *              Random access with ftello()/fseeko() should be possible for unaligned files, but may not be, depending on how the caller created <fp>: is_seekable = TRUE | FALSE.
+ *              Cannot be closed and reopened to rewind, because caller owns <sqfp->fp>.
+ *
+ * _MEM:        <sqfp->filename> is "[]".
+ *              No suffix-based format guessing.
+ *              <sqfp->fp> is NULL.
+ *              Only used for single-sequence unaligned seqfiles, within esl_sqfile_Parse()
+ *              Random access isn't needed, so is_seekable = FALSE; but would be easy to add.
+ *              Rewinding isn't needed either; but would be easy to add.
+ */
+#define eslSQFILE_UNSET      0
+#define eslSQFILE_FILE       1
+#define eslSQFILE_STREAM     2
+#define eslSQFILE_GZIP       3
+#define eslSQFILE_FILESTREAM 4
+#define eslSQFILE_MEM        5
+
+
 /* eslSQFILE_READBUFSIZE is the fixed size of a block to bring in at one time,
  * in character-based (fread()) parsers (like the FASTA parser).
  */
@@ -48,14 +92,14 @@
  * An open sequence file for reading.
  */
 typedef struct esl_sqfile_s {
-  char *filename;	       // name of file that was opened, possibly including path (for diagnostics)
+  char *filename;	       // path to file that was opened. "-" for stdin or unnamed stream, "[]" for eslSQFILE_MEM
   FILE *fp;           	       // open file ptr
   char  errbuf[eslERRBUFSIZE]; // parse error mesg.  size must match msa.h
 
+  int   mode;                  // eslSQFILE_{UNSET | FILE | STREAM | GZIP | FILESTREAM | MEM}
+  int   is_seekable;           // TRUE if we can random access the stream with ftello()/fseeko()
+
   int   do_digital;	       // TRUE if we're reading in digital mode
-  int   do_gzip;	       // TRUE if we're reading from gzip -dc pipe
-  int   do_stdin;	       // TRUE if we're reading from stdin
-  int   do_buffer;             // TRUE if we're reading from a buffer
   const ESL_ALPHABET *abc;     // valid in digital mode; NULL in text mode 
 
   /* Format-specific configuration
@@ -75,7 +119,7 @@ typedef struct esl_sqfile_s {
   int      mn;		       // number of chars in <mem> (up to allocm)
   int      mpos;	       // pos of next <buf> to load from <mem>
   off_t    moff;	       // disk offset to start of <mem>
-  int      is_recording;       // TRUE if we need to keep buffering more
+  int      is_recording;       // TRUE if we need to keep buffering more; FALSE if we aren't recording yet but we can; -1 if we've already read too far to record
 
   /* Input is either character-based [fread()] or line-based [esl_fgets()]
    */
@@ -137,6 +181,7 @@ typedef struct esl_sqcache_s {
 extern int   esl_sqfile_Open(const char *filename, int fmt, const char *env, ESL_SQFILE **ret_sqfp);
 extern int   esl_sqfile_OpenDigital(const ESL_ALPHABET *abc, const char *filename, int format, const char *env, ESL_SQFILE **ret_sqfp);
 extern int   esl_sqfile_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc);
+extern int   esl_sqfile_OpenStream(FILE *fp, const char *filename, int format, ESL_SQFILE **ret_sqfp);
 extern void  esl_sqfile_Close(ESL_SQFILE *sqfp);
 
 extern int   esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type);

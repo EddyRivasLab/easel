@@ -45,9 +45,13 @@
 #include "esl_sq.h"
 #include "esl_ssi.h"
 
-static void sqfile_init(ESL_SQFILE *sqfp);
+/* Internal functions for opening an ESL_SQFILE */
 static int  sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_sqfp);
-static int  sqfile_guess_format(ESL_SQFILE *sqfp, int *ret_fmt);
+static int  sqfile_init        (ESL_SQFILE *sqfp);
+static int  sqfile_configure   (ESL_SQFILE *sqfp);
+static int  sqfile_guess_format(ESL_SQFILE *sqfp);
+static int  sqfile_to_buffer   (ESL_SQFILE *sqfp, ESL_BUFFER **ret_bf);
+static int  sqfile_from_buffer (ESL_BUFFER *bf,   ESL_SQFILE *sqfp);
 
 /* Internal functions shared by parsers. */
 static int  loadmem  (ESL_SQFILE *sqfp);
@@ -99,8 +103,7 @@ static int  fileheader_hmmpgmd(ESL_SQFILE *sqfp);
  * 
  *            The format of the file is asserted to be <format> (for
  *            example, <eslSQFILE_FASTA>). If <format> is
- *            <eslSQFILE_UNKNOWN> then we attempt to autodetect the
- *            file format.
+ *            <eslSQFILE_UNKNOWN> then the format will be autodetected.
  *            
  *            If <env> is non-NULL, it is the name of an environment
  *            variable that contains a colon-delimited list of
@@ -112,11 +115,13 @@ static int  fileheader_hmmpgmd(ESL_SQFILE *sqfp);
  *
  *            There are two special cases for <filename>. If
  *            <filename> is "-", the sequence data are read from a
- *            <STDIN> pipe. If <filename> ends in ".gz", the file is
+ *            <stdin> pipe. If <filename> ends in ".gz", the file is
  *            assumed to be compressed with <gzip>, and it is opened
  *            by a pipe from <gzip -dc>. Reading gzip files only works
  *            on POSIX-compliant systems that have pipes
- *            (specifically, the POSIX.2 popen() call). 
+ *            (specifically, the POSIX.2 popen() call). A stdin
+ *            stream is not seekable or reopenable. A gzipped file
+ *            is reopenable, but the stream is not seekable.
  *            
  * Returns:   <eslOK> on success, and <*ret_sqfp> points to a new
  *            open <ESL_SQFILE>. Caller deallocates this object with
@@ -220,6 +225,112 @@ esl_sqfile_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc)
   return eslOK;
 }
 
+/* Function:  esl_sqfile_OpenStream()
+ * Synopsis:  "Open" an existing stream for parsing
+ * Incept:    SRE, Tue 27 Oct 2026
+ *
+ * Purpose:   Given an open stream <fp> for reading, create
+ *            a new <ESL_SQFILE> that wraps around it. Caller is
+ *            responsible for closing the <*ret_sqfp>,
+ *            and is also responsible for closing the <fp>.
+ *
+ *            <filename> is optional. If provided, it must be a full
+ *            path to a readable file that could be opened with
+ *            <esl_sqfile_Open()>; it's just that for whatever reason,
+ *            the caller has already opened it. If <filename> is
+ *            provided, then suffix-based format autodetection will be
+ *            done, and an SSI index for the <filename> can be opened
+ *            by the caller later with esl_sqfile_OpenSSI().
+ *
+ *            The <fp> is at position 0; nothing has been read from it
+ *            yet.
+ *            
+ *            This is here to support pyhmmer, where
+ *            pyhmmer.easel.SequenceFile() accepts not just files but
+ *            any Python file-like object (including both open files
+ *            and nonrewindable streams).
+ *
+ * Args:      fp       : open stream, at position 0
+ *
+ *            filename : (optional) path to file that, if opened,
+ *                       would be <fp>; or NULL.
+ *
+ *            format   : asserted file format (such as eslSQFILE_FASTA);
+ *                       or eslSQFILE_UNKNOWN to autodetect format
+ * 
+ *            ret_sqfp : RETURN: ptr to the newly opened <sqfp>
+ *
+ * Returns:   <eslOK> on success.
+ *
+ *            <eslENOTFOUND> if <filename> was provided but can't be
+ *            opened for reading.
+ *
+ *            <eslEFORMAT> if file is empty, or format autodetection
+ *            was attempted and format can't be determined.
+ *
+ *            On any error condition, <*ret_sqfp> is returned NULL.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <eslEINVAL> if <fp> isn't at position 0.
+ */
+int
+esl_sqfile_OpenStream(FILE *fp, const char *filename, int format, ESL_SQFILE **ret_sqfp)
+{
+  ESL_SQFILE *sqfp = NULL;
+  ESL_BUFFER *bf   = NULL;
+  off_t       pos;
+  int         status;
+
+
+  /* Allocate and initialize the ESL_SQFILE structure
+   */
+  ESL_ALLOC(sqfp, sizeof(ESL_SQFILE));
+  if ((status = sqfile_init(sqfp)) != eslOK) goto ERROR;
+  sqfp->format    = format;
+  sqfp->fp        = fp;
+
+  pos = ftello(sqfp->fp);  // will be -1 if <fp> is not seekable; 0 if it is
+  if      (pos == 0)  sqfp->is_seekable = TRUE;
+  else if (pos == -1) sqfp->is_seekable = FALSE;
+  else ESL_XEXCEPTION(eslEINVAL, "esl_sqfile_OpenStream()'s <fp> is not at its start");
+
+  /* Record the optional <filename>. <filename> must exist, if provided. */
+  if (filename)
+    {
+      if (! esl_FileExists(filename)) { status = eslENOTFOUND; goto ERROR; }
+      if ((status = esl_strdup(filename, -1, &(sqfp->filename))) != eslOK )  goto ERROR;
+      sqfp->mode = eslSQFILE_FILESTREAM;
+    }
+  else
+    {
+      if ((status = esl_strdup("-", -1, &(sqfp->filename))) != eslOK) goto ERROR;  // <filename> has to be something, at least for callers writing diagnostic error msgs
+      sqfp->mode = eslSQFILE_STREAM;
+    }
+
+  /* If <format> is asserted as an MSA file format, wrap the <fp> into
+   * an ESL_BUFFER and open <afp>. Otherwise, just use <fp> for input.
+   */
+  if (esl_sqfile_IsAlignment(sqfp->format))
+    {
+      if ((status = sqfile_to_buffer(sqfp, &bf)) != eslOK) goto ERROR;
+      if ((status = esl_msafile_OpenBuffer(/*byp_abc=*/NULL, bf, sqfp->format, /*fmtd=*/NULL, &(sqfp->afp))) != eslOK) goto ERROR;
+      sqfp->is_seekable = FALSE;
+      ESL_DASSERT1(( sqfp->format == sqfp->afp->format ));
+    }
+
+  /* The rest is shared with normal sqfile opening, including format autodetection */
+  if ((status = sqfile_configure(sqfp)) != eslOK) goto ERROR;
+  
+  *ret_sqfp = sqfp;
+  return eslOK;
+
+ ERROR:
+  esl_sqfile_Close(sqfp);
+  *ret_sqfp = NULL;
+  return status;
+}
+
+
 
 /* Function:  esl_sqfile_Close()
  * Synopsis:  Close a sequence file.
@@ -233,9 +344,9 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
 {
   if (sqfp)
     {
-      if (! sqfp->do_gzip && ! sqfp->do_stdin && sqfp->fp) fclose(sqfp->fp);
+      if (sqfp->mode == eslSQFILE_FILE && sqfp->fp) fclose(sqfp->fp);
 #ifdef HAVE_POPEN
-      if (sqfp->do_gzip && sqfp->fp)  pclose(sqfp->fp);
+      if (sqfp->mode == eslSQFILE_GZIP && sqfp->fp) pclose(sqfp->fp);
 #endif
       if (sqfp->balloc > 0) free(sqfp->buf);
       if (sqfp->ssi)        esl_ssi_Close(sqfp->ssi);
@@ -250,22 +361,135 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
   return;
 }
 
+/* sqfile_open():
+ *
+ * This routine actually opens a file as an
+ * ESL_SQFILE. esl_sqfile_Open() and esl_sqfile_OpenDigital() are just
+ * wrappers around it.
+ *
+ * sqfile_open() opens based on a filename argument, and
+ * esl_sqfile_OpenStream() opens an ESL_SQFILE based around an
+ * already-open `FILE *` stream argument. They share sqfile_init() and
+ * sqfile_configure() at their start and end.
+ *
+ * <stdin> can be opened either way, but it's sqfile_open() that
+ * implements the Easel convention of handling "-" as stdin and
+ * opening "*.gz" through a `gzip -dc` pipe.
+ */
+static int
+sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_sqfp)
+{
+  ESL_SQFILE *sqfp   = NULL;
+  char       *cmd    = NULL;
+  char       *sfx    = NULL;  // ptr to ".gz" suffix of <filename>, if there is one (inclusive of '.')
+  esl_pos_t   nsfx   = 0;     // length of ".gz" suffix if there is one (i.e. 3), or 0 if not
+  int         status;
+
+  /* Allocate and initialize the ESL_SQFILE structure
+   */
+  ESL_ALLOC(sqfp, sizeof(ESL_SQFILE));
+  if ((status = sqfile_init(sqfp)) != eslOK)  goto ERROR;
+  sqfp->format = format;  // <format> itself is never used again; only sqfp->format from now on.
+
+  /* Find path to <filename> (watching out for "-" meaning stdin),
+   * checking <env> variable for a colon-delimited list of dirs if
+   * <filename> isn't in current working dir.
+   *
+   * Store path to file we're going to open in <sqfp->filename>.
+   *
+   * Check if file has a .gz extension; if it does, we'll be opening a
+   * `gzip -dc` pipe to it. Because we check that a esl_FileExists()
+   * or esl_FileEnvOpen() call succeeds, we know <filename.gz> exists
+   * and is readable.
+   * 
+   */
+  if (strcmp(filename, "-") == 0)
+    {
+      if ((status = esl_strdup("-", -1, &(sqfp->filename))) != eslOK) goto ERROR; 
+      sqfp->mode        = eslSQFILE_STREAM;
+      sqfp->is_seekable = FALSE;
+    }
+  else
+    {
+      if (esl_FileExists(filename)) { if ((status = esl_strdup(filename, -1, &(sqfp->filename)))             != eslOK) goto ERROR; }
+      else                          { if ((status = esl_FileEnvOpen(filename, env, NULL, &(sqfp->filename))) != eslOK) goto ERROR; }
+
+      if (esl_file_Extension(sqfp->filename, /*n_ignore=*/0, &sfx, &nsfx) == eslOK &&
+          esl_memstrcmp(sfx, nsfx, ".gz") == TRUE)
+        {
+          sqfp->mode        = eslSQFILE_GZIP; 
+          sqfp->is_seekable = FALSE;
+        }
+      else
+        {
+          sqfp->mode        = eslSQFILE_FILE;
+          sqfp->is_seekable = TRUE; 
+        }
+    }
+
+
+  /* Open either <sqfp->fp> (for unknown or unaligned formats) or
+   * <sqfp->afp> (for asserted MSA formats).
+   * 
+   * If we know the format is an MSA file instead of an unaligned
+   * format, immediately open it as an MSA file <sqfp->afp>, and
+   * bypass any use of <sqfp->fp>. esl_msa handles stdin and gzip'ed
+   * .gz MSA files itself.
+   *
+   * Else, if format is unknown or asserted unaligned, we'll need an open
+   * <sqfp->fp>. (For an MSA file, we will switch to <sqfp->afp> later,
+   * after format autodetection.)
+   */
+  if (esl_sqfile_IsAlignment(sqfp->format))
+    {
+      if ((status = esl_msafile_Open(NULL, sqfp->filename, NULL, sqfp->format, NULL, &(sqfp->afp))) != eslOK) goto ERROR;
+      sqfp->format = sqfp->afp->format;
+      sqfp->is_seekable = FALSE;
+    }
+  else
+    {
+      if      (sqfp->mode == eslSQFILE_STREAM) sqfp->fp = stdin;
+      else if (sqfp->mode == eslSQFILE_GZIP)
+        {
+          if ((status = esl_sprintf(&cmd, "gzip -dc %s", sqfp->filename)) != eslOK) goto ERROR; 
+          if ((sqfp->fp = popen(cmd, "r")) == NULL)   // FIXME: this is a security problem; see plan
+            { status = eslENOTFOUND; goto ERROR; }
+        }
+      else {
+        if ((sqfp->fp = fopen(sqfp->filename, "r")) == NULL) { status = eslENOTFOUND; goto ERROR; }
+      }
+    }
+
+  /* The rest, including format autodetection, is shared with _OpenStream() */
+  if ((status = sqfile_configure(sqfp)) != eslOK) goto ERROR;
+  free(cmd);
+  *ret_sqfp = sqfp;
+  return eslOK;
+
+ ERROR:
+  free(cmd);
+  esl_sqfile_Close(sqfp); 
+  *ret_sqfp = NULL;
+  return status;
+}
+
+
 /* sqfile_init()
  * Initialize a newly opened ESL_SQFILE.
  * Just to pull a verbose block of routine code out of sqfile_open().
  * Matches order of elements in ESL_SQFILE as declared in esl_sqfile.h.
  */
-static void
+static int
 sqfile_init(ESL_SQFILE *sqfp)
 {
   sqfp->filename         = NULL;
   sqfp->fp               = NULL;
   sqfp->errbuf[0]        = '\0';
 
+  sqfp->mode             = eslSQFILE_UNSET;
+  sqfp->is_seekable      = FALSE;
+
   sqfp->do_digital       = FALSE;
-  sqfp->do_gzip          = FALSE;
-  sqfp->do_stdin         = FALSE;
-  sqfp->do_buffer        = FALSE;
   sqfp->abc              = NULL;
 
   sqfp->format           = eslSQFILE_UNKNOWN;
@@ -306,108 +530,38 @@ sqfile_init(ESL_SQFILE *sqfp)
   sqfp->maxbpl           = -1;
   sqfp->maxgap           = -1;
   sqfp->ssi              = NULL;
+
+  return eslOK;
 }
 
-/* sqfile_open():
- * This is the routine that actually opens an ESL_SQFILE.
- * esl_sqfile_Open() and esl_sqfile_OpenDigital() are
- * small wrappers around it.
+/* sqfile_configure()
+ * Finish configuring a new ESL_SQFILE
+ *
+ * This is shared by sqfile_open() and esl_sqfile_OpenStream().
+ *
+ * <sqfp> has been initialized with sqfile_init(); <filename> and
+ * <mode> have been set; and either <fp> is open (for as-yet
+ * unknown or asserted unaligned) or <afp> is (for asserted MSA
+ * formats). <sqfp->format> may be known or unknown. Nothing has been
+ * read yet.
+ *
+ * Returns:  <eslOK> on success.
+ *           <eslEFORMAT> if format can't be recognized, asserted format is invalid, or file empty
+ *
+ * Throws:   <eslEMEM> on allocation failure
+ *           <eslEINVAL> on unexpected state of <sqfp>
  */
 static int
-sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_sqfp)
+sqfile_configure(ESL_SQFILE *sqfp)
 {
-  ESL_SQFILE *sqfp   = NULL;
-  char       *cmd    = NULL;
-  int         n;
-  int         status;
-
-  /* Allocate and initialize the ESL_SQFILE structure
+  int status;
+  
+  /* If we don't know the format yet, try to autodetect it now.
    */
-  ESL_ALLOC(sqfp, sizeof(ESL_SQFILE));
-  sqfile_init(sqfp);
-  sqfp->format = format;  // <format> itself is never used again; only sqfp->format from now on.
-
-  /* Find path to <filename> (watching out for "-" meaning stdin),
-   * checking <env> variable for a colon-delimited list of dirs if
-   * <filename> isn't in current working dir.
-   *
-   * Store path to file we're going to open in <sqfp->filename>.
-   */
-  if (strcmp(filename, "-") == 0 || esl_FileExists(filename))
-    { if ((status = esl_strdup(filename, -1, &(sqfp->filename)))             != eslOK) goto ERROR; }
-  else
-    { if ((status = esl_FileEnvOpen(filename, env, NULL, &(sqfp->filename))) != eslOK) goto ERROR; }
-  n = strlen(sqfp->filename);
-
-  /* Open the file as a stream, and if <format> hasn't been asserted,
-   * peek into it to guess the file format.
-   * 
-   * If we've already been told it's an MSA format, skip all of this:
-   * the MSA parser will handle opening the stream instead, including
-   * stdin and .gz files.
-   */
-  if (! esl_sqfile_IsAlignment(sqfp->format))
+  if (sqfp->format == eslSQFILE_UNKNOWN)
     {
-      if (strcmp(sqfp->filename, "-") == 0)  /* stdin special case */
-        {
-          sqfp->fp       = stdin;
-          sqfp->do_stdin = TRUE;
-        }
-      else if ((sqfp->fp = fopen(sqfp->filename, "r")) == NULL)
-        { status = eslENOTFOUND; goto ERROR; }
-
-#ifdef HAVE_POPEN
-      /* Deal with the .gz special case: to popen(), "success" only means
-       * it found and executed gzip -dc.  If gzip -dc doesn't find our
-       * file, popen() still blithely returns success, so we have to be
-       * sure the file exists. That's why we fopen()'ed it above, only to
-       * close it and popen() it here.
-       */     
-      if (n > 3 && strcmp(sqfp->filename+n-3, ".gz") == 0)
-        {
-          fclose(sqfp->fp);
-          sqfp->fp = NULL;
-          if ((status = esl_sprintf(&cmd, "gzip -dc %s", sqfp->filename)) != eslOK) goto ERROR; 
-          if ((sqfp->fp = popen(cmd, "r")) == NULL)   // FIXME: this is a security problem; see plan
-            { status = eslENOTFOUND; goto ERROR; }
-          sqfp->do_gzip = TRUE;
-        }
-#endif
-
-      /* If we don't know the format yet, try to autodetect it now. */
-      if (sqfp->format == eslSQFILE_UNKNOWN)
-        {
-          status = sqfile_guess_format(sqfp, &(sqfp->format));
-          if (status != eslOK && status != eslEFORMAT) goto ERROR; // <format> might still be eslSQFILE_UNKNOWN: MSA files for example
-        }
-
-      /* If the format is still unknown, it may be an MSA file.  The
-       * msafile module is capable of autodetecting format even in a .gz
-       * or stdin pipe, but the stuff above has already read from these
-       * nonrewindable sources, trying to guess an unaligned format.  We
-       * could open a second .gz pipe, but that's ugly; and in any case,
-       * we can't rewind stdin. Eventually, this will get resolved, by
-       * having esl_sqfile open an ESL_BUFFER, then doing an
-       * esl_msafile_OpenBuffer() if we need to hand control to the
-       * msafile module. For now, esl_sqfile is already documented to be
-       * unable to autodetect MSA file formats in stdin or .gz pipes,
-       * so leave it that way.
-       */
-      if (sqfp->format == eslSQFILE_UNKNOWN && (sqfp->do_gzip || sqfp->do_stdin)) 
-        { status = eslEFORMAT; goto ERROR; }
+      if ((status = sqfile_guess_format(sqfp)) != eslOK) return status;
     }
-
-  /* If format is definitely an MSA, open it through the msafile interface.
-   * Or, if format is still unknown, try to open the file as an MSA file,
-   * using msafile autodetection. 
-   */
-  if (sqfp->format == eslSQFILE_UNKNOWN || esl_sqfile_IsAlignment(sqfp->format))
-    {
-      status = esl_msafile_Open(NULL, sqfp->filename, NULL, sqfp->format, NULL, &(sqfp->afp));
-      if (status != eslOK) { status = eslEFORMAT; goto ERROR; } // This was our last attempt. Failure to open == failure to detect format
-      sqfp->format = sqfp->afp->format;
-    }
-  if (sqfp->format == eslSQFILE_UNKNOWN) { status = eslEFORMAT; goto ERROR; }
 
   /* Configure the <sqfp>'s parser and inmaps for this format. */
   if ( ! esl_sqfile_IsAlignment(sqfp->format)) 
@@ -420,13 +574,13 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
       case eslSQFILE_FASTA:    config_fasta(sqfp);   inmap_fasta(sqfp,   NULL);   break;
       case eslSQFILE_DAEMON:   config_daemon(sqfp);  inmap_daemon(sqfp,  NULL);   break;
       case eslSQFILE_HMMPGMD:  config_fasta(sqfp);   inmap_fasta(sqfp,   NULL);   break;
-      default: status = eslEFORMAT; goto ERROR;
+      default: return eslEFORMAT;
       }
 
       /* Preload the first line or chunk of file. */
       status = loadbuf(sqfp);
-      if      (status == eslEOF) { status = eslEFORMAT; goto ERROR; }
-      else if (status != eslOK)  { goto ERROR; }
+      if      (status == eslEOF) return eslEFORMAT; 
+      else if (status != eslOK)  return status;
 
       /* hmmpgmd is a special case: we need to skip first line before parsing it.
        * generalize that a little: this could be a section for parsing a file header,
@@ -437,7 +591,7 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
       case eslSQFILE_HMMPGMD:   status = fileheader_hmmpgmd(sqfp); break;
       default:                  status = eslOK;                    break;
       }
-      if (status != eslOK) goto ERROR;
+      if (status != eslOK) return status;
     }
   else
     {
@@ -447,96 +601,122 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
       sqfp->parse_end    = NULL;  // no-op for msa's 
     }
 
-  free(cmd);
-  *ret_sqfp = sqfp;
   return eslOK;
-
- ERROR:
-  free(cmd);
-  esl_sqfile_Close(sqfp); 
-  *ret_sqfp = NULL;
-  return status;
 }
 
 
 /* sqfile_guess_format()
  * Guess the format of a newly opened <ESL_SQFILE>.
  *
- * Try to guess the sequence file format of <sqfp>, and return the
- * format code in <*ret_fmt>.
+ * Try to guess the sequence file format of <sqfp>; if successful, set
+ * format code in <sqfp->format>. No data have been read into <sqfp>
+ * when we start; when we return, <sqfp> has buffered the start of the
+ * input in its memory, and rewound to position 0, ready to parse the
+ * complete input, even if it is a nonrewindable stream or .gz file.
  *            
- * First we attempt to guess based on the <filename>'s suffix. <*.fa>,
- * <*.faa>, <*.fna> are assumed to be in FASTA format; <*.gb> is
- * assumed to be in GenBank format.
+ * First we attempt to guess unaligned formats based on the
+ * <sqfp->filename> suffix. <*.fa>, <*.faa>, <*.fna> are assumed to be
+ * in FASTA format; <*.gb> is assumed to be in GenBank format.
  *            
  * If that fails, we attempt to guess based on peeking at the first
- * nonblank line of <filename>. If the line starts with $>$, we assume
- * FASTA format; if the line starts with <ID>, we assume EMBL format;
- * if the line starts with <LOCUS> or it contains the string <Genetic
- * Sequence Data Bank> we assume GenBank format.
+ * nonblank (and noncomment) line of <filename>. If the line starts
+ * with $>$, we assume FASTA format; if the line starts with <ID>, we
+ * assume EMBL format; if the line starts with <LOCUS> or it contains
+ * the string <Genetic Sequence Data Bank> we assume GenBank format.
  *            
- * If that fails too, return an <eslEFORMAT> error, and
- * <*ret_fmt> is set to <eslSQFILE_UNKNOWN>.
+ * If that fails, it may be an MSA file. esl_sqfile and esl_msafile
+ * currently use different input buffer implementations (esl_msafile
+ * is more advanced, using ESL_BUFFER; esl_sqfile is older), so we
+ * build a temporary interface between the two. First convert the
+ * <sqfp->fp> to an ESL_BUFFER, rewind to position 0 in the input
+ * buffer, and call esl_msafile_GuessFileFormat().  If it's an MSA
+ * file, call esl_msafile_OpenBuffer() and rejigger the state of the
+ * ESL_SQFILE to read <sqfp->afp> instead of <sqfp->fp>. If it's not
+ * an MSA file format, then restore the ESL_SQFILE to reading from
+ * <fp> and <mem> before returning <eslEFORMAT>. Whatever the
+ * autodetector(s) read ahead is still in <sqfp->mem>, and we rewind
+ * to position 0 in that input.
  *            
- * Returns:   <eslOK> on success, and <*ret_fmt> contains
- *            a valid sequence file format code, such as 
- *            <eslSQFILE_FASTA>.
+ * Returns:   <eslOK> on success, and <sqfp->format> is set to a valid
+ *            sequence file format code, such as <eslSQFILE_FASTA>.
+ *            For MSA file formats, the <sqfp> has been reconfigured
+ *            to read that MSA file through <sqfp->afp>, not
+ *            <sqfp->fp> and <sqfp->mem>.  No matter what the
+ *            autodetectors had to read ahead, the <sqfp> is
+ *            positioned back to the start of the input (even for
+ *            nonrewindable streams and .gz files).
  *            
- *            <eslEFORMAT> if we opened <filename> but it contains no
- *            nonblank lines, or if we peeked at the first nonblank
- *            line and still couldn't guess the format; <*ret_fmt> is
- *            then <eslSQFILE_UNKNOWN>.
+ *            <eslEFORMAT> if we couldn't autodetect the format of
+ *            <sqfp> by peeking at the start of the input, or if there
+ *            was no data. Now whatever we peeked at from the start of
+ *            the input <sqfp->fp> is still in <sqfp->mem>, we rewind
+ *            <sqfp> to position 0, a message about the format
+ *            autodetection failure is in <sqfp->errbuf>, and
+ *            <sqfp->format> is <eslSQFILE_UNKNOWN>.
  *            
- * Throws:    <eslEMEM> on allocation failure.           
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <eslEINVAL> if <sqfp> isn't at the start of the stream.
  */
 static int
-sqfile_guess_format(ESL_SQFILE *sqfp, int *ret_fmt)
+sqfile_guess_format(ESL_SQFILE *sqfp)
 {
-  int   n             = strlen(sqfp->filename);
-  const char *sfx     = NULL;
-  int   is_gzip       = FALSE;
-  int   nheader_fasta = 0;
-  int   nsfx;
-  int   status;
+  ESL_BUFFER *bf            = NULL;
+  int         nheader_fasta = 0;
+  char       *sfx           = NULL;
+  esl_pos_t   nsfx;
+  ESL_MSAFILE_FMTDATA fmtd;
+  int         status;
 
-  /* Is <filename> gzip'ed? Look at suffix. */
-  if (n > 3 && strcmp(sqfp->filename+n-3, ".gz") == 0) is_gzip = TRUE;
-
-  /* Locate the suffix that might indicate format (ignore .gz) */
-  for (nsfx = 0, sfx = sqfp->filename + n - 1 - (is_gzip ? 3 : 0);
-       sfx != sqfp->filename && *sfx != '.' && *sfx != eslDIRSLASH; 
-       sfx--) 
-    nsfx++;
-
-  /* now sfx points either to filename (we didn't find a suffix),
-   * or to a directory separator '/' (also means we didn't find a suffix),
-   * or to the . of the suffix,
-   * and nsfx is the suffix length exclusive of the . 
+  /* Suffix-based guessing, if we have a <sqfp->filename> 
+   * If this succeeds, we'll return eslOK below, leaving <sqfp> at position 0.
+   *
+   * Detect FASTA-like aligned FASTA and A2M|A3M files by suffix and
+   * don't let them get to the first-line-based autodetection of `>`,
+   * or they'll be misidentified as unaligned FASTA. This is a little
+   * fragile. If an AFA or A2M|A3M file doesn't have a canonical
+   * suffix, it will get incorrectly autodetected.
+   *
+   * Other MSA file suffixes will be autodetected later by a
+   * esl_msafile_OpenBuffer() call.
    */
-  
-  /* Attempt to guess file format based on file name suffix.
-   * Note that esl_memstrcmp() returns TRUE|FALSE for match|no match.
-   */
-  if (nsfx)
+  if (strcmp(sqfp->filename, "-") != 0)
     {
-      if      (esl_memstrcmp(sfx, nsfx+1, ".fa"))     { *ret_fmt = eslSQFILE_FASTA;      return eslOK; }
-      else if (esl_memstrcmp(sfx, nsfx+1, ".faa"))    { *ret_fmt = eslSQFILE_FASTA;      return eslOK; }
-      else if (esl_memstrcmp(sfx, nsfx+1, ".fna"))    { *ret_fmt = eslSQFILE_FASTA;      return eslOK; }
-      else if (esl_memstrcmp(sfx, nsfx+1, ".gb"))     { *ret_fmt = eslSQFILE_GENBANK;    return eslOK; }
-      else if (esl_memstrcmp(sfx, nsfx+1, ".afa"))    { *ret_fmt = eslSQFILE_UNKNOWN;    return eslEFORMAT; }  // special case: don't open aligned FASTA MSA as unaligned FASTA.
-      else if (esl_memstrcmp(sfx, nsfx+1, ".afasta")) { *ret_fmt = eslSQFILE_UNKNOWN;    return eslEFORMAT; }  // ditto, .afasta
-      else if (esl_memstrcmp(sfx, nsfx+1, ".a2m"))    { *ret_fmt = eslSQFILE_UNKNOWN;    return eslEFORMAT; }  // ditto, .a2m
-      else if (esl_memstrcmp(sfx, nsfx+1, ".a3m"))    { *ret_fmt = eslSQFILE_UNKNOWN;    return eslEFORMAT; }  // ditto, .a3m
+      esl_file_Extension(sqfp->filename, 0, &sfx, &nsfx);
+      if (esl_memstrcmp(sfx, nsfx, ".gz")) esl_file_Extension(sqfp->filename, 3, &sfx, &nsfx);  // watch out for .gz suffix, back up one suffix
+      if (sfx)
+        {
+          if      (esl_memstrcmp(sfx, nsfx, ".fa"))     sqfp->format = eslSQFILE_FASTA;
+          else if (esl_memstrcmp(sfx, nsfx, ".faa"))    sqfp->format = eslSQFILE_FASTA;
+          else if (esl_memstrcmp(sfx, nsfx, ".fna"))    sqfp->format = eslSQFILE_FASTA;
+          else if (esl_memstrcmp(sfx, nsfx, ".gb"))     sqfp->format = eslSQFILE_GENBANK;
+          else if (esl_memstrcmp(sfx, nsfx, ".afa"))    sqfp->format = eslMSAFILE_AFA;
+          else if (esl_memstrcmp(sfx, nsfx, ".afasta")) sqfp->format = eslMSAFILE_AFA;
+          else if (esl_memstrcmp(sfx, nsfx, ".a2m"))    sqfp->format = eslMSAFILE_A2M;
+          else if (esl_memstrcmp(sfx, nsfx, ".a3m"))    sqfp->format = eslMSAFILE_A2M;
+        }
     }
-    
-  /* If that didn't work, we'll have a peek at the stream; 
+
+  /* If we autodetected by suffix, return success now.
+   * For MSA's, convert sqfile to read from <sqfp->afp>, not <sqfp->fp>.
+   */
+  if (esl_sqfile_IsAlignment(sqfp->format))
+    {
+      if ((status = sqfile_to_buffer(sqfp, &bf)) != eslOK) goto ERROR;
+      if ((status = esl_msafile_OpenBuffer(/*byp_abc=*/NULL, bf, sqfp->format, /*fmtd=*/NULL, &(sqfp->afp))) != eslOK) goto ERROR;
+      sqfp->is_seekable = FALSE;
+      ESL_DASSERT1(( sqfp->format == sqfp->afp->format ));
+      return eslOK;
+    }
+  else if (sqfp->format != eslSQFILE_UNKNOWN) return eslOK; 
+
+  /* If suffix-based guessing didn't work, peek into the stream; 
    * turn recording on, and set for line based input while we do this.
    */
   if (sqfp->is_recording == -1) ESL_XEXCEPTION(eslEINVAL, "sq file already too advanced");
   sqfp->is_recording = TRUE;
   sqfp->is_linebased = TRUE;
   status = loadbuf(sqfp);
-  if      (status == eslEOF) ESL_XFAIL(eslEFORMAT, sqfp->errbuf, "No data found in file");
+  if      (status == eslEOF) ESL_XFAIL(eslEFORMAT, sqfp->errbuf, "No data found in esl_sqfile input stream");
   else if (status != eslOK)  goto ERROR;
   // now sqfp->buf is a line of the file 
 
@@ -550,32 +730,169 @@ sqfile_guess_format(ESL_SQFILE *sqfp, int *ret_fmt)
     } 
 
   /* formats that can be determined from the first (nonblank, noncomment) line: */
-  if      (*(sqfp->buf) == '>')                                                       *ret_fmt = eslSQFILE_FASTA;
-  else if (!nheader_fasta && strncmp(sqfp->buf, "ID   ", 5)    == 0)                  *ret_fmt = eslSQFILE_EMBL;
-  else if (!nheader_fasta && strncmp(sqfp->buf, "LOCUS   ", 8) == 0)                  *ret_fmt = eslSQFILE_GENBANK;
-  else if (!nheader_fasta && strstr(sqfp->buf, "Genetic Sequence Data Bank") != NULL) *ret_fmt = eslSQFILE_GENBANK;
-  else *ret_fmt = eslSQFILE_UNKNOWN;
+  if      (*(sqfp->buf) == '>')                                                       sqfp->format = eslSQFILE_FASTA;
+  else if (!nheader_fasta && strncmp(sqfp->buf, "ID   ", 5)    == 0)                  sqfp->format = eslSQFILE_EMBL;
+  else if (!nheader_fasta && strncmp(sqfp->buf, "LOCUS   ", 8) == 0)                  sqfp->format = eslSQFILE_GENBANK;
+  else if (!nheader_fasta && strstr(sqfp->buf, "Genetic Sequence Data Bank") != NULL) sqfp->format = eslSQFILE_GENBANK;
+  else sqfp->format = eslSQFILE_UNKNOWN;
 
   /* Whether we've been able to determine the format or not, reset
-   * sqfp. Turn off recording and linebased mode. Leave sqfp->mem
-   * alone, and set sqfp->mpos back to the start of the file's data:
-   * after we return, the reader will treat sqfp->mem as preloaded
-   * data.
+   * sqfp. Turn off linebased mode. Leave recording on for the MSA
+   * format detection guesser. Leave sqfp->mem alone, and set
+   * sqfp->mpos back to the start of the file's data (position 0).
    */
-  sqfp->mpos         = 0;
-  sqfp->is_recording = FALSE;
-  sqfp->is_linebased = FALSE;
   free(sqfp->buf);
-  sqfp->buf    = NULL;
-  sqfp->balloc = 0;
-  return (*ret_fmt == eslSQFILE_UNKNOWN) ? eslEFORMAT : eslOK;
+  sqfp->mpos         = 0;
+  sqfp->is_linebased = FALSE;
+  sqfp->buf          = NULL;
+  sqfp->balloc       = 0;
+
+  /* If we haven't determined an unaligned format by peeking, then
+   * check if it's an MSA file.
+   */
+  if (sqfp->format == eslSQFILE_UNKNOWN)
+    {
+      if ((status = sqfile_to_buffer(sqfp, &bf)) != eslOK) goto ERROR;
+
+      /* Pass <fmtd> to capture any non-standard format issues we need to know about...
+       * nonstandard long phylip names, for example.
+       *
+       * esl_msafile uses ENOFORMAT for autodetection failure, not EFORMAT.
+       * This is an inconsistency between esl_sqfile and esl_msafile that we'll fix someday.
+       */
+      status = esl_msafile_GuessFileFormat(bf, &(sqfp->format), &fmtd, sqfp->errbuf);
+      if (status == eslOK)
+        {
+          if ((status = esl_msafile_OpenBuffer(/*byp_abc=*/NULL, bf, sqfp->format, &fmtd, &(sqfp->afp))) != eslOK) goto ERROR;
+          sqfp->is_seekable = FALSE;
+          ESL_DASSERT1(( sqfp->format == sqfp->afp->format ));
+        }
+      else if (status == eslENOFORMAT)
+        {
+          if ((status = sqfile_from_buffer(bf, sqfp)) != eslOK) goto ERROR;
+        }
+      else { esl_buffer_Close(bf); goto ERROR; }
+    }
+
+  sqfp->is_recording = FALSE;
+  sqfp->mpos         = 0;
+  return (sqfp->format == eslSQFILE_UNKNOWN) ? eslEFORMAT : eslOK;
 
  ERROR:
-  *ret_fmt           = eslSQFILE_UNKNOWN;
+  sqfp->format       = eslSQFILE_UNKNOWN;
   sqfp->mpos         = 0;
   sqfp->is_recording = FALSE;
   sqfp->is_linebased = FALSE;
-  if (sqfp->buf) { free(sqfp->buf); sqfp->balloc = 0; }
+  if (sqfp->buf) { free(sqfp->buf); sqfp->buf = NULL; sqfp->balloc = 0; }
+  return status;
+}
+
+
+
+
+/* sqfile_to_buffer()
+ *
+ * Used by sqfile_guess_format() as it switches to guessing (and
+ * handling) MSA file formats.
+ *
+ * <esl_msafile_GuessFileFormat()> takes an ESL_BUFFER, so we create a
+ * valid ESL_BUFFER by cannibalizing some of the internals of the
+ * ESL_SQFILE, including the <sqfp->mem> buffer where the ESL_SQFILE
+ * read the start of the input file, which we rewind to position 0. By
+ * transferring this data to the ESL_BUFFER, we can guess MSA file
+ * formats even if the input <sqfp->fp> is a nonrewindable stream.
+ *
+ * The <sqfp> is in an ethereal state after this. Do not use it while
+ * the temporary <bf> is in use. sqfile_guess_format() will either
+ * successfully detect an MSA format and convert the <sqfp>'s
+ * internals to reading through <sqfp->afp>, or it will call
+ * buffer_to_sqfile() to break down the <bf> and restore the internals
+ * of <sqfp>.
+ * 
+ * Returns: <eslOK> on success, and internal mem buffer stuff from
+ *          <sqfp> has been temporarily transferred to a new
+ *          <*ret_bf> and rewound to position 0 in the input.
+ *          
+ * Throws:  <eslEMEM> on allocation failure.
+ *          <*ret_bf> is NULL.
+ */
+static int
+sqfile_to_buffer(ESL_SQFILE *sqfp, ESL_BUFFER **ret_bf)
+{
+  ESL_BUFFER *bf = NULL;
+  int         status;
+
+  if ((bf = esl_buffer_Create()) == NULL) { status = eslEMEM; goto ERROR; }
+
+  /* ESL_BUFFER expects to have its first chunk of the input preloaded. */
+  if (sqfp->mn == 0 && sqfp->mode != eslSQFILE_MEM)
+    { if ((status = loadmem(sqfp)) != eslOK && status != eslEOF) goto ERROR; }
+
+  /* Hand over the sqfp's internal mem buffer to the new ESL_BUFFER */
+  bf->fp         = sqfp->fp;                  sqfp->fp     = NULL;
+  bf->mem        = sqfp->mem;                 sqfp->mem    = NULL;
+  bf->n          = (esl_pos_t) sqfp->mn;      sqfp->mn     = 0;
+  bf->balloc     = (esl_pos_t) sqfp->allocm;  sqfp->allocm = 0;
+  bf->pos        = 0;                         sqfp->mpos   = 0;   // rewind the buffer to the start, position 0
+  bf->baseoffset = 0;                         sqfp->moff   = 0;   
+  bf->pagesize   = eslSQFILE_READBUFSIZE;
+  // filename, cmdline are NULL, errmsg[0] is '\0' already
+
+  if (sqfp->mode == eslSQFILE_GZIP)
+    { if ((status = esl_sprintf(&(bf->cmdline), "gzip -dc %s", sqfp->filename)) != eslOK) goto ERROR; }
+  if (strcmp(sqfp->filename, "-") != 0)
+    { if ((status = esl_strdup(sqfp->filename, -1, &(bf->filename)))            != eslOK) goto ERROR; }
+
+  if      (sqfp->mode == eslSQFILE_FILE)       bf->mode_is = eslBUFFER_FILE;
+  else if (sqfp->mode == eslSQFILE_STREAM)     bf->mode_is = eslBUFFER_STREAM;
+  else if (sqfp->mode == eslSQFILE_GZIP)       bf->mode_is = eslBUFFER_CMDPIPE;
+  else if (sqfp->mode == eslSQFILE_FILESTREAM) bf->mode_is = eslBUFFER_STREAM;
+  else if (sqfp->mode == eslSQFILE_MEM)        bf->mode_is = eslBUFFER_STRING;
+
+  *ret_bf = bf;
+  return eslOK;
+
+ ERROR:
+  esl_buffer_Close(bf);
+  *ret_bf = NULL;
+  return status;
+}
+
+/* sqfile_from_buffer()
+ *
+ * Autodetection of MSA formats failed. Tear down the temporary
+ * ESL_BUFFER <bf> and restore the internal input buffer state of
+ * <sqfp>.
+ *
+ * <bf> is destroyed. <sqfp->mem> contains the start of the input, for
+ * as much as the unaligned and then MSA format guessers read into it,
+ * and we rewind to the start (sqfp->mpos = 0).
+ *
+ * Returns <eslOK> on success. <bf> is destroyed; <sqfp> is restored.
+ *
+ * Throws <eslEINVAL> if <sqfp> is in an unexpected state that can't
+ * be restored from <bf>. <bf> is still destroyed; <sqfp> shouldn't be
+ * used and should be closed by the caller.
+ */
+static int
+sqfile_from_buffer(ESL_BUFFER *bf, ESL_SQFILE *sqfp)
+{
+  int status;
+
+  if (bf->baseoffset != 0) ESL_XEXCEPTION(eslEINVAL, "<sqfp> in unexpected recording state");
+
+  sqfp->fp     = bf->fp;          bf->fp         = NULL;
+  sqfp->mem    = bf->mem;         bf->mem        = NULL;
+  sqfp->mn     = bf->n;           bf->n          = 0;
+  sqfp->allocm = bf->balloc;      bf->balloc     = 0;
+  sqfp->mpos   = 0;               bf->pos        = 0;      // rewind to position 0
+  sqfp->moff   = 0;               bf->baseoffset = 0;
+
+  esl_buffer_Close(bf);
+  return eslOK;
+
+ ERROR:
+  esl_buffer_Close(bf);
   return status;
 }
 /*------------------ end, opening an ESL_SQFILE ----------------------*/
@@ -1446,11 +1763,11 @@ esl_sqfile_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, 
 }
 
 /* Function:  esl_sqfile_Parse()
- * Synopsis:  Parse a sequence already read into a buffer.
+ * Synopsis:  Parse an unaligned sequence from memory, not a file.
  *
- * Purpose:   Parse the buffer <buf> for a sequence <s> of type
+ * Purpose:   Parse the buffer <buf> for one unaligned sequence <s> of type
  *            <format>.  The buffer must contain the entire sequence.
- *            
+ *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM>  on allocation error.
@@ -1469,7 +1786,9 @@ esl_sqfile_Parse(char *buf, int size, ESL_SQ *sq, int format)
   sqfile_init(&sqfp);
   sqfp.mem          = buf;
   sqfp.mn           = size;
-  sqfp.do_buffer    = TRUE;
+  sqfp.mode         = eslSQFILE_MEM;
+  sqfp.is_seekable  = FALSE;           // would be easy to seek, but we don't need to support it
+  if ((status = esl_strdup("[]", -1, &(sqfp.filename))) != eslOK) goto ERROR;  // filename has to be something non-NULL for callers writing diagnostics
 
   /* Configure the <sqfp>'s parser and inmaps for this format. */
   switch (format) {
@@ -1492,7 +1811,7 @@ esl_sqfile_Parse(char *buf, int size, ESL_SQ *sq, int format)
     inmap_daemon(&sqfp, NULL);
     break;
   default:
-    ESL_EXCEPTION(eslEINVAL, "can't parse that format");
+    ESL_XEXCEPTION(eslEINVAL, "can't parse that format");
   }
 
   /* Main case: read next seq from sqfp's stream */
@@ -1528,11 +1847,13 @@ esl_sqfile_Parse(char *buf, int size, ESL_SQ *sq, int format)
   sq->L     = sq->n;
 
   if (sqfp.balloc > 0) free(sqfp.buf);
+  free(sqfp.filename);
   return eslOK;
 
  ERROR:
+  free(sqfp.filename);
   if (sqfp.balloc > 0) free(sqfp.buf); // clang static analyzer can report a false positive leak here; 
-  return status;                           // it can't see that we only allocated sqfp.buf if balloc > 0
+  return status;                       // it can't see that we only allocated sqfp.buf if balloc > 0
 }
 /*-------------- end, sequence reading (sequential) -------------*/
 
@@ -1619,10 +1940,8 @@ esl_sqfile_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
   int     nwritten;
   int     status;
 
-  if (sqfp->do_stdin)                     ESL_EXCEPTION(eslEINVAL, "can't Echo() a sequence from standard input");
-  if (sqfp->do_gzip)                      ESL_EXCEPTION(eslEINVAL, "can't Echo() a sequence from a gzipped file");
-  if (esl_sqfile_IsAlignment(sqfp->format)) ESL_EXCEPTION(eslEINVAL, "can't Echo() a sequence from an alignment file");
-  if (sq->roff == -1 || sq->eoff == -1)   ESL_EXCEPTION(eslEINVAL, "can't Echo() a sequence without disk offset info");
+  if (! sqfp->is_seekable)                  ESL_EXCEPTION(eslEINVAL, "can't Echo() a sequence from a non-seekable sequence input");
+  if (sq->roff == -1 || sq->eoff == -1)     ESL_EXCEPTION(eslEINVAL, "can't Echo() a sequence without disk offset info");
 
   save_linenumber = sqfp->linenumber;
   save_currpl     = sqfp->currpl;
@@ -1731,9 +2050,9 @@ esl_sqfile_GetErrorBuf(const ESL_SQFILE *sqfp)
 int
 esl_sqfile_IsRewindable(const ESL_SQFILE *sqfp)
 {
-  if (sqfp->do_gzip || sqfp->do_stdin) return FALSE;
-  else                                 return TRUE;
+  return (sqfp->mode == eslSQFILE_FILE || sqfp->is_seekable);
 }
+
 
 /* Function:  esl_sqfile_IsAlignment()
  * Synopsis:  Return TRUE for alignment file format codes.
@@ -1815,13 +2134,13 @@ esl_sqfile_DecodeFormat(int fmt)
  *            <offset> would usually be the first byte of a
  *            desired sequence record.
  *            
- *            Only normal sequence files can be positioned to a
- *            nonzero offset. If <sqfp> corresponds to a standard
+ *            Only normal (unaligned) sequence files can be positioned
+ *            to a nonzero offset. If <sqfp> corresponds to a standard
  *            input stream or gzip -dc stream, it may not be
  *            repositioned. If <sqfp> corresponds to a multiple
- *            sequence alignment file, the only legal <offset>
- *            is 0, to rewind the file to the beginning and 
- *            be able to read the entire thing again.
+ *            sequence alignment file, the only legal <offset> is 0,
+ *            to rewind the file to the beginning and be able to read
+ *            the entire thing again.
  *            
  *            After <esl_sqfile_Position()> is called on a nonzero
  *            <offset>, <sqfp->linenumber> and other bookkeeping
@@ -1847,14 +2166,23 @@ esl_sqfile_Position(ESL_SQFILE *sqfp, off_t offset)
 {
   int status;
 
-  if (sqfp->do_stdin)                  ESL_EXCEPTION(eslEINVAL, "can't Position() in standard input");
-  if (sqfp->do_gzip)                   ESL_EXCEPTION(eslEINVAL, "can't Position() in a gzipped file");
-  if (offset < 0)                      ESL_EXCEPTION(eslEINVAL, "bad offset");
-  if (offset > 0 && sqfp->afp != NULL) ESL_EXCEPTION(eslEINVAL, "can't use esl_sqfile_Position() w/ nonzero offset on MSA file");
+  if (offset < 0) ESL_EXCEPTION(eslEINVAL, "negative offset to esl_sqfile_Position()");
+  if (sqfp->afp) {
+    if (offset > 0)                   ESL_EXCEPTION(eslEINVAL, "can't use esl_sqfile_Position() w/ nonzero offset on MSA file");
+    if (sqfp->mode != eslSQFILE_FILE) ESL_EXCEPTION(eslEINVAL, "can only rewind an MSA input if it's a file we can reopen");
+  } else if (! sqfp->is_seekable)     ESL_EXCEPTION(eslEINVAL, "can't Position() in a nonseekable input (stdin, pipe, .gz, memory)");
+  /* now we have one of two situations:
+   *   1. reading unaligned format, and the <sqfp->fp> is seekable to any offset >= 0
+   *   2. reading MSA format, and we can only rewind to offset=0 by closing/reopening the file.
+   */
 
   if (esl_sqfile_IsAlignment(sqfp->format)) 
     { /* msa file: close and reopen. maybe sometime we'll have esl_msafile_Rewind() */
       /* we have already verified that offset==0 for MSA file */
+      /* one workaround: for PHYLIP format, we may need a custom namewidth. Copy the <fmtd> info. */
+      ESL_MSAFILE_FMTDATA fmtd;
+      esl_msafile_fmtdata_Copy(&(sqfp->afp->fmtd), &fmtd);
+
       esl_msafile_Close(sqfp->afp);
       if (sqfp->msa) esl_msa_Destroy(sqfp->msa);
       sqfp->afp = NULL;
@@ -1867,7 +2195,7 @@ esl_sqfile_Position(ESL_SQFILE *sqfp, off_t offset)
          EFORMAT error can't occur because we know the format and
          don't use autodetection.
        */
-      status = esl_msafile_Open(NULL, sqfp->filename, NULL, sqfp->format, NULL, &(sqfp->afp));
+      status = esl_msafile_Open(NULL, sqfp->filename, NULL, sqfp->format, &fmtd, &(sqfp->afp));
       if      (status == eslENOTFOUND) ESL_EXCEPTION(eslENOTFOUND, "failed to reopen alignment file");
       else if (status != eslOK)        return status;
     }
@@ -2036,9 +2364,8 @@ esl_sqfile_OpenSSI(ESL_SQFILE *sqfp, const char *ssifile_hint)
 {
   int status;
 
-  if (sqfp->do_gzip)     ESL_EXCEPTION(eslEINVAL, "can't open an SSI index for a .gz compressed seq file");
-  if (sqfp->do_stdin)    ESL_EXCEPTION(eslEINVAL, "can't open an SSI index for standard input");
-  if (sqfp->afp != NULL) ESL_EXCEPTION(eslEINVAL, "can't open an SSI index for sequential input from an MSA");
+  if (! sqfp->is_seekable) ESL_EXCEPTION(eslEINVAL, "can't open an SSI index for a non-seekable sequence input");  
+  if (sqfp->afp)           ESL_EXCEPTION(eslEINVAL, "can't open an SSI index for sequential input from an MSA");
 
   if (ssifile_hint == NULL) {
     if ((status = esl_strdup(sqfp->filename, -1, &(sqfp->ssifile)))           != eslOK) return status;
@@ -2614,7 +2941,7 @@ loadmem(ESL_SQFILE *sqfp)
   int   n = 0;
   int   status;
 
-  if (sqfp->do_buffer)
+  if (sqfp->mode == eslSQFILE_MEM)
     {
       sqfp->mpos = 0;
       sqfp->mn   = 0;
@@ -4541,6 +4868,237 @@ utest_guess_empty_seq()
   esl_sq_Destroy(seqs[1]);
 }
 
+
+/* utest_open_stream()
+ *
+ * Tests esl_sqfile_OpenStream(), and format autodetection of both
+ * unaligned and MSA formats on nonrewindable streams.
+ *
+ * Some helpers first:
+ *   open_test_stream()
+ *   close_test_stream()
+ *   slurp_test_file()
+ */
+static FILE *
+open_test_stream(char *tmpfile, int smode, char *mem, esl_pos_t n)
+{
+  FILE *fp = NULL;
+#ifdef HAVE_POPEN
+  char  cmd[64];
+#endif
+
+  switch (smode) {
+  case 0: fp = fopen(tmpfile, "r"); break;
+#ifdef HAVE_POPEN
+  case 1: snprintf(cmd, 64, "cat %s", tmpfile); fp = popen(cmd, "r"); break;
+#endif
+#ifdef HAVE_FMEMOPEN
+  case 2: fp = fmemopen(mem, n, "r"); break;
+#endif
+  }
+  return fp;
+}
+
+/* After esl_sqfile_Close(), the stream must still be open and usable.
+ * For a seekable stream, rewind it and reread its first byte.
+ */
+static void
+close_test_stream(FILE *fp, int smode, int c0, char *msg)
+{
+  if (smode == 1) {
+#ifdef HAVE_POPEN
+    if (pclose(fp) == -1) esl_fatal("%s: pclose() failed", msg);
+#endif
+  } else {
+    if (fseeko(fp, 0, SEEK_SET) != 0) esl_fatal("%s: caller's stream was closed", msg);
+    if (fgetc(fp) != c0)              esl_fatal("%s: caller's stream was closed", msg);
+    fclose(fp);
+  }
+}
+
+/* Slurp all of <tmpfile> into a new allocation <*ret_mem> of length <*ret_n>,
+ * for an fmemopen() stream.
+ */
+static void
+slurp_test_file(char *tmpfile, char **ret_mem, esl_pos_t *ret_n)
+{
+  FILE     *fp  = NULL;
+  char     *mem = NULL;
+  esl_pos_t n;
+
+  if ((fp = fopen(tmpfile, "r"))     == NULL) esl_fatal("failed to open %s", tmpfile);
+  if (fseeko(fp, 0, SEEK_END)        != 0)    esl_fatal("fseeko() failed");
+  if ((n = ftello(fp))               <= 0)    esl_fatal("ftello() failed");
+  rewind(fp);
+  if ((mem = malloc(sizeof(char) * n)) == NULL) esl_fatal("malloc failed");
+  if (fread(mem, sizeof(char), n, fp) != (size_t) n) esl_fatal("fread() failed");
+  fclose(fp);
+  *ret_mem = mem;
+  *ret_n   = n;
+}
+
+static void
+utest_open_stream(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, ESL_SQ **sqarr, int N)
+{
+  char        msg[256];
+  int         fmt[2]      = { eslSQFILE_FASTA, eslMSAFILE_STOCKHOLM };
+  char        tmpfile[32];
+  FILE       *fp          = NULL;
+  char       *mem         = NULL;
+  esl_pos_t   n;
+  ESL_SQFILE *sqfp        = NULL;
+  ESL_SQ     *sq          = esl_sq_CreateDigital(abc);
+  off_t      *roff        = malloc(sizeof(off_t) * N);
+  int         nblank      = 2 * eslSQFILE_READBUFSIZE - 4;
+  int         is_msa, smode, use_name, do_assert;
+  int         expect_rewindable;
+  int         f, i, j, pass;
+  int         status;
+
+  if (roff == NULL) esl_fatal("malloc failed");
+
+  for (f = 0; f < 2; f++)
+    {
+      is_msa = esl_sqfile_IsAlignment(fmt[f]);
+
+      strcpy(tmpfile, "esltmpXXXXXX");
+      if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal("failed to make tmpfile");
+      for (i = 0; i < nblank; i++) fputc((i % 80 == 79 || i == nblank-1) ? '\n' : ' ', fp);   // blank lines of 79 spaces, then a shorter one
+      for (i = 0; i < N; i++)
+        if (! is_msa || sqarr[i]->L > 0)                            // Stockholm can't hold an L=0 seq
+          if (esl_sqfile_Write(fp, sqarr[i], fmt[f], FALSE) != eslOK) esl_fatal("failed to write test file");
+      fclose(fp);
+      slurp_test_file(tmpfile, &mem, &n);
+
+      for (smode = 0; smode < 3; smode++)          // 0 = fopen(); 1 = popen(); 2 = fmemopen()
+        for (use_name = 0; use_name < 2; use_name++)
+          for (do_assert = 0; do_assert < 2; do_assert++)
+            {
+              snprintf(msg, 256, "sqfile OpenStream unit test failed (%s, %s, %s filename, %s format)",
+                       is_msa ? "Stockholm" : "FASTA",
+                       smode == 0 ? "fopen" : smode == 1 ? "popen" : "fmemopen",
+                       use_name   ? "with" : "no",
+                       do_assert  ? "asserted" : "autodetected");
+
+              if ((fp = open_test_stream(tmpfile, smode, mem, n)) == NULL) continue;  // popen() or fmemopen() not available on this system
+              expect_rewindable = (smode != 1 && ! is_msa);
+
+              if (esl_sqfile_OpenStream(fp, use_name ? tmpfile : NULL, do_assert ? fmt[f] : eslSQFILE_UNKNOWN, &sqfp) != eslOK) esl_fatal(msg);
+              if (sqfp->format != fmt[f])                                                     esl_fatal("%s: format %s", msg, esl_sqfile_DecodeFormat(sqfp->format));
+              if (strcmp(sqfp->filename, use_name ? tmpfile : "-") != 0)                      esl_fatal(msg);
+              if (esl_sqfile_IsRewindable(sqfp) != expect_rewindable)                         esl_fatal(msg);
+              if (esl_sqfile_SetDigital(sqfp, abc)                != eslOK)                   esl_fatal(msg);
+
+              for (pass = 0; pass < (expect_rewindable ? 2 : 1); pass++)   // for rewindable inputs: read, rewind, read again
+                {
+                  for (i = 0; i < N; i++)
+                    {
+                      if (is_msa && sqarr[i]->L == 0) continue;
+                      if (esl_sqfile_Read(sqfp, sq)                                   != eslOK) esl_fatal(msg);
+                      if (strcmp(sq->name, sqarr[i]->name)                            != 0)     esl_fatal(msg);
+                      if (sq->L                                                       != sqarr[i]->L) esl_fatal(msg);
+                      if (memcmp(sq->dsq, sqarr[i]->dsq, sizeof(ESL_DSQ) * (sq->L+2)) != 0)     esl_fatal(msg);
+                      roff[i] = sq->roff;
+                      esl_sq_Reuse(sq);
+                    }
+                  if (esl_sqfile_Read(sqfp, sq) != eslEOF) esl_fatal(msg);
+                  esl_sq_Reuse(sq);
+
+                  if (expect_rewindable) {
+                    if (esl_sqfile_Position(sqfp, 0) != eslOK) esl_fatal(msg);
+                  } else {
+                    esl_exception_SetHandler(&esl_nonfatal_handler);
+                    status = esl_sqfile_Position(sqfp, 0);
+                    esl_exception_ResetDefaultHandler();
+                    if (status != eslEINVAL) esl_fatal("%s: Position() should have refused", msg);
+                  }
+                }
+
+              /* A seekable unaligned input can also be positioned to any record */
+              if (expect_rewindable)
+                {
+                  j = esl_rnd_Roll(r, N);
+                  if (esl_sqfile_Position(sqfp, roff[j])                          != eslOK) esl_fatal(msg);
+                  if (esl_sqfile_Read(sqfp, sq)                                   != eslOK) esl_fatal(msg);
+                  if (strcmp(sq->name, sqarr[j]->name)                            != 0)     esl_fatal(msg);
+                  if (memcmp(sq->dsq, sqarr[j]->dsq, sizeof(ESL_DSQ) * (sq->L+2)) != 0)     esl_fatal(msg);
+                  esl_sq_Reuse(sq);
+                }
+
+              esl_sqfile_Close(sqfp);
+              close_test_stream(fp, smode, mem[0], msg);
+            }
+
+      free(mem);
+      remove(tmpfile);
+    }
+  free(roff);
+  esl_sq_Destroy(sq);
+}
+
+
+/* utest_open_stream_errors()
+ *
+ * esl_sqfile_OpenStream()'s normal errors and exceptions: an
+ * unrecognized format (on both a seekable and a nonseekable stream,
+ * because the failed MSA autodetection has to hand the input back to
+ * the <sqfp>); an empty input; a <filename> that doesn't exist; and
+ * an <fp> that isn't at position 0. In all cases, <*ret_sqfp> comes
+ * back NULL, and the caller's stream is still open.
+ */
+static void
+utest_open_stream_errors(void)
+{
+  char       *msg  = "sqfile OpenStream errors unit test failed";
+  char        tmpfile[32];
+  FILE       *fp   = NULL;
+  ESL_SQFILE *sqfp = NULL;
+  int         smode;
+  int         i;
+  int         status;
+
+  /* Unrecognized format. Long enough that autodetectors read more than one chunk. */
+  strcpy(tmpfile, "esltmpXXXXXX");
+  if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
+  for (i = 0; i < 128; i++) fprintf(fp, "This is not a sequence file, line %d.\n", i);
+  fclose(fp);
+  for (smode = 0; smode < 2; smode++)
+    {
+      if ((fp = open_test_stream(tmpfile, smode, NULL, 0)) == NULL) continue;
+      if (esl_sqfile_OpenStream(fp, NULL, eslSQFILE_UNKNOWN, &sqfp) != eslEFORMAT) esl_fatal(msg);
+      if (sqfp != NULL) esl_fatal(msg);
+      close_test_stream(fp, smode, 'T', msg);
+    }
+
+  /* <filename> doesn't exist */
+  if ((fp = fopen(tmpfile, "r")) == NULL) esl_fatal(msg);
+  if (esl_sqfile_OpenStream(fp, "esltmp-no-such-file", eslSQFILE_UNKNOWN, &sqfp) != eslENOTFOUND) esl_fatal(msg);
+  if (sqfp != NULL) esl_fatal(msg);
+
+  /* <fp> isn't at position 0 */
+  if (fgetc(fp) != 'T') esl_fatal(msg);
+  esl_exception_SetHandler(&esl_nonfatal_handler);
+  status = esl_sqfile_OpenStream(fp, NULL, eslSQFILE_UNKNOWN, &sqfp);
+  esl_exception_ResetDefaultHandler();
+  if (status != eslEINVAL) esl_fatal(msg);
+  if (sqfp   != NULL)      esl_fatal(msg);
+  close_test_stream(fp, 0, 'T', msg);
+  remove(tmpfile);
+
+  /* Empty input */
+  strcpy(tmpfile, "esltmpXXXXXX");
+  if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
+  fclose(fp);
+  for (smode = 0; smode < 2; smode++)
+    {
+      if ((fp = open_test_stream(tmpfile, smode, NULL, 0)) == NULL) continue;
+      if (esl_sqfile_OpenStream(fp, NULL, eslSQFILE_UNKNOWN, &sqfp) != eslEFORMAT) esl_fatal(msg);
+      if (sqfp != NULL) esl_fatal(msg);
+      close_test_stream(fp, smode, EOF, msg);
+    }
+  remove(tmpfile);
+}
+
 #endif /*eslSQFILE_TESTDRIVE*/
 /*------------------ end, unit tests ----------------------------*/
 
@@ -4631,6 +5189,8 @@ main(int argc, char **argv)
   utest_subseq_geometry();
   utest_write          (abc, sqarr, N, eslMSAFILE_STOCKHOLM);
   utest_guess_empty_seq();
+  utest_open_stream    (r, abc, sqarr, N);
+  utest_open_stream_errors();
 
   for (i = 0; i < N; i++) esl_sq_Destroy(sqarr[i]);
   free(sqarr);

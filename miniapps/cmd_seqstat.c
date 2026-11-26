@@ -142,7 +142,7 @@ esl_cmd_seqstat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
   if (do_tbl || do_comptbl)
     {
       if ( esl_opt_GetBoolean(go, "-f")) {
-        if ( ! esl_sqfile_IsRewindable(sqfp)) esl_fatal("Sequence file needs to be rewindable to use -f; can't read from stdin pipe");
+        if ( ! esl_sqfile_IsRewindable(sqfp)) esl_fatal("Sequence file needs to be rewindable to use -f; can't read from stdin/gunzip pipe");
         determine_exact_fieldwidths(sqfp, &namew, &lenw);
         compw = lenw;
       } else {
@@ -163,13 +163,17 @@ esl_cmd_seqstat(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
 
   /* Headers for tabular per-sequence output styles (-A|-C) */
   if (! be_quiet) {
-    if (do_tbl)
-      esl_dataheader(stdout, -namew, "seqname", lenw, "length", -40, "description", 0);
-    else if (do_comptbl && ! be_quiet)
-      {
-        namew = ESL_MAX(strlen("seqname"), namew);  // obviously we don't need the strlen() but this self-documents why we're doing this...
-        lenw  = ESL_MAX(strlen("len"),     lenw);   // column labels themselves dictate minima on column widths
 
+    if (do_tbl)
+      {
+        namew = ESL_MAX((int)strlen("seqname"), namew);  // obviously we don't need the strlen() but this self-documents why we're doing this...
+        lenw  = ESL_MAX((int)strlen("length"),  lenw);   // column labels themselves dictate minima on column widths
+        esl_dataheader(stdout, -namew, "seqname", lenw, "length", -40, "description", 0);
+      }
+    else if (do_comptbl)
+      {
+        namew = ESL_MAX((int)strlen("seqname"), namew);
+        lenw  = ESL_MAX((int)strlen("len"),     lenw); 
         esl_printf("#%-*s %*s", namew-1, " seqname", lenw, "len");
         for (x = 0; x < abc->K; x++) esl_printf(" %*c", lenw, (char) abc->sym[x]);
         if (do_allx) {

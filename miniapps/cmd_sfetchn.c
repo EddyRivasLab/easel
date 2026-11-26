@@ -60,8 +60,8 @@ esl_cmd_sfetchn(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv
   else if (status == eslEFORMAT)   esl_fatal("Format of seqfile %s unrecognized.", seqfile);
   else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
 
-  if (sqfp->do_gzip || sqfp->do_stdin || esl_sqfile_IsAlignment(sqfp->format) )
-    esl_fatal("`easel sfetchn` requires an actual file for <seqfile>, with an SSI index.");
+  if (sqfp->mode != eslSQFILE_FILE || esl_sqfile_IsAlignment(sqfp->format) )
+    esl_fatal("`easel sfetchn` requires an actual file for <seqfile>, in an unaligned format, with an SSI index.");
 
   /* Open its SSI index (mandatory, for sfetchn; for sfetch it's optional) */
   status = esl_sqfile_OpenSSI(sqfp, /*ssifile_hint=*/NULL);

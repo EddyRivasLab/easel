@@ -34,7 +34,6 @@
 
 #include "esl_buffer.h"
 
-static int buffer_create           (ESL_BUFFER **ret_bf);
 static int buffer_init_file_mmap   (ESL_BUFFER *bf, esl_pos_t filesize);
 static int buffer_init_file_slurped(ESL_BUFFER *bf, esl_pos_t filesize);
 static int buffer_init_file_basic  (ESL_BUFFER *bf);
@@ -49,6 +48,51 @@ static int buffer_counttok (ESL_BUFFER *bf, const char *sep, esl_pos_t *ret_nc);
 /*****************************************************************
  *  1. ESL_BUFFER object: opening/closing.
  *****************************************************************/
+
+/* Function:  esl_buffer_Create()
+ * Synopsis:  Allocate and initialize a new ESL_BUFFER structure
+ * Incept:    SRE, Wed 28 Oct 2026
+ *
+ * Purpose:   Allocate a new ESL_BUFFER, with all fields initialized,
+ *            and return a pointer to it.
+ *
+ *            This is rarely called directly. It's usually called from
+ *            one of the esl_buffer_Open() functions. An exception is
+ *            in esl_sqfile, where we use it in a shim between
+ *            ESL_SQFILE and ESL_MSAFILE.
+ *
+ * Returns:   ptr to the new ESL_BUFFER.
+ *
+ * Throws:    <NULL> on allocation failure.
+ */
+ESL_BUFFER *
+esl_buffer_Create(void)
+{
+  ESL_BUFFER *bf  = NULL;
+  int         status;
+
+  ESL_ALLOC(bf, sizeof(ESL_BUFFER));
+  bf->mem        = NULL;
+  bf->n          = 0;
+  bf->balloc     = 0;
+  bf->pos        = 0;
+  bf->baseoffset = 0;
+  bf->anchor     = -1;
+  bf->nanchor    = 0;
+  bf->fp         = NULL;
+  bf->filename   = NULL;
+  bf->cmdline    = NULL;
+  bf->pagesize   = eslBUFFER_PAGESIZE;
+  bf->errmsg[0]  = '\0';
+  bf->mode_is    = eslBUFFER_UNSET;
+
+  return bf;
+
+ ERROR:
+  if (bf) free(bf);
+  return NULL;
+}
+
 
 /* Function:  esl_buffer_Open()
  * Synopsis:  Standard Easel idiom for opening a stream by filename.
@@ -190,7 +234,7 @@ esl_buffer_OpenFile(const char *filename, ESL_BUFFER **ret_bf)
   esl_pos_t   filesize = -1;
   int         status;
 
-  if ((status = buffer_create(&bf)) != eslOK) goto ERROR;
+  if ((bf = esl_buffer_Create()) == NULL) { status = eslEMEM; goto ERROR; }
   
   if ((bf->fp = fopen(filename, "rb")) == NULL) 
     ESL_XFAIL(eslENOTFOUND, bf->errmsg, "couldn't open %s for reading", filename);  
@@ -200,7 +244,7 @@ esl_buffer_OpenFile(const char *filename, ESL_BUFFER **ret_bf)
   /* Try to use POSIX fstat() to get file size and optimal read size.
    * Use filesize to decide whether to slurp, mmap, or read normally. 
    * If we don't have fstat(), we'll just read normally, and pagesize
-   * will be the Easel default 4096 (set in buffer_create().)
+   * will be the Easel default 4096 (set in esl_buffer_Create().)
    */
 #ifdef _POSIX_VERSION
   if (fstat(fileno(bf->fp), &fileinfo) == -1) ESL_XEXCEPTION(eslESYS, "fstat() failed");
@@ -321,7 +365,7 @@ esl_buffer_OpenPipe(const char *filename, const char *cmdfmt, ESL_BUFFER **ret_b
   char       *cmd = NULL;
   int         status;
 
-  if ((status = buffer_create(&bf)) != eslOK) goto ERROR;
+  if ((bf = esl_buffer_Create()) == NULL) { status = eslEMEM; goto ERROR; }
 
   if (filename && ! esl_FileExists(filename)) 
     ESL_XFAIL(eslENOTFOUND, bf->errmsg, "couldn't read file %s", filename);
@@ -417,7 +461,7 @@ esl_buffer_OpenMem(const char *p, esl_pos_t n, ESL_BUFFER **ret_bf)
   ESL_BUFFER *bf = NULL;
   int         status;
 
-  if ((status = buffer_create(&bf)) != eslOK) goto ERROR;
+  if ((bf = esl_buffer_Create()) == NULL) { status = eslEMEM; goto ERROR; }
 
   bf->mem     = (char *) p;	/* force discard of const qualifier; this is ok; mem won't be altered in eslBUFFER_STRING mode */
   bf->n       = (n == -1) ? strlen(p) : n;
@@ -463,7 +507,7 @@ esl_buffer_OpenStream(FILE *fp, ESL_BUFFER **ret_bf)
   ESL_BUFFER *bf = NULL;
   int         status;
 
-  if ((status = buffer_create(&bf)) != eslOK) goto ERROR;
+  if ((bf = esl_buffer_Create()) == NULL) { status = eslEMEM; goto ERROR; }
   bf->mode_is = eslBUFFER_STREAM;
 
   if (fp == NULL || ferror(fp) || feof(fp)) ESL_XEXCEPTION(eslEINVAL, "invalid stream");
@@ -1549,44 +1593,6 @@ esl_buffer_Read(ESL_BUFFER *bf, size_t nbytes, void *p)
  * 7. Private (static) functions
  *****************************************************************/
 
-/* buffer_create()
- * SRE, Sun Jan 23 19:18:40 2011 [UA975 IAD->SFO]
- * 
- * Allocate a new ESL_BUFFER and return it in <*ret_bf>;
- * with all fields initialized; return <eslOK>.
- * 
- * On allocation failure, returns <eslEMEM> and <*ret_bf>
- * is <NULL>.
- */
-static int
-buffer_create(ESL_BUFFER **ret_bf)
-{
-  ESL_BUFFER *bf  = NULL;
-  int         status;
-
-  ESL_ALLOC(bf, sizeof(ESL_BUFFER));
-  bf->mem        = NULL;
-  bf->n          = 0;
-  bf->balloc     = 0;
-  bf->pos        = 0;
-  bf->baseoffset = 0;
-  bf->anchor     = -1;
-  bf->fp         = NULL;
-  bf->filename   = NULL;
-  bf->cmdline    = NULL;
-  bf->pagesize   = eslBUFFER_PAGESIZE;
-  bf->errmsg[0]  = '\0';
-  bf->mode_is    = eslBUFFER_UNSET;
-
-  *ret_bf = bf;
-  return eslOK;
-
- ERROR:
-  if (bf) free(bf);
-  *ret_bf = NULL;
-  return status;
-}
-	    
 /* buffer_init_file_mmap()
  * SRE, Sun Jan 23 19:02:34 2011 [UA975 IAD->SFO]
  * 
@@ -2243,7 +2249,7 @@ buffer_OpenFileAs(const char *filename, enum esl_buffer_mode_e mode_is, ESL_BUFF
 #endif
   esl_pos_t   filesize = -1;
 
-  if (buffer_create(&bf)                         != eslOK) esl_fatal(msg);
+  if ((bf = esl_buffer_Create())                 == NULL)  esl_fatal(msg);
   if ((bf->fp = fopen(filename, "rb"))           == NULL)  esl_fatal(msg);
   if (esl_strdup(filename, -1, &(bf->filename))  != eslOK) esl_fatal(msg);
 

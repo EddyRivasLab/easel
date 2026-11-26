@@ -56,8 +56,8 @@ esl_cmd_seqrange(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **arg
   else if (status != eslOK)        esl_fatal("Open failed, code %d.\n", status);
 
   /* Exit if seqfile is an alignment, is gzipped or is piped from stdin, we can't handle this */
-  if (sqfp->do_gzip)                      esl_fatal("Can't determine seq range for a .gz compressed file\n");
-  if (sqfp->do_stdin)                     esl_fatal("Can't determine seq range for a standard input pipe\n");
+  if (sqfp->mode == eslSQFILE_GZIP)         esl_fatal("Can't determine seq range for a .gz compressed file\n");
+  if (sqfp->mode == eslSQFILE_STREAM)       esl_fatal("Can't determine seq range for a stream or standard input pipe\n");
   if (esl_sqfile_IsAlignment(sqfp->format)) esl_fatal("Can't determine seq range for an alignment file\n");              
 
   /* Open the SSI index for retrieval, it is required */

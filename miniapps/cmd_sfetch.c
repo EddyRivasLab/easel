@@ -51,7 +51,6 @@ esl_cmd_sfetch(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   ESL_SQ       *sq      = NULL;                         // sequence (or subsequence) retrieved
   char         *outfile = NULL;                         // optional output file (usually stays NULL)
   FILE         *ofp     = NULL;	                        // output stream for sequences (usually stdout)
-  int           sqfp_seekable = FALSE;
   int64_t       start, end;
   int           status;
   
@@ -68,12 +67,9 @@ esl_cmd_sfetch(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
   else if (status == eslEFORMAT)   esl_fatal("Format of seqfile %s unrecognized.", seqfile);
   else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
 
-  if (! sqfp->do_gzip && ! sqfp->do_stdin &&  ! esl_sqfile_IsAlignment(sqfp->format) )
-    sqfp_seekable = TRUE;          // (an MSA file is seekable for MSA records, but not for sequence records)
-
   /* Open optional SSI index, if input is seekable and SSI index exists
    */
-  if (sqfp_seekable)
+  if (sqfp->is_seekable && sqfp->mode == eslSQFILE_FILE)
     {
       status = esl_sqfile_OpenSSI(sqfp, /*ssifile_hint=*/NULL);
       if      (status == eslEFORMAT)   esl_fatal("SSI index is in incorrect format\n");
@@ -134,7 +130,7 @@ esl_cmd_sfetch(const char *topcmd, const ESL_SUBCMD *sub, int argc, char **argv)
     {
       onefetch(ofp, sqfp, key, &sq);
 
-      if (sqfp_seekable && do_rev == FALSE && newname == NULL)
+      if (sqfp->is_seekable && do_rev == FALSE && newname == NULL)
         { // We can Echo() the sequence record exactly if we can seek back to where it started, and we're not mucking with it
           if (esl_sqfile_Echo(sqfp, sq, ofp) != eslOK) esl_fatal("Echo failed: %s\n", esl_sqfile_GetErrorBuf(sqfp));
         }

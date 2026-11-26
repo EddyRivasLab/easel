@@ -16,9 +16,8 @@ Sequence files can be automatically looked for in a list of one or
 more database directories, specified by an environment variable (such
 as `UNIPROTDB`).
 
-The module uses an `ESL_SQFILE` object which works like an ANSI C
-`FILE`, maintaining information for an open sequence file while it's
-being read.
+The module uses an `ESL_SQFILE` object, which maintains state
+information for an open sequence file while it's being read.
 
 
 ## examples
@@ -143,19 +142,9 @@ normally, `esl_sqfile_Open()` opens it as a pipe from
 `gzip -dc`. Your system must support pipes to use
 this. 
 
-Obviously, the user must also have `gzip` installed and in his PATH.
+Obviously, the user must also have `gzip` installed and in the PATH.
 Also, the OS must support the `popen()` system call (POSIX.2 compliant
 operating systems do). The `configure` script automatically checks
 this at compile-time and defines `HAVE_POPEN` appropriately.
 
-For both special cases, the catch is that you can't use format
-autodetection; you must provide a valid known format code when you
-read from stdin or from a compressed file. Pipes are not rewindable,
-and format autodetection currently relies on a two-pass algorithm: it
-reads partway into the file to determine the format, then rewinds to
-start parsing for real.
-
-The `msafile` module is more advanced. Its parsers are based on the
-newer `buffer` module which provides rewindable input buffers even for
-stdin and pipes.
 

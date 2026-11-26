@@ -41,6 +41,7 @@ typedef struct {
 
 
 /* 1. The ESL_BUFFER object: opening/closing.  */
+extern ESL_BUFFER *esl_buffer_Create(void);
 extern int esl_buffer_Open      (const char *filename, const char *envvar, ESL_BUFFER **ret_bf);
 extern int esl_buffer_OpenFile  (const char *filename,                     ESL_BUFFER **ret_bf);
 extern int esl_buffer_OpenPipe  (const char *filename, const char *cmdfmt, ESL_BUFFER **ret_bf);

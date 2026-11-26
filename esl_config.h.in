@@ -81,6 +81,7 @@
 /* Functions */
 #undef HAVE_ALIGNED_ALLOC   // esl_alloc
 #undef HAVE_ERFC            // esl_stats
+#undef HAVE_FMEMOPEN        // esl_sqfile unit tests
 #undef HAVE_GETCWD          // esl_getcwd
 #undef HAVE_GETPID          // esl_random
 #undef HAVE__MM_MALLOC      // esl_alloc

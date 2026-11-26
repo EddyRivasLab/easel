@@ -8,16 +8,20 @@
 #   <tmppfx>:   prefix we're allowed to use to create tmp files in current working dir.
 #
 import glob
+import gzip
 import os
 import re
+import shutil
 import subprocess
 import sys
 import esl_itest
 
 progs_used = [ 'miniapps/easel' ]
 files_used = [ 'testsuite/example-uniprot.dat',
+               'testsuite/example-uniprot.fa',
                'testsuite/example-genbank.gb',
-               'testsuite/example-pfam.sto' ]   
+               'testsuite/example-pfam.sto',
+               'testsuite/testsuite.sqc' ]       # testsuite.sqc itself is used as an example of a file with no recognizable format
 
 (builddir, srcdir, tmppfx) = esl_itest.getargs(sys.argv)
 esl_itest.check_files(srcdir,   files_used)
@@ -36,12 +40,42 @@ if m := re.search(r'^Total # residues:\s+1293', r.stdout, flags=re.MULTILINE) ==
 r = esl_itest.run(f'{easel} seqstat  {srcdir}/testsuite/example-pfam.sto')
 if m := re.search(r'^Total # residues:\s+4602', r.stdout, flags=re.MULTILINE) == None: esl_itest.fail()
 
-# stdin pipe. Currently, esl_sqfile format autodetection on stdin only works for unaligned formats, not MSAs.
+
+# stdin pipe. esl_sqfile format autodetection works on stdin for both unaligned and MSA formats.
+# 
 r = esl_itest.run_piped(f'cat {srcdir}/testsuite/example-uniprot.dat', f'{easel} seqstat -')
 if m := re.search(r'^Total # residues:\s+1293', r.stdout, flags=re.MULTILINE) == None: esl_itest.fail()
 
-r = esl_itest.run_piped(f'cat {srcdir}/testsuite/example-pfam.sto', f'{easel} seqstat -', expect_success=False)
+r = esl_itest.run_piped(f'cat {srcdir}/testsuite/example-pfam.sto', f'{easel} seqstat -')
+if m := re.search(r'^Total # residues:\s+4602', r.stdout, flags=re.MULTILINE) == None: esl_itest.fail()
+
+r = esl_itest.run_piped(f'cat {srcdir}/testsuite/testsuite.sqc', f'{easel} seqstat -', expect_success=False)
 if m := re.search(r'^Format of seqfile - unrecognized', r.stderr, flags=re.MULTILINE) == None: esl_itest.fail()
+
+r = esl_itest.run_piped(f'cat {srcdir}/testsuite/example-genbank.gb', f'{easel} seqstat -')
+if m := re.search(r'^Format:\s+GenBank', r.stdout, flags=re.MULTILINE) == None: esl_itest.fail()
+if m := re.search(r'^Total # residues:\s+72210', r.stdout, flags=re.MULTILINE) == None: esl_itest.fail()
+
+# stdin pipe, with format asserted, for both unaligned and MSA formats
+r = esl_itest.run_piped(f'cat {srcdir}/testsuite/example-uniprot.dat', f'{easel} seqstat --informat uniprot -')
+if m := re.search(r'^Total # residues:\s+1293', r.stdout, flags=re.MULTILINE) == None: esl_itest.fail()
+
+r = esl_itest.run_piped(f'cat {srcdir}/testsuite/example-pfam.sto', f'{easel} seqstat --informat stockholm -')
+if m := re.search(r'^Total # residues:\s+4602', r.stdout, flags=re.MULTILINE) == None: esl_itest.fail()
+
+# .gz files are read through a `gzip -dc` pipe, which needs `gzip` installed.
+# Format autodetection works on them too: by suffix (.fa.gz), by peeking (uniprot), and for MSAs.
+if shutil.which('gzip'):
+    for (example, fmt, nres) in [ ('example-uniprot.fa',  'FASTA',     1293),
+                                  ('example-uniprot.dat', 'EMBL',      1293),
+                                  ('example-pfam.sto',    'Stockholm', 4602) ]:
+        gzfile = f'{tmppfx}.{example}.gz'
+        with open(f'{srcdir}/testsuite/{example}', 'rb') as f_in, gzip.open(gzfile, 'wb') as f_out:
+            shutil.copyfileobj(f_in, f_out)
+        r = esl_itest.run(f'{easel} seqstat {gzfile}')
+        if m := re.search(rf'^Format:\s+{fmt}', r.stdout, flags=re.MULTILINE)            == None: esl_itest.fail()
+        if m := re.search(rf'^Total # residues:\s+{nres}', r.stdout, flags=re.MULTILINE) == None: esl_itest.fail()
+
 
 # -c : overall residue composition of seqfile
 r = esl_itest.run(f'{easel} seqstat -c {srcdir}/testsuite/example-uniprot.dat')
@@ -92,6 +126,17 @@ if len( r.stdout.splitlines()) != 4: esl_itest.fail()
 
 r = esl_itest.run(f'{easel} seqstat -C --namew 10 {srcdir}/testsuite/example-uniprot.dat')
 r = esl_itest.run(f'{easel} seqstat -C --colw  10 {srcdir}/testsuite/example-uniprot.dat')
+
+#  -f reads the input twice, so input has to be rewindable: an MSA file can be (by reopening it), but stdin can't.
+r = esl_itest.run(f'{easel} seqstat -A -f {srcdir}/testsuite/example-pfam.sto')
+if len( r.stdout.splitlines()) != 36: esl_itest.fail()
+if m := re.search(r'^Q9R2M2_BORBU/1-127\s+127', r.stdout, flags=re.MULTILINE) == None: esl_itest.fail()
+
+r = esl_itest.run_piped(f'cat {srcdir}/testsuite/example-uniprot.dat', f'{easel} seqstat -A -f -', expect_success=False)
+if m := re.search(r'needs to be rewindable', r.stderr) == None: esl_itest.fail()
+
+r = esl_itest.run_piped(f'cat {srcdir}/testsuite/example-pfam.sto', f'{easel} seqstat -C -f -', expect_success=False)
+if m := re.search(r'needs to be rewindable', r.stderr) == None: esl_itest.fail()
 
 r = esl_itest.run(f'{easel} seqstat -f               {srcdir}/testsuite/example-uniprot.dat', expect_success=False)
 r = esl_itest.run(f'{easel} seqstat -C -f --namew 10 {srcdir}/testsuite/example-uniprot.dat', expect_success=False)
